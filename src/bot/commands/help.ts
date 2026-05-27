@@ -15,7 +15,7 @@ const HELP_TEXT = [
   "把我加進群組後，所有講話的人會自動註冊。",
   "點 /start 的按鈕可以打開 Mini App 看完整明細。",
   "",
-  "_只能 @ 有設 Telegram username 的人_",
+  "_沒設 username 的人也能被 @（Telegram 會自動把名字轉成 mention）_",
 ].join("\n");
 
 export const helpCommand = new Composer<BotContext>();
