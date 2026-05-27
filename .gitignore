@@ -1,0 +1,39 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# next
+.next/
+out/
+build/
+
+# vercel
+.vercel
+
+# env
+.env
+.env*.local
+
+# drizzle generated meta (keep SQL, ignore snapshots)
+# (Uncomment if you don't want to commit migrations)
+# drizzle/
+
+# logs / debug
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# TS
+*.tsbuildinfo
+next-env.d.ts
