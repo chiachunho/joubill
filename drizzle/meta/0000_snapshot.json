@@ -1,0 +1,636 @@
+{
+  "id": "14b2316e-3795-4911-9c7a-9f0e012c5cc9",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.exchange_rates": {
+      "name": "exchange_rates",
+      "schema": "",
+      "columns": {
+        "base": {
+          "name": "base",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quote": {
+          "name": "quote",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rate": {
+          "name": "rate",
+          "type": "numeric(20, 10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "as_of_date": {
+          "name": "as_of_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_DATE"
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "exchange_rates_base_quote_as_of_date_pk": {
+          "name": "exchange_rates_base_quote_as_of_date_pk",
+          "columns": [
+            "base",
+            "quote",
+            "as_of_date"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.expense_splits": {
+      "name": "expense_splits",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "expense_id": {
+          "name": "expense_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "debtor_id": {
+          "name": "debtor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "share_type": {
+          "name": "share_type",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'equal'"
+        }
+      },
+      "indexes": {
+        "expense_splits_expense_idx": {
+          "name": "expense_splits_expense_idx",
+          "columns": [
+            {
+              "expression": "expense_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "expense_splits_debtor_idx": {
+          "name": "expense_splits_debtor_idx",
+          "columns": [
+            {
+              "expression": "debtor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "expense_splits_expense_id_expenses_id_fk": {
+          "name": "expense_splits_expense_id_expenses_id_fk",
+          "tableFrom": "expense_splits",
+          "tableTo": "expenses",
+          "columnsFrom": [
+            "expense_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "expense_splits_debtor_id_users_id_fk": {
+          "name": "expense_splits_debtor_id_users_id_fk",
+          "tableFrom": "expense_splits",
+          "tableTo": "users",
+          "columnsFrom": [
+            "debtor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.expenses": {
+      "name": "expenses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payer_id": {
+          "name": "payer_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "spent_at": {
+          "name": "spent_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "expenses_group_spent_idx": {
+          "name": "expenses_group_spent_idx",
+          "columns": [
+            {
+              "expression": "group_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "spent_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "expenses_group_id_groups_id_fk": {
+          "name": "expenses_group_id_groups_id_fk",
+          "tableFrom": "expenses",
+          "tableTo": "groups",
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "expenses_payer_id_users_id_fk": {
+          "name": "expenses_payer_id_users_id_fk",
+          "tableFrom": "expenses",
+          "tableTo": "users",
+          "columnsFrom": [
+            "payer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "expenses_created_by_users_id_fk": {
+          "name": "expenses_created_by_users_id_fk",
+          "tableFrom": "expenses",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.group_members": {
+      "name": "group_members",
+      "schema": "",
+      "columns": {
+        "group_id": {
+          "name": "group_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "joined_at": {
+          "name": "joined_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "group_members_group_id_groups_id_fk": {
+          "name": "group_members_group_id_groups_id_fk",
+          "tableFrom": "group_members",
+          "tableTo": "groups",
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "group_members_user_id_users_id_fk": {
+          "name": "group_members_user_id_users_id_fk",
+          "tableFrom": "group_members",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "group_members_group_id_user_id_pk": {
+          "name": "group_members_group_id_user_id_pk",
+          "columns": [
+            "group_id",
+            "user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.groups": {
+      "name": "groups",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "telegram_chat_id": {
+          "name": "telegram_chat_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "default_currency": {
+          "name": "default_currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'TWD'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "groups_telegram_chat_id_unique": {
+          "name": "groups_telegram_chat_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "telegram_chat_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.settlements": {
+      "name": "settlements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_user_id": {
+          "name": "from_user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_user_id": {
+          "name": "to_user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "settled_at": {
+          "name": "settled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "settlements_group_idx": {
+          "name": "settlements_group_idx",
+          "columns": [
+            {
+              "expression": "group_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "settled_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "settlements_group_id_groups_id_fk": {
+          "name": "settlements_group_id_groups_id_fk",
+          "tableFrom": "settlements",
+          "tableTo": "groups",
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "settlements_from_user_id_users_id_fk": {
+          "name": "settlements_from_user_id_users_id_fk",
+          "tableFrom": "settlements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "from_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "settlements_to_user_id_users_id_fk": {
+          "name": "settlements_to_user_id_users_id_fk",
+          "tableFrom": "settlements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "to_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "telegram_id": {
+          "name": "telegram_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_name": {
+          "name": "last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "language_code": {
+          "name": "language_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_telegram_id_unique": {
+          "name": "users_telegram_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "telegram_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

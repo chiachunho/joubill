@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
+    "dotenv": "^16.4.5",
     "@radix-ui/react-slot": "^1.1.0",
     "@twa-dev/sdk": "^7.10.1",
     "class-variance-authority": "^0.7.1",

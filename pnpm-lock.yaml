@@ -20,6 +20,9 @@ dependencies:
   clsx:
     specifier: ^2.1.1
     version: 2.1.1
+  dotenv:
+    specifier: ^16.4.5
+    version: 16.6.1
   drizzle-orm:
     specifier: ^0.36.4
     version: 0.36.4(@neondatabase/serverless@0.10.4)(@types/react@18.3.29)(react@18.3.1)
@@ -2114,6 +2117,11 @@ packages:
     dependencies:
       esutils: 2.0.3
     dev: true
+
+  /dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
+    dev: false
 
   /drizzle-kit@0.28.1:
     resolution: {integrity: sha512-JimOV+ystXTWMgZkLHYHf2w3oS28hxiH1FR0dkmJLc7GHzdGJoJAQtQS5DRppnabsRZwE2U1F6CuezVBgmsBBQ==}
