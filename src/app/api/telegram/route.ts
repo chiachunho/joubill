@@ -3,9 +3,9 @@ import { webhookCallback } from "grammy";
 import { getBot } from "@/bot";
 import { serverEnv } from "@/lib/env";
 
-// grammY 需要 Node API（crypto / Buffer）；強制 Node runtime。
+// grammY uses Node APIs (crypto / Buffer); force the Node runtime.
 export const runtime = "nodejs";
-// 不 cache，每次都走 server。
+// Always hit the server — webhook payloads must not be cached.
 export const dynamic = "force-dynamic";
 
 let _handler: ((req: Request) => Promise<Response>) | undefined;

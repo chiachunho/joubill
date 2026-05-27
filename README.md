@@ -15,11 +15,22 @@ Splitwise 風格的 Telegram 群組分帳 Bot + Mini App。
 ## 開發前置
 
 1. 建立 Telegram Bot：跟 [@BotFather](https://t.me/BotFather) 申請、拿到 `BOT_TOKEN`。
-2. 建立 Neon 專案：[neon.tech](https://neon.tech) → 拿 `DATABASE_URL`（建議 pooled，`?sslmode=require`）。
-3. 複製環境變數：
+2. 註冊 direct-link Mini App（讓群組裡也能開啟）：
+   ```
+   @BotFather → /newapp → 選你的 bot
+     - Title: Splitbill
+     - Description: 群組分帳
+     - Photo: 任意 640x360
+     - Web App URL: https://<你的對外網址>/mini
+       (本機 dev 用 ngrok URL；之後可用 /editapp 改)
+     - Short name: splitbill  ← 這個填到 TELEGRAM_MINI_APP_NAME
+   ```
+3. 建立 Neon 專案：[neon.tech](https://neon.tech) → 拿 `DATABASE_URL`（建議 pooled，`?sslmode=require`）。
+4. 複製環境變數：
    ```bash
    cp .env.example .env.local
-   # 填入 TELEGRAM_BOT_TOKEN / TELEGRAM_WEBHOOK_SECRET / DATABASE_URL / NEXT_PUBLIC_MINI_APP_URL
+   # 填入 TELEGRAM_BOT_TOKEN / TELEGRAM_WEBHOOK_SECRET / TELEGRAM_MINI_APP_NAME
+   #     / DATABASE_URL / NEXT_PUBLIC_MINI_APP_URL
    ```
 
 ## 本機開發

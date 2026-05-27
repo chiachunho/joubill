@@ -1,12 +1,12 @@
 import { config } from "dotenv";
 import { defineConfig } from "drizzle-kit";
 
-// 跟 Next.js 一致：先讀 .env.local，再讀 .env
+// Match Next.js order: .env.local takes precedence over .env.
 config({ path: ".env.local", quiet: true });
 config({ path: ".env", quiet: true });
 
-// `generate` 不需要連 DB；`push` / `studio` 需要。
-// 缺 URL 時讓 drizzle-kit 自己在需要時報錯，這裡只提示。
+// `generate` works offline; `push` / `studio` need a live URL.
+// Don't throw here — let drizzle-kit fail with its own message when the URL is required.
 if (!process.env.DATABASE_URL) {
   console.warn("[drizzle.config] DATABASE_URL not set — `push` / `studio` will fail.");
 }

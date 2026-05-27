@@ -2,7 +2,7 @@
  * Usage:
  *   pnpm bot:set-webhook https://<public-host>
  *
- * 會打 Telegram setWebhook，URL 自動補上 /api/telegram。
+ * Calls Telegram setWebhook; the /api/telegram path is appended automatically.
  */
 import { config } from "dotenv";
 

@@ -6,10 +6,10 @@ import { groupMembers, groups, users } from "@/db/schema";
 import type { BotContext } from "../context";
 
 /**
- * 每收到一個 update：
- *  1. upsert 觸發者到 users
- *  2. 若是 group / supergroup chat，upsert groups + 把人加進 group_members
- *  3. 把寫回的 row 塞到 ctx.dbUser / ctx.dbGroup 給下游 handler 用
+ * On every update:
+ *  1. Upsert the sender into users.
+ *  2. If the chat is a group / supergroup, upsert groups and add the sender to group_members.
+ *  3. Attach the resulting rows to ctx.dbUser / ctx.dbGroup for downstream handlers.
  */
 export const registerUser = new Composer<BotContext>();
 
