@@ -25,7 +25,7 @@ registerUser.use(async (ctx, next) => {
       telegramId: ctx.from.id,
       firstName: ctx.from.first_name,
       lastName: ctx.from.last_name,
-      username: ctx.from.username,
+      username: ctx.from.username?.toLowerCase() ?? null,
       languageCode: ctx.from.language_code,
     })
     .onConflictDoUpdate({
@@ -33,7 +33,7 @@ registerUser.use(async (ctx, next) => {
       set: {
         firstName: ctx.from.first_name,
         lastName: ctx.from.last_name,
-        username: ctx.from.username,
+        username: ctx.from.username?.toLowerCase() ?? null,
         languageCode: ctx.from.language_code,
         updatedAt: new Date(),
       },

@@ -5,13 +5,17 @@ import type { BotContext } from "../context";
 const HELP_TEXT = [
   "*Splitbill 指令*",
   "",
-  "`/add <金額> <說明> @user1 @user2 ...`  新增支出（均分）",
-  "`/list`  列出最近 10 筆支出",
+  "`/add 300 午餐`  全群均分",
+  "`/add 300 午餐 @alice @bob`  只算給被 @ 的人 (付款人不在其中)",
+  "`/add 300 @alice`  我幫 alice 付的 300 (alice 整筆欠你)",
+  "`/list`  最近 10 筆支出",
   "`/balance`  目前每個人的淨額",
   "`/settle`  最少筆數還款建議",
   "",
   "把我加進群組後，所有講話的人會自動註冊。",
   "點 /start 的按鈕可以打開 Mini App 看完整明細。",
+  "",
+  "_只能 @ 有設 Telegram username 的人_",
 ].join("\n");
 
 export const helpCommand = new Composer<BotContext>();

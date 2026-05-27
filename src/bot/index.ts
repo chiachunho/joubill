@@ -2,7 +2,11 @@ import { Bot } from "grammy";
 
 import { serverEnv } from "@/lib/env";
 
+import { addCommand } from "./commands/add";
+import { balanceCommand } from "./commands/balance";
 import { helpCommand } from "./commands/help";
+import { listCommand } from "./commands/list";
+import { settleCommand } from "./commands/settle";
 import { startCommand } from "./commands/start";
 import type { BotContext } from "./context";
 import { registerUser } from "./middleware/registerUser";
@@ -21,6 +25,10 @@ export function getBot(): Bot<BotContext> {
   bot.use(registerUser);
   bot.use(startCommand);
   bot.use(helpCommand);
+  bot.use(addCommand);
+  bot.use(listCommand);
+  bot.use(balanceCommand);
+  bot.use(settleCommand);
 
   bot.catch((err) => {
     console.error("[bot] unhandled error:", err);
