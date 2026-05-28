@@ -5,9 +5,18 @@ import { useRouter } from "next/navigation";
 import { Check, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { computeSplits, type ShareType } from "@/lib/splits";
+import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 import { SUPPORTED_CURRENCIES, type SupportedCurrency } from "@/lib/zod";
 
@@ -211,20 +220,20 @@ export function ExpenseForm({
             required
           />
         </div>
-        <div className="w-24 space-y-1">
+        <div className="w-28 space-y-1">
           <Label htmlFor="currency">幣別</Label>
-          <select
-            id="currency"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
-            className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm shadow-sm"
-          >
-            {SUPPORTED_CURRENCIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <Select value={currency} onValueChange={(v) => setCurrency(v as SupportedCurrency)}>
+            <SelectTrigger id="currency">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_CURRENCIES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -252,34 +261,38 @@ export function ExpenseForm({
 
       <div className="space-y-1">
         <Label htmlFor="payer">付款人</Label>
-        <select
-          id="payer"
-          value={payerId}
-          onChange={(e) => setPayerId(Number(e.target.value))}
-          className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm shadow-sm"
-        >
-          {members.map((m) => (
-            <option key={m.id} value={m.id}>
-              {label(m)}
-            </option>
-          ))}
-        </select>
+        <Select value={String(payerId)} onValueChange={(v) => setPayerId(Number(v))}>
+          <SelectTrigger id="payer">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {members.map((m) => (
+              <SelectItem key={m.id} value={String(m.id)}>
+                {label(m)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">
         <Label>分帳方式</Label>
-        <div className="flex gap-3 text-sm">
+        <div className="inline-flex w-full rounded-md border border-input p-0.5">
           {(["equal", "exact", "percent"] as const).map((m) => (
-            <label key={m} className="flex items-center gap-1">
-              <input
-                type="radio"
-                name="share-type"
-                value={m}
-                checked={shareType === m}
-                onChange={() => setShareType(m)}
-              />
+            <button
+              key={m}
+              type="button"
+              onClick={() => setShareType(m)}
+              aria-pressed={shareType === m}
+              className={cn(
+                "flex-1 rounded-[5px] px-3 py-1 text-sm transition-colors",
+                shareType === m
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
               {m === "equal" ? "均分" : m === "exact" ? "指定金額" : "比例"}
-            </label>
+            </button>
           ))}
         </div>
       </div>
@@ -292,11 +305,9 @@ export function ExpenseForm({
             const computed = computedSplits.find((x) => x.debtorId === m.id);
             return (
               <li key={m.id} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={p.included}
-                  onChange={() => toggleParticipant(m.id)}
-                  className="size-4"
+                  onCheckedChange={() => toggleParticipant(m.id)}
                 />
                 <span className="flex-1 text-sm">{label(m)}</span>
                 {shareType === "equal" ? (
