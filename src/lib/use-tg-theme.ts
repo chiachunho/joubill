@@ -5,7 +5,7 @@ import { useEffect } from "react";
 /**
  * Convert "#rrggbb" to Tailwind/shadcn's "<h> <s>% <l>%" HSL component string.
  */
-function hexToHslComponents(hex: string): string | null {
+export function hexToHslComponents(hex: string): string | null {
   if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return null;
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;

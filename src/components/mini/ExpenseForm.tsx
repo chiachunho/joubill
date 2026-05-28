@@ -6,13 +6,11 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { splitEqual } from "@/lib/money";
+import { computeSplits, type ShareType } from "@/lib/splits";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 import { SUPPORTED_CURRENCIES, type SupportedCurrency } from "@/lib/zod";
 
 type Member = { id: number; firstName: string; username: string | null };
-
-type SplitInput = { debtorId: number; amount: number };
 
 type Initial = {
   id: number;
@@ -32,8 +30,6 @@ type Props = {
   /** If present, the form is in edit mode. Absent => create mode. */
   initial?: Initial;
 };
-
-type ShareType = "equal" | "exact" | "percent";
 
 function label(m: Member): string {
   return m.username ? "@" + m.username : m.firstName;
@@ -114,28 +110,12 @@ export function ExpenseForm({
 
   const totalAmount = parseFloat(amount) || 0;
 
-  const computedSplits = useMemo<SplitInput[]>(() => {
-    const included = Array.from(participants.entries())
-      .filter(([, p]) => p.included)
-      .map(([id]) => id);
-    if (included.length === 0) return [];
-
-    if (shareType === "equal") {
-      const shares = splitEqual(totalAmount, included.length);
-      return included.map((id, i) => ({ debtorId: id, amount: shares[i] }));
-    }
-    if (shareType === "exact") {
-      return included.map((id) => ({
-        debtorId: id,
-        amount: parseFloat(participants.get(id)?.value ?? "0") || 0,
-      }));
-    }
-    // percent: pct/100 * total, then round to cent
-    return included.map((id) => {
-      const pct = parseFloat(participants.get(id)?.value ?? "0") || 0;
-      return { debtorId: id, amount: Math.round((totalAmount * pct) / 100 * 100) / 100 };
-    });
-  }, [participants, shareType, totalAmount]);
+  const computedSplits = useMemo(() => {
+    const included = members
+      .filter((m) => participants.get(m.id)?.included)
+      .map((m) => ({ userId: m.id, value: participants.get(m.id)?.value }));
+    return computeSplits(totalAmount, shareType, included);
+  }, [members, participants, shareType, totalAmount]);
 
   const splitsSum = computedSplits.reduce((s, x) => s + x.amount, 0);
   const splitsBalanced = Math.abs(splitsSum - totalAmount) < 0.02;

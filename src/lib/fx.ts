@@ -23,6 +23,24 @@ type FxResponse = {
 };
 
 /**
+ * Extract the `base -> quote` rate from a fawazahmed0 API response.
+ * Throws if the shape is unexpected or the quote currency is absent.
+ * Pure (no network / db) so it can be unit-tested against fixture payloads.
+ */
+export function parseFxResponse(data: unknown, base: string, quote: string): number {
+  const obj = data as FxResponse | null;
+  const rates = obj?.[base.toLowerCase()];
+  if (!rates || typeof rates !== "object") {
+    throw new Error(`FX response missing rates for ${base}`);
+  }
+  const rate = (rates as Record<string, number>)[quote.toLowerCase()];
+  if (typeof rate !== "number") {
+    throw new Error(`FX rate not found: ${base}->${quote}`);
+  }
+  return rate;
+}
+
+/**
  * Resolve a rate to convert `base` into `quote` on a given date.
  *
  * Lookup strategy:
@@ -61,14 +79,7 @@ export async function getRate(base: string, quote: string, date: Date): Promise<
     throw new Error(`FX fetch failed (${res.status}): ${url}`);
   }
   const data = (await res.json()) as FxResponse;
-  const rates = data[b.toLowerCase()];
-  if (!rates || typeof rates !== "object") {
-    throw new Error(`FX response missing rates for ${b} at ${dateStr}`);
-  }
-  const rate = rates[q.toLowerCase()];
-  if (typeof rate !== "number") {
-    throw new Error(`FX rate not found: ${b}->${q} at ${dateStr}`);
-  }
+  const rate = parseFxResponse(data, b, q);
 
   await db
     .insert(exchangeRates)
