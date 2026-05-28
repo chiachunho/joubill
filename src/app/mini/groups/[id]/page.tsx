@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { startTransition, use, useCallback, useEffect, useOptimistic, useState } from "react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,14 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
     refetch();
   }, [refetch]);
 
-  const [settlingIdx, setSettlingIdx] = useState<number | null>(null);
+  // Optimistic transfers: settling a row drops it from the list instantly;
+  // when refetch() lands and `settle` updates, useOptimistic resets to truth.
+  const [optimisticTransfers, dropOptimisticTransfer] = useOptimistic(
+    settle?.transfers ?? [],
+    (state: NonNullable<SettleResponse>["transfers"], removedIdx: number) =>
+      state.filter((_, i) => i !== removedIdx),
+  );
+
   async function markSettled(transfer: SettleResponse["transfers"][number], idx: number) {
     if (!settle) return;
     const { default: WebApp } = await import("@twa-dev/sdk");
@@ -92,7 +99,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
       },
       async (buttonId?: string) => {
         if (buttonId !== "ok") return;
-        setSettlingIdx(idx);
+        startTransition(() => dropOptimisticTransfer(idx));
         const res = await fetch(`/api/groups/${id}/settlements`, {
           method: "POST",
           headers: {
@@ -106,9 +113,10 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
             currency: settle.currency,
           }),
         });
-        setSettlingIdx(null);
         if (!res.ok) {
-          WebApp.showAlert("標記失敗");
+          // refetch will pull the real state back; this row will reappear.
+          WebApp.showAlert("標記失敗，已回復");
+          await refetch();
           return;
         }
         await refetch();
@@ -165,11 +173,11 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
           <CardTitle>最少還款建議</CardTitle>
         </CardHeader>
         <CardContent>
-          {settle.transfers.length === 0 ? (
+          {optimisticTransfers.length === 0 ? (
             <p className="text-sm text-muted-foreground">沒有未結算的金額 🎉</p>
           ) : (
             <ul className="space-y-2 text-sm">
-              {settle.transfers.map((t, i) => (
+              {optimisticTransfers.map((t, i) => (
                 <li key={i} className="flex items-center gap-2">
                   <span className="flex-1">
                     {label(t.from)} → {label(t.to)}
@@ -177,13 +185,8 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                   <span className="tabular-nums">
                     {fmt(t.amount)} {settle.currency}
                   </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => markSettled(t, i)}
-                    disabled={settlingIdx !== null}
-                  >
-                    {settlingIdx === i ? "…" : "✓ 已轉"}
+                  <Button size="sm" variant="outline" onClick={() => markSettled(t, i)}>
+                    ✓ 已轉
                   </Button>
                 </li>
               ))}
