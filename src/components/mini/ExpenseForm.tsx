@@ -127,8 +127,18 @@ export function ExpenseForm({
     return computeSplits(totalAmount, shareType, included);
   }, [members, participants, shareType, totalAmount]);
 
-  const splitsSum = computedSplits.reduce((s, x) => s + x.amount, 0);
-  const splitsBalanced = Math.abs(splitsSum - totalAmount) < 0.02;
+  // Sum of the raw inputs the user typed: percentages in percent mode,
+  // currency amounts in exact mode. Used for the live total indicator.
+  const inputSum = members.reduce((sum, m) => {
+    const p = participants.get(m.id);
+    if (!p?.included) return sum;
+    return sum + (parseFloat(p.value ?? "0") || 0);
+  }, 0);
+
+  const splitsBalanced =
+    shareType === "percent"
+      ? Math.abs(inputSum - 100) < 0.1
+      : Math.abs(inputSum - totalAmount) < 0.02;
   const splitsValid = computedSplits.length > 0 && (shareType === "equal" || splitsBalanced);
 
   const [state, formAction, pending] = useActionState(
@@ -338,8 +348,9 @@ export function ExpenseForm({
               (splitsBalanced ? "text-muted-foreground" : "text-rose-600")
             }
           >
-            總計 {splitsSum.toFixed(2)}
-            {shareType === "percent" ? "% / 100%" : ` / ${totalAmount.toFixed(2)} ${currency}`}
+            {shareType === "percent"
+              ? `總計 ${inputSum.toFixed(2)}% / 100%`
+              : `總計 ${inputSum.toFixed(2)} / ${totalAmount.toFixed(2)} ${currency}`}
             {splitsBalanced ? (
               <Check className="size-3.5" />
             ) : (
