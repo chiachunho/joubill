@@ -141,6 +141,12 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <>
+      <div className="flex justify-end">
+        <Button asChild size="sm" variant="ghost">
+          <Link href={`/mini/groups/${id}/stats`}>📊 統計</Link>
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>目前餘額</CardTitle>
