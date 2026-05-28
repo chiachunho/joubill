@@ -23,6 +23,12 @@ function label(p: { firstName: string; username: string | null }) {
   return p.username ? "@" + p.username : p.firstName;
 }
 
+// ECharts writes font-family="sans-serif" on its text nodes by default, which
+// the Telegram desktop webview can't resolve to a CJK-capable face. Force a
+// stack that has CJK fallback across macOS / Windows / Linux.
+const FONT_FAMILY =
+  'system-ui, -apple-system, "Segoe UI", "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
+
 /**
  * Read an HSL-component CSS var like "0 0% 100%" and resolve it to a concrete
  * "rgb(r, g, b)" string. ECharts' colour maths (the auto-lighten it does on
@@ -64,6 +70,7 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
     const border = cssVar("--border", "#e5e5e5");
     const bg = cssVar("--popover", "#fff");
     return {
+      textStyle: { fontFamily: FONT_FAMILY },
       grid: { top: 20, right: 10, bottom: 30, left: 44 },
       xAxis: {
         type: "category",
@@ -109,6 +116,7 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
     // Echarts category axis renders bottom-to-top, so reverse to keep top spender on top visually.
     const reversed = [...stats.byPayer].reverse();
     return {
+      textStyle: { fontFamily: FONT_FAMILY },
       grid: { top: 8, right: 60, bottom: 16, left: 96 },
       xAxis: {
         type: "value",

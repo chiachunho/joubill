@@ -59,7 +59,7 @@ export function EChart({
 
     loadEcharts().then((echarts) => {
       if (cancelled || !el) return;
-      const inst = echarts.init(el);
+      const inst = echarts.init(el, null, { renderer: "svg" });
       instanceRef.current = inst;
       inst.setOption(latestOptionRef.current);
 
