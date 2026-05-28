@@ -2,6 +2,7 @@
 
 import { useActionState, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -322,13 +323,17 @@ export function ExpenseForm({
         {shareType !== "equal" && (
           <p
             className={
-              "text-sm tabular-nums " +
+              "flex items-center gap-1 text-sm tabular-nums " +
               (splitsBalanced ? "text-muted-foreground" : "text-rose-600")
             }
           >
             總計 {splitsSum.toFixed(2)}
             {shareType === "percent" ? "% / 100%" : ` / ${totalAmount.toFixed(2)} ${currency}`}
-            {splitsBalanced ? " ✓" : " ✗"}
+            {splitsBalanced ? (
+              <Check className="size-3.5" />
+            ) : (
+              <X className="size-3.5" />
+            )}
           </p>
         )}
       </div>

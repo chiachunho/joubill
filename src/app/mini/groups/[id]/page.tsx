@@ -2,6 +2,7 @@
 
 import { startTransition, use, useCallback, useEffect, useOptimistic, useState } from "react";
 import Link from "next/link";
+import { BarChart3, Check, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -143,7 +144,10 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
     <>
       <div className="flex justify-end">
         <Button asChild size="sm" variant="ghost">
-          <Link href={`/mini/groups/${id}/stats`}>📊 統計</Link>
+          <Link href={`/mini/groups/${id}/stats`}>
+            <BarChart3 />
+            統計
+          </Link>
         </Button>
       </div>
 
@@ -192,7 +196,8 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                     {fmt(t.amount)} {settle.currency}
                   </span>
                   <Button size="sm" variant="outline" onClick={() => markSettled(t, i)}>
-                    ✓ 已轉
+                    <Check />
+                    已轉
                   </Button>
                 </li>
               ))}
@@ -205,7 +210,10 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>支出明細（{expenses.expenses.length}）</CardTitle>
           <Button asChild size="sm">
-            <Link href={`/mini/groups/${id}/expenses/new`}>+ 新增</Link>
+            <Link href={`/mini/groups/${id}/expenses/new`}>
+              <Plus />
+              新增
+            </Link>
           </Button>
         </CardHeader>
         <CardContent>
