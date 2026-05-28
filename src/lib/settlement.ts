@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { expenseSplits, expenses, settlements } from "@/db/schema";
 
+import { getRate } from "./fx";
 import { n } from "./money";
 
 /** Net balance per user. Positive = creditor (others owe them). */
@@ -14,44 +15,67 @@ export type Transfer = { fromUserId: number; toUserId: number; amount: number };
 const EPSILON = 0.005;
 
 /**
- * Compute net balances for every user that has any activity in the group.
+ * Compute net balances for every user in the group, normalised to `quoteCurrency`.
  *
- *   net(user) = sum(paid in expenses)
- *             - sum(owed in expense_splits)
+ *   net(user) = sum(paid)
+ *             - sum(owed)
  *             - sum(received via settlement)
  *             + sum(paid via settlement)
  *
- * MVP assumption: all amounts are already in the same currency. FX normalisation
- * lives in C6.
+ * Each leg is multiplied by the FX rate from its own currency to `quoteCurrency`,
+ * using the FX rate as of `spent_at` / `settled_at` (so historical expenses don't
+ * silently rewrite history when rates move).
  */
-export async function computeGroupBalances(groupId: number): Promise<NetBalance[]> {
+export async function computeGroupBalances(
+  groupId: number,
+  quoteCurrency: string,
+): Promise<NetBalance[]> {
   const balances = new Map<number, number>();
   const bump = (uid: number, delta: number) => balances.set(uid, (balances.get(uid) ?? 0) + delta);
 
   const paidRows = await db
-    .select({ payerId: expenses.payerId, amount: expenses.amount })
+    .select({
+      payerId: expenses.payerId,
+      amount: expenses.amount,
+      currency: expenses.currency,
+      spentAt: expenses.spentAt,
+    })
     .from(expenses)
     .where(eq(expenses.groupId, groupId));
-  for (const r of paidRows) bump(r.payerId, n(r.amount));
+  for (const r of paidRows) {
+    const rate = await getRate(r.currency, quoteCurrency, r.spentAt);
+    bump(r.payerId, n(r.amount) * rate);
+  }
 
   const owedRows = await db
-    .select({ debtorId: expenseSplits.debtorId, amount: expenseSplits.amount })
+    .select({
+      debtorId: expenseSplits.debtorId,
+      amount: expenseSplits.amount,
+      currency: expenses.currency,
+      spentAt: expenses.spentAt,
+    })
     .from(expenseSplits)
     .innerJoin(expenses, eq(expenses.id, expenseSplits.expenseId))
     .where(eq(expenses.groupId, groupId));
-  for (const r of owedRows) bump(r.debtorId, -n(r.amount));
+  for (const r of owedRows) {
+    const rate = await getRate(r.currency, quoteCurrency, r.spentAt);
+    bump(r.debtorId, -n(r.amount) * rate);
+  }
 
   const settled = await db
     .select({
       from: settlements.fromUserId,
       to: settlements.toUserId,
       amount: settlements.amount,
+      currency: settlements.currency,
+      settledAt: settlements.settledAt,
     })
     .from(settlements)
     .where(eq(settlements.groupId, groupId));
   for (const r of settled) {
-    bump(r.from, n(r.amount));
-    bump(r.to, -n(r.amount));
+    const rate = await getRate(r.currency, quoteCurrency, r.settledAt);
+    bump(r.from, n(r.amount) * rate);
+    bump(r.to, -n(r.amount) * rate);
   }
 
   return Array.from(balances.entries())

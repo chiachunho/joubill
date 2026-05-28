@@ -7,7 +7,6 @@ const serverSchema = z.object({
   // direct-link Mini App URL: t.me/<bot>/<TELEGRAM_MINI_APP_NAME>
   TELEGRAM_MINI_APP_NAME: z.string().min(1),
   DATABASE_URL: z.string().url(),
-  FX_API_BASE: z.string().url().default("https://api.exchangerate.host"),
 });
 
 const clientSchema = z.object({

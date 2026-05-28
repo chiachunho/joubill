@@ -16,7 +16,7 @@ balanceCommand.command("balance", async (ctx) => {
     return;
   }
 
-  const balances = await computeGroupBalances(ctx.dbGroup.id);
+  const balances = await computeGroupBalances(ctx.dbGroup.id, ctx.dbGroup.defaultCurrency);
   if (balances.length === 0) {
     await ctx.reply("這個群組目前沒有結餘，可能還沒記任何支出。");
     return;

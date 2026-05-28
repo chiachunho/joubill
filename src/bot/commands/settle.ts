@@ -15,7 +15,7 @@ settleCommand.command("settle", async (ctx) => {
     return;
   }
 
-  const balances = await computeGroupBalances(ctx.dbGroup.id);
+  const balances = await computeGroupBalances(ctx.dbGroup.id, ctx.dbGroup.defaultCurrency);
   const transfers = minimizeTransfers(balances);
 
   if (transfers.length === 0) {

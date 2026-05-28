@@ -25,7 +25,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     return NextResponse.json({ error: "group not found" }, { status: 404 });
   }
 
-  const balances = await computeGroupBalances(groupId);
+  const balances = await computeGroupBalances(groupId, group.defaultCurrency);
   const transfers = minimizeTransfers(balances);
   if (transfers.length === 0) {
     return NextResponse.json({ currency: group.defaultCurrency, transfers: [] });
