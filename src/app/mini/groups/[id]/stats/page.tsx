@@ -23,11 +23,22 @@ function label(p: { firstName: string; username: string | null }) {
   return p.username ? "@" + p.username : p.firstName;
 }
 
-/** Read an HSL-component CSS var like "0 0% 100%" and wrap as a usable colour. */
+/**
+ * Read an HSL-component CSS var like "0 0% 100%" and resolve it to a concrete
+ * "rgb(r, g, b)" string. ECharts' colour maths (the auto-lighten it does on
+ * hover) can't parse the space-separated hsl() syntax our CSS vars use and
+ * would render a transparent bar; rgb sidesteps that entirely.
+ */
 function cssVar(name: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return v ? `hsl(${v})` : fallback;
+  if (!v) return fallback;
+  const probe = document.createElement("span");
+  probe.style.color = `hsl(${v})`;
+  document.body.appendChild(probe);
+  const rgb = getComputedStyle(probe).color;
+  document.body.removeChild(probe);
+  return rgb || fallback;
 }
 
 export default function StatsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -82,6 +93,7 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
           type: "bar",
           data: stats.monthly.map((d) => d.total),
           itemStyle: { color: primary, borderRadius: [4, 4, 0, 0] },
+          emphasis: { itemStyle: { color: primary, opacity: 0.85 } },
           barWidth: "60%",
         },
       ],
@@ -127,6 +139,7 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
           type: "bar",
           data: reversed.map((p) => p.total),
           itemStyle: { color: primary, borderRadius: [0, 4, 4, 0] },
+          emphasis: { itemStyle: { color: primary, opacity: 0.85 } },
           barWidth: "60%",
           label: {
             show: true,

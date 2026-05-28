@@ -25,7 +25,10 @@ async function loadEcharts(): Promise<EchartsCore> {
     charts.BarChart,
     components.GridComponent,
     components.TooltipComponent,
-    renderers.CanvasRenderer,
+    // SVG (not Canvas): <text> nodes inherit the page font so CJK renders
+    // correctly inside the Telegram desktop webview, where the canvas default
+    // font lacks CJK glyphs.
+    renderers.SVGRenderer,
   ]);
   registered = core;
   return core;
