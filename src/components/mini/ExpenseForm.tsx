@@ -2,12 +2,14 @@
 
 import { useActionState, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -45,8 +47,14 @@ function label(m: Member): string {
   return m.username ? "@" + m.username : m.firstName;
 }
 
-function todayISODate(): string {
-  return new Date().toISOString().slice(0, 10);
+/** Local Y-M-D label for the date trigger (avoids UTC off-by-one). */
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Serialise a picked calendar day as noon UTC, so the date never shifts across timezones. */
+function dayToNoonUtcIso(d: Date): string {
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)).toISOString();
 }
 
 export function ExpenseForm({
@@ -68,8 +76,8 @@ export function ExpenseForm({
   const [currency, setCurrency] = useState<string>(initial?.currency ?? defaultCurrency);
   const [description, setDescription] = useState(initial?.description ?? "");
   const [payerId, setPayerId] = useState<number>(initial?.payerId ?? currentUserId);
-  const [spentAt, setSpentAt] = useState(
-    initial ? new Date(initial.spentAt).toISOString().slice(0, 10) : todayISODate(),
+  const [spentDate, setSpentDate] = useState<Date>(
+    initial ? new Date(initial.spentAt) : new Date(),
   );
 
   const initialShareType: ShareType =
@@ -154,7 +162,7 @@ export function ExpenseForm({
         currency,
         description: description.trim() || null,
         payerId,
-        spentAt: new Date(spentAt + "T12:00:00").toISOString(),
+        spentAt: dayToNoonUtcIso(spentDate),
         shareType,
         splits: computedSplits,
       };
@@ -248,14 +256,27 @@ export function ExpenseForm({
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="spent_at">日期</Label>
-        <Input
-          id="spent_at"
-          type="date"
-          value={spentAt}
-          onChange={(e) => setSpentAt(e.target.value)}
-          required
-        />
+        <Label>日期</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start font-normal"
+            >
+              <CalendarIcon />
+              {ymd(spentDate)}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={spentDate}
+              onSelect={(d) => d && setSpentDate(d)}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="space-y-1">
