@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -58,19 +58,63 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
   const [settle, setSettle] = useState<SettleResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([
-      tmaFetch<ExpensesResponse>(`/api/groups/${id}/expenses`),
-      tmaFetch<BalanceResponse>(`/api/groups/${id}/balance`),
-      tmaFetch<SettleResponse>(`/api/groups/${id}/settle`),
-    ])
-      .then(([e, b, s]) => {
-        setExpenses(e);
-        setBalance(b);
-        setSettle(s);
-      })
-      .catch((err: Error) => setError(err.message));
+  const refetch = useCallback(async () => {
+    try {
+      const [e, b, s] = await Promise.all([
+        tmaFetch<ExpensesResponse>(`/api/groups/${id}/expenses`),
+        tmaFetch<BalanceResponse>(`/api/groups/${id}/balance`),
+        tmaFetch<SettleResponse>(`/api/groups/${id}/settle`),
+      ]);
+      setExpenses(e);
+      setBalance(b);
+      setSettle(s);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }, [id]);
+
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
+  const [settlingIdx, setSettlingIdx] = useState<number | null>(null);
+  async function markSettled(transfer: SettleResponse["transfers"][number], idx: number) {
+    if (!settle) return;
+    const { default: WebApp } = await import("@twa-dev/sdk");
+    WebApp.showPopup(
+      {
+        title: "確認已轉帳",
+        message: `${label(transfer.from)} → ${label(transfer.to)}: ${fmt(transfer.amount)} ${settle.currency}`,
+        buttons: [
+          { id: "cancel", type: "cancel" },
+          { id: "ok", type: "default", text: "已完成" },
+        ],
+      },
+      async (buttonId?: string) => {
+        if (buttonId !== "ok") return;
+        setSettlingIdx(idx);
+        const res = await fetch(`/api/groups/${id}/settlements`, {
+          method: "POST",
+          headers: {
+            Authorization: `tma ${WebApp.initData}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fromUserId: transfer.fromUserId,
+            toUserId: transfer.toUserId,
+            amount: transfer.amount,
+            currency: settle.currency,
+          }),
+        });
+        setSettlingIdx(null);
+        if (!res.ok) {
+          WebApp.showAlert("標記失敗");
+          return;
+        }
+        await refetch();
+      },
+    );
+  }
 
   if (error) {
     return (
@@ -124,15 +168,23 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
           {settle.transfers.length === 0 ? (
             <p className="text-sm text-muted-foreground">沒有未結算的金額 🎉</p>
           ) : (
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-2 text-sm">
               {settle.transfers.map((t, i) => (
-                <li key={i} className="flex justify-between">
-                  <span>
+                <li key={i} className="flex items-center gap-2">
+                  <span className="flex-1">
                     {label(t.from)} → {label(t.to)}
                   </span>
-                  <span>
+                  <span className="tabular-nums">
                     {fmt(t.amount)} {settle.currency}
                   </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => markSettled(t, i)}
+                    disabled={settlingIdx !== null}
+                  >
+                    {settlingIdx === i ? "…" : "✓ 已轉"}
+                  </Button>
                 </li>
               ))}
             </ul>

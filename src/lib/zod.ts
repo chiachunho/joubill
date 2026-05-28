@@ -48,3 +48,20 @@ export const expenseInputSchema = z
   );
 
 export type ExpenseInput = z.infer<typeof expenseInputSchema>;
+
+/**
+ * Body schema for POST /api/groups/[id]/settlements — records that a debtor
+ * actually paid a creditor in some currency, on some date.
+ */
+export const settlementInputSchema = z.object({
+  fromUserId: z.number().int().positive(),
+  toUserId: z.number().int().positive(),
+  amount: z.number().positive().max(10_000_000),
+  currency: z.enum(SUPPORTED_CURRENCIES),
+  settledAt: z
+    .string()
+    .refine((s) => !Number.isNaN(Date.parse(s)), { message: "settledAt must be a valid date string" })
+    .optional(),
+});
+
+export type SettlementInput = z.infer<typeof settlementInputSchema>;
