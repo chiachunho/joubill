@@ -3,9 +3,10 @@ import { desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expenseSplits, expenses, users } from "@/db/schema";
-import { assertGroupMember, getAuth } from "@/lib/auth";
+import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { n } from "@/lib/money";
+import { expenseInputSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,4 +81,52 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       })),
     })),
   });
+});
+
+export const POST = withAuth(async (req: Request, { params }: Params) => {
+  const auth = await getAuth(req);
+  const groupId = Number((await params).id);
+  if (!Number.isFinite(groupId)) {
+    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
+  }
+  await assertGroupMember(auth.user.id, groupId);
+
+  const parsed = expenseInputSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+  }
+  const input = parsed.data;
+
+  const userIds = Array.from(new Set([input.payerId, ...input.splits.map((s) => s.debtorId)]));
+  const missing = await findUsersNotInGroup(groupId, userIds);
+  if (missing.length > 0) {
+    return NextResponse.json(
+      { error: `users not in group: ${missing.join(",")}` },
+      { status: 400 },
+    );
+  }
+
+  const [expense] = await db
+    .insert(expenses)
+    .values({
+      groupId,
+      payerId: input.payerId,
+      amount: input.amount.toFixed(2),
+      currency: input.currency,
+      description: input.description,
+      spentAt: new Date(input.spentAt),
+      createdBy: auth.user.id,
+    })
+    .returning();
+
+  await db.insert(expenseSplits).values(
+    input.splits.map((s) => ({
+      expenseId: expense.id,
+      debtorId: s.debtorId,
+      amount: s.amount.toFixed(2),
+      shareType: input.shareType,
+    })),
+  );
+
+  return NextResponse.json({ id: expense.id }, { status: 201 });
 });

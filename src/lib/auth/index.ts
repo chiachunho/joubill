@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { groupMembers, groups, users } from "@/db/schema";
@@ -81,4 +81,15 @@ export async function assertGroupMember(userId: number, groupId: number): Promis
     .from(groupMembers)
     .where(and(eq(groupMembers.userId, userId), eq(groupMembers.groupId, groupId)));
   if (!row) throw new ForbiddenError("not a member of this group");
+}
+
+/** Returns the subset of userIds that are NOT members of the given group. */
+export async function findUsersNotInGroup(groupId: number, userIds: number[]): Promise<number[]> {
+  if (userIds.length === 0) return [];
+  const rows = await db
+    .select({ userId: groupMembers.userId })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), inArray(groupMembers.userId, userIds)));
+  const present = new Set(rows.map((r) => r.userId));
+  return userIds.filter((id) => !present.has(id));
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import Link from "next/link";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { tmaFetch } from "@/lib/tma-fetch";
 
@@ -139,8 +141,11 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>支出明細（{expenses.expenses.length}）</CardTitle>
+          <Button asChild size="sm">
+            <Link href={`/mini/groups/${id}/expenses/new`}>+ 新增</Link>
+          </Button>
         </CardHeader>
         <CardContent>
           {expenses.expenses.length === 0 ? (
@@ -151,24 +156,29 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                 const date = new Date(e.spentAt).toISOString().slice(5, 10).replace("-", "/");
                 return (
                   <li key={e.id} className="border-b pb-2 last:border-0 last:pb-0">
-                    <div className="flex justify-between font-medium">
-                      <span>
-                        {label(e.payer)} 付 {fmt(e.amount)} {e.currency}
-                      </span>
-                      <span className="text-muted-foreground">{date}</span>
-                    </div>
-                    {e.description && (
-                      <div className="text-muted-foreground">{e.description}</div>
-                    )}
-                    <div className="text-xs text-muted-foreground">
-                      分給：
-                      {e.splits.map((s, i) => (
-                        <span key={i}>
-                          {i > 0 ? "、" : ""}
-                          {label(s)} {fmt(s.amount)}
+                    <Link
+                      href={`/mini/groups/${id}/expenses/${e.id}/edit`}
+                      className="block hover:bg-accent/40 -mx-2 px-2 py-1 rounded"
+                    >
+                      <div className="flex justify-between font-medium">
+                        <span>
+                          {label(e.payer)} 付 {fmt(e.amount)} {e.currency}
                         </span>
-                      ))}
-                    </div>
+                        <span className="text-muted-foreground">{date}</span>
+                      </div>
+                      {e.description && (
+                        <div className="text-muted-foreground">{e.description}</div>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        分給：
+                        {e.splits.map((s, i) => (
+                          <span key={i}>
+                            {i > 0 ? "、" : ""}
+                            {label(s)} {fmt(s.amount)}
+                          </span>
+                        ))}
+                      </div>
+                    </Link>
                   </li>
                 );
               })}

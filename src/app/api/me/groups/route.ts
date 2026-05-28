@@ -23,6 +23,7 @@ export const GET = withAuth(async (req: Request) => {
     .where(eq(groupMembers.userId, auth.user.id));
 
   return NextResponse.json({
+    userId: auth.user.id,
     groups: rows,
     activeGroupId: auth.groupFromParam?.id ?? null,
   });
