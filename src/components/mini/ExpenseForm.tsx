@@ -341,23 +341,30 @@ export function ExpenseForm({
                   onCheckedChange={() => toggleParticipant(m.id)}
                 />
                 <span className="flex-1 text-sm">{label(m)}</span>
-                {shareType === "equal" ? (
-                  <span className="w-24 text-right text-sm tabular-nums text-muted-foreground">
-                    {p.included && computed ? computed.amount.toFixed(2) : ""}
-                  </span>
-                ) : (
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    inputMode="decimal"
-                    className="w-24"
-                    value={p.value}
-                    onChange={(e) => setParticipantValue(m.id, e.target.value)}
-                    disabled={!p.included}
-                    placeholder={shareType === "percent" ? "%" : ""}
-                  />
-                )}
+                {/* Always an Input so the layout doesn't jump between modes.
+                    Equal mode is read-only and shows the auto-computed share. */}
+                <Input
+                  type={shareType === "equal" ? "text" : "number"}
+                  step="0.01"
+                  min="0"
+                  inputMode="decimal"
+                  className="w-24 text-right tabular-nums"
+                  value={
+                    shareType === "equal"
+                      ? p.included && computed
+                        ? computed.amount.toFixed(2)
+                        : ""
+                      : p.value
+                  }
+                  onChange={
+                    shareType === "equal"
+                      ? undefined
+                      : (e) => setParticipantValue(m.id, e.target.value)
+                  }
+                  readOnly={shareType === "equal"}
+                  disabled={!p.included}
+                  placeholder={shareType === "percent" ? "%" : ""}
+                />
               </li>
             );
           })}
