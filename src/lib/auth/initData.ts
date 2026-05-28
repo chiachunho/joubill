@@ -58,23 +58,10 @@ export function verifyInitData(initData: string, botToken: string): VerifiedInit
   const expectedHash = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest();
   const providedHash = Buffer.from(hashHex, "hex");
 
-  if (expectedHash.length !== providedHash.length) {
-    throw new Error("initData hash mismatch");
-  }
-  if (!crypto.timingSafeEqual(expectedHash, providedHash)) {
-    const tokenSig = `${botToken.slice(0, 4)}…${botToken.slice(-4)}`;
-    const botId = botToken.split(":")[0];
-    const keys = pairs.map(([k]) => k).join(",");
-    console.error(
-      "[initData] hash mismatch",
-      `\n  token: ${tokenSig} (len=${botToken.length}, bot_id=${botId})`,
-      `\n  initData length: ${initData.length}`,
-      `\n  keys: ${keys}`,
-      `\n  expected: ${expectedHash.toString("hex")}`,
-      `\n  provided: ${hashHex}`,
-      `\n  --- raw initData (full) ---\n${initData}`,
-      `\n  --- data-check-string (full) ---\n${dataCheckString}`,
-    );
+  if (
+    expectedHash.length !== providedHash.length ||
+    !crypto.timingSafeEqual(expectedHash, providedHash)
+  ) {
     throw new Error("initData hash mismatch");
   }
 
