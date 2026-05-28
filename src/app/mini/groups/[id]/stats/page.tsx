@@ -1,9 +1,11 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { EChartsOption } from "echarts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EChart } from "@/components/mini/EChart";
 import { tmaFetch } from "@/lib/tma-fetch";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
@@ -21,44 +23,11 @@ function label(p: { firstName: string; username: string | null }) {
   return p.username ? "@" + p.username : p.firstName;
 }
 
-/** Vertical SVG bar chart for the 6-month monthly totals. */
-function MonthlyBars({ data, currency }: { data: StatsResponse["monthly"]; currency: string }) {
-  const max = Math.max(...data.map((d) => d.total), 1);
-  const W = 320;
-  const H = 140;
-  const padBottom = 24;
-  const barW = W / data.length;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img">
-      {data.map((d, i) => {
-        const ratio = d.total / max;
-        const h = ratio * (H - padBottom - 4);
-        const x = i * barW;
-        const y = H - padBottom - h;
-        return (
-          <g key={d.month}>
-            <title>{`${d.month} · ${fmt(d.total)} ${currency}`}</title>
-            <rect
-              x={x + 4}
-              y={y}
-              width={barW - 8}
-              height={Math.max(h, 1)}
-              rx={2}
-              className="fill-primary"
-            />
-            <text
-              x={x + barW / 2}
-              y={H - 10}
-              textAnchor="middle"
-              className="fill-muted-foreground text-[10px]"
-            >
-              {d.month.slice(5)}/{d.month.slice(2, 4)}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
-  );
+/** Read an HSL-component CSS var like "0 0% 100%" and wrap as a usable colour. */
+function cssVar(name: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v ? `hsl(${v})` : fallback;
 }
 
 export default function StatsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -76,6 +45,101 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
       .catch((err: Error) => setError(err.message));
   }, [id]);
 
+  const monthlyOption = useMemo<EChartsOption | null>(() => {
+    if (!stats) return null;
+    const primary = cssVar("--primary", "#1a73e8");
+    const fg = cssVar("--foreground", "#111");
+    const muted = cssVar("--muted-foreground", "#999");
+    const border = cssVar("--border", "#e5e5e5");
+    const bg = cssVar("--popover", "#fff");
+    return {
+      grid: { top: 20, right: 10, bottom: 30, left: 44 },
+      xAxis: {
+        type: "category",
+        data: stats.monthly.map((d) => `${d.month.slice(5)}/${d.month.slice(2, 4)}`),
+        axisLine: { lineStyle: { color: border } },
+        axisTick: { show: false },
+        axisLabel: { color: muted, fontSize: 11 },
+      },
+      yAxis: {
+        type: "value",
+        splitLine: { lineStyle: { color: border, type: "dashed" } },
+        axisLabel: { color: muted, fontSize: 11 },
+      },
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: bg,
+        borderColor: border,
+        textStyle: { color: fg, fontSize: 12 },
+        formatter: (params) => {
+          const p = Array.isArray(params) ? params[0] : params;
+          const value = Number(p.value).toFixed(2);
+          return `${p.name}<br/>${value} ${stats.currency}`;
+        },
+      },
+      series: [
+        {
+          type: "bar",
+          data: stats.monthly.map((d) => d.total),
+          itemStyle: { color: primary, borderRadius: [4, 4, 0, 0] },
+          barWidth: "60%",
+        },
+      ],
+    };
+  }, [stats]);
+
+  const payerOption = useMemo<EChartsOption | null>(() => {
+    if (!stats || stats.byPayer.length === 0) return null;
+    const primary = cssVar("--primary", "#1a73e8");
+    const fg = cssVar("--foreground", "#111");
+    const border = cssVar("--border", "#e5e5e5");
+    const bg = cssVar("--popover", "#fff");
+    // Echarts category axis renders bottom-to-top, so reverse to keep top spender on top visually.
+    const reversed = [...stats.byPayer].reverse();
+    return {
+      grid: { top: 8, right: 60, bottom: 16, left: 96 },
+      xAxis: {
+        type: "value",
+        splitLine: { show: false },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { show: false },
+      },
+      yAxis: {
+        type: "category",
+        data: reversed.map((p) => label(p)),
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { color: fg, fontSize: 12 },
+      },
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: bg,
+        borderColor: border,
+        textStyle: { color: fg, fontSize: 12 },
+        formatter: (params) => {
+          const p = Array.isArray(params) ? params[0] : params;
+          return `${p.name}: ${Number(p.value).toFixed(2)} ${stats.currency}`;
+        },
+      },
+      series: [
+        {
+          type: "bar",
+          data: reversed.map((p) => p.total),
+          itemStyle: { color: primary, borderRadius: [0, 4, 4, 0] },
+          barWidth: "60%",
+          label: {
+            show: true,
+            position: "right",
+            color: fg,
+            fontSize: 11,
+            formatter: (p) => Number(p.value).toFixed(2),
+          },
+        },
+      ],
+    };
+  }, [stats]);
+
   if (error) {
     return (
       <Card>
@@ -87,8 +151,6 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
     );
   }
   if (!stats) return <p className="text-muted-foreground">載入中…</p>;
-
-  const max = Math.max(...stats.byPayer.map((p) => p.total), 1);
 
   return (
     <>
@@ -102,7 +164,7 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
           {stats.monthly.every((m) => m.total === 0) ? (
             <p className="text-sm text-muted-foreground">這段期間沒有支出</p>
           ) : (
-            <MonthlyBars data={stats.monthly} currency={stats.currency} />
+            monthlyOption && <EChart option={monthlyOption} height={220} />
           )}
         </CardContent>
       </Card>
@@ -115,24 +177,14 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
           {stats.byPayer.length === 0 ? (
             <p className="text-sm text-muted-foreground">尚無支出</p>
           ) : (
-            <ul className="space-y-2 text-sm">
-              {stats.byPayer.map((p) => (
-                <li key={p.userId}>
-                  <div className="mb-1 flex justify-between">
-                    <span>{label(p)}</span>
-                    <span className="tabular-nums">
-                      {fmt(p.total)} {stats.currency}
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${(p.total / max) * 100}%` }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <>
+              <p className="mb-2 text-xs text-muted-foreground">
+                合計：{fmt(stats.byPayer.reduce((s, p) => s + p.total, 0))} {stats.currency}
+              </p>
+              {payerOption && (
+                <EChart option={payerOption} height={Math.max(40 * stats.byPayer.length, 80)} />
+              )}
+            </>
           )}
         </CardContent>
       </Card>
