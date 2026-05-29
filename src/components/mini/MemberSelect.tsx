@@ -31,7 +31,7 @@ export function MemberSelect({ value, onValueChange, members, photos, placeholde
               src={photos?.[selected.id] ?? null}
               name={labelMember(selected)}
               userId={selected.id}
-              size="sm"
+              size="xs"
             />
             <span className="truncate">{labelMember(selected)}</span>
           </span>
@@ -47,7 +47,7 @@ export function MemberSelect({ value, onValueChange, members, photos, placeholde
                 src={photos?.[m.id] ?? null}
                 name={labelMember(m)}
                 userId={m.id}
-                size="sm"
+                size="xs"
               />
               {labelMember(m)}
             </span>

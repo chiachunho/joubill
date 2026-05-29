@@ -2,7 +2,7 @@ type Props = {
   src?: string | null;
   name: string;
   userId: number;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
 };
 
 const COLORS = [
@@ -26,11 +26,13 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
     .toUpperCase();
   const color = COLORS[userId % COLORS.length];
   const sizeClass =
-    size === "sm"
-      ? "size-7 text-[10px]"
-      : size === "lg"
-        ? "size-12 text-sm"
-        : "size-9 text-xs";
+    size === "xs"
+      ? "size-5 text-[9px]"
+      : size === "sm"
+        ? "size-7 text-[10px]"
+        : size === "lg"
+          ? "size-12 text-sm"
+          : "size-9 text-xs";
 
   if (src) {
     return (
