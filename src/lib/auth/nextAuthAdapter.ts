@@ -41,9 +41,10 @@ export const splitbillAdapter: Adapter = {
     const [user] = await db
       .insert(users)
       .values({
-        firstName: parts[0] || data.email.split("@")[0],
+        firstName: parts[0] || data.email?.split("@")[0] || "User",
         lastName: parts.slice(1).join(" ") || null,
-        email: data.email,
+        // Telegram OIDC sends "" for email; store null instead of empty string.
+        email: data.email || null,
         avatarUrl: data.image ?? null,
       })
       .returning();

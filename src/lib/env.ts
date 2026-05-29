@@ -7,9 +7,6 @@ const serverSchema = z.object({
   // direct-link Mini App URL: t.me/<bot>/<TELEGRAM_MINI_APP_NAME>
   TELEGRAM_MINI_APP_NAME: z.string().min(1),
   DATABASE_URL: z.string().url(),
-  // Bot @username (without @). Required for the Telegram Login Widget on /login.
-  // Optional so existing deployments don't break; /login shows a config error if absent.
-  TELEGRAM_BOT_USERNAME: z.string().min(1).optional(),
 });
 
 const clientSchema = z.object({

@@ -33,9 +33,32 @@ function GoogleIcon() {
   );
 }
 
+function TelegramIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="12" fill="#2CA5E0" />
+      <path
+        d="M5.5 11.5L17 7l-3 10-2.5-3.5L9 15l-.5-3L5.5 11.5z"
+        fill="white"
+        stroke="white"
+        strokeWidth="0.3"
+        strokeLinejoin="round"
+      />
+      <path d="M9 15l1.5-1 1 2.5" fill="white" />
+    </svg>
+  );
+}
+
 export function OAuthButtons({ callbackUrl = "/app" }: { callbackUrl?: string }) {
   return (
     <div className="flex flex-col gap-3">
+      <button
+        onClick={() => signIn("telegram", { callbackUrl })}
+        className="flex items-center justify-center gap-2.5 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary active:bg-secondary/80"
+      >
+        <TelegramIcon />
+        使用 Telegram 登入
+      </button>
       <button
         onClick={() => signIn("github", { callbackUrl })}
         className="flex items-center justify-center gap-2.5 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary active:bg-secondary/80"

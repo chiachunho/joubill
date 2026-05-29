@@ -4,11 +4,46 @@ import Google from "next-auth/providers/google";
 
 import { splitbillAdapter } from "@/lib/auth/nextAuthAdapter";
 
+interface TelegramOIDCProfile {
+  sub: string;
+  name?: string;
+  preferred_username?: string;
+  picture?: string;
+  phone_number?: string;
+}
+
+/**
+ * Telegram OIDC provider (standard Authorization Code + PKCE).
+ * Discovery: https://oauth.telegram.org/.well-known/openid-configuration
+ * No UserInfo endpoint — all claims come from the ID token directly.
+ * Credentials: BotFather → Bot Settings → Web Login → Client ID / Secret
+ */
+const TelegramOIDC = {
+  id: "telegram",
+  name: "Telegram",
+  type: "oidc" as const,
+  issuer: "https://oauth.telegram.org",
+  clientId: process.env.AUTH_TELEGRAM_CLIENT_ID,
+  clientSecret: process.env.AUTH_TELEGRAM_CLIENT_SECRET,
+  checks: ["pkce", "state"] as ["pkce", "state"],
+  profile(profile: TelegramOIDCProfile) {
+    return {
+      id: profile.sub,
+      name: profile.name ?? profile.preferred_username ?? null,
+      // Telegram does not provide email. Empty string avoids type errors;
+      // the adapter converts it to NULL before storing.
+      email: "",
+      image: profile.picture ?? null,
+    };
+  },
+};
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: splitbillAdapter,
   session: { strategy: "database" },
   providers: [
-    // Both providers verify email before sharing it, so auto-linking is safe.
+    TelegramOIDC,
+    // Both GitHub and Google verify email before sharing it, so auto-linking is safe.
     GitHub({ allowDangerousEmailAccountLinking: true }),
     Google({ allowDangerousEmailAccountLinking: true }),
   ],
