@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import { mutate } from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calendar as CalendarIcon, Check, X } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, Check, X } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { MemberSelect } from "@/components/mini/MemberSelect";
@@ -228,11 +228,22 @@ export function ExpenseForm(props: Props) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 py-4">
         {/* Header */}
-        <div>
-          <h1 className="text-lg font-semibold">{isEdit ? "編輯支出" : "新增支出"}</h1>
-          {isEdit && (
-            <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>
-          )}
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 rounded-lg"
+            onClick={backToGroup}
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-semibold">{isEdit ? "編輯支出" : "新增支出"}</h1>
+            {isEdit && (
+              <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>
+            )}
+          </div>
         </div>
 
         {/* Amount + currency row */}

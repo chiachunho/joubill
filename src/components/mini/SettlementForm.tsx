@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { mutate } from "swr";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon } from "lucide-react";
 
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { Button } from "@/components/ui/button";
@@ -175,11 +175,22 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 py-4">
         {/* Header */}
-        <div>
-          <h1 className="text-lg font-semibold">{isEdit ? "編輯還款記錄" : "新增還款記錄"}</h1>
-          {isEdit && (
-            <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>
-          )}
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 rounded-lg"
+            onClick={backToList}
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-semibold">{isEdit ? "編輯還款記錄" : "新增還款記錄"}</h1>
+            {isEdit && (
+              <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>
+            )}
+          </div>
         </div>
 
         {/* From */}
