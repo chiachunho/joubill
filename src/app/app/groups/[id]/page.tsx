@@ -126,54 +126,67 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
 
   return (
     <div className="space-y-6 py-4">
-      {/* Back nav */}
-      <div className="flex items-center gap-2 px-4">
-        <Link
-          href="/app"
-          className="inline-flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" />
-          返回
-        </Link>
-        {avatars?.groupPhoto ? (
-          <img
-            src={avatars.groupPhoto}
-            alt={groupTitle}
-            className="size-8 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-          />
-        ) : (
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <Users className="size-3.5 text-primary" />
-          </div>
-        )}
-        {groupTitle && <span className="min-w-0 truncate text-sm font-semibold">{groupTitle}</span>}
-        <div className="ml-auto flex shrink-0 gap-1">
+      {/* Back nav — back+photo left, title centered absolutely */}
+      <div className="relative flex items-center gap-2 px-4 py-1">
+        <div className="z-10 flex shrink-0 items-center gap-2">
           <Link
-            href={`/app/groups/${id}/settlements`}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            href="/app"
+            className="inline-flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
-            <History className="size-3.5" />
-            還款記錄
+            <ChevronLeft className="size-4" />
+            返回
           </Link>
-          <Link
-            href={`/app/groups/${id}/stats`}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <BarChart3 className="size-3.5" />
-            統計
-          </Link>
+          {avatars?.groupPhoto ? (
+            <img
+              src={avatars.groupPhoto}
+              alt={groupTitle}
+              className="size-8 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+            />
+          ) : (
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <Users className="size-3.5 text-primary" />
+            </div>
+          )}
         </div>
+        <h1 className="pointer-events-none absolute inset-x-0 truncate px-28 text-center text-sm font-semibold">
+          {groupTitle}
+        </h1>
       </div>
 
       {allSettled && (
         <div className="mx-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-center">
           <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">所有帳款已結清</p>
+          <div className="mt-2 flex justify-center gap-4">
+            <Link
+              href={`/app/groups/${id}/settlements`}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <History className="size-3" />
+              還款記錄
+            </Link>
+            <Link
+              href={`/app/groups/${id}/stats`}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <BarChart3 className="size-3" />
+              統計
+            </Link>
+          </div>
         </div>
       )}
 
       {!allSettled && (
         <section className="px-4">
-          <p className="sect mb-2.5">Balance · {balance.currency}</p>
+          <div className="mb-2.5 flex items-center justify-between">
+            <p className="sect">Balance · {balance.currency}</p>
+            <Link
+              href={`/app/groups/${id}/stats`}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <BarChart3 className="size-3" />
+              統計
+            </Link>
+          </div>
           <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
             {balance.balances.map((b) => (
               <div key={b.userId} className="flex items-center gap-3 px-4 py-3">
@@ -195,7 +208,16 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
 
       {optimisticTransfers.length > 0 && (
         <section className="px-4">
-          <p className="sect mb-2.5">To Settle</p>
+          <div className="mb-2.5 flex items-center justify-between">
+            <p className="sect">To Settle</p>
+            <Link
+              href={`/app/groups/${id}/settlements`}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <History className="size-3" />
+              還款記錄
+            </Link>
+          </div>
           <div className="space-y-2">
             {optimisticTransfers.map((t, i) => (
               <div key={i} className="rounded-2xl bg-secondary/50 px-4 py-3">

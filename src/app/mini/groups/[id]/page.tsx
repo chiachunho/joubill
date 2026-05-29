@@ -194,8 +194,8 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <div className="space-y-6 py-4">
-      {/* Group header */}
-      <div className="flex items-center gap-3 px-4">
+      {/* Group header — photo left, title centered, invisible spacer mirrors photo width */}
+      <div className="flex items-center px-4">
         {avatars?.groupPhoto ? (
           <img
             src={avatars.groupPhoto}
@@ -207,36 +207,44 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
             <Users className="size-5 text-primary" />
           </div>
         )}
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{groupTitle}</h1>
-        <div className="flex shrink-0 gap-1">
-          <Link
-            href={`/mini/groups/${id}/settlements`}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <History className="size-3.5" />
-            還款記錄
-          </Link>
-          <Link
-            href={`/mini/groups/${id}/stats`}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <BarChart3 className="size-3.5" />
-            統計
-          </Link>
-        </div>
+        <h1 className="min-w-0 flex-1 truncate px-3 text-center text-lg font-semibold">{groupTitle}</h1>
+        <div className="size-12 shrink-0" aria-hidden />
       </div>
 
-      {/* All-settled banner */}
       {allSettled && (
         <div className="mx-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-center">
           <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">所有帳款已結清</p>
+          <div className="mt-2 flex justify-center gap-4">
+            <Link
+              href={`/mini/groups/${id}/settlements`}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <History className="size-3" />
+              還款記錄
+            </Link>
+            <Link
+              href={`/mini/groups/${id}/stats`}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <BarChart3 className="size-3" />
+              統計
+            </Link>
+          </div>
         </div>
       )}
 
-      {/* Balances */}
       {!allSettled && (
         <section className="px-4">
-          <p className="sect mb-2.5">Balance · {balance.currency}</p>
+          <div className="mb-2.5 flex items-center justify-between">
+            <p className="sect">Balance · {balance.currency}</p>
+            <Link
+              href={`/mini/groups/${id}/stats`}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <BarChart3 className="size-3" />
+              統計
+            </Link>
+          </div>
           <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
             {balance.balances.map((b) => (
               <div key={b.userId} className="flex items-center gap-3 px-4 py-3">
@@ -260,10 +268,18 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
         </section>
       )}
 
-      {/* Suggested transfers */}
       {optimisticTransfers.length > 0 && (
         <section className="px-4">
-          <p className="sect mb-2.5">To Settle</p>
+          <div className="mb-2.5 flex items-center justify-between">
+            <p className="sect">To Settle</p>
+            <Link
+              href={`/mini/groups/${id}/settlements`}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <History className="size-3" />
+              還款記錄
+            </Link>
+          </div>
           <div className="space-y-2">
             {optimisticTransfers.map((t, i) => (
               <div key={i} className="rounded-2xl bg-secondary/50 px-4 py-3">

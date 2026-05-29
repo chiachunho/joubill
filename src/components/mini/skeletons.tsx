@@ -42,22 +42,25 @@ function FieldSkeleton({ width = "w-16" }: { width?: string }) {
 export function GroupPageSkeleton() {
   return (
     <div className="space-y-6 py-4">
-      <div className="flex items-center gap-3 px-4">
+      <div className="flex items-center px-4">
         <Skeleton className="size-12 shrink-0 rounded-full" />
-        <Skeleton className="h-5 w-36 flex-1 max-w-[200px]" />
-        <div className="flex shrink-0 gap-1">
-          <Skeleton className="h-7 w-20 rounded-lg" />
-          <Skeleton className="h-7 w-16 rounded-lg" />
-        </div>
+        <Skeleton className="mx-3 h-5 w-32 flex-1 max-w-[180px]" />
+        <div className="size-12 shrink-0" aria-hidden />
       </div>
 
       <section className="px-4">
-        <Skeleton className="mb-2.5 h-3 w-24" />
+        <div className="mb-2.5 flex items-center justify-between">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-6 w-12 rounded-lg" />
+        </div>
         <Panel rows={3} />
       </section>
 
       <section className="px-4">
-        <Skeleton className="mb-2.5 h-3 w-16" />
+        <div className="mb-2.5 flex items-center justify-between">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-6 w-16 rounded-lg" />
+        </div>
         <div className="space-y-2">
           <Skeleton className="h-[72px] w-full rounded-2xl" />
           <Skeleton className="h-[72px] w-full rounded-2xl" />
