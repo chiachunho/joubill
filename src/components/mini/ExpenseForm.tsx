@@ -262,7 +262,7 @@ export function ExpenseForm({
             <Button
               type="button"
               variant="outline"
-              className="w-full justify-start font-normal"
+              className="w-full justify-start text-base font-normal md:text-sm"
             >
               <CalendarIcon />
               {ymd(spentDate)}
