@@ -26,7 +26,7 @@ export default function AppHome() {
     window.location.href = "/login";
   }
 
-  if (error) {
+  if (error && !String(error).includes("401")) {
     return (
       <div className="px-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">無法載入群組</p>

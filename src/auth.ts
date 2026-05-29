@@ -67,7 +67,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-      if (new URL(url).origin === baseUrl) return url;
+      try {
+        if (new URL(url).origin === baseUrl) return url;
+      } catch {
+        // url is not a valid absolute URL — fall through to safe default
+      }
       return `${baseUrl}/app`;
     },
   },
