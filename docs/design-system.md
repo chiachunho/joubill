@@ -9,16 +9,44 @@
 
 ## 1. 顏色 Color
 
-顏色**全部走 shadcn CSS 變數**(`hsl(var(--…))`),這些變數在 runtime 由 Telegram 主題參數覆寫(見 [`use-tg-theme.ts`](../src/lib/use-tg-theme.ts))。**禁止寫死 hex / 具名 Tailwind 顏色當品牌色**,否則切換 Telegram 深淺色主題會壞掉。
+顏色**全部走 shadcn CSS 變數**(`hsl(var(--…))`),這些變數在 runtime 由 Telegram 主題參數覆寫(見 [`use-tg-theme.ts`](../src/lib/use-tg-theme.ts))。**禁止在元件裡寫死 hex / 具名 Tailwind 顏色當品牌色**,否則切換 Telegram 深淺色主題會壞掉。
+
+### 品牌色票 (Brand Palette)
+
+當 Telegram 主題未套用時，`globals.css` 的 `:root` 預設值使用以下品牌色：
+
+| 名稱 | HEX | CSS 變數 | 用途 |
+| --- | --- | --- | --- |
+| 揪綠 | `#2EBD8F` | `--primary` / `--ring` | 主行動按鈕、選中態 |
+| 帳金 | `#F5B731` | `--brand-gold` | 財務亮點（見下方說明） |
+| 深綠 | `#1F9D74` | — | 深色版揪綠，目前保留於 dark mode `--primary` 參考 |
+| 米白 | `#F2F0EB` | `--background` | 頁面底色 |
+| 墨黑 | `#1A1A1A` | `--foreground` | 主要文字 |
+
+#### 帳金 (`--brand-gold`) 使用規則
+
+帳金是財務語境的點綴色，**不走 Tailwind 語義 class**，需直接引用 CSS 變數：
+
+```tsx
+// 金額欄位的強調底色
+<span style={{ color: "hsl(var(--brand-gold))" }}>...</span>
+
+// 或透過 Tailwind arbitrary value
+<span className="text-[hsl(var(--brand-gold))]">...</span>
+```
+
+帳金**不取代** `text-emerald-500` / `text-rose-500`（正負餘額語意色保持不變），僅用於「中性金額強調」（如累計金額、未結算總額）。
+
+### 標準語義 class
 
 | 用途 | class | 說明 |
 | --- | --- | --- |
-| 頁面背景 | `bg-background` | 跟隨 TG `bg_color` |
+| 頁面背景 | `bg-background` | 跟隨 TG `bg_color`；預設米白 |
 | 主要文字 | `text-foreground` | |
 | 次要 / 提示文字 | `text-muted-foreground` | 日期、說明、單位 |
 | 面板底色 | `bg-secondary/50` | grouped panel 專用(見 §5) |
 | 分隔線 | `divide-border/40`、`border-border` | |
-| 主行動 | `bg-primary text-primary-foreground` | 主按鈕、選中態 |
+| 主行動 | `bg-primary text-primary-foreground` | 主按鈕、選中態；預設揪綠 |
 | 主色淡底 | `bg-primary/10 text-primary` | 次要 pill、icon tile |
 
 **唯二允許的具名顏色** — 僅用於財務數字的正負,語意固定:

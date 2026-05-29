@@ -1,14 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Logo } from "@/components/Logo";
 
 export default function Home() {
   return (
     <main className="container mx-auto flex min-h-screen max-w-3xl flex-col gap-8 py-16">
-      <header className="space-y-3">
-        <h1 className="text-4xl font-bold tracking-tight">揪帳</h1>
-        <p className="text-muted-foreground">
-          聚餐、旅遊、下午茶，每次到了結帳時刻總是最尷尬？用揪帳，就這樣算清楚。
-        </p>
+      <header className="space-y-4">
+        <Logo size={72} />
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold tracking-tight">揪帳</h1>
+          <p className="text-muted-foreground">
+            聚餐、旅遊、下午茶，每次到了結帳時刻總是最尷尬？用揪帳，就這樣算清楚。
+          </p>
+        </div>
       </header>
 
       <Card>
