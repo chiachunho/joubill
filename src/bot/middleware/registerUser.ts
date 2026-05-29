@@ -1,13 +1,14 @@
 import { Composer } from "grammy";
 
 import { db } from "@/db";
-import { groupMembers, groups, users } from "@/db/schema";
+import { groupMembers, groups } from "@/db/schema";
+import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 
 import type { BotContext } from "../context";
 
 /**
  * On every update:
- *  1. Upsert the sender into users.
+ *  1. Upsert the sender into users + auth_identities.
  *  2. If the chat is a group / supergroup, upsert groups and add the sender to group_members.
  *  3. Attach the resulting rows to ctx.dbUser / ctx.dbGroup for downstream handlers.
  */
@@ -19,26 +20,7 @@ registerUser.use(async (ctx, next) => {
     return;
   }
 
-  const [user] = await db
-    .insert(users)
-    .values({
-      telegramId: ctx.from.id,
-      firstName: ctx.from.first_name,
-      lastName: ctx.from.last_name,
-      username: ctx.from.username?.toLowerCase() ?? null,
-      languageCode: ctx.from.language_code,
-    })
-    .onConflictDoUpdate({
-      target: users.telegramId,
-      set: {
-        firstName: ctx.from.first_name,
-        lastName: ctx.from.last_name,
-        username: ctx.from.username?.toLowerCase() ?? null,
-        languageCode: ctx.from.language_code,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
+  const user = await upsertTelegramUser(ctx.from);
 
   ctx.dbUser = user;
 

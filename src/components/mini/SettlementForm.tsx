@@ -27,8 +27,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuthMode } from "@/components/AuthProvider";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
+import { webRawFetch } from "@/lib/web-fetch";
 import { SUPPORTED_CURRENCIES, settlementFormSchema, type SettlementFormValues } from "@/lib/zod";
 
 type Member = {
@@ -53,6 +55,8 @@ type Props = {
   members: Member[];
   photos?: Record<number, string | null>;
   initial?: Initial;
+  /** Where to navigate after save/delete. Defaults to /mini/groups/:groupId/settlements. */
+  returnPath?: string;
 };
 
 function ymd(d: Date): string {
@@ -63,13 +67,15 @@ function dayToNoonUtcIso(d: Date): string {
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)).toISOString();
 }
 
-export function SettlementForm({ groupId, defaultCurrency, members, photos, initial }: Props) {
+export function SettlementForm({ groupId, defaultCurrency, members, photos, initial, returnPath }: Props) {
   const router = useRouter();
+  const mode = useAuthMode();
   const isEdit = !!initial;
+  const back = returnPath ?? `/mini/groups/${groupId}/settlements`;
 
   const backToList = useCallback(() => {
-    router.push(`/mini/groups/${groupId}/settlements`);
-  }, [router, groupId]);
+    router.push(back);
+  }, [router, back]);
   useTelegramBackButton(backToList);
 
   const form = useForm<SettlementFormValues>({
@@ -85,7 +91,6 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
   });
 
   async function onSubmit(values: SettlementFormValues) {
-    const { default: WebApp } = await import("@twa-dev/sdk");
     const body = {
       fromUserId: Number(values.fromUserId),
       toUserId: Number(values.toUserId),
@@ -97,11 +102,23 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
     const url = isEdit
       ? `/api/groups/${groupId}/settlements/${initial!.id}`
       : `/api/groups/${groupId}/settlements`;
-    const res = await fetch(url, {
-      method: isEdit ? "PATCH" : "POST",
-      headers: { Authorization: `tma ${WebApp.initData}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+
+    let res: Response;
+    if (mode === "web") {
+      res = await webRawFetch(url, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } else {
+      const { default: WebApp } = await import("@twa-dev/sdk");
+      res = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { Authorization: `tma ${WebApp.initData}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
+
     if (!res.ok) {
       const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
       form.setError("root", { message: parsed.error ?? `HTTP ${res.status}` });
@@ -109,12 +126,25 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
     }
     mutate(`/api/groups/${groupId}/settlements`);
     mutate(`/api/groups/${groupId}/balance`);
-    router.push(`/mini/groups/${groupId}/settlements`);
+    router.push(back);
   }
 
   const [deletePending, setDeletePending] = useState(false);
   async function handleDelete() {
     if (!initial) return;
+    if (mode === "web") {
+      if (!window.confirm("確定要刪除這筆還款記錄嗎？")) return;
+      setDeletePending(true);
+      const res = await webRawFetch(`/api/groups/${groupId}/settlements/${initial.id}`, {
+        method: "DELETE",
+      });
+      setDeletePending(false);
+      if (!res.ok) { window.alert("刪除失敗"); return; }
+      mutate(`/api/groups/${groupId}/settlements`);
+      mutate(`/api/groups/${groupId}/balance`);
+      router.push(back);
+      return;
+    }
     const { default: WebApp } = await import("@twa-dev/sdk");
     WebApp.showPopup(
       {
@@ -133,13 +163,10 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
           headers: { Authorization: `tma ${WebApp.initData}` },
         });
         setDeletePending(false);
-        if (!res.ok) {
-          WebApp.showAlert("刪除失敗");
-          return;
-        }
+        if (!res.ok) { WebApp.showAlert("刪除失敗"); return; }
         mutate(`/api/groups/${groupId}/settlements`);
         mutate(`/api/groups/${groupId}/balance`);
-        router.push(`/mini/groups/${groupId}/settlements`);
+        router.push(back);
       },
     );
   }

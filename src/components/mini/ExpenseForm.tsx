@@ -32,7 +32,9 @@ import {
 import { labelMember } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
 import { cn } from "@/lib/utils";
+import { useAuthMode } from "@/components/AuthProvider";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
+import { webRawFetch } from "@/lib/web-fetch";
 import {
   SUPPORTED_CURRENCIES,
   expenseFormSchema,
@@ -58,6 +60,8 @@ type Props = {
   members: Member[];
   photos?: Record<number, string | null>;
   initial?: Initial;
+  /** Where to navigate after save/delete. Defaults to /mini/groups/:groupId. */
+  returnPath?: string;
 };
 
 function ymd(d: Date): string {
@@ -94,13 +98,15 @@ function buildDefaults(props: Props): ExpenseFormValues {
 }
 
 export function ExpenseForm(props: Props) {
-  const { groupId, members, photos, initial } = props;
+  const { groupId, members, photos, initial, returnPath } = props;
   const router = useRouter();
+  const mode = useAuthMode();
   const isEdit = !!initial;
+  const back = returnPath ?? `/mini/groups/${groupId}`;
 
   const backToGroup = useCallback(() => {
-    router.push(`/mini/groups/${groupId}`);
-  }, [router, groupId]);
+    router.push(back);
+  }, [router, back]);
   useTelegramBackButton(backToGroup);
 
   const form = useForm<ExpenseFormValues>({
@@ -127,7 +133,6 @@ export function ExpenseForm(props: Props) {
       : Math.abs(inputSum - totalAmount) < 0.02;
 
   async function onSubmit(values: ExpenseFormValues) {
-    const { default: WebApp } = await import("@twa-dev/sdk");
     const body = {
       amount: parseFloat(values.amount),
       currency: values.currency,
@@ -147,11 +152,23 @@ export function ExpenseForm(props: Props) {
     const url = isEdit
       ? `/api/groups/${groupId}/expenses/${initial!.id}`
       : `/api/groups/${groupId}/expenses`;
-    const res = await fetch(url, {
-      method: isEdit ? "PATCH" : "POST",
-      headers: { Authorization: `tma ${WebApp.initData}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+
+    let res: Response;
+    if (mode === "web") {
+      res = await webRawFetch(url, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } else {
+      const { default: WebApp } = await import("@twa-dev/sdk");
+      res = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { Authorization: `tma ${WebApp.initData}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
+
     if (!res.ok) {
       const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
       form.setError("root", { message: parsed.error ?? `HTTP ${res.status}` });
@@ -160,12 +177,26 @@ export function ExpenseForm(props: Props) {
     mutate(`/api/groups/${groupId}/expenses`);
     mutate(`/api/groups/${groupId}/balance`);
     mutate(`/api/groups/${groupId}/stats`);
-    router.push(`/mini/groups/${groupId}`);
+    router.push(back);
   }
 
   const [deletePending, setDeletePending] = useState(false);
   async function handleDelete() {
     if (!initial) return;
+    if (mode === "web") {
+      if (!window.confirm("確定要刪除這筆支出嗎？")) return;
+      setDeletePending(true);
+      const res = await webRawFetch(`/api/groups/${groupId}/expenses/${initial.id}`, {
+        method: "DELETE",
+      });
+      setDeletePending(false);
+      if (!res.ok) { window.alert("刪除失敗"); return; }
+      mutate(`/api/groups/${groupId}/expenses`);
+      mutate(`/api/groups/${groupId}/balance`);
+      mutate(`/api/groups/${groupId}/stats`);
+      router.push(back);
+      return;
+    }
     const { default: WebApp } = await import("@twa-dev/sdk");
     WebApp.showPopup(
       {
@@ -184,14 +215,11 @@ export function ExpenseForm(props: Props) {
           headers: { Authorization: `tma ${WebApp.initData}` },
         });
         setDeletePending(false);
-        if (!res.ok) {
-          WebApp.showAlert("刪除失敗");
-          return;
-        }
+        if (!res.ok) { WebApp.showAlert("刪除失敗"); return; }
         mutate(`/api/groups/${groupId}/expenses`);
         mutate(`/api/groups/${groupId}/balance`);
         mutate(`/api/groups/${groupId}/stats`);
-        router.push(`/mini/groups/${groupId}`);
+        router.push(back);
       },
     );
   }
