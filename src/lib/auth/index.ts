@@ -1,7 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { groupMembers, groups } from "@/db/schema";
+import { groupMembers, groups, sessions, users } from "@/db/schema";
 import type { Group, User } from "@/db/schema";
 import { serverEnv } from "@/lib/env";
 
@@ -11,48 +11,71 @@ import { upsertTelegramUser } from "./upsertTelegramUser";
 
 export type Auth = {
   user: User;
-  /** Group resolved from initData start_param (e.g. "group_<telegram_chat_id>"). */
+  /** Group resolved from initData start_param (e.g. "group_<telegram_chat_id>"). Only set for the tma path. */
   groupFromParam?: Group;
 };
 
+function parseCookie(header: string, name: string): string | null {
+  const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 /**
- * Unified auth entry. C5 supports Mini App initData via:
- *   Authorization: tma <raw initData string>
- * C7 will extend this to also accept a session cookie from the Telegram Login Widget.
+ * Resolves a session cookie to a user. Returns null if the cookie is missing,
+ * the session doesn't exist, or the session has expired.
+ */
+export async function resolveSession(req: Request): Promise<User | null> {
+  const token = parseCookie(req.headers.get("cookie") ?? "", "session");
+  if (!token) return null;
+
+  const [row] = await db
+    .select({ userId: sessions.userId })
+    .from(sessions)
+    .where(and(eq(sessions.id, token), gt(sessions.expiresAt, new Date())));
+  if (!row) return null;
+
+  const [user] = await db.select().from(users).where(eq(users.id, row.userId));
+  return user ?? null;
+}
+
+/**
+ * Unified auth entry point. Tries two paths in order:
+ *   1. Authorization: tma <initData>  — Telegram Mini App
+ *   2. Cookie: session=<token>        — web login (Telegram Login Widget / OAuth)
  */
 export async function getAuth(req: Request): Promise<Auth> {
+  // Path 1: Telegram Mini App
   const header = req.headers.get("authorization") ?? req.headers.get("Authorization") ?? "";
   const match = header.match(/^tma\s+(.+)$/i);
-  if (!match) {
-    throw new UnauthorizedError("missing tma authorization header");
-  }
-  const initDataRaw = match[1];
-
-  let verified;
-  try {
-    verified = verifyInitData(initDataRaw, serverEnv().TELEGRAM_BOT_TOKEN);
-  } catch (err) {
-    throw new UnauthorizedError(err instanceof Error ? err.message : "initData invalid");
-  }
-
-  // Upsert user + auth_identity. Mirrors registerUser (the bot middleware) so
-  // first-time Mini App visitors who never spoke to the bot still get a row.
-  const user = await upsertTelegramUser(verified.user);
-
-  // Resolve start_param: bot puts "group_<telegram_chat_id>" when launching from a group.
-  let groupFromParam: Group | undefined;
-  if (verified.startParam?.startsWith("group_")) {
-    const telegramChatId = Number(verified.startParam.slice("group_".length));
-    if (Number.isFinite(telegramChatId)) {
-      const [g] = await db
-        .select()
-        .from(groups)
-        .where(eq(groups.telegramChatId, telegramChatId));
-      if (g) groupFromParam = g;
+  if (match) {
+    let verified;
+    try {
+      verified = verifyInitData(match[1], serverEnv().TELEGRAM_BOT_TOKEN);
+    } catch (err) {
+      throw new UnauthorizedError(err instanceof Error ? err.message : "initData invalid");
     }
+
+    const user = await upsertTelegramUser(verified.user);
+
+    let groupFromParam: Group | undefined;
+    if (verified.startParam?.startsWith("group_")) {
+      const telegramChatId = Number(verified.startParam.slice("group_".length));
+      if (Number.isFinite(telegramChatId)) {
+        const [g] = await db
+          .select()
+          .from(groups)
+          .where(eq(groups.telegramChatId, telegramChatId));
+        if (g) groupFromParam = g;
+      }
+    }
+    return { user, groupFromParam };
   }
 
-  return { user, groupFromParam };
+  // Path 2: web session cookie
+  const user = await resolveSession(req);
+  if (user) return { user };
+
+  throw new UnauthorizedError("missing tma authorization header or session cookie");
 }
 
 /** Throws ForbiddenError if the user is not a member of the given internal group id. */
