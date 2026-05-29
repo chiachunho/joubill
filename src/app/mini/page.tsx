@@ -13,9 +13,12 @@ type MyGroupsResponse = {
   activeGroupId: number | null;
 };
 
+type GroupPhotosResponse = { photos: Record<number, string | null> };
+
 export default function MiniHome() {
   const router = useRouter();
   const { data, error } = useSWR<MyGroupsResponse>("/api/me/groups");
+  const { data: photosData } = useSWR<GroupPhotosResponse>("/api/me/groups/photos");
 
   useEffect(() => {
     if (data?.activeGroupId) {
@@ -60,9 +63,17 @@ export default function MiniHome() {
             href={`/mini/groups/${g.id}`}
             className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40 active:bg-accent/60"
           >
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Users className="size-4 text-primary" />
-            </div>
+            {photosData?.photos[g.id] ? (
+              <img
+                src={photosData.photos[g.id]!}
+                alt={g.title}
+                className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+              />
+            ) : (
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <Users className="size-4 text-primary" />
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{g.title}</p>
               <p className="text-xs text-muted-foreground">{g.defaultCurrency}</p>
