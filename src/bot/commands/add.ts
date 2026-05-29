@@ -27,6 +27,34 @@ addCommand.command("add", async (ctx) => {
   const group = ctx.dbGroup;
   const payer = ctx.dbUser;
 
+  // text_mention entities carry the full user object (these are mentions of
+  // people without a public @username). Auto-register them so "@-ing" a
+  // never-seen member just works. Regular username `mention` entities carry
+  // no id and can't be resolved via the Bot API, so those still rely on the
+  // person having registered some other way.
+  for (const entity of ctx.message?.entities ?? []) {
+    if (entity.type !== "text_mention" || !entity.user || entity.user.is_bot) continue;
+    const tgUser = entity.user;
+    const [u] = await db
+      .insert(users)
+      .values({
+        telegramId: tgUser.id,
+        firstName: tgUser.first_name,
+        lastName: tgUser.last_name,
+        username: tgUser.username?.toLowerCase() ?? null,
+        languageCode: tgUser.language_code,
+      })
+      .onConflictDoUpdate({
+        target: users.telegramId,
+        set: { firstName: tgUser.first_name, updatedAt: new Date() },
+      })
+      .returning();
+    await db
+      .insert(groupMembers)
+      .values({ groupId: group.id, userId: u.id })
+      .onConflictDoNothing();
+  }
+
   // Resolve participants. With @-mentions (regular or text_mention) -> exactly
   // those users. Without any mention -> all current group members.
   const hasMentions =
@@ -63,8 +91,12 @@ addCommand.command("add", async (ctx) => {
         ...missingTelegramIds.map((id) => `(tg:${id})`),
       ];
       await ctx.reply(
-        `找不到群組裡的這些人：${missingLabels.join(", ")}\n` +
-          `（被 @ 的人需先在這個群組講過話一次以註冊）`,
+        `找不到群組裡的這些人：${missingLabels.join(", ")}\n\n` +
+          `Telegram 不允許我用 @username 反查使用者，所以對方需要先「被我看到」一次：\n` +
+          `• 在這個群組講一句話，或\n` +
+          `• 被重新加進群組，或\n` +
+          `• 改用沒有 username 的 mention（從 @ 清單選人）\n` +
+          `之後再 /add 就找得到了。`,
       );
       return;
     }
