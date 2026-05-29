@@ -5,6 +5,7 @@ import { serverEnv } from "@/lib/env";
 import { addCommand } from "./commands/add";
 import { balanceCommand } from "./commands/balance";
 import { helpCommand } from "./commands/help";
+import { linkCommand } from "./commands/link";
 import { listCommand } from "./commands/list";
 import { settleCommand } from "./commands/settle";
 import { startCommand } from "./commands/start";
@@ -31,6 +32,7 @@ export function getBot(): Bot<BotContext> {
   bot.use(listCommand);
   bot.use(balanceCommand);
   bot.use(settleCommand);
+  bot.use(linkCommand);
 
   bot.catch((err) => {
     console.error("[bot] unhandled error:", err);

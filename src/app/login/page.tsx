@@ -1,10 +1,17 @@
 import { TelegramLoginWidget } from "@/components/TelegramLoginWidget";
 import { clientEnv, serverEnv } from "@/lib/env";
 
-export default function LoginPage() {
+type Props = { searchParams: Promise<{ next?: string }> };
+
+export default async function LoginPage({ searchParams }: Props) {
+  const { next } = await searchParams;
   const { TELEGRAM_BOT_USERNAME } = serverEnv();
   const origin = new URL(clientEnv.NEXT_PUBLIC_MINI_APP_URL).origin;
-  const callbackUrl = `${origin}/api/auth/telegram/callback`;
+  const base = `${origin}/api/auth/telegram/callback`;
+  const callbackUrl =
+    next && next.startsWith("/") && !next.startsWith("//")
+      ? `${base}?next=${encodeURIComponent(next)}`
+      : base;
 
   if (!TELEGRAM_BOT_USERNAME) {
     return (

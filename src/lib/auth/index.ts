@@ -21,6 +21,20 @@ function parseCookie(header: string, name: string): string | null {
 }
 
 /**
+ * Resolves a raw session token (e.g. from `cookies()` in a Server Component)
+ * to a user. Returns null if the session is missing or expired.
+ */
+export async function resolveSessionByToken(token: string): Promise<User | null> {
+  const [row] = await db
+    .select({ userId: sessions.userId })
+    .from(sessions)
+    .where(and(eq(sessions.id, token), gt(sessions.expiresAt, new Date())));
+  if (!row) return null;
+  const [user] = await db.select().from(users).where(eq(users.id, row.userId));
+  return user ?? null;
+}
+
+/**
  * Resolves a session cookie to a user. Returns null if the cookie is missing,
  * the session doesn't exist, or the session has expired.
  */

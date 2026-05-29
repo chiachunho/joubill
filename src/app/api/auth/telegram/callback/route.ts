@@ -47,7 +47,12 @@ export async function GET(req: Request) {
     `Max-Age=${SESSION_SECONDS}`,
   ].join("; ");
 
-  return NextResponse.redirect(new URL("/app", req.url), {
+  // Honor ?next= if it's a safe relative path (prevents open-redirect)
+  const next = searchParams.get("next");
+  const destination =
+    next && next.startsWith("/") && !next.startsWith("//") ? next : "/app";
+
+  return NextResponse.redirect(new URL(destination, req.url), {
     status: 302,
     headers: { "Set-Cookie": cookie },
   });
