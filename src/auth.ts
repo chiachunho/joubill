@@ -1,3 +1,4 @@
+import { decodeJwt } from "jose";
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
@@ -29,6 +30,12 @@ const TelegramOIDC = {
   // Telegram OAuth rejects state params longer than ~128 chars.
   // Auth.js's JWE-encrypted state is 400+ chars, so we rely on PKCE alone for CSRF protection.
   checks: ["pkce"] as ("pkce" | "state")[],
+  // Telegram has no userinfo_endpoint — decode claims from the id_token directly.
+  userinfo: {
+    async request({ tokens }: { tokens: { id_token?: string } }) {
+      return decodeJwt(tokens.id_token!);
+    },
+  },
   profile(profile: TelegramOIDCProfile) {
     return {
       id: profile.sub,
