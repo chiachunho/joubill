@@ -1,12 +1,14 @@
 "use client";
 
-import { startTransition, use, useCallback, useEffect, useOptimistic, useState } from "react";
+import { startTransition, use, useMemo, useOptimistic } from "react";
 import Link from "next/link";
 import { BarChart3, Check, Plus } from "lucide-react";
+import useSWR from "swr";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { tmaFetch } from "@/lib/tma-fetch";
+import { minimizeTransfers } from "@/lib/settlement-core";
 
 type Profile = { firstName: string | null; username: string | null };
 
@@ -32,15 +34,12 @@ type BalanceResponse = {
   }>;
 };
 
-type SettleResponse = {
-  currency: string;
-  transfers: Array<{
-    fromUserId: number;
-    toUserId: number;
-    amount: number;
-    from: Profile | null;
-    to: Profile | null;
-  }>;
+type Transfer = {
+  fromUserId: number;
+  toUserId: number;
+  amount: number;
+  from: Profile | null;
+  to: Profile | null;
 };
 
 function label(p: { username: string | null; firstName: string | null } | null) {
@@ -54,45 +53,45 @@ function fmt(amount: number) {
 
 export default function GroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [expenses, setExpenses] = useState<ExpensesResponse | null>(null);
-  const [balance, setBalance] = useState<BalanceResponse | null>(null);
-  const [settle, setSettle] = useState<SettleResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const refetch = useCallback(async () => {
-    try {
-      const [e, b, s] = await Promise.all([
-        tmaFetch<ExpensesResponse>(`/api/groups/${id}/expenses`),
-        tmaFetch<BalanceResponse>(`/api/groups/${id}/balance`),
-        tmaFetch<SettleResponse>(`/api/groups/${id}/settle`),
-      ]);
-      setExpenses(e);
-      setBalance(b);
-      setSettle(s);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [id]);
+  const {
+    data: expensesData,
+    error: expensesError,
+    mutate: mutateExpenses,
+  } = useSWR<ExpensesResponse>(`/api/groups/${id}/expenses`);
 
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
+  const {
+    data: balance,
+    error: balanceError,
+    mutate: mutateBalance,
+  } = useSWR<BalanceResponse>(`/api/groups/${id}/balance`);
 
-  // Optimistic transfers: settling a row drops it from the list instantly;
-  // when refetch() lands and `settle` updates, useOptimistic resets to truth.
+  // Compute transfers client-side from balance data — avoids a third round trip
+  // and eliminates the duplicate computeGroupBalances call the /settle route made.
+  const computedTransfers = useMemo<Transfer[]>(() => {
+    if (!balance) return [];
+    const profileMap = new Map(balance.balances.map((b) => [b.userId, b]));
+    return minimizeTransfers(balance.balances).map((t) => ({
+      ...t,
+      from: profileMap.get(t.fromUserId) ?? null,
+      to: profileMap.get(t.toUserId) ?? null,
+    }));
+  }, [balance]);
+
+  // Settling a row drops it from the list instantly; when SWR revalidates and
+  // balance updates, useOptimistic resets to the freshly computed transfers.
   const [optimisticTransfers, dropOptimisticTransfer] = useOptimistic(
-    settle?.transfers ?? [],
-    (state: NonNullable<SettleResponse>["transfers"], removedIdx: number) =>
-      state.filter((_, i) => i !== removedIdx),
+    computedTransfers,
+    (state: Transfer[], removedIdx: number) => state.filter((_, i) => i !== removedIdx),
   );
 
-  async function markSettled(transfer: SettleResponse["transfers"][number], idx: number) {
-    if (!settle) return;
+  async function markSettled(transfer: Transfer, idx: number) {
+    if (!balance) return;
     const { default: WebApp } = await import("@twa-dev/sdk");
     WebApp.showPopup(
       {
         title: "確認已轉帳",
-        message: `${label(transfer.from)} → ${label(transfer.to)}: ${fmt(transfer.amount)} ${settle.currency}`,
+        message: `${label(transfer.from)} → ${label(transfer.to)}: ${fmt(transfer.amount)} ${balance.currency}`,
         buttons: [
           { id: "cancel", type: "cancel" },
           { id: "ok", type: "default", text: "已完成" },
@@ -101,42 +100,38 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
       async (buttonId?: string) => {
         if (buttonId !== "ok") return;
         startTransition(() => dropOptimisticTransfer(idx));
-        const res = await fetch(`/api/groups/${id}/settlements`, {
-          method: "POST",
-          headers: {
-            Authorization: `tma ${WebApp.initData}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            fromUserId: transfer.fromUserId,
-            toUserId: transfer.toUserId,
-            amount: transfer.amount,
-            currency: settle.currency,
-          }),
-        });
-        if (!res.ok) {
-          // refetch will pull the real state back; this row will reappear.
+        try {
+          await tmaFetch(`/api/groups/${id}/settlements`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fromUserId: transfer.fromUserId,
+              toUserId: transfer.toUserId,
+              amount: transfer.amount,
+              currency: balance.currency,
+            }),
+          });
+        } catch {
           WebApp.showAlert("標記失敗，已回復");
-          await refetch();
-          return;
         }
-        await refetch();
+        await Promise.all([mutateBalance(), mutateExpenses()]);
       },
     );
   }
 
+  const error = expensesError ?? balanceError;
   if (error) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>無法載入</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">{error}</CardContent>
+        <CardContent className="text-sm text-muted-foreground">{String(error)}</CardContent>
       </Card>
     );
   }
 
-  if (!expenses || !balance || !settle) {
+  if (!expensesData || !balance) {
     return <p className="text-muted-foreground">載入中…</p>;
   }
 
@@ -193,7 +188,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                     {label(t.from)} → {label(t.to)}
                   </span>
                   <span className="tabular-nums">
-                    {fmt(t.amount)} {settle.currency}
+                    {fmt(t.amount)} {balance.currency}
                   </span>
                   <Button size="sm" variant="outline" onClick={() => markSettled(t, i)}>
                     <Check />
@@ -208,7 +203,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>支出明細（{expenses.expenses.length}）</CardTitle>
+          <CardTitle>支出明細（{expensesData.expenses.length}）</CardTitle>
           <Button asChild size="sm">
             <Link href={`/mini/groups/${id}/expenses/new`}>
               <Plus />
@@ -217,11 +212,11 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
           </Button>
         </CardHeader>
         <CardContent>
-          {expenses.expenses.length === 0 ? (
+          {expensesData.expenses.length === 0 ? (
             <p className="text-sm text-muted-foreground">尚無支出</p>
           ) : (
             <ul className="space-y-3 text-sm">
-              {expenses.expenses.map((e) => {
+              {expensesData.expenses.map((e) => {
                 const date = new Date(e.spentAt).toISOString().slice(5, 10).replace("-", "/");
                 return (
                   <li key={e.id} className="border-b pb-2 last:border-0 last:pb-0">

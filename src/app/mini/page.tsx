@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { tmaFetch } from "@/lib/tma-fetch";
 
 type MyGroupsResponse = {
   groups: Array<{ id: number; title: string; defaultCurrency: string }>;
@@ -14,39 +14,32 @@ type MyGroupsResponse = {
 
 export default function MiniHome() {
   const router = useRouter();
-  const [state, setState] = useState<
-    | { kind: "loading" }
-    | { kind: "error"; message: string }
-    | { kind: "ready"; data: MyGroupsResponse }
-  >({ kind: "loading" });
+  const { data, error } = useSWR<MyGroupsResponse>("/api/me/groups");
 
   useEffect(() => {
-    tmaFetch<MyGroupsResponse>("/api/me/groups")
-      .then((data) => {
-        if (data.activeGroupId) {
-          router.replace(`/mini/groups/${data.activeGroupId}`);
-          return;
-        }
-        setState({ kind: "ready", data });
-      })
-      .catch((err: Error) => setState({ kind: "error", message: err.message }));
-  }, [router]);
+    if (data?.activeGroupId) {
+      router.replace(`/mini/groups/${data.activeGroupId}`);
+    }
+  }, [data, router]);
 
-  if (state.kind === "loading") {
-    return <p className="text-muted-foreground">載入中…</p>;
-  }
-  if (state.kind === "error") {
+  if (error) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>無法載入</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">{state.message}</CardContent>
+        <CardContent className="text-sm text-muted-foreground">{String(error)}</CardContent>
       </Card>
     );
   }
+  if (!data) {
+    return <p className="text-muted-foreground">載入中…</p>;
+  }
+  if (data.activeGroupId) {
+    return null;
+  }
 
-  const { groups } = state.data;
+  const { groups } = data;
   if (groups.length === 0) {
     return (
       <Card>

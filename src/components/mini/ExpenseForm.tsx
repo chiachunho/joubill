@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
+import { mutate } from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Calendar as CalendarIcon, Check, X } from "lucide-react";
 
@@ -160,8 +161,10 @@ export function ExpenseForm(props: Props) {
       form.setError("root", { message: parsed.error ?? `HTTP ${res.status}` });
       return;
     }
+    mutate(`/api/groups/${groupId}/expenses`);
+    mutate(`/api/groups/${groupId}/balance`);
+    mutate(`/api/groups/${groupId}/stats`);
     router.push(`/mini/groups/${groupId}`);
-    router.refresh();
   }
 
   const [deletePending, setDeletePending] = useState(false);
@@ -189,8 +192,10 @@ export function ExpenseForm(props: Props) {
           WebApp.showAlert("刪除失敗");
           return;
         }
+        mutate(`/api/groups/${groupId}/expenses`);
+        mutate(`/api/groups/${groupId}/balance`);
+        mutate(`/api/groups/${groupId}/stats`);
         router.push(`/mini/groups/${groupId}`);
-        router.refresh();
       },
     );
   }

@@ -1,12 +1,12 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { EChartsOption } from "echarts";
+import useSWR from "swr";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EChart } from "@/components/mini/EChart";
-import { tmaFetch } from "@/lib/tma-fetch";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
 type StatsResponse = {
@@ -53,14 +53,7 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
   const back = useCallback(() => router.push(`/mini/groups/${id}`), [router, id]);
   useTelegramBackButton(back);
 
-  const [stats, setStats] = useState<StatsResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    tmaFetch<StatsResponse>(`/api/groups/${id}/stats`)
-      .then(setStats)
-      .catch((err: Error) => setError(err.message));
-  }, [id]);
+  const { data: stats, error } = useSWR<StatsResponse>(`/api/groups/${id}/stats`);
 
   const monthlyOption = useMemo<EChartsOption | null>(() => {
     if (!stats) return null;
@@ -167,7 +160,7 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
         <CardHeader>
           <CardTitle>無法載入</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">{error}</CardContent>
+        <CardContent className="text-sm text-muted-foreground">{String(error)}</CardContent>
       </Card>
     );
   }
