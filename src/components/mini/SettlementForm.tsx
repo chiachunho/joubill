@@ -31,7 +31,12 @@ import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 import { SUPPORTED_CURRENCIES, settlementFormSchema, type SettlementFormValues } from "@/lib/zod";
 
-type Member = { id: number; firstName: string | null; lastName?: string | null; username: string | null };
+type Member = {
+  id: number;
+  firstName: string | null;
+  lastName?: string | null;
+  username: string | null;
+};
 
 type Initial = {
   id: number;
@@ -141,9 +146,16 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <h1 className="text-xl font-bold">{isEdit ? "編輯還款記錄" : "新增還款記錄"}</h1>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 py-4">
+        {/* Header */}
+        <div>
+          <h1 className="text-lg font-semibold">{isEdit ? "編輯還款記錄" : "新增還款記錄"}</h1>
+          {isEdit && (
+            <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>
+          )}
+        </div>
 
+        {/* From */}
         <FormField
           control={form.control}
           name="fromUserId"
@@ -162,6 +174,7 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
           )}
         />
 
+        {/* To */}
         <FormField
           control={form.control}
           name="toUserId"
@@ -180,6 +193,7 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
           )}
         />
 
+        {/* Amount + currency */}
         <div className="flex gap-2">
           <FormField
             control={form.control}
@@ -188,7 +202,14 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
               <FormItem className="flex-1">
                 <FormLabel>金額</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" min="0.01" inputMode="decimal" {...field} />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    inputMode="decimal"
+                    className="num text-base font-semibold"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -219,6 +240,7 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
           />
         </div>
 
+        {/* Date */}
         <FormField
           control={form.control}
           name="settledDate"
@@ -250,15 +272,28 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
         />
 
         {form.formState.errors.root && (
-          <p className="text-sm text-destructive">{form.formState.errors.root.message}</p>
+          <p className="rounded-xl bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+            {form.formState.errors.root.message}
+          </p>
         )}
 
-        <div className="flex gap-2 pt-2">
-          <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isValid} className="flex-1">
+        {/* Actions */}
+        <div className="flex gap-2 pt-1">
+          <Button
+            type="submit"
+            disabled={form.formState.isSubmitting || !form.formState.isValid}
+            className="flex-1 rounded-xl"
+          >
             {form.formState.isSubmitting ? "儲存中…" : "儲存"}
           </Button>
           {isEdit && (
-            <Button type="button" variant="destructive" disabled={deletePending} onClick={handleDelete}>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deletePending}
+              className="rounded-xl"
+              onClick={handleDelete}
+            >
               {deletePending ? "刪除中…" : "刪除"}
             </Button>
           )}

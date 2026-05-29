@@ -2,12 +2,10 @@
 
 import { startTransition, use, useEffect, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { BarChart3, Check, History, Loader2, Plus } from "lucide-react";
+import { ArrowRight, BarChart3, Check, History, Loader2, Plus } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { labelUser } from "@/lib/label";
 import { tmaFetch } from "@/lib/tma-fetch";
 import { minimizeTransfers } from "@/lib/settlement-core";
@@ -29,7 +27,13 @@ type ExpensesResponse = {
     description: string | null;
     spentAt: string;
     payer: { userId: number; firstName: string; lastName: string | null; username: string | null };
-    splits: Array<{ debtorId: number; firstName: string; lastName: string | null; username: string | null; amount: number }>;
+    splits: Array<{
+      debtorId: number;
+      firstName: string;
+      lastName: string | null;
+      username: string | null;
+      amount: number;
+    }>;
   }>;
 };
 
@@ -61,6 +65,11 @@ function fmt(amount: number) {
   return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function monthLabel(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export default function GroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
@@ -89,8 +98,6 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
   const { data: avatars, error: avatarsError } = useSWR<AvatarsResponse>(`/api/groups/${id}/avatars`);
   if (avatarsError) console.error("[avatars]", avatarsError);
 
-  // Compute transfers client-side from balance data — avoids a third round trip
-  // and eliminates the duplicate computeGroupBalances call the /settle route made.
   const computedTransfers = useMemo<Transfer[]>(() => {
     if (!balance) return [];
     const profileMap = new Map(balance.balances.map((b) => [b.userId, b]));
@@ -101,14 +108,11 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
     }));
   }, [balance]);
 
-  // Settling a row drops it from the list instantly; when SWR revalidates and
-  // balance updates, useOptimistic resets to the freshly computed transfers.
   const [optimisticTransfers, dropOptimisticTransfer] = useOptimistic(
     computedTransfers,
     (state: Transfer[], removedIdx: number) => state.filter((_, i) => i !== removedIdx),
   );
 
-  // Index of the transfer currently being processed (from button click to revalidation complete).
   const [pendingIdx, setPendingIdx] = useState<number | null>(null);
 
   function getPhoto(userId: number): string | null {
@@ -162,157 +166,202 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
   const error = expensesError ?? balanceError;
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>無法載入</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">{String(error)}</CardContent>
-      </Card>
+      <div className="px-4 py-12 text-center">
+        <p className="text-sm text-muted-foreground">無法載入</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{String(error)}</p>
+      </div>
     );
   }
 
   if (!expensesData || !balance) {
-    return <p className="text-muted-foreground">載入中…</p>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="size-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+      </div>
+    );
   }
 
+  // Group expenses by YYYY/MM
+  const expensesByMonth = new Map<string, typeof expensesData.expenses>();
+  for (const e of expensesData.expenses) {
+    const m = monthLabel(e.spentAt);
+    if (!expensesByMonth.has(m)) expensesByMonth.set(m, []);
+    expensesByMonth.get(m)!.push(e);
+  }
+
+  const allSettled = balance.balances.length === 0;
+
   return (
-    <>
-      <div className="flex justify-end gap-1">
-        <Button asChild size="sm" variant="ghost">
-          <Link href={`/mini/groups/${id}/settlements`}>
-            <History />
-            還款記錄
-          </Link>
-        </Button>
-        <Button asChild size="sm" variant="ghost">
-          <Link href={`/mini/groups/${id}/stats`}>
-            <BarChart3 />
-            統計
-          </Link>
-        </Button>
+    <div className="space-y-6 py-4">
+      {/* Top nav */}
+      <div className="flex justify-end gap-1 px-4">
+        <Link
+          href={`/mini/groups/${id}/settlements`}
+          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <History className="size-3.5" />
+          還款記錄
+        </Link>
+        <Link
+          href={`/mini/groups/${id}/stats`}
+          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <BarChart3 className="size-3.5" />
+          統計
+        </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>目前餘額</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {balance.balances.length === 0 ? (
-            <p className="text-sm text-muted-foreground">沒有未結餘額</p>
-          ) : (
-            <ul className="space-y-1 text-sm">
-              {balance.balances.map((b) => (
-                <li key={b.userId} className="flex items-center gap-2 justify-between">
-                  <span className="flex items-center gap-2">
-                    <Avatar src={getPhoto(b.userId)} name={labelUser(b)} userId={b.userId} size="sm" />
-                    <span>{labelUser(b, selfUserId)}</span>
-                  </span>
-                  <span
-                    className={
-                      b.amount > 0 ? "text-emerald-600" : b.amount < 0 ? "text-rose-600" : ""
-                    }
-                  >
-                    {b.amount > 0 ? "+" : ""}
-                    {fmt(b.amount)} {balance.currency}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {/* All-settled banner */}
+      {allSettled && (
+        <div className="mx-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-center">
+          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">所有帳款已結清</p>
+        </div>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>最少還款建議</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {optimisticTransfers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">沒有未結算的金額 🎉</p>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {optimisticTransfers.map((t, i) => (
-                <li key={i} className="flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 flex-1">
-                    <Avatar src={getPhoto(t.fromUserId)} name={labelUser(t.from)} userId={t.fromUserId} size="sm" />
+      {/* Balances */}
+      {!allSettled && (
+        <section className="px-4">
+          <p className="sect mb-2.5">Balance · {balance.currency}</p>
+          <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
+            {balance.balances.map((b) => (
+              <div key={b.userId} className="flex items-center gap-3 px-4 py-3">
+                <Avatar src={getPhoto(b.userId)} name={labelUser(b)} userId={b.userId} size="sm" />
+                <span className="flex-1 text-sm">{labelUser(b, selfUserId)}</span>
+                <span
+                  className={`num text-sm font-semibold ${
+                    b.amount > 0
+                      ? "text-emerald-500"
+                      : b.amount < 0
+                        ? "text-rose-500"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {b.amount > 0 ? "+" : ""}
+                  {fmt(b.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Suggested transfers */}
+      {optimisticTransfers.length > 0 && (
+        <section className="px-4">
+          <p className="sect mb-2.5">To Settle</p>
+          <div className="space-y-2">
+            {optimisticTransfers.map((t, i) => (
+              <div key={i} className="rounded-2xl bg-secondary/50 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Avatar
+                    src={getPhoto(t.fromUserId)}
+                    name={labelUser(t.from)}
+                    userId={t.fromUserId}
+                    size="sm"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
                     {labelUser(t.from, selfUserId)}
-                    <span className="text-muted-foreground">→</span>
-                    <Avatar src={getPhoto(t.toUserId)} name={labelUser(t.to)} userId={t.toUserId} size="sm" />
+                  </span>
+                  <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                  <span className="min-w-0 flex-1 truncate text-right text-sm font-medium">
                     {labelUser(t.to, selfUserId)}
                   </span>
-                  <span className="tabular-nums">
-                    {fmt(t.amount)} {balance.currency}
-                  </span>
-                  <Button
+                  <Avatar
+                    src={getPhoto(t.toUserId)}
+                    name={labelUser(t.to)}
+                    userId={t.toUserId}
                     size="sm"
-                    variant="outline"
+                  />
+                </div>
+                <div className="mt-2.5 flex items-center justify-between">
+                  <p className="num text-base font-semibold">
+                    {fmt(t.amount)}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">{balance.currency}</span>
+                  </p>
+                  <button
                     disabled={pendingIdx === i}
                     onClick={() => markSettled(t, i)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
                   >
                     {pendingIdx === i ? (
-                      <Loader2 className="animate-spin" />
+                      <Loader2 className="size-3 animate-spin" />
                     ) : (
-                      <Check />
+                      <Check className="size-3" />
                     )}
                     {pendingIdx === i ? "處理中" : "已轉"}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>支出明細（{expensesData.expenses.length}）</CardTitle>
-          <Button asChild size="sm">
-            <Link href={`/mini/groups/${id}/expenses/new`}>
-              <Plus />
-              新增
-            </Link>
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {expensesData.expenses.length === 0 ? (
-            <p className="text-sm text-muted-foreground">尚無支出</p>
-          ) : (
-            <ul className="space-y-3 text-sm">
-              {expensesData.expenses.map((e) => {
-                const date = new Date(e.spentAt).toISOString().slice(5, 10).replace("-", "/");
-                return (
-                  <li key={e.id} className="border-b pb-2 last:border-0 last:pb-0">
-                    <Link
-                      href={`/mini/groups/${id}/expenses/${e.id}/edit`}
-                      className="block hover:bg-accent/40 -mx-2 px-2 py-1 rounded"
-                    >
-                      <div className="flex justify-between font-medium">
-                        <span className="flex items-center gap-1.5">
-                          <Avatar src={getPhoto(e.payer.userId)} name={labelUser(e.payer)} userId={e.payer.userId} size="sm" />
-                          {labelUser(e.payer, selfUserId)} 付 {fmt(e.amount)} {e.currency}
-                        </span>
-                        <span className="text-muted-foreground">{date}</span>
-                      </div>
-                      {e.description && (
-                        <div className="text-muted-foreground">{e.description}</div>
-                      )}
-                      <div className="text-xs text-muted-foreground">
-                        分給：
-                        {e.splits.map((s, i) => (
-                          <span key={i}>
-                            {i > 0 ? "、" : ""}
-                            {labelUser({ ...s, userId: s.debtorId }, selfUserId)} {fmt(s.amount)}
-                          </span>
-                        ))}
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-    </>
+      {/* Expenses */}
+      <section className="px-4">
+        <div className="mb-2.5 flex items-center justify-between">
+          <p className="sect">Expenses ({expensesData.expenses.length})</p>
+          <Link
+            href={`/mini/groups/${id}/expenses/new`}
+            className="inline-flex items-center gap-1 rounded-xl bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <Plus className="size-3" />
+            新增
+          </Link>
+        </div>
+
+        {expensesData.expenses.length === 0 ? (
+          <div className="rounded-2xl bg-secondary/50 px-4 py-8 text-center">
+            <p className="text-sm text-muted-foreground">尚無支出記錄</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {Array.from(expensesByMonth.entries()).map(([month, exps]) => (
+              <div key={month}>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">{month}</p>
+                <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
+                  {exps.map((e) => {
+                    const day = new Date(e.spentAt).toISOString().slice(8, 10);
+                    return (
+                      <Link
+                        key={e.id}
+                        href={`/mini/groups/${id}/expenses/${e.id}/edit`}
+                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+                      >
+                        <Avatar
+                          src={getPhoto(e.payer.userId)}
+                          name={labelUser(e.payer)}
+                          userId={e.payer.userId}
+                          size="sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          {e.description ? (
+                            <>
+                              <p className="truncate text-sm font-medium">{e.description}</p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {labelUser(e.payer, selfUserId)} 付
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-sm font-medium">{labelUser(e.payer, selfUserId)} 付</p>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="num text-sm font-semibold">
+                            {fmt(e.amount)}{" "}
+                            <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">{day} 日</p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }

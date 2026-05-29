@@ -17,7 +17,7 @@ export default function MiniLayout({ children }: { children: React.ReactNode }) 
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       <TelegramApp>
         <SWRProvider>
-          <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-4 px-4 py-6">
+          <main className="mx-auto min-h-screen max-w-xl pb-10">
             {children}
           </main>
         </SWRProvider>

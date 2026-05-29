@@ -3,12 +3,10 @@
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { labelUser } from "@/lib/label";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
@@ -37,6 +35,11 @@ function fmt(amount: number) {
   return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function monthLabel(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export default function SettlementsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -63,71 +66,96 @@ export default function SettlementsPage({ params }: { params: Promise<{ id: stri
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>無法載入</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">{String(error)}</CardContent>
-      </Card>
+      <div className="px-4 py-12 text-center">
+        <p className="text-sm text-muted-foreground">無法載入</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{String(error)}</p>
+      </div>
     );
   }
-  if (!data) return <p className="text-muted-foreground">載入中…</p>;
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="size-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+      </div>
+    );
+  }
+
+  // Group by month
+  const byMonth = new Map<string, typeof data.settlements>();
+  for (const s of data.settlements) {
+    const m = monthLabel(s.settledAt);
+    if (!byMonth.has(m)) byMonth.set(m, []);
+    byMonth.get(m)!.push(s);
+  }
 
   return (
-    <>
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">還款記錄</h1>
-        <Button asChild size="sm">
-          <Link href={`/mini/groups/${id}/settlements/new`}>
-            <Plus />
-            新增
-          </Link>
-        </Button>
+    <div className="space-y-6 py-4">
+      <div className="flex items-center justify-between px-4">
+        <h1 className="text-lg font-semibold">還款記錄</h1>
+        <Link
+          href={`/mini/groups/${id}/settlements/new`}
+          className="inline-flex items-center gap-1 rounded-xl bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          <Plus className="size-3" />
+          新增
+        </Link>
       </div>
 
-      <Card>
-        <CardContent className="pt-4">
-          {data.settlements.length === 0 ? (
-            <p className="text-sm text-muted-foreground">尚無還款記錄</p>
-          ) : (
-            <ul className="divide-y text-sm">
-              {data.settlements.map((s) => {
-                const date = new Date(s.settledAt).toISOString().slice(5, 10).replace("-", "/");
-                return (
-                  <li key={s.id}>
+      {data.settlements.length === 0 ? (
+        <div className="mx-4 rounded-2xl bg-secondary/50 px-4 py-8 text-center">
+          <p className="text-sm text-muted-foreground">尚無還款記錄</p>
+        </div>
+      ) : (
+        <div className="space-y-4 px-4">
+          {Array.from(byMonth.entries()).map(([month, settlements]) => (
+            <div key={month}>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">{month}</p>
+              <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
+                {settlements.map((s) => {
+                  const day = new Date(s.settledAt).toISOString().slice(8, 10);
+                  return (
                     <Link
+                      key={s.id}
                       href={`/mini/groups/${id}/settlements/${s.id}`}
-                      className="flex items-center gap-2 py-2 first:pt-0 last:pb-0 hover:bg-accent/40 -mx-2 px-2 rounded"
+                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
                     >
-                      <span className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
                         <Avatar
                           src={getPhoto(s.from.userId)}
                           name={labelUser(s.from)}
                           userId={s.from.userId}
                           size="sm"
                         />
-                        <span className="truncate">{labelUser(s.from, selfUserId)}</span>
-                        <span className="text-muted-foreground shrink-0">→</span>
+                        <span className="max-w-[72px] truncate text-sm">
+                          {labelUser(s.from, selfUserId)}
+                        </span>
+                        <ArrowRight className="size-3 shrink-0 text-muted-foreground/50" />
                         <Avatar
                           src={getPhoto(s.to.userId)}
                           name={labelUser(s.to)}
                           userId={s.to.userId}
                           size="sm"
                         />
-                        <span className="truncate">{labelUser(s.to, selfUserId)}</span>
-                      </span>
-                      <span className="tabular-nums shrink-0">
-                        {fmt(s.amount)} {s.currency}
-                      </span>
-                      <span className="text-muted-foreground shrink-0 text-xs">{date}</span>
+                        <span className="max-w-[72px] truncate text-sm">
+                          {labelUser(s.to, selfUserId)}
+                        </span>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="num text-sm font-semibold">
+                          {fmt(s.amount)}{" "}
+                          <span className="text-xs font-normal text-muted-foreground">{s.currency}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">{day} 日</p>
+                      </div>
                     </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-    </>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

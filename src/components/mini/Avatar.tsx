@@ -26,14 +26,18 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
     .toUpperCase();
   const color = COLORS[userId % COLORS.length];
   const sizeClass =
-    size === "sm" ? "size-6 text-[10px]" : size === "lg" ? "size-10 text-sm" : "size-8 text-xs";
+    size === "sm"
+      ? "size-7 text-[10px]"
+      : size === "lg"
+        ? "size-12 text-sm"
+        : "size-9 text-xs";
 
   if (src) {
     return (
       <img
         src={src}
         alt={name}
-        className={`${sizeClass} rounded-full object-cover shrink-0`}
+        className={`${sizeClass} rounded-full object-cover shrink-0 ring-1 ring-black/10 dark:ring-white/10`}
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = "none";
         }}
@@ -42,7 +46,7 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
   }
   return (
     <span
-      className={`${sizeClass} ${color} inline-flex items-center justify-center rounded-full font-medium text-white shrink-0`}
+      className={`${sizeClass} ${color} inline-flex items-center justify-center rounded-full font-semibold text-white shrink-0`}
     >
       {initials || "?"}
     </span>

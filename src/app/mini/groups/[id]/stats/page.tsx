@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import type { EChartsOption } from "echarts";
 import useSWR from "swr";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EChart } from "@/components/mini/EChart";
 import { labelUser } from "@/lib/label";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
@@ -13,25 +12,22 @@ import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 type StatsResponse = {
   currency: string;
   monthly: Array<{ month: string; total: number }>;
-  byPayer: Array<{ userId: number; firstName: string; lastName: string | null; username: string | null; total: number }>;
+  byPayer: Array<{
+    userId: number;
+    firstName: string;
+    lastName: string | null;
+    username: string | null;
+    total: number;
+  }>;
 };
 
 function fmt(amount: number) {
   return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// ECharts writes font-family="sans-serif" on its text nodes by default, which
-// the Telegram desktop webview can't resolve to a CJK-capable face. Force a
-// stack that has CJK fallback across macOS / Windows / Linux.
 const FONT_FAMILY =
   'system-ui, -apple-system, "Segoe UI", "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
 
-/**
- * Read an HSL-component CSS var like "0 0% 100%" and resolve it to a concrete
- * "rgb(r, g, b)" string. ECharts' colour maths (the auto-lighten it does on
- * hover) can't parse the space-separated hsl() syntax our CSS vars use and
- * would render a transparent bar; rgb sidesteps that entirely.
- */
 function cssVar(name: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -103,7 +99,6 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
     const fg = cssVar("--foreground", "#111");
     const border = cssVar("--border", "#e5e5e5");
     const bg = cssVar("--popover", "#fff");
-    // Echarts category axis renders bottom-to-top, so reverse to keep top spender on top visually.
     const reversed = [...stats.byPayer].reverse();
     return {
       textStyle: { fontFamily: FONT_FAMILY },
@@ -153,52 +148,64 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>無法載入</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">{String(error)}</CardContent>
-      </Card>
+      <div className="px-4 py-12 text-center">
+        <p className="text-sm text-muted-foreground">無法載入</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{String(error)}</p>
+      </div>
     );
   }
-  if (!stats) return <p className="text-muted-foreground">載入中…</p>;
+
+  if (!stats) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="size-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+      </div>
+    );
+  }
+
+  const grandTotal = stats.byPayer.reduce((s, p) => s + p.total, 0);
 
   return (
-    <>
-      <h1 className="text-xl font-bold">統計（{stats.currency}）</h1>
+    <div className="space-y-6 py-4">
+      <div className="px-4">
+        <h1 className="text-lg font-semibold">統計</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{stats.currency}</p>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>近 6 個月支出</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* Monthly spend */}
+      <section className="px-4">
+        <p className="sect mb-2.5">近 6 個月支出</p>
+        <div className="overflow-hidden rounded-2xl bg-secondary/50 px-4 py-4">
           {stats.monthly.every((m) => m.total === 0) ? (
-            <p className="text-sm text-muted-foreground">這段期間沒有支出</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">這段期間沒有支出</p>
           ) : (
             monthlyOption && <EChart option={monthlyOption} height={220} />
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>誰花得最多</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* By payer */}
+      <section className="px-4">
+        <p className="sect mb-2.5">誰花得最多</p>
+        <div className="overflow-hidden rounded-2xl bg-secondary/50 px-4 py-4">
           {stats.byPayer.length === 0 ? (
-            <p className="text-sm text-muted-foreground">尚無支出</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">尚無支出</p>
           ) : (
             <>
-              <p className="mb-2 text-xs text-muted-foreground">
-                合計：{fmt(stats.byPayer.reduce((s, p) => s + p.total, 0))} {stats.currency}
+              <p className="mb-3 text-xs text-muted-foreground">
+                合計{" "}
+                <span className="num font-semibold text-foreground">
+                  {fmt(grandTotal)}
+                </span>{" "}
+                {stats.currency}
               </p>
               {payerOption && (
                 <EChart option={payerOption} height={Math.max(40 * stats.byPayer.length, 80)} />
               )}
             </>
           )}
-        </CardContent>
-      </Card>
-    </>
+        </div>
+      </section>
+    </div>
   );
 }

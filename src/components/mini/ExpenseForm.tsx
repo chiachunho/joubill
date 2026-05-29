@@ -57,16 +57,13 @@ type Props = {
   currentUserId: number;
   members: Member[];
   photos?: Record<number, string | null>;
-  /** If present, the form is in edit mode. Absent => create mode. */
   initial?: Initial;
 };
 
-/** Local Y-M-D label for the date trigger (avoids UTC off-by-one). */
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Serialise a picked calendar day as noon UTC so the day never shifts across timezones. */
 function dayToNoonUtcIso(d: Date): string {
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)).toISOString();
 }
@@ -113,7 +110,6 @@ export function ExpenseForm(props: Props) {
   });
   const { fields } = useFieldArray({ control: form.control, name: "participants" });
 
-  // Live values for the computed split preview + balance indicator.
   const amount = form.watch("amount");
   const currency = form.watch("currency");
   const shareType = form.watch("shareType");
@@ -202,9 +198,16 @@ export function ExpenseForm(props: Props) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <h1 className="text-xl font-bold">{isEdit ? `編輯支出 #${initial!.id}` : "新增支出"}</h1>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 py-4">
+        {/* Header */}
+        <div>
+          <h1 className="text-lg font-semibold">{isEdit ? "編輯支出" : "新增支出"}</h1>
+          {isEdit && (
+            <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>
+          )}
+        </div>
 
+        {/* Amount + currency row */}
         <div className="flex gap-2">
           <FormField
             control={form.control}
@@ -213,7 +216,14 @@ export function ExpenseForm(props: Props) {
               <FormItem className="flex-1">
                 <FormLabel>金額</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" min="0.01" inputMode="decimal" {...field} />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    inputMode="decimal"
+                    className="num text-base font-semibold"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -244,6 +254,7 @@ export function ExpenseForm(props: Props) {
           />
         </div>
 
+        {/* Date */}
         <FormField
           control={form.control}
           name="spentDate"
@@ -274,6 +285,7 @@ export function ExpenseForm(props: Props) {
           )}
         />
 
+        {/* Description */}
         <FormField
           control={form.control}
           name="description"
@@ -288,6 +300,7 @@ export function ExpenseForm(props: Props) {
           )}
         />
 
+        {/* Payer */}
         <FormField
           control={form.control}
           name="payerId"
@@ -305,13 +318,14 @@ export function ExpenseForm(props: Props) {
           )}
         />
 
+        {/* Split type */}
         <FormField
           control={form.control}
           name="shareType"
           render={({ field }) => (
             <FormItem>
               <FormLabel>分帳方式</FormLabel>
-              <div className="inline-flex w-full rounded-md border border-input p-0.5">
+              <div className="inline-flex w-full rounded-xl border border-input bg-secondary/40 p-0.5">
                 {(["equal", "exact", "percent"] as const).map((m) => (
                   <button
                     key={m}
@@ -319,13 +333,13 @@ export function ExpenseForm(props: Props) {
                     onClick={() => field.onChange(m)}
                     aria-pressed={field.value === m}
                     className={cn(
-                      "flex-1 rounded-[5px] px-3 py-1 text-sm transition-colors",
+                      "flex-1 rounded-[9px] px-3 py-1.5 text-sm font-medium transition-all",
                       field.value === m
-                        ? "bg-primary text-primary-foreground shadow-sm"
+                        ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {m === "equal" ? "均分" : m === "exact" ? "指定金額" : "比例"}
+                    {m === "equal" ? "均分" : m === "exact" ? "指定" : "比例"}
                   </button>
                 ))}
               </div>
@@ -333,19 +347,20 @@ export function ExpenseForm(props: Props) {
           )}
         />
 
+        {/* Participants */}
         <FormField
           control={form.control}
           name="participants"
           render={() => (
             <FormItem>
               <FormLabel>參與者</FormLabel>
-              <ul className="flex flex-col gap-2">
+              <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
                 {fields.map((f, i) => {
                   const m = members.find((x) => x.id === f.userId);
                   const isIncluded = participants[i]?.included ?? false;
                   const computed = computedSplits.find((x) => x.debtorId === f.userId);
                   return (
-                    <li key={f.id} className="flex items-center gap-2">
+                    <div key={f.id} className="flex items-center gap-3 px-4 py-3">
                       <FormField
                         control={form.control}
                         name={`participants.${i}.included`}
@@ -366,7 +381,7 @@ export function ExpenseForm(props: Props) {
                       {shareType === "equal" ? (
                         <Input
                           disabled
-                          className="w-24 text-right tabular-nums"
+                          className="num w-24 text-right"
                           value={isIncluded && computed ? computed.amount.toFixed(2) : ""}
                         />
                       ) : (
@@ -379,7 +394,7 @@ export function ExpenseForm(props: Props) {
                               step="0.01"
                               min="0"
                               inputMode="decimal"
-                              className="w-24 text-right tabular-nums"
+                              className="num w-24 text-right"
                               placeholder={shareType === "percent" ? "%" : ""}
                               disabled={!isIncluded}
                               {...field}
@@ -387,15 +402,15 @@ export function ExpenseForm(props: Props) {
                           )}
                         />
                       )}
-                    </li>
+                    </div>
                   );
                 })}
-              </ul>
+              </div>
               {shareType !== "equal" && (
                 <p
                   className={cn(
-                    "flex items-center gap-1 text-sm tabular-nums",
-                    splitsBalanced ? "text-muted-foreground" : "text-rose-600",
+                    "flex items-center gap-1 text-sm num",
+                    splitsBalanced ? "text-muted-foreground" : "text-rose-500",
                   )}
                 >
                   {shareType === "percent"
@@ -410,11 +425,18 @@ export function ExpenseForm(props: Props) {
         />
 
         {form.formState.errors.root && (
-          <p className="text-sm text-destructive">{form.formState.errors.root.message}</p>
+          <p className="rounded-xl bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+            {form.formState.errors.root.message}
+          </p>
         )}
 
-        <div className="flex gap-2 pt-2">
-          <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isValid} className="flex-1">
+        {/* Actions */}
+        <div className="flex gap-2 pt-1">
+          <Button
+            type="submit"
+            disabled={form.formState.isSubmitting || !form.formState.isValid}
+            className="flex-1 rounded-xl"
+          >
             {form.formState.isSubmitting ? "儲存中…" : "儲存"}
           </Button>
           {isEdit && (
@@ -422,6 +444,7 @@ export function ExpenseForm(props: Props) {
               type="button"
               variant="destructive"
               disabled={deletePending}
+              className="rounded-xl"
               onClick={handleDelete}
             >
               {deletePending ? "刪除中…" : "刪除"}
