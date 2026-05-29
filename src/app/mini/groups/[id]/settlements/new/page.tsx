@@ -5,6 +5,7 @@ import useSWR from "swr";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettlementForm } from "@/components/mini/SettlementForm";
+import { FormSkeleton } from "@/components/mini/skeletons";
 
 type Member = { id: number; firstName: string; lastName: string | null; username: string | null };
 type MeResponse = { userId: number; groups: Array<{ id: number; defaultCurrency: string }> };
@@ -44,7 +45,7 @@ export default function NewSettlementPage({ params }: { params: Promise<{ id: st
       </Card>
     );
   }
-  if (!me || !ms) return <p className="text-muted-foreground">載入中…</p>;
+  if (!me || !ms) return <FormSkeleton variant="settlement" />;
 
   const group = me.groups.find((g) => g.id === groupId);
   if (!group) {

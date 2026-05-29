@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, Users } from "lucide-react";
 import useSWR from "swr";
 
+import { GroupsListSkeleton } from "@/components/mini/skeletons";
+
 type MyGroupsResponse = {
   groups: Array<{ id: number; title: string; defaultCurrency: string }>;
   activeGroupId: number | null;
@@ -30,13 +32,7 @@ export default function MiniHome() {
     );
   }
 
-  if (!data) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="size-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-      </div>
-    );
-  }
+  if (!data) return <GroupsListSkeleton />;
 
   if (data.activeGroupId) return null;
 

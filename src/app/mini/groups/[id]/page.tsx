@@ -6,6 +6,7 @@ import { ArrowRight, BarChart3, Check, History, Loader2, Plus } from "lucide-rea
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { GroupPageSkeleton } from "@/components/mini/skeletons";
 import { labelUser } from "@/lib/label";
 import { tmaFetch } from "@/lib/tma-fetch";
 import { minimizeTransfers } from "@/lib/settlement-core";
@@ -174,11 +175,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
   }
 
   if (!expensesData || !balance) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="size-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-      </div>
-    );
+    return <GroupPageSkeleton />;
   }
 
   // Group expenses by YYYY/MM

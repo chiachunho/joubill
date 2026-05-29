@@ -6,6 +6,7 @@ import type { EChartsOption } from "echarts";
 import useSWR from "swr";
 
 import { EChart } from "@/components/mini/EChart";
+import { StatsSkeleton } from "@/components/mini/skeletons";
 import { labelUser } from "@/lib/label";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
@@ -155,13 +156,7 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
     );
   }
 
-  if (!stats) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="size-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-      </div>
-    );
-  }
+  if (!stats) return <StatsSkeleton />;
 
   const grandTotal = stats.byPayer.reduce((s, p) => s + p.total, 0);
 

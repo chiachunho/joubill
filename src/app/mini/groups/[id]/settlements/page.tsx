@@ -7,6 +7,7 @@ import { ArrowRight, Plus } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { SettlementsSkeleton } from "@/components/mini/skeletons";
 import { labelUser } from "@/lib/label";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
@@ -73,13 +74,7 @@ export default function SettlementsPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  if (!data) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="size-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-      </div>
-    );
-  }
+  if (!data) return <SettlementsSkeleton />;
 
   // Group by month
   const byMonth = new Map<string, typeof data.settlements>();

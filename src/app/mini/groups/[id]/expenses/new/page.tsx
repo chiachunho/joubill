@@ -5,6 +5,7 @@ import useSWR from "swr";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExpenseForm } from "@/components/mini/ExpenseForm";
+import { FormSkeleton } from "@/components/mini/skeletons";
 
 type Member = { id: number; firstName: string; lastName: string | null; username: string | null };
 
@@ -50,7 +51,7 @@ export default function NewExpensePage({ params }: { params: Promise<{ id: strin
       </Card>
     );
   }
-  if (!me || !ms) return <p className="text-muted-foreground">載入中…</p>;
+  if (!me || !ms) return <FormSkeleton variant="expense" />;
 
   const group = me.groups.find((g) => g.id === groupId);
   if (!group) {
