@@ -149,6 +149,13 @@ export const authIdentities = pgTable(
     provider: text("provider").notNull(),
     providerUid: text("provider_uid").notNull(),
     email: text("email"),
+    // OAuth token fields — null for Telegram identities, populated by Auth.js for GitHub/Google
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    expiresAt: integer("expires_at"), // Unix timestamp (seconds), per OAuth convention
+    tokenType: text("token_type"),
+    scope: text("scope"),
+    idToken: text("id_token"),
   },
   (t) => [unique("auth_identities_provider_uid").on(t.provider, t.providerUid)],
 );
