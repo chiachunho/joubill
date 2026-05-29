@@ -361,10 +361,9 @@ export function ExpenseForm(props: Props) {
                       <span className="flex-1 text-sm">{m ? label(m) : `#${f.userId}`}</span>
                       {shareType === "equal" ? (
                         <Input
-                          readOnly
+                          disabled
                           className="w-24 text-right tabular-nums"
                           value={isIncluded && computed ? computed.amount.toFixed(2) : ""}
-                          disabled={!isIncluded}
                         />
                       ) : (
                         <FormField
