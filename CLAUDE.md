@@ -83,6 +83,17 @@ Validated at runtime (not build time) via `serverEnv()` in `src/lib/env.ts`:
 
 All route handlers must set `export const runtime = "nodejs"` and `export const dynamic = "force-dynamic"` because they use the Neon serverless driver.
 
+### Deployment
+
+Production runs on **Vercel** (frontend + bot webhook + API in one deploy), backed by **Neon Postgres**, with the Mini App registered in **BotFather**. The repo is `chiachunho/splitbill-telegram-bot` (private); `origin` is HTTPS. Pushing to the default branch triggers Vercel auto-deploy. Full step-by-step in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+Things that bite, in priority order:
+- `TELEGRAM_WEBHOOK_SECRET` must be **identical** in Vercel and in local `.env.local` — `/api/telegram` rejects mismatched `X-Telegram-Bot-Api-Secret-Token` headers.
+- `NEXT_PUBLIC_MINI_APP_URL` is baked at **build time**; changing it requires a redeploy.
+- The Telegram webhook only needs re-setting (`pnpm bot:set-webhook https://<domain>`) when the **domain changes** — not on every deploy.
+- Both `NEXT_PUBLIC_MINI_APP_URL` (private-chat button) and the BotFather-registered Web App URL (group direct-link) must point at the production `/mini`.
+- Schema reaches Neon via `pnpm db:push` (run from a machine whose `DATABASE_URL` points at the prod DB); there is no migration step in CI.
+
 ### Testing
 
 Vitest with `vite-tsconfig-paths`. Tests live in `src/lib/__tests__/` and `src/lib/auth/__tests__/`. Only pure lib functions are unit-tested; API routes and bot commands are not. The vitest config injects dummy env vars so modules that import `@/db` don't throw during test collection.
