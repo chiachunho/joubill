@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hexToHslComponents } from "./use-tg-theme";
+import { hexToHslComponents } from "../use-tg-theme";
 
 describe("hexToHslComponents", () => {
   it("converts white", () => {

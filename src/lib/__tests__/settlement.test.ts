@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { minimizeTransfers, type NetBalance } from "./settlement";
+import { minimizeTransfers, type NetBalance } from "../settlement";
 
 function sumByUser(transfers: ReturnType<typeof minimizeTransfers>) {
   const net = new Map<number, number>();

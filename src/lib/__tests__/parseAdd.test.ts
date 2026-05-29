@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MessageEntity } from "grammy/types";
 
-import { parseAddMessage } from "./parseAdd";
+import { parseAddMessage } from "../parseAdd";
 
 /** Build a `mention` entity covering the @handle at `offset`. */
 function mention(text: string, handle: string): MessageEntity {

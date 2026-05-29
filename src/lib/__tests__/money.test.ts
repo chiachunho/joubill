@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMoney, n, splitEqual } from "./money";
+import { formatMoney, n, splitEqual } from "../money";
 
 describe("splitEqual", () => {
   it("divides evenly when it can", () => {

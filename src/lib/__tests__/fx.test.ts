@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getRate, parseFxResponse } from "./fx";
+import { getRate, parseFxResponse } from "../fx";
 
 describe("parseFxResponse", () => {
   const payload = {

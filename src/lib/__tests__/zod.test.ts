@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { expenseInputSchema, settlementInputSchema } from "./zod";
+import { expenseInputSchema, settlementInputSchema } from "../zod";
 
 const validExpense = {
   amount: 300,

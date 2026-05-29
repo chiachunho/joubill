@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 
-import { verifyInitData } from "./initData";
+import { verifyInitData } from "../initData";
 
 const BOT_TOKEN = "123456:test-bot-token";
 

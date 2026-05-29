@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeSplits } from "./splits";
+import { computeSplits } from "../splits";
 
 describe("computeSplits", () => {
   it("returns nothing with no participants", () => {
