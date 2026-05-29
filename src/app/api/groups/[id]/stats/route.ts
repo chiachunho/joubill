@@ -33,6 +33,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       spentAt: expenses.spentAt,
       payerId: expenses.payerId,
       payerFirstName: users.firstName,
+      payerLastName: users.lastName,
       payerUsername: users.username,
     })
     .from(expenses)
@@ -45,6 +46,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     spentAt: Date;
     payerId: number;
     payerFirstName: string;
+    payerLastName: string | null;
     payerUsername: string | null;
   }> = [];
   for (const r of rows) {
@@ -54,6 +56,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       spentAt: r.spentAt,
       payerId: r.payerId,
       payerFirstName: r.payerFirstName,
+      payerLastName: r.payerLastName,
       payerUsername: r.payerUsername,
     });
   }
@@ -76,12 +79,13 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   // Per-payer totals across the entire group history.
   const byPayerMap = new Map<
     number,
-    { userId: number; firstName: string; username: string | null; total: number }
+    { userId: number; firstName: string; lastName: string | null; username: string | null; total: number }
   >();
   for (const r of normalized) {
     const cur = byPayerMap.get(r.payerId) ?? {
       userId: r.payerId,
       firstName: r.payerFirstName,
+      lastName: r.payerLastName,
       username: r.payerUsername,
       total: 0,
     };

@@ -7,20 +7,17 @@ import useSWR from "swr";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EChart } from "@/components/mini/EChart";
+import { labelUser } from "@/lib/label";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
 type StatsResponse = {
   currency: string;
   monthly: Array<{ month: string; total: number }>;
-  byPayer: Array<{ userId: number; firstName: string; username: string | null; total: number }>;
+  byPayer: Array<{ userId: number; firstName: string; lastName: string | null; username: string | null; total: number }>;
 };
 
 function fmt(amount: number) {
   return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function label(p: { firstName: string; username: string | null }) {
-  return p.username ? "@" + p.username : p.firstName;
 }
 
 // ECharts writes font-family="sans-serif" on its text nodes by default, which
@@ -120,7 +117,7 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
       },
       yAxis: {
         type: "category",
-        data: reversed.map((p) => label(p)),
+        data: reversed.map((p) => labelUser(p)),
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: { color: fg, fontSize: 12 },

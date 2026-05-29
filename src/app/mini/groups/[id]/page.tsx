@@ -1,16 +1,25 @@
 "use client";
 
-import { startTransition, use, useMemo, useOptimistic } from "react";
+import { startTransition, use, useEffect, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { BarChart3, Check, Plus } from "lucide-react";
+import { BarChart3, Check, History, Loader2, Plus } from "lucide-react";
 import useSWR from "swr";
 
+import { Avatar } from "@/components/mini/Avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { labelUser } from "@/lib/label";
 import { tmaFetch } from "@/lib/tma-fetch";
 import { minimizeTransfers } from "@/lib/settlement-core";
 
-type Profile = { firstName: string | null; username: string | null };
+type MeResponse = { userId: number };
+
+type Profile = {
+  userId: number;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+};
 
 type ExpensesResponse = {
   expenses: Array<{
@@ -19,8 +28,8 @@ type ExpensesResponse = {
     currency: string;
     description: string | null;
     spentAt: string;
-    payer: { id: number; firstName: string; username: string | null };
-    splits: Array<{ debtorId: number; firstName: string; username: string | null; amount: number }>;
+    payer: { userId: number; firstName: string; lastName: string | null; username: string | null };
+    splits: Array<{ debtorId: number; firstName: string; lastName: string | null; username: string | null; amount: number }>;
   }>;
 };
 
@@ -30,8 +39,14 @@ type BalanceResponse = {
     userId: number;
     amount: number;
     firstName: string | null;
+    lastName: string | null;
     username: string | null;
   }>;
+};
+
+type AvatarsResponse = {
+  groupPhoto: string | null;
+  userPhotos: Record<number, string | null>;
 };
 
 type Transfer = {
@@ -42,17 +57,22 @@ type Transfer = {
   to: Profile | null;
 };
 
-function label(p: { username: string | null; firstName: string | null } | null) {
-  if (!p) return "?";
-  return p.username ? "@" + p.username : (p.firstName ?? "?");
-}
-
 function fmt(amount: number) {
   return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function GroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+
+  const { data: me } = useSWR<MeResponse>("/api/me/groups");
+  const selfUserId = me?.userId;
+
+  const [selfPhotoUrl, setSelfPhotoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    import("@twa-dev/sdk").then(({ default: WebApp }) => {
+      setSelfPhotoUrl(WebApp.initDataUnsafe.user?.photo_url ?? null);
+    });
+  }, []);
 
   const {
     data: expensesData,
@@ -65,6 +85,9 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
     error: balanceError,
     mutate: mutateBalance,
   } = useSWR<BalanceResponse>(`/api/groups/${id}/balance`);
+
+  const { data: avatars, error: avatarsError } = useSWR<AvatarsResponse>(`/api/groups/${id}/avatars`);
+  if (avatarsError) console.error("[avatars]", avatarsError);
 
   // Compute transfers client-side from balance data — avoids a third round trip
   // and eliminates the duplicate computeGroupBalances call the /settle route made.
@@ -85,38 +108,55 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
     (state: Transfer[], removedIdx: number) => state.filter((_, i) => i !== removedIdx),
   );
 
+  // Index of the transfer currently being processed (from button click to revalidation complete).
+  const [pendingIdx, setPendingIdx] = useState<number | null>(null);
+
+  function getPhoto(userId: number): string | null {
+    if (selfUserId !== undefined && userId === selfUserId && selfPhotoUrl) return selfPhotoUrl;
+    return avatars?.userPhotos[userId] ?? null;
+  }
+
   async function markSettled(transfer: Transfer, idx: number) {
-    if (!balance) return;
-    const { default: WebApp } = await import("@twa-dev/sdk");
-    WebApp.showPopup(
-      {
-        title: "確認已轉帳",
-        message: `${label(transfer.from)} → ${label(transfer.to)}: ${fmt(transfer.amount)} ${balance.currency}`,
-        buttons: [
-          { id: "cancel", type: "cancel" },
-          { id: "ok", type: "default", text: "已完成" },
-        ],
-      },
-      async (buttonId?: string) => {
-        if (buttonId !== "ok") return;
-        startTransition(() => dropOptimisticTransfer(idx));
-        try {
-          await tmaFetch(`/api/groups/${id}/settlements`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              fromUserId: transfer.fromUserId,
-              toUserId: transfer.toUserId,
-              amount: transfer.amount,
-              currency: balance.currency,
-            }),
-          });
-        } catch {
-          WebApp.showAlert("標記失敗，已回復");
-        }
-        await Promise.all([mutateBalance(), mutateExpenses()]);
-      },
-    );
+    if (!balance || pendingIdx !== null) return;
+    setPendingIdx(idx);
+    try {
+      const { default: WebApp } = await import("@twa-dev/sdk");
+      WebApp.showPopup(
+        {
+          title: "確認已轉帳",
+          message: `${labelUser(transfer.from, selfUserId)} → ${labelUser(transfer.to, selfUserId)}: ${fmt(transfer.amount)} ${balance.currency}`,
+          buttons: [
+            { id: "cancel", type: "cancel" },
+            { id: "ok", type: "default", text: "已完成" },
+          ],
+        },
+        async (buttonId?: string) => {
+          if (buttonId !== "ok") {
+            setPendingIdx(null);
+            return;
+          }
+          startTransition(() => dropOptimisticTransfer(idx));
+          try {
+            await tmaFetch(`/api/groups/${id}/settlements`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                fromUserId: transfer.fromUserId,
+                toUserId: transfer.toUserId,
+                amount: transfer.amount,
+                currency: balance.currency,
+              }),
+            });
+          } catch {
+            WebApp.showAlert("標記失敗，已回復");
+          }
+          await Promise.all([mutateBalance(), mutateExpenses()]);
+          setPendingIdx(null);
+        },
+      );
+    } catch {
+      setPendingIdx(null);
+    }
   }
 
   const error = expensesError ?? balanceError;
@@ -137,7 +177,13 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-1">
+        <Button asChild size="sm" variant="ghost">
+          <Link href={`/mini/groups/${id}/settlements`}>
+            <History />
+            還款記錄
+          </Link>
+        </Button>
         <Button asChild size="sm" variant="ghost">
           <Link href={`/mini/groups/${id}/stats`}>
             <BarChart3 />
@@ -156,8 +202,11 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
           ) : (
             <ul className="space-y-1 text-sm">
               {balance.balances.map((b) => (
-                <li key={b.userId} className="flex justify-between">
-                  <span>{label(b)}</span>
+                <li key={b.userId} className="flex items-center gap-2 justify-between">
+                  <span className="flex items-center gap-2">
+                    <Avatar src={getPhoto(b.userId)} name={labelUser(b)} userId={b.userId} size="sm" />
+                    <span>{labelUser(b, selfUserId)}</span>
+                  </span>
                   <span
                     className={
                       b.amount > 0 ? "text-emerald-600" : b.amount < 0 ? "text-rose-600" : ""
@@ -184,15 +233,28 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
             <ul className="space-y-2 text-sm">
               {optimisticTransfers.map((t, i) => (
                 <li key={i} className="flex items-center gap-2">
-                  <span className="flex-1">
-                    {label(t.from)} → {label(t.to)}
+                  <span className="flex items-center gap-1.5 flex-1">
+                    <Avatar src={getPhoto(t.fromUserId)} name={labelUser(t.from)} userId={t.fromUserId} size="sm" />
+                    {labelUser(t.from, selfUserId)}
+                    <span className="text-muted-foreground">→</span>
+                    <Avatar src={getPhoto(t.toUserId)} name={labelUser(t.to)} userId={t.toUserId} size="sm" />
+                    {labelUser(t.to, selfUserId)}
                   </span>
                   <span className="tabular-nums">
                     {fmt(t.amount)} {balance.currency}
                   </span>
-                  <Button size="sm" variant="outline" onClick={() => markSettled(t, i)}>
-                    <Check />
-                    已轉
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pendingIdx === i}
+                    onClick={() => markSettled(t, i)}
+                  >
+                    {pendingIdx === i ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <Check />
+                    )}
+                    {pendingIdx === i ? "處理中" : "已轉"}
                   </Button>
                 </li>
               ))}
@@ -225,8 +287,9 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                       className="block hover:bg-accent/40 -mx-2 px-2 py-1 rounded"
                     >
                       <div className="flex justify-between font-medium">
-                        <span>
-                          {label(e.payer)} 付 {fmt(e.amount)} {e.currency}
+                        <span className="flex items-center gap-1.5">
+                          <Avatar src={getPhoto(e.payer.userId)} name={labelUser(e.payer)} userId={e.payer.userId} size="sm" />
+                          {labelUser(e.payer, selfUserId)} 付 {fmt(e.amount)} {e.currency}
                         </span>
                         <span className="text-muted-foreground">{date}</span>
                       </div>
@@ -238,7 +301,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                         {e.splits.map((s, i) => (
                           <span key={i}>
                             {i > 0 ? "、" : ""}
-                            {label(s)} {fmt(s.amount)}
+                            {labelUser({ ...s, userId: s.debtorId }, selfUserId)} {fmt(s.amount)}
                           </span>
                         ))}
                       </div>

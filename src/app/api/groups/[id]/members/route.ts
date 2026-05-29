@@ -23,6 +23,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     .select({
       id: users.id,
       firstName: users.firstName,
+      lastName: users.lastName,
       username: users.username,
     })
     .from(users)

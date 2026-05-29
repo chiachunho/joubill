@@ -30,6 +30,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       spentAt: expenses.spentAt,
       payerId: expenses.payerId,
       payerFirstName: users.firstName,
+      payerLastName: users.lastName,
       payerUsername: users.username,
     })
     .from(expenses)
@@ -48,6 +49,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       debtorId: expenseSplits.debtorId,
       amount: expenseSplits.amount,
       debtorFirstName: users.firstName,
+      debtorLastName: users.lastName,
       debtorUsername: users.username,
     })
     .from(expenseSplits)
@@ -69,13 +71,15 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       description: e.description,
       spentAt: e.spentAt,
       payer: {
-        id: e.payerId,
+        userId: e.payerId,
         firstName: e.payerFirstName,
+        lastName: e.payerLastName,
         username: e.payerUsername,
       },
       splits: (splitsByExpense.get(e.id) ?? []).map((s) => ({
         debtorId: s.debtorId,
         firstName: s.debtorFirstName,
+        lastName: s.debtorLastName,
         username: s.debtorUsername,
         amount: n(s.amount),
       })),

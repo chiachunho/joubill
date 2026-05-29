@@ -31,7 +31,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
 
   const profileRows = await db
-    .select({ id: users.id, firstName: users.firstName, username: users.username })
+    .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, username: users.username })
     .from(users)
     .where(inArray(users.id, balances.map((b) => b.userId)));
   const profiles = new Map(profileRows.map((p) => [p.id, p]));
@@ -44,6 +44,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
         userId: b.userId,
         amount: b.amount,
         firstName: profiles.get(b.userId)?.firstName ?? null,
+        lastName: profiles.get(b.userId)?.lastName ?? null,
         username: profiles.get(b.userId)?.username ?? null,
       })),
   });

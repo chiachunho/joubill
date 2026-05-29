@@ -7,6 +7,8 @@ import { mutate } from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Calendar as CalendarIcon, Check, X } from "lucide-react";
 
+import { Avatar } from "@/components/mini/Avatar";
+import { MemberSelect } from "@/components/mini/MemberSelect";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { labelMember } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
@@ -36,7 +39,7 @@ import {
   type ExpenseFormValues,
 } from "@/lib/zod";
 
-type Member = { id: number; firstName: string; username: string | null };
+type Member = { id: number; firstName: string; lastName?: string | null; username: string | null };
 
 type Initial = {
   id: number;
@@ -53,13 +56,10 @@ type Props = {
   defaultCurrency: string;
   currentUserId: number;
   members: Member[];
+  photos?: Record<number, string | null>;
   /** If present, the form is in edit mode. Absent => create mode. */
   initial?: Initial;
 };
-
-function label(m: Member): string {
-  return m.username ? "@" + m.username : m.firstName;
-}
 
 /** Local Y-M-D label for the date trigger (avoids UTC off-by-one). */
 function ymd(d: Date): string {
@@ -97,7 +97,7 @@ function buildDefaults(props: Props): ExpenseFormValues {
 }
 
 export function ExpenseForm(props: Props) {
-  const { groupId, members, initial } = props;
+  const { groupId, members, photos, initial } = props;
   const router = useRouter();
   const isEdit = !!initial;
 
@@ -213,7 +213,7 @@ export function ExpenseForm(props: Props) {
               <FormItem className="flex-1">
                 <FormLabel>金額</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" min="0" inputMode="decimal" {...field} />
+                  <Input type="number" step="0.01" min="0.01" inputMode="decimal" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -294,20 +294,13 @@ export function ExpenseForm(props: Props) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>付款人</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {members.map((m) => (
-                    <SelectItem key={m.id} value={String(m.id)}>
-                      {label(m)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MemberSelect
+                value={field.value}
+                onValueChange={field.onChange}
+                members={members}
+                photos={photos}
+              />
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -363,7 +356,13 @@ export function ExpenseForm(props: Props) {
                           />
                         )}
                       />
-                      <span className="flex-1 text-sm">{m ? label(m) : `#${f.userId}`}</span>
+                      <Avatar
+                        src={photos?.[f.userId] ?? null}
+                        name={m ? labelMember(m) : String(f.userId)}
+                        userId={f.userId}
+                        size="sm"
+                      />
+                      <span className="flex-1 text-sm">{m ? labelMember(m) : `#${f.userId}`}</span>
                       {shareType === "equal" ? (
                         <Input
                           disabled
@@ -415,7 +414,7 @@ export function ExpenseForm(props: Props) {
         )}
 
         <div className="flex gap-2 pt-2">
-          <Button type="submit" disabled={form.formState.isSubmitting} className="flex-1">
+          <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isValid} className="flex-1">
             {form.formState.isSubmitting ? "儲存中…" : "儲存"}
           </Button>
           {isEdit && (
