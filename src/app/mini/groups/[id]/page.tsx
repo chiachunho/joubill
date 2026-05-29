@@ -2,7 +2,7 @@
 
 import { startTransition, use, useEffect, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Check, History, Loader2, Plus } from "lucide-react";
+import { ArrowRight, BarChart3, Check, History, Loader2, Plus, Users } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
@@ -11,7 +11,10 @@ import { labelUser } from "@/lib/label";
 import { tmaFetch } from "@/lib/tma-fetch";
 import { minimizeTransfers } from "@/lib/settlement-core";
 
-type MeResponse = { userId: number };
+type MeResponse = {
+  userId: number;
+  groups: Array<{ id: number; title: string; defaultCurrency: string }>;
+};
 
 type Profile = {
   userId: number;
@@ -76,6 +79,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
   const { data: me } = useSWR<MeResponse>("/api/me/groups");
   const selfUserId = me?.userId;
+  const groupTitle = me?.groups.find((g) => g.id === Number(id))?.title ?? "";
 
   const [selfPhotoUrl, setSelfPhotoUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -190,22 +194,36 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <div className="space-y-6 py-4">
-      {/* Top nav */}
-      <div className="flex justify-end gap-1 px-4">
-        <Link
-          href={`/mini/groups/${id}/settlements`}
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <History className="size-3.5" />
-          還款記錄
-        </Link>
-        <Link
-          href={`/mini/groups/${id}/stats`}
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <BarChart3 className="size-3.5" />
-          統計
-        </Link>
+      {/* Group header */}
+      <div className="flex items-center gap-3 px-4">
+        {avatars?.groupPhoto ? (
+          <img
+            src={avatars.groupPhoto}
+            alt={groupTitle}
+            className="size-12 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+          />
+        ) : (
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <Users className="size-5 text-primary" />
+          </div>
+        )}
+        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{groupTitle}</h1>
+        <div className="flex shrink-0 gap-1">
+          <Link
+            href={`/mini/groups/${id}/settlements`}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <History className="size-3.5" />
+            還款記錄
+          </Link>
+          <Link
+            href={`/mini/groups/${id}/stats`}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <BarChart3 className="size-3.5" />
+            統計
+          </Link>
+        </div>
       </div>
 
       {/* All-settled banner */}

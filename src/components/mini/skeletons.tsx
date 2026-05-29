@@ -38,13 +38,17 @@ function FieldSkeleton({ width = "w-16" }: { width?: string }) {
   );
 }
 
-/** Group dashboard: nav + balances + transfers + month-grouped expenses. */
+/** Group dashboard: header (photo + title + nav) + balances + transfers + expenses. */
 export function GroupPageSkeleton() {
   return (
     <div className="space-y-6 py-4">
-      <div className="flex justify-end gap-1 px-4">
-        <Skeleton className="h-7 w-20 rounded-lg" />
-        <Skeleton className="h-7 w-16 rounded-lg" />
+      <div className="flex items-center gap-3 px-4">
+        <Skeleton className="size-12 shrink-0 rounded-full" />
+        <Skeleton className="h-5 w-36 flex-1 max-w-[200px]" />
+        <div className="flex shrink-0 gap-1">
+          <Skeleton className="h-7 w-20 rounded-lg" />
+          <Skeleton className="h-7 w-16 rounded-lg" />
+        </div>
       </div>
 
       <section className="px-4">
