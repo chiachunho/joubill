@@ -10,6 +10,7 @@ import { settleCommand } from "./commands/settle";
 import { startCommand } from "./commands/start";
 import type { BotContext } from "./context";
 import { registerUser } from "./middleware/registerUser";
+import { trackMembership } from "./middleware/trackMembership";
 
 let _bot: Bot<BotContext> | undefined;
 
@@ -23,6 +24,7 @@ export function getBot(): Bot<BotContext> {
   const bot = new Bot<BotContext>(serverEnv().TELEGRAM_BOT_TOKEN);
 
   bot.use(registerUser);
+  bot.use(trackMembership);
   bot.use(startCommand);
   bot.use(helpCommand);
   bot.use(addCommand);
