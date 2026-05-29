@@ -65,3 +65,56 @@ export const settlementInputSchema = z.object({
 });
 
 export type SettlementInput = z.infer<typeof settlementInputSchema>;
+
+export const SHARE_TYPES = ["equal", "exact", "percent"] as const;
+
+/**
+ * Client-side form schema for the Mini App ExpenseForm (react-hook-form +
+ * zodResolver). Fields are strings as typed into inputs; cross-field rules
+ * (participant selection + split-sum balance per share type) live in the
+ * superRefine so RHF surfaces them on the `participants` field.
+ */
+export const expenseFormSchema = z
+  .object({
+    amount: z
+      .string()
+      .refine((v) => Number.isFinite(parseFloat(v)) && parseFloat(v) > 0, "請輸入有效金額"),
+    currency: z.enum(SUPPORTED_CURRENCIES),
+    description: z.string().max(500),
+    payerId: z.string().min(1),
+    spentDate: z.date(),
+    shareType: z.enum(SHARE_TYPES),
+    participants: z.array(
+      z.object({
+        userId: z.number().int().positive(),
+        included: z.boolean(),
+        value: z.string(),
+      }),
+    ),
+  })
+  .superRefine((data, ctx) => {
+    const included = data.participants.filter((p) => p.included);
+    if (included.length === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "至少選一位參與者", path: ["participants"] });
+      return;
+    }
+    if (data.shareType === "equal") return;
+
+    const sum = included.reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
+    if (data.shareType === "percent") {
+      if (Math.abs(sum - 100) >= 0.1) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "比例加總需為 100%", path: ["participants"] });
+      }
+    } else {
+      const total = parseFloat(data.amount) || 0;
+      if (Math.abs(sum - total) >= 0.02) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "分帳金額加總與總金額不符",
+          path: ["participants"],
+        });
+      }
+    }
+  });
+
+export type ExpenseFormValues = z.infer<typeof expenseFormSchema>;

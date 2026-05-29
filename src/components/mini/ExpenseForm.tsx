@@ -1,14 +1,23 @@
 "use client";
 
-import { useActionState, useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFieldArray, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Calendar as CalendarIcon, Check, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -17,10 +26,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { computeSplits, type ShareType } from "@/lib/splits";
+import { computeSplits } from "@/lib/splits";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
-import { SUPPORTED_CURRENCIES, type SupportedCurrency } from "@/lib/zod";
+import {
+  SUPPORTED_CURRENCIES,
+  expenseFormSchema,
+  type ExpenseFormValues,
+} from "@/lib/zod";
 
 type Member = { id: number; firstName: string; username: string | null };
 
@@ -52,18 +65,38 @@ function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Serialise a picked calendar day as noon UTC, so the date never shifts across timezones. */
+/** Serialise a picked calendar day as noon UTC so the day never shifts across timezones. */
 function dayToNoonUtcIso(d: Date): string {
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)).toISOString();
 }
 
-export function ExpenseForm({
-  groupId,
-  defaultCurrency,
-  currentUserId,
-  members,
-  initial,
-}: Props) {
+function buildDefaults(props: Props): ExpenseFormValues {
+  const { members, initial, defaultCurrency, currentUserId } = props;
+  const shareType =
+    initial?.splits[0]?.shareType === "exact" || initial?.splits[0]?.shareType === "percent"
+      ? (initial.splits[0].shareType as ExpenseFormValues["shareType"])
+      : "equal";
+  const splitByDebtor = new Map((initial?.splits ?? []).map((s) => [s.debtorId, s.amount]));
+  return {
+    amount: initial ? initial.amount.toFixed(2) : "",
+    currency: (initial?.currency ?? defaultCurrency) as ExpenseFormValues["currency"],
+    description: initial?.description ?? "",
+    payerId: String(initial?.payerId ?? currentUserId),
+    spentDate: initial ? new Date(initial.spentAt) : new Date(),
+    shareType,
+    participants: members.map((m) => {
+      const split = splitByDebtor.get(m.id);
+      return {
+        userId: m.id,
+        included: initial ? split !== undefined : true,
+        value: split !== undefined ? split.toFixed(2) : "",
+      };
+    }),
+  };
+}
+
+export function ExpenseForm(props: Props) {
+  const { groupId, members, initial } = props;
   const router = useRouter();
   const isEdit = !!initial;
 
@@ -72,122 +105,64 @@ export function ExpenseForm({
   }, [router, groupId]);
   useTelegramBackButton(backToGroup);
 
-  const [amount, setAmount] = useState(initial ? initial.amount.toFixed(2) : "");
-  const [currency, setCurrency] = useState<string>(initial?.currency ?? defaultCurrency);
-  const [description, setDescription] = useState(initial?.description ?? "");
-  const [payerId, setPayerId] = useState<number>(initial?.payerId ?? currentUserId);
-  const [spentDate, setSpentDate] = useState<Date>(
-    initial ? new Date(initial.spentAt) : new Date(),
-  );
-
-  const initialShareType: ShareType =
-    initial?.splits[0]?.shareType === "exact" ||
-    initial?.splits[0]?.shareType === "percent"
-      ? (initial.splits[0].shareType as ShareType)
-      : "equal";
-  const [shareType, setShareType] = useState<ShareType>(initialShareType);
-
-  /** memberId -> { included, raw input value for exact/percent mode } */
-  const [participants, setParticipants] = useState<Map<number, { included: boolean; value: string }>>(() => {
-    const map = new Map<number, { included: boolean; value: string }>();
-    if (initial) {
-      const splitByDebtor = new Map(initial.splits.map((s) => [s.debtorId, s.amount]));
-      for (const m of members) {
-        const split = splitByDebtor.get(m.id);
-        map.set(m.id, {
-          included: split !== undefined,
-          value: split !== undefined ? split.toFixed(2) : "",
-        });
-      }
-    } else {
-      // New expense: include everyone in equal mode by default.
-      for (const m of members) {
-        map.set(m.id, { included: true, value: "" });
-      }
-    }
-    return map;
+  const form = useForm<ExpenseFormValues>({
+    resolver: zodResolver(expenseFormSchema),
+    defaultValues: buildDefaults(props),
+    mode: "onChange",
   });
+  const { fields } = useFieldArray({ control: form.control, name: "participants" });
 
-  const toggleParticipant = useCallback((id: number) => {
-    setParticipants((prev) => {
-      const next = new Map(prev);
-      const cur = next.get(id) ?? { included: false, value: "" };
-      next.set(id, { ...cur, included: !cur.included });
-      return next;
-    });
-  }, []);
-
-  const setParticipantValue = useCallback((id: number, value: string) => {
-    setParticipants((prev) => {
-      const next = new Map(prev);
-      const cur = next.get(id) ?? { included: false, value: "" };
-      next.set(id, { ...cur, value });
-      return next;
-    });
-  }, []);
+  // Live values for the computed split preview + balance indicator.
+  const amount = form.watch("amount");
+  const currency = form.watch("currency");
+  const shareType = form.watch("shareType");
+  const participants = form.watch("participants");
 
   const totalAmount = parseFloat(amount) || 0;
-
-  const computedSplits = useMemo(() => {
-    const included = members
-      .filter((m) => participants.get(m.id)?.included)
-      .map((m) => ({ userId: m.id, value: participants.get(m.id)?.value }));
-    return computeSplits(totalAmount, shareType, included);
-  }, [members, participants, shareType, totalAmount]);
-
-  // Sum of the raw inputs the user typed: percentages in percent mode,
-  // currency amounts in exact mode. Used for the live total indicator.
-  const inputSum = members.reduce((sum, m) => {
-    const p = participants.get(m.id);
-    if (!p?.included) return sum;
-    return sum + (parseFloat(p.value ?? "0") || 0);
-  }, 0);
-
+  const included = participants
+    .filter((p) => p.included)
+    .map((p) => ({ userId: p.userId, value: p.value }));
+  const computedSplits = computeSplits(totalAmount, shareType, included);
+  const inputSum = included.reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
   const splitsBalanced =
     shareType === "percent"
       ? Math.abs(inputSum - 100) < 0.1
       : Math.abs(inputSum - totalAmount) < 0.02;
-  const splitsValid = computedSplits.length > 0 && (shareType === "equal" || splitsBalanced);
 
-  const [state, formAction, pending] = useActionState(
-    async (_prev: { error: string } | null) => {
-      if (totalAmount <= 0) return { error: "請輸入有效的金額" };
-      if (!splitsValid) {
-        return { error: shareType === "percent" ? "比例加總需為 100%" : "分帳金額加總與總金額不符" };
-      }
+  async function onSubmit(values: ExpenseFormValues) {
+    const { default: WebApp } = await import("@twa-dev/sdk");
+    const body = {
+      amount: parseFloat(values.amount),
+      currency: values.currency,
+      description: values.description.trim() || null,
+      payerId: Number(values.payerId),
+      spentAt: dayToNoonUtcIso(values.spentDate),
+      shareType: values.shareType,
+      splits: computeSplits(
+        parseFloat(values.amount),
+        values.shareType,
+        values.participants
+          .filter((p) => p.included)
+          .map((p) => ({ userId: p.userId, value: p.value })),
+      ),
+    };
 
-      const { default: WebApp } = await import("@twa-dev/sdk");
-      const body = {
-        amount: totalAmount,
-        currency,
-        description: description.trim() || null,
-        payerId,
-        spentAt: dayToNoonUtcIso(spentDate),
-        shareType,
-        splits: computedSplits,
-      };
-
-      const url = isEdit
-        ? `/api/groups/${groupId}/expenses/${initial!.id}`
-        : `/api/groups/${groupId}/expenses`;
-      const res = await fetch(url, {
-        method: isEdit ? "PATCH" : "POST",
-        headers: {
-          Authorization: `tma ${WebApp.initData}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        return { error: parsed.error ?? `HTTP ${res.status}` };
-      }
-      router.push(`/mini/groups/${groupId}`);
-      router.refresh();
-      return null;
-    },
-    null,
-  );
+    const url = isEdit
+      ? `/api/groups/${groupId}/expenses/${initial!.id}`
+      : `/api/groups/${groupId}/expenses`;
+    const res = await fetch(url, {
+      method: isEdit ? "PATCH" : "POST",
+      headers: { Authorization: `tma ${WebApp.initData}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      form.setError("root", { message: parsed.error ?? `HTTP ${res.status}` });
+      return;
+    }
+    router.push(`/mini/groups/${groupId}`);
+    router.refresh();
+  }
 
   const [deletePending, setDeletePending] = useState(false);
   async function handleDelete() {
@@ -221,190 +196,236 @@ export function ExpenseForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">{isEdit ? `編輯支出 #${initial!.id}` : "新增支出"}</h1>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        <h1 className="text-xl font-bold">{isEdit ? `編輯支出 #${initial!.id}` : "新增支出"}</h1>
 
-      <div className="flex gap-2">
-        <div className="flex-1 space-y-1">
-          <Label htmlFor="amount">金額</Label>
-          <Input
-            id="amount"
-            type="number"
-            step="0.01"
-            min="0"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            required
+        <div className="flex gap-2">
+          <FormField
+            control={form.control}
+            name="amount"
+            render={({ field }) => (
+              <FormItem className="flex-1">
+                <FormLabel>金額</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.01" min="0" inputMode="decimal" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem className="w-28">
+                <FormLabel>幣別</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {SUPPORTED_CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
           />
         </div>
-        <div className="w-28 space-y-1">
-          <Label htmlFor="currency">幣別</Label>
-          <Select value={currency} onValueChange={(v) => setCurrency(v as SupportedCurrency)}>
-            <SelectTrigger id="currency">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SUPPORTED_CURRENCIES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
-      <div className="space-y-1">
-        <Label>日期</Label>
-        <Popover>
-          <PopoverTrigger asChild>
+        <FormField
+          control={form.control}
+          name="spentDate"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>日期</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start text-base font-normal md:text-sm"
+                  >
+                    <CalendarIcon />
+                    {ymd(field.value)}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={(d) => d && field.onChange(d)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>說明</FormLabel>
+              <FormControl>
+                <Input placeholder="例如：晚餐、機票" maxLength={500} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="payerId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>付款人</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      {label(m)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="shareType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>分帳方式</FormLabel>
+              <div className="inline-flex w-full rounded-md border border-input p-0.5">
+                {(["equal", "exact", "percent"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => field.onChange(m)}
+                    aria-pressed={field.value === m}
+                    className={cn(
+                      "flex-1 rounded-[5px] px-3 py-1 text-sm transition-colors",
+                      field.value === m
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {m === "equal" ? "均分" : m === "exact" ? "指定金額" : "比例"}
+                  </button>
+                ))}
+              </div>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="participants"
+          render={() => (
+            <FormItem>
+              <FormLabel>參與者</FormLabel>
+              <ul className="flex flex-col gap-2">
+                {fields.map((f, i) => {
+                  const m = members.find((x) => x.id === f.userId);
+                  const isIncluded = participants[i]?.included ?? false;
+                  const computed = computedSplits.find((x) => x.debtorId === f.userId);
+                  return (
+                    <li key={f.id} className="flex items-center gap-2">
+                      <FormField
+                        control={form.control}
+                        name={`participants.${i}.included`}
+                        render={({ field }) => (
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(c) => field.onChange(c === true)}
+                          />
+                        )}
+                      />
+                      <span className="flex-1 text-sm">{m ? label(m) : `#${f.userId}`}</span>
+                      {shareType === "equal" ? (
+                        <Input
+                          readOnly
+                          className="w-24 text-right tabular-nums"
+                          value={isIncluded && computed ? computed.amount.toFixed(2) : ""}
+                          disabled={!isIncluded}
+                        />
+                      ) : (
+                        <FormField
+                          control={form.control}
+                          name={`participants.${i}.value`}
+                          render={({ field }) => (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              inputMode="decimal"
+                              className="w-24 text-right tabular-nums"
+                              placeholder={shareType === "percent" ? "%" : ""}
+                              disabled={!isIncluded}
+                              {...field}
+                            />
+                          )}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              {shareType !== "equal" && (
+                <p
+                  className={cn(
+                    "flex items-center gap-1 text-sm tabular-nums",
+                    splitsBalanced ? "text-muted-foreground" : "text-rose-600",
+                  )}
+                >
+                  {shareType === "percent"
+                    ? `總計 ${inputSum.toFixed(2)}% / 100%`
+                    : `總計 ${inputSum.toFixed(2)} / ${totalAmount.toFixed(2)} ${currency}`}
+                  {splitsBalanced ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                </p>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {form.formState.errors.root && (
+          <p className="text-sm text-destructive">{form.formState.errors.root.message}</p>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          <Button type="submit" disabled={form.formState.isSubmitting} className="flex-1">
+            {form.formState.isSubmitting ? "儲存中…" : "儲存"}
+          </Button>
+          {isEdit && (
             <Button
               type="button"
-              variant="outline"
-              className="w-full justify-start text-base font-normal md:text-sm"
+              variant="destructive"
+              disabled={deletePending}
+              onClick={handleDelete}
             >
-              <CalendarIcon />
-              {ymd(spentDate)}
+              {deletePending ? "刪除中…" : "刪除"}
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={spentDate}
-              onSelect={(d) => d && setSpentDate(d)}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="description">說明</Label>
-        <Input
-          id="description"
-          value={description ?? ""}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="例如：晚餐、機票"
-          maxLength={500}
-        />
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="payer">付款人</Label>
-        <Select value={String(payerId)} onValueChange={(v) => setPayerId(Number(v))}>
-          <SelectTrigger id="payer">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {members.map((m) => (
-              <SelectItem key={m.id} value={String(m.id)}>
-                {label(m)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label>分帳方式</Label>
-        <div className="inline-flex w-full rounded-md border border-input p-0.5">
-          {(["equal", "exact", "percent"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setShareType(m)}
-              aria-pressed={shareType === m}
-              className={cn(
-                "flex-1 rounded-[5px] px-3 py-1 text-sm transition-colors",
-                shareType === m
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {m === "equal" ? "均分" : m === "exact" ? "指定金額" : "比例"}
-            </button>
-          ))}
+          )}
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>參與者</Label>
-        <ul className="flex flex-col gap-2">
-          {members.map((m) => {
-            const p = participants.get(m.id) ?? { included: false, value: "" };
-            const computed = computedSplits.find((x) => x.debtorId === m.id);
-            return (
-              <li key={m.id} className="flex items-center gap-2">
-                <Checkbox
-                  checked={p.included}
-                  onCheckedChange={() => toggleParticipant(m.id)}
-                />
-                <span className="flex-1 text-sm">{label(m)}</span>
-                {/* Always an Input so the layout doesn't jump between modes.
-                    Equal mode is read-only and shows the auto-computed share. */}
-                <Input
-                  type={shareType === "equal" ? "text" : "number"}
-                  step="0.01"
-                  min="0"
-                  inputMode="decimal"
-                  className="w-24 text-right tabular-nums"
-                  value={
-                    shareType === "equal"
-                      ? p.included && computed
-                        ? computed.amount.toFixed(2)
-                        : ""
-                      : p.value
-                  }
-                  onChange={
-                    shareType === "equal"
-                      ? undefined
-                      : (e) => setParticipantValue(m.id, e.target.value)
-                  }
-                  readOnly={shareType === "equal"}
-                  disabled={!p.included}
-                  placeholder={shareType === "percent" ? "%" : ""}
-                />
-              </li>
-            );
-          })}
-        </ul>
-        {shareType !== "equal" && (
-          <p
-            className={
-              "flex items-center gap-1 text-sm tabular-nums " +
-              (splitsBalanced ? "text-muted-foreground" : "text-rose-600")
-            }
-          >
-            {shareType === "percent"
-              ? `總計 ${inputSum.toFixed(2)}% / 100%`
-              : `總計 ${inputSum.toFixed(2)} / ${totalAmount.toFixed(2)} ${currency}`}
-            {splitsBalanced ? (
-              <Check className="size-3.5" />
-            ) : (
-              <X className="size-3.5" />
-            )}
-          </p>
-        )}
-      </div>
-
-      {state?.error && <p className="text-sm text-rose-600">{state.error}</p>}
-
-      <div className="flex gap-2 pt-2">
-        <Button type="submit" disabled={pending || !splitsValid} className="flex-1">
-          {pending ? "儲存中…" : "儲存"}
-        </Button>
-        {isEdit && (
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={deletePending}
-            onClick={handleDelete}
-          >
-            {deletePending ? "刪除中…" : "刪除"}
-          </Button>
-        )}
-      </div>
-    </form>
+      </form>
+    </Form>
   );
 }

@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@hookform/resolvers':
+    specifier: ^3.9.1
+    version: 3.10.0(react-hook-form@7.76.1)
   '@neondatabase/serverless':
     specifier: ^0.10.4
     version: 0.10.4
@@ -59,6 +62,9 @@ dependencies:
   react-dom:
     specifier: ^19.0.0
     version: 19.2.6(react@19.2.6)
+  react-hook-form:
+    specifier: ^7.54.2
+    version: 7.76.1(react@19.2.6)
   tailwind-merge:
     specifier: ^2.5.4
     version: 2.6.1
@@ -1091,6 +1097,14 @@ packages:
 
   /@grammyjs/types@3.27.3:
     resolution: {integrity: sha512-yUKMLliGsGbnxu96YUJ7km7B0zy4PzeH/Jvti5705R/LeKDMqkDV4DckMSt+OrliWQpTwQljHE0QLol5zgxBkg==}
+    dev: false
+
+  /@hookform/resolvers@3.10.0(react-hook-form@7.76.1):
+    resolution: {integrity: sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag==}
+    peerDependencies:
+      react-hook-form: ^7.0.0
+    dependencies:
+      react-hook-form: 7.76.1(react@19.2.6)
     dev: false
 
   /@humanfs/core@0.19.2:
@@ -5039,6 +5053,15 @@ packages:
     dependencies:
       react: 19.2.6
       scheduler: 0.27.0
+    dev: false
+
+  /react-hook-form@7.76.1(react@19.2.6):
+    resolution: {integrity: sha512-rYM7tPiWlu3nZchkR/ex7piyzui2vFPyaLnXnI/RnblB/L4qfMmyses8llJVtF1NpE9WBBsJlGtcSZzPCXW1qQ==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      react: ^16.8.0 || ^17 || ^18 || ^19 || 19
+    dependencies:
+      react: 19.2.6
     dev: false
 
   /react-is@16.13.1:
