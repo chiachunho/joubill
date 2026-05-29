@@ -22,11 +22,11 @@ const TTL = 4 * 60 * 60 * 1000;
 
 type Params = { params: Promise<{ id: string }> };
 
-async function getFileUrl(api: Api, fileId: string, token: string): Promise<string | null> {
+async function getFileUrl(api: Api, fileId: string): Promise<string | null> {
   try {
     const file = await api.getFile(fileId);
     if (!file.file_path) return null;
-    return `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+    return `/api/tg-photo?path=${encodeURIComponent(file.file_path)}`;
   } catch {
     return null;
   }
@@ -68,7 +68,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       try {
         const photos = await tgApi.getUserProfilePhotos(telegramId, { limit: 1 });
         if (!photos.total_count || !photos.photos[0]?.[0]) return { userId, url: null };
-        const url = await getFileUrl(tgApi, photos.photos[0][0].file_id, token);
+        const url = await getFileUrl(tgApi, photos.photos[0][0].file_id);
         return { userId, url };
       } catch {
         return { userId, url: null };
@@ -88,7 +88,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       const chat = await tgApi.getChat(groupRows[0].telegramChatId);
       const photo = (chat as { photo?: { big_file_id: string } }).photo;
       if (photo?.big_file_id) {
-        groupPhoto = await getFileUrl(tgApi, photo.big_file_id, token);
+        groupPhoto = await getFileUrl(tgApi, photo.big_file_id);
       }
     } catch {
       // group photo unavailable
