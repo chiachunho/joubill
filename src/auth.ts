@@ -1,4 +1,4 @@
-import { decodeJwt } from "jose";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
@@ -14,36 +14,53 @@ interface TelegramOIDCProfile {
   phone_number?: string;
 }
 
+const TELEGRAM_ISSUER = "https://oauth.telegram.org";
+
+// Telegram has no UserInfo endpoint; claims live in the id_token. We verify
+// the token signature against Telegram's published JWKS. createRemoteJWKSet
+// lazily fetches and caches the keys on first use.
+const telegramJwks = createRemoteJWKSet(
+  new URL(`${TELEGRAM_ISSUER}/.well-known/jwks.json`),
+);
+
 /**
  * Telegram OAuth2 + PKCE provider.
- * Discovery: https://oauth.telegram.org/.well-known/openid-configuration
- * No UserInfo endpoint — all claims come from the ID token directly.
+ * Docs: https://core.telegram.org/bots/telegram-login
  * Credentials: BotFather → Bot Settings → Web Login → Client ID / Secret
  *
- * Must use type:"oauth" (not "oidc") because Auth.js's OIDC branch requires
- * a userinfo_endpoint in the discovery document; Telegram's has none.
- * The oauth branch calls userinfo.request() instead, which lets us decode
- * claims from the id_token locally.
+ * Three Telegram-specific deviations from a vanilla Auth.js OIDC provider:
  *
- * state check is dropped because Telegram rejects state params longer than
- * ~128 chars; Auth.js generates JWE-encrypted state of 400+ chars. PKCE
- * alone provides equivalent CSRF protection (RFC 7636).
+ * 1. type:"oauth" (not "oidc"). The OIDC branch runs discovery and throws if
+ *    the discovery doc lacks a userinfo_endpoint — Telegram's has none. The
+ *    oauth branch calls userinfo.request() instead.
+ * 2. `issuer` is still set so the config passes Auth.js's endpoint assertion
+ *    (which otherwise demands a userinfo URL); because `token` has a URL the
+ *    callback still takes the manual branch, not discovery.
+ * 3. state check is dropped — Telegram rejects state params longer than
+ *    ~128 chars and Auth.js's JWE state is 400+ chars. PKCE alone provides
+ *    equivalent CSRF protection (RFC 7636).
  */
 const TelegramOIDC = {
   id: "telegram",
   name: "Telegram",
   type: "oauth" as const,
+  issuer: TELEGRAM_ISSUER,
   authorization: {
-    url: "https://oauth.telegram.org/auth",
+    url: `${TELEGRAM_ISSUER}/auth`,
     params: { scope: "openid profile" },
   },
-  token: "https://oauth.telegram.org/token",
+  token: `${TELEGRAM_ISSUER}/token`,
   clientId: process.env.AUTH_TELEGRAM_CLIENT_ID,
   clientSecret: process.env.AUTH_TELEGRAM_CLIENT_SECRET,
   checks: ["pkce"] as ("pkce" | "state")[],
   userinfo: {
     async request({ tokens }: { tokens: { id_token?: string } }) {
-      return decodeJwt(tokens.id_token!);
+      // Verify signature, issuer and audience before trusting any claim.
+      const { payload } = await jwtVerify(tokens.id_token!, telegramJwks, {
+        issuer: TELEGRAM_ISSUER,
+        audience: process.env.AUTH_TELEGRAM_CLIENT_ID,
+      });
+      return payload;
     },
   },
   profile(profile: TelegramOIDCProfile) {
