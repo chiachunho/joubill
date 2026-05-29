@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { settlements } from "@/db/schema";
+import { settlements, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { n } from "@/lib/money";
@@ -21,23 +22,48 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
   await assertGroupMember(auth.user.id, groupId);
 
+  const fromUser = alias(users, "from_user");
+  const toUser = alias(users, "to_user");
+
   const rows = await db
     .select({
       id: settlements.id,
       fromUserId: settlements.fromUserId,
+      fromFirstName: fromUser.firstName,
+      fromLastName: fromUser.lastName,
+      fromUsername: fromUser.username,
       toUserId: settlements.toUserId,
+      toFirstName: toUser.firstName,
+      toLastName: toUser.lastName,
+      toUsername: toUser.username,
       amount: settlements.amount,
       currency: settlements.currency,
       settledAt: settlements.settledAt,
     })
     .from(settlements)
+    .innerJoin(fromUser, eq(fromUser.id, settlements.fromUserId))
+    .innerJoin(toUser, eq(toUser.id, settlements.toUserId))
     .where(eq(settlements.groupId, groupId))
     .orderBy(desc(settlements.settledAt));
 
   return NextResponse.json({
     settlements: rows.map((r) => ({
-      ...r,
+      id: r.id,
       amount: n(r.amount),
+      currency: r.currency,
+      settledAt: r.settledAt,
+      from: {
+        userId: r.fromUserId,
+        firstName: r.fromFirstName,
+        lastName: r.fromLastName,
+        username: r.fromUsername,
+      },
+      to: {
+        userId: r.toUserId,
+        firstName: r.toFirstName,
+        lastName: r.toLastName,
+        username: r.toUsername,
+      },
     })),
   });
 });

@@ -118,3 +118,21 @@ export const expenseFormSchema = z
   });
 
 export type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
+
+/** Client-side form schema for the Mini App SettlementForm. */
+export const settlementFormSchema = z
+  .object({
+    fromUserId: z.string().min(1),
+    toUserId: z.string().min(1),
+    amount: z
+      .string()
+      .refine((v) => Number.isFinite(parseFloat(v)) && parseFloat(v) > 0, "請輸入有效金額"),
+    currency: z.enum(SUPPORTED_CURRENCIES),
+    settledDate: z.date(),
+  })
+  .refine((d) => d.fromUserId !== d.toUserId, {
+    message: "付款人與收款人不能相同",
+    path: ["toUserId"],
+  });
+
+export type SettlementFormValues = z.infer<typeof settlementFormSchema>;
