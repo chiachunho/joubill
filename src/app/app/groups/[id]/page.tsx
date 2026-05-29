@@ -2,7 +2,7 @@
 
 import { startTransition, use, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Check, ChevronLeft, History, Loader2, Plus } from "lucide-react";
+import { ArrowRight, BarChart3, Check, ChevronLeft, History, Loader2, Plus, Users } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
@@ -135,8 +135,19 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
           <ChevronLeft className="size-4" />
           返回
         </Link>
-        {groupTitle && <span className="text-sm font-semibold">{groupTitle}</span>}
-        <div className="ml-auto flex gap-1">
+        {avatars?.groupPhoto ? (
+          <img
+            src={avatars.groupPhoto}
+            alt={groupTitle}
+            className="size-8 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+          />
+        ) : (
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <Users className="size-3.5 text-primary" />
+          </div>
+        )}
+        {groupTitle && <span className="min-w-0 truncate text-sm font-semibold">{groupTitle}</span>}
+        <div className="ml-auto flex shrink-0 gap-1">
           <Link
             href={`/app/groups/${id}/settlements`}
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
