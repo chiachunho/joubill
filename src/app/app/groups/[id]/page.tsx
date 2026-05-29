@@ -126,31 +126,27 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
 
   return (
     <div className="space-y-6 py-4">
-      {/* Back nav — back+photo left, title centered absolutely */}
-      <div className="relative flex items-center gap-2 px-4 py-1">
-        <div className="z-10 flex shrink-0 items-center gap-2">
-          <Link
-            href="/app"
-            className="inline-flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ChevronLeft className="size-4" />
-            返回
-          </Link>
-          {avatars?.groupPhoto ? (
-            <img
-              src={avatars.groupPhoto}
-              alt={groupTitle}
-              className="size-8 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-            />
-          ) : (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Users className="size-3.5 text-primary" />
-            </div>
-          )}
-        </div>
-        <h1 className="pointer-events-none absolute inset-x-0 truncate px-28 text-center text-sm font-semibold">
-          {groupTitle}
-        </h1>
+      {/* Back nav — back button absolute left, photo+title centered as a group */}
+      <div className="relative flex items-center justify-center gap-2.5 px-4 py-1">
+        <Link
+          href="/app"
+          className="absolute left-4 inline-flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" />
+          返回
+        </Link>
+        {avatars?.groupPhoto ? (
+          <img
+            src={avatars.groupPhoto}
+            alt={groupTitle}
+            className="size-8 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+          />
+        ) : (
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <Users className="size-3.5 text-primary" />
+          </div>
+        )}
+        <h1 className="truncate text-sm font-semibold">{groupTitle}</h1>
       </div>
 
       {allSettled && (
