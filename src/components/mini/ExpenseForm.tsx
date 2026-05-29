@@ -229,15 +229,17 @@ export function ExpenseForm(props: Props) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 py-4">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="shrink-0 rounded-lg"
-            onClick={backToGroup}
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
+          {mode === "web" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0 rounded-lg"
+              onClick={backToGroup}
+            >
+              <ArrowLeft className="size-4" />
+            </Button>
+          )}
           <div>
             <h1 className="text-lg font-semibold">{isEdit ? "編輯支出" : "新增支出"}</h1>
             {isEdit && (
