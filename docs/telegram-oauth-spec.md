@@ -105,6 +105,8 @@ Discovery document **沒有 `userinfo_endpoint`** — 這是與一般 OIDC 最�
 
 > 只有符合所申請 scope 的 claims 會被包含。
 
+> ⚠️ **`sub` ≠ `id`**：`sub` 是 OIDC 的 per-bot pairwise 識別碼，**不是** Telegram 數字 user id；真正的 user id 在 `id` claim。Mini App（initData）用的是 `id`，所以 web OIDC 也必須以 `id` 當 `providerUid`，否則同一個人會被建成兩個 identity / 兩個 user。我們的 `profile()` 因此回傳 `id: String(profile.id)`。
+
 **id_token 簽章演算法**（Discovery `id_token_signing_alg_values_supported`）：`RS256`、`ES256`、`EdDSA`、`ES256K`。
 
 ---
@@ -163,6 +165,7 @@ userinfo: {
       audience: process.env.AUTH_TELEGRAM_CLIENT_ID,
     }).then((r) => r.payload),
 },
+profile: (p) => ({ id: String(p.id) /* 用 id 而非 sub，對齊 Mini App */, ... }),
 ```
 
 環境變數：`AUTH_TELEGRAM_CLIENT_ID`、`AUTH_TELEGRAM_CLIENT_SECRET`。

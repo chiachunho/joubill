@@ -7,7 +7,12 @@ import { splitbillAdapter } from "@/lib/auth/nextAuthAdapter";
 import { SESSION_COOKIE } from "@/lib/auth";
 
 interface TelegramOIDCProfile {
+  // OIDC subject — a per-bot pairwise identifier, NOT the Telegram user id.
   sub: string;
+  // The real numeric Telegram user id. This is what the Mini App stores as
+  // providerUid (from initData), so both login paths must key on it to resolve
+  // to the same user.
+  id: number;
   name?: string;
   preferred_username?: string;
   picture?: string;
@@ -65,7 +70,10 @@ const TelegramOIDC = {
   },
   profile(profile: TelegramOIDCProfile) {
     return {
-      id: profile.sub,
+      // Use the numeric Telegram user id (not `sub`) so this matches the
+      // providerUid the Mini App stores; Auth.js maps this to
+      // account.providerAccountId → auth_identities.providerUid.
+      id: String(profile.id),
       name: profile.name ?? profile.preferred_username ?? null,
       // Telegram does not provide email. Empty string avoids type errors;
       // the adapter converts it to NULL before storing.
