@@ -325,7 +325,7 @@ export function ExpenseForm(props: Props) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>分帳方式</FormLabel>
-              <div className="inline-flex w-full rounded-xl border border-input bg-secondary/40 p-0.5">
+              <div className="inline-flex w-full rounded-lg border border-input bg-secondary/40 p-0.5">
                 {(["equal", "exact", "percent"] as const).map((m) => (
                   <button
                     key={m}
@@ -333,7 +333,7 @@ export function ExpenseForm(props: Props) {
                     onClick={() => field.onChange(m)}
                     aria-pressed={field.value === m}
                     className={cn(
-                      "flex-1 rounded-[9px] px-3 py-1.5 text-sm font-medium transition-all",
+                      "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
                       field.value === m
                         ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground",
@@ -425,7 +425,7 @@ export function ExpenseForm(props: Props) {
         />
 
         {form.formState.errors.root && (
-          <p className="rounded-xl bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+          <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
             {form.formState.errors.root.message}
           </p>
         )}
@@ -435,7 +435,7 @@ export function ExpenseForm(props: Props) {
           <Button
             type="submit"
             disabled={form.formState.isSubmitting || !form.formState.isValid}
-            className="flex-1 rounded-xl"
+            className="flex-1 rounded-lg"
           >
             {form.formState.isSubmitting ? "儲存中…" : "儲存"}
           </Button>
@@ -444,7 +444,7 @@ export function ExpenseForm(props: Props) {
               type="button"
               variant="destructive"
               disabled={deletePending}
-              className="rounded-xl"
+              className="rounded-lg"
               onClick={handleDelete}
             >
               {deletePending ? "刪除中…" : "刪除"}

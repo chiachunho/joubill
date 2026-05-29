@@ -272,7 +272,7 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
         />
 
         {form.formState.errors.root && (
-          <p className="rounded-xl bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+          <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
             {form.formState.errors.root.message}
           </p>
         )}
@@ -282,7 +282,7 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
           <Button
             type="submit"
             disabled={form.formState.isSubmitting || !form.formState.isValid}
-            className="flex-1 rounded-xl"
+            className="flex-1 rounded-lg"
           >
             {form.formState.isSubmitting ? "儲存中…" : "儲存"}
           </Button>
@@ -291,7 +291,7 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
               type="button"
               variant="destructive"
               disabled={deletePending}
-              className="rounded-xl"
+              className="rounded-lg"
               onClick={handleDelete}
             >
               {deletePending ? "刪除中…" : "刪除"}

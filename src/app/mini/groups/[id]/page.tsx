@@ -194,14 +194,14 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
       <div className="flex justify-end gap-1 px-4">
         <Link
           href={`/mini/groups/${id}/settlements`}
-          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <History className="size-3.5" />
           還款記錄
         </Link>
         <Link
           href={`/mini/groups/${id}/stats`}
-          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <BarChart3 className="size-3.5" />
           統計
@@ -278,7 +278,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                   <button
                     disabled={pendingIdx === i}
                     onClick={() => markSettled(t, i)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
                   >
                     {pendingIdx === i ? (
                       <Loader2 className="size-3 animate-spin" />
@@ -300,7 +300,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
           <p className="sect">Expenses ({expensesData.expenses.length})</p>
           <Link
             href={`/mini/groups/${id}/expenses/new`}
-            className="inline-flex items-center gap-1 rounded-xl bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             <Plus className="size-3" />
             新增

@@ -33,7 +33,7 @@ function FieldSkeleton({ width = "w-16" }: { width?: string }) {
   return (
     <div className="space-y-2">
       <Skeleton className={`h-3 ${width}`} />
-      <Skeleton className="h-10 w-full rounded-md" />
+      <Skeleton className="h-10 w-full rounded-lg" />
     </div>
   );
 }
@@ -43,8 +43,8 @@ export function GroupPageSkeleton() {
   return (
     <div className="space-y-6 py-4">
       <div className="flex justify-end gap-1 px-4">
-        <Skeleton className="h-7 w-20 rounded-xl" />
-        <Skeleton className="h-7 w-16 rounded-xl" />
+        <Skeleton className="h-7 w-20 rounded-lg" />
+        <Skeleton className="h-7 w-16 rounded-lg" />
       </div>
 
       <section className="px-4">
@@ -63,7 +63,7 @@ export function GroupPageSkeleton() {
       <section className="px-4">
         <div className="mb-2.5 flex items-center justify-between">
           <Skeleton className="h-3 w-28" />
-          <Skeleton className="h-6 w-14 rounded-xl" />
+          <Skeleton className="h-6 w-14 rounded-lg" />
         </div>
         <Skeleton className="mb-2 h-3 w-12" />
         <Panel rows={4} />
@@ -98,7 +98,7 @@ export function SettlementsSkeleton() {
     <div className="space-y-6 py-4">
       <div className="flex items-center justify-between px-4">
         <Skeleton className="h-6 w-24" />
-        <Skeleton className="h-6 w-14 rounded-xl" />
+        <Skeleton className="h-6 w-14 rounded-lg" />
       </div>
       <div className="px-4">
         <Skeleton className="mb-2 h-3 w-12" />
@@ -119,13 +119,13 @@ export function StatsSkeleton() {
       <section className="px-4">
         <Skeleton className="mb-2.5 h-3 w-28" />
         <div className="rounded-2xl bg-secondary/50 px-4 py-4">
-          <Skeleton className="h-[220px] w-full rounded-xl" />
+          <Skeleton className="h-[220px] w-full rounded-lg" />
         </div>
       </section>
       <section className="px-4">
         <Skeleton className="mb-2.5 h-3 w-20" />
         <div className="rounded-2xl bg-secondary/50 px-4 py-4">
-          <Skeleton className="h-[160px] w-full rounded-xl" />
+          <Skeleton className="h-[160px] w-full rounded-lg" />
         </div>
       </section>
     </div>
@@ -153,17 +153,17 @@ export function FormSkeleton({ variant }: { variant: "expense" | "settlement" })
           <FieldSkeleton />
           <div className="space-y-2">
             <Skeleton className="h-3 w-16" />
-            <Skeleton className="h-9 w-full rounded-xl" />
+            <Skeleton className="h-9 w-full rounded-lg" />
           </div>
           <div className="space-y-2">
             <Skeleton className="h-3 w-16" />
             <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 px-4 py-3">
-                  <Skeleton className="size-4 rounded" />
+                  <Skeleton className="size-4 rounded-sm" />
                   <Skeleton className="size-7 rounded-full" />
                   <Skeleton className="h-3.5 w-24 flex-1" />
-                  <Skeleton className="h-9 w-24 rounded-md" />
+                  <Skeleton className="h-9 w-24 rounded-lg" />
                 </div>
               ))}
             </div>
@@ -185,7 +185,7 @@ export function FormSkeleton({ variant }: { variant: "expense" | "settlement" })
         </>
       )}
 
-      <Skeleton className="h-10 w-full rounded-xl" />
+      <Skeleton className="h-10 w-full rounded-lg" />
     </div>
   );
 }

@@ -90,7 +90,7 @@ export default function SettlementsPage({ params }: { params: Promise<{ id: stri
         <h1 className="text-lg font-semibold">還款記錄</h1>
         <Link
           href={`/mini/groups/${id}/settlements/new`}
-          className="inline-flex items-center gap-1 rounded-xl bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           <Plus className="size-3" />
           新增
