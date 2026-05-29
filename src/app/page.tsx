@@ -27,7 +27,7 @@ export default function Home() {
             </a>
           </Button>
           <Button variant="secondary" asChild>
-            <a href="/mini">Mini App 預覽</a>
+            <a href="/app">開啟 Web App</a>
           </Button>
         </CardContent>
       </Card>
