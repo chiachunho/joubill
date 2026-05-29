@@ -26,7 +26,9 @@ const TelegramOIDC = {
   issuer: "https://oauth.telegram.org",
   clientId: process.env.AUTH_TELEGRAM_CLIENT_ID,
   clientSecret: process.env.AUTH_TELEGRAM_CLIENT_SECRET,
-  checks: ["pkce", "state"] as ("pkce" | "state")[],
+  // Telegram OAuth rejects state params longer than ~128 chars.
+  // Auth.js's JWE-encrypted state is 400+ chars, so we rely on PKCE alone for CSRF protection.
+  checks: ["pkce"] as ("pkce" | "state")[],
   profile(profile: TelegramOIDCProfile) {
     return {
       id: profile.sub,
