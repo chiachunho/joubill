@@ -15,22 +15,32 @@ interface TelegramOIDCProfile {
 }
 
 /**
- * Telegram OIDC provider (standard Authorization Code + PKCE).
+ * Telegram OAuth2 + PKCE provider.
  * Discovery: https://oauth.telegram.org/.well-known/openid-configuration
  * No UserInfo endpoint — all claims come from the ID token directly.
  * Credentials: BotFather → Bot Settings → Web Login → Client ID / Secret
+ *
+ * Must use type:"oauth" (not "oidc") because Auth.js's OIDC branch requires
+ * a userinfo_endpoint in the discovery document; Telegram's has none.
+ * The oauth branch calls userinfo.request() instead, which lets us decode
+ * claims from the id_token locally.
+ *
+ * state check is dropped because Telegram rejects state params longer than
+ * ~128 chars; Auth.js generates JWE-encrypted state of 400+ chars. PKCE
+ * alone provides equivalent CSRF protection (RFC 7636).
  */
 const TelegramOIDC = {
   id: "telegram",
   name: "Telegram",
-  type: "oidc" as const,
-  issuer: "https://oauth.telegram.org",
+  type: "oauth" as const,
+  authorization: {
+    url: "https://oauth.telegram.org/auth",
+    params: { scope: "openid profile" },
+  },
+  token: "https://oauth.telegram.org/token",
   clientId: process.env.AUTH_TELEGRAM_CLIENT_ID,
   clientSecret: process.env.AUTH_TELEGRAM_CLIENT_SECRET,
-  // Telegram OAuth rejects state params longer than ~128 chars.
-  // Auth.js's JWE-encrypted state is 400+ chars, so we rely on PKCE alone for CSRF protection.
   checks: ["pkce"] as ("pkce" | "state")[],
-  // Telegram has no userinfo_endpoint — decode claims from the id_token directly.
   userinfo: {
     async request({ tokens }: { tokens: { id_token?: string } }) {
       return decodeJwt(tokens.id_token!);
