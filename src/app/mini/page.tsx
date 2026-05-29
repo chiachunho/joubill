@@ -45,7 +45,7 @@ export default function MiniHome() {
           <Users className="size-6 text-muted-foreground" />
         </div>
         <p className="font-semibold">還沒有任何群組</p>
-        <p className="mt-1 text-sm text-muted-foreground">把 Bot 加進 Telegram 群組，輸入 /start 即可</p>
+        <p className="mt-1 text-sm text-muted-foreground">把揪帳 Bot 加進群組，輸入 /start，就這樣</p>
       </div>
     );
   }

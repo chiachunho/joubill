@@ -6,7 +6,7 @@ import { SWRProvider } from "@/components/mini/SWRProvider";
 import { TelegramApp } from "@/components/mini/TelegramApp";
 
 export const metadata: Metadata = {
-  title: "Splitbill",
+  title: "揪帳",
 };
 
 export default function MiniLayout({ children }: { children: React.ReactNode }) {

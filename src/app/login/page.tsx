@@ -13,8 +13,8 @@ export default async function LoginPage({ searchParams }: Props) {
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="space-y-2 text-center">
-          <h1 className="text-lg font-semibold">Splitbill</h1>
-          <p className="text-sm text-muted-foreground">選擇登入方式</p>
+          <h1 className="text-lg font-semibold">揪帳</h1>
+          <p className="text-sm text-muted-foreground">選個方式登入，就這樣。</p>
         </div>
         <SessionProvider>
           <OAuthButtons callbackUrl={callbackUrl} />

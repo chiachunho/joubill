@@ -21,19 +21,19 @@ startCommand.command("start", async (ctx) => {
     const miniAppLink = `https://t.me/${botUsername}/${appName}?startapp=${startParam}`;
 
     const greeting =
-      `哈囉 ${ctx.from?.first_name ?? ""}！我會幫這個群組記帳。\n` +
-      `輸入 /add 開始記支出，/help 看完整指令。`;
-    const keyboard = new InlineKeyboard().url("開啟 Splitbill", miniAppLink);
+      `嗨 ${ctx.from?.first_name ?? ""}！揪帳來幫這個群組記帳。\n` +
+      `輸入 /add 記第一筆支出，/help 看完整指令，就這樣 🧾`;
+    const keyboard = new InlineKeyboard().url("開啟揪帳", miniAppLink);
     await ctx.reply(greeting, { reply_markup: keyboard });
     return;
   }
 
   // Private chat: the web_app button can launch the Mini App directly.
   const greeting =
-    `哈囉 ${ctx.from?.first_name ?? ""}！把我加進群組就能開始分帳。\n` +
-    `先輸入 /help 看怎麼用，或直接點下面按鈕開 Mini App。`;
+    `嗨 ${ctx.from?.first_name ?? ""}！把我加進群組就能開始分帳。\n` +
+    `輸入 /help 看怎麼用，或直接點下面按鈕，就這樣 🧾`;
   const keyboard = new InlineKeyboard().webApp(
-    "開啟 Splitbill",
+    "開啟揪帳",
     clientEnv.NEXT_PUBLIC_MINI_APP_URL,
   );
   await ctx.reply(greeting, { reply_markup: keyboard });

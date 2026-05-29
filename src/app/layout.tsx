@@ -11,8 +11,8 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Splitbill",
-  description: "Telegram 群組分帳 Bot + Mini App",
+  title: "揪帳",
+  description: "聚餐、旅遊、下午茶，分帳就這樣搞定。",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

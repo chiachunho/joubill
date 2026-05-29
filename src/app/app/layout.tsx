@@ -4,7 +4,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 
 import { WebSWRProvider } from "./SWRProvider";
 
-export const metadata: Metadata = { title: "Splitbill" };
+export const metadata: Metadata = { title: "揪帳" };
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -5,16 +5,16 @@ export default function Home() {
   return (
     <main className="container mx-auto flex min-h-screen max-w-3xl flex-col gap-8 py-16">
       <header className="space-y-3">
-        <h1 className="text-4xl font-bold tracking-tight">Splitbill</h1>
+        <h1 className="text-4xl font-bold tracking-tight">揪帳</h1>
         <p className="text-muted-foreground">
-          Splitwise 風格的 Telegram 群組分帳 Bot。在群組裡記支出，自動算餘額與最少筆數還款建議。
+          聚餐、旅遊、下午茶，每次到了結帳時刻總是最尷尬？用揪帳，就這樣算清楚。
         </p>
       </header>
 
       <Card>
         <CardHeader>
           <CardTitle>開始使用</CardTitle>
-          <CardDescription>把 Bot 加進群組後輸入 /start 即可註冊。</CardDescription>
+          <CardDescription>把 Bot 加進群組，輸入 /start，就這樣。</CardDescription>
         </CardHeader>
         <CardContent className="flex gap-3">
           <Button asChild>
