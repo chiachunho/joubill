@@ -7,6 +7,7 @@ import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
+import { fmt, monthLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { minimizeTransfers } from "@/lib/settlement-core";
 import { webFetch } from "@/lib/web-fetch";
@@ -44,14 +45,6 @@ type AvatarsResponse = { groupPhoto: string | null; userPhotos: Record<number, s
 
 type Transfer = { fromUserId: number; toUserId: number; amount: number; from: Profile | null; to: Profile | null };
 
-function fmt(amount: number) {
-  return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function monthLabel(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
 
 export default function AppGroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);

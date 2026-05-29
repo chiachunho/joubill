@@ -8,6 +8,7 @@ import useSWR from "swr";
 
 import { EChart } from "@/components/mini/EChart";
 import { StatsSkeleton } from "@/components/mini/skeletons";
+import { fmt } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 
 type StatsResponse = {
@@ -16,9 +17,6 @@ type StatsResponse = {
   byPayer: Array<{ userId: number; firstName: string; lastName: string | null; username: string | null; total: number }>;
 };
 
-function fmt(amount: number) {
-  return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 const FONT_FAMILY =
   'system-ui, -apple-system, "Segoe UI", "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';

@@ -7,6 +7,7 @@ import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { SettlementsSkeleton } from "@/components/mini/skeletons";
+import { fmt, monthLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 
 type Profile = { userId: number; firstName: string | null; lastName: string | null; username: string | null };
@@ -16,14 +17,6 @@ type SettlementsResponse = {
   settlements: Array<{ id: number; amount: number; currency: string; settledAt: string; from: Profile; to: Profile }>;
 };
 
-function fmt(amount: number) {
-  return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function monthLabel(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
 
 export default function AppSettlementsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);

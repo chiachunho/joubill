@@ -3,6 +3,7 @@ import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 
 import { splitbillAdapter } from "@/lib/auth/nextAuthAdapter";
+import { SESSION_COOKIE } from "@/lib/auth";
 
 interface TelegramOIDCProfile {
   sub: string;
@@ -25,7 +26,7 @@ const TelegramOIDC = {
   issuer: "https://oauth.telegram.org",
   clientId: process.env.AUTH_TELEGRAM_CLIENT_ID,
   clientSecret: process.env.AUTH_TELEGRAM_CLIENT_SECRET,
-  checks: ["pkce", "state"] as ["pkce", "state"],
+  checks: ["pkce", "state"] as ("pkce" | "state")[],
   profile(profile: TelegramOIDCProfile) {
     return {
       id: profile.sub,
@@ -51,7 +52,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // up Auth.js-created sessions without any changes to API route auth.
   cookies: {
     sessionToken: {
-      name: "session",
+      name: SESSION_COOKIE,
       options: {
         httpOnly: true,
         sameSite: "lax" as const,

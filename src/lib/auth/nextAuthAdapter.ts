@@ -57,6 +57,7 @@ export const splitbillAdapter: Adapter = {
   },
 
   async getUserByEmail(email) {
+    if (!email) return null;
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user ? toAdapterUser(user) : null;
   },
@@ -85,7 +86,7 @@ export const splitbillAdapter: Adapter = {
           lastName: parts.slice(1).join(" ") || null,
         }),
         ...(data.email != null && { email: data.email }),
-        ...(data.image !== undefined && { avatarUrl: data.image }),
+        ...(data.image != null && { avatarUrl: data.image }),
         updatedAt: new Date(),
       })
       .where(eq(users.id, Number(id)))

@@ -15,7 +15,9 @@ export type Auth = {
   groupFromParam?: Group;
 };
 
-function parseCookie(header: string, name: string): string | null {
+export const SESSION_COOKIE = "session";
+
+export function parseCookie(header: string, name: string): string | null {
   const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
@@ -39,17 +41,9 @@ export async function resolveSessionByToken(token: string): Promise<User | null>
  * the session doesn't exist, or the session has expired.
  */
 export async function resolveSession(req: Request): Promise<User | null> {
-  const token = parseCookie(req.headers.get("cookie") ?? "", "session");
+  const token = parseCookie(req.headers.get("cookie") ?? "", SESSION_COOKIE);
   if (!token) return null;
-
-  const [row] = await db
-    .select({ userId: sessions.userId })
-    .from(sessions)
-    .where(and(eq(sessions.id, token), gt(sessions.expiresAt, new Date())));
-  if (!row) return null;
-
-  const [user] = await db.select().from(users).where(eq(users.id, row.userId));
-  return user ?? null;
+  return resolveSessionByToken(token);
 }
 
 /**
