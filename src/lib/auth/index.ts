@@ -1,12 +1,13 @@
 import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { groupMembers, groups, users } from "@/db/schema";
+import { groupMembers, groups } from "@/db/schema";
 import type { Group, User } from "@/db/schema";
 import { serverEnv } from "@/lib/env";
 
 import { ForbiddenError, UnauthorizedError } from "./errors";
 import { verifyInitData } from "./initData";
+import { upsertTelegramUser } from "./upsertTelegramUser";
 
 export type Auth = {
   user: User;
@@ -34,29 +35,9 @@ export async function getAuth(req: Request): Promise<Auth> {
     throw new UnauthorizedError(err instanceof Error ? err.message : "initData invalid");
   }
 
-  // Upsert user. We mirror registerUser (the bot middleware) so first-time
-  // Mini App visitors who somehow never spoke to the bot still get a row.
-  const tgUser = verified.user;
-  const [user] = await db
-    .insert(users)
-    .values({
-      telegramId: tgUser.id,
-      firstName: tgUser.first_name,
-      lastName: tgUser.last_name ?? null,
-      username: tgUser.username?.toLowerCase() ?? null,
-      languageCode: tgUser.language_code ?? null,
-    })
-    .onConflictDoUpdate({
-      target: users.telegramId,
-      set: {
-        firstName: tgUser.first_name,
-        lastName: tgUser.last_name ?? null,
-        username: tgUser.username?.toLowerCase() ?? null,
-        languageCode: tgUser.language_code ?? null,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
+  // Upsert user + auth_identity. Mirrors registerUser (the bot middleware) so
+  // first-time Mini App visitors who never spoke to the bot still get a row.
+  const user = await upsertTelegramUser(verified.user);
 
   // Resolve start_param: bot puts "group_<telegram_chat_id>" when launching from a group.
   let groupFromParam: Group | undefined;

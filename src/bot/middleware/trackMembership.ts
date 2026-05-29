@@ -1,7 +1,8 @@
 import { Composer } from "grammy";
 
 import { db } from "@/db";
-import { groupMembers, users } from "@/db/schema";
+import { groupMembers } from "@/db/schema";
+import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 
 import type { BotContext } from "../context";
 
@@ -23,27 +24,7 @@ trackMembership.on("message:new_chat_members", async (ctx, next) => {
   const newcomers = ctx.message.new_chat_members.filter((u) => !u.is_bot);
   if (group && newcomers.length > 0) {
     for (const tgUser of newcomers) {
-      const [user] = await db
-        .insert(users)
-        .values({
-          telegramId: tgUser.id,
-          firstName: tgUser.first_name,
-          lastName: tgUser.last_name,
-          username: tgUser.username?.toLowerCase() ?? null,
-          languageCode: tgUser.language_code,
-        })
-        .onConflictDoUpdate({
-          target: users.telegramId,
-          set: {
-            firstName: tgUser.first_name,
-            lastName: tgUser.last_name,
-            username: tgUser.username?.toLowerCase() ?? null,
-            languageCode: tgUser.language_code,
-            updatedAt: new Date(),
-          },
-        })
-        .returning();
-
+      const user = await upsertTelegramUser(tgUser);
       await db
         .insert(groupMembers)
         .values({ groupId: group.id, userId: user.id })

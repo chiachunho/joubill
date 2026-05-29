@@ -64,6 +64,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 
   const memberResults = await Promise.allSettled(
     memberRows.map(async ({ userId, telegramId }) => {
+      if (!telegramId) return { userId, url: null };
       try {
         const photos = await tgApi.getUserProfilePhotos(telegramId, { limit: 1 });
         if (!photos.total_count || !photos.photos[0]?.[0]) return { userId, url: null };

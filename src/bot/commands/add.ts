@@ -3,6 +3,7 @@ import { and, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expenseSplits, expenses, groupMembers, users } from "@/db/schema";
+import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { splitEqual } from "@/lib/money";
 import { parseAddMessage } from "@/lib/parseAdd";
 
@@ -34,21 +35,7 @@ addCommand.command("add", async (ctx) => {
   // person having registered some other way.
   for (const entity of ctx.message?.entities ?? []) {
     if (entity.type !== "text_mention" || !entity.user || entity.user.is_bot) continue;
-    const tgUser = entity.user;
-    const [u] = await db
-      .insert(users)
-      .values({
-        telegramId: tgUser.id,
-        firstName: tgUser.first_name,
-        lastName: tgUser.last_name,
-        username: tgUser.username?.toLowerCase() ?? null,
-        languageCode: tgUser.language_code,
-      })
-      .onConflictDoUpdate({
-        target: users.telegramId,
-        set: { firstName: tgUser.first_name, updatedAt: new Date() },
-      })
-      .returning();
+    const u = await upsertTelegramUser(entity.user);
     await db
       .insert(groupMembers)
       .values({ groupId: group.id, userId: u.id })

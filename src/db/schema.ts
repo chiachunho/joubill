@@ -10,18 +10,22 @@ import {
   serial,
   text,
   timestamp,
+  unique,
   varchar,
 } from "drizzle-orm/pg-core";
 
-/** Internal user, 1:1 with a Telegram user. */
+/** Internal user. telegramId is nullable so non-Telegram OAuth providers (Phase 4) can create users too. */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   // Telegram user IDs are still within 2^53; switch to bigint mode if they ever grow past that.
-  telegramId: bigint("telegram_id", { mode: "number" }).notNull().unique(),
+  // Nullable: future OAuth-only users (GitHub/Google) won't have a Telegram ID.
+  telegramId: bigint("telegram_id", { mode: "number" }).unique(),
   username: text("username"),
   firstName: text("first_name").notNull(),
   lastName: text("last_name"),
   languageCode: text("language_code"),
+  email: text("email"),
+  avatarUrl: text("avatar_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -130,6 +134,35 @@ export const exchangeRates = pgTable(
   (t) => [primaryKey({ columns: [t.base, t.quote, t.asOfDate] })],
 );
 
+/**
+ * One row per (provider, providerUid) pair. Maps to Auth.js `accounts` shape for
+ * zero-friction integration when we add GitHub/Google in Phase 4.
+ * provider: 'telegram' | 'github' | 'google'
+ */
+export const authIdentities = pgTable(
+  "auth_identities",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    providerUid: text("provider_uid").notNull(),
+    email: text("email"),
+  },
+  (t) => [unique("auth_identities_provider_uid").on(t.provider, t.providerUid)],
+);
+
+/** DB-backed sessions for web login (cookie token → row). */
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
 // Convenient row types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -143,3 +176,7 @@ export type NewExpenseSplit = typeof expenseSplits.$inferInsert;
 export type Settlement = typeof settlements.$inferSelect;
 export type NewSettlement = typeof settlements.$inferInsert;
 export type ExchangeRate = typeof exchangeRates.$inferSelect;
+export type AuthIdentity = typeof authIdentities.$inferSelect;
+export type NewAuthIdentity = typeof authIdentities.$inferInsert;
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
