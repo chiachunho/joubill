@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Maintenance rule:** When implementing a feature that changes architecture, env vars, DB schema, or testing conventions, update this file in the same PR/commit.
+
 ## Commands
 
 ```bash
@@ -57,10 +59,12 @@ Group membership is enforced separately via `assertGroupMember`.
 
 ### Database (`src/db/`)
 
-Drizzle ORM + Neon Serverless Postgres. Six tables defined in `src/db/schema.ts`:
-`users` → `groups` → `group_members` (join) → `expenses` → `expense_splits` → `settlements` + `exchange_rates`.
+Drizzle ORM + Neon Serverless Postgres. Seven tables defined in `src/db/schema.ts`:
+`users` → `groups` → `group_members` (join) → `expenses` → `expense_splits` → `settlements` + `exchange_rates` + `receipt_awaiting`.
 
 Schema is pushed directly with `db:push` (no migration workflow). `numeric` columns come back as strings from Drizzle; use `n()` from `src/lib/money.ts` to parse them to numbers.
+
+`receipt_awaiting` stores in-flight "waiting for receipt photo" state for the ForceReply bot flow. Rows are cleaned up when a photo arrives or opportunistically after 24 h.
 
 ### Settlement logic
 
@@ -72,12 +76,21 @@ Split across two files deliberately:
 
 Exchange rates are cached per `(base, quote, date)` in the `exchange_rates` table. Historical expenses always use the rate as of `spent_at`, so balances don't silently shift when rates move.
 
+### Receipt photos (`src/app/api/tg-photo/` and `src/app/api/tg-upload/`)
+
+Receipts are stored on Telegram's servers. Only the `file_id` (permanent) is written to `expenses.receipt_file_id`. Serving goes through the `/api/tg-photo` proxy (accepts `?fileId=` or `?path=`) so the bot token never appears in client URLs.
+
+Upload flow (Mini App): `POST /api/tg-upload` (auth-protected) → `sendPhoto` to the private storage channel → returns `file_id` → saved with the expense.
+
+Upload flow (bot): photo sent as a caption `/add …` stores `file_id` directly. The "上傳收據" inline button after `/add` triggers a ForceReply prompt; the reply photo is matched via `receipt_awaiting`.
+
 ### Environment variables
 
 Validated at runtime (not build time) via `serverEnv()` in `src/lib/env.ts`:
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
 - `TELEGRAM_MINI_APP_NAME` — short name from BotFather `/newapp`
+- `TELEGRAM_STORAGE_CHAT_ID` — `chat_id` of the private Telegram channel used as photo storage (bot must be admin with "Post Messages" permission)
 - `DATABASE_URL` — Neon pooled connection string
 - `NEXT_PUBLIC_MINI_APP_URL` — public URL of the `/mini` route
 
@@ -93,6 +106,7 @@ Things that bite, in priority order:
 - The Telegram webhook only needs re-setting (`pnpm bot:set-webhook https://<domain>`) when the **domain changes** — not on every deploy.
 - Both `NEXT_PUBLIC_MINI_APP_URL` (private-chat button) and the BotFather-registered Web App URL (group direct-link) must point at the production `/mini`.
 - Schema reaches Neon via `pnpm db:push` (run from a machine whose `DATABASE_URL` points at the prod DB); there is no migration step in CI.
+- `TELEGRAM_STORAGE_CHAT_ID` must be set before deploying the receipt-photo feature. Create a private channel, add the bot as admin, get the `chat_id` (a large negative number), and add it to Vercel env vars + local `.env.local`.
 
 ### Testing
 

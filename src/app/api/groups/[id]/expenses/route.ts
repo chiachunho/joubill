@@ -29,6 +29,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       description: expenses.description,
       spentAt: expenses.spentAt,
       payerId: expenses.payerId,
+      receiptFileId: expenses.receiptFileId,
       payerFirstName: users.firstName,
       payerLastName: users.lastName,
       payerUsername: users.username,
@@ -70,6 +71,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       currency: e.currency,
       description: e.description,
       spentAt: e.spentAt,
+      receiptFileId: e.receiptFileId,
       payer: {
         userId: e.payerId,
         firstName: e.payerFirstName,
@@ -120,6 +122,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
       description: input.description,
       spentAt: new Date(input.spentAt),
       createdBy: auth.user.id,
+      receiptFileId: input.receiptFileId ?? null,
     })
     .returning();
 

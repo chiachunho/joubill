@@ -73,6 +73,7 @@ export const expenses = pgTable(
     createdBy: integer("created_by")
       .notNull()
       .references(() => users.id),
+    receiptFileId: text("receipt_file_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -120,6 +121,21 @@ export const settlements = pgTable(
   },
   (t) => [index("settlements_group_idx").on(t.groupId, t.settledAt)],
 );
+
+/**
+ * Tracks in-flight "waiting for receipt photo" states in group chats.
+ * Created when a user clicks the "Upload Receipt" button after /add; deleted
+ * once the user replies with a photo (or the row expires).
+ */
+export const receiptAwaiting = pgTable("receipt_awaiting", {
+  id: serial("id").primaryKey(),
+  chatId: bigint("chat_id", { mode: "number" }).notNull(),
+  messageId: integer("message_id").notNull(),
+  expenseId: integer("expense_id")
+    .notNull()
+    .references(() => expenses.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 /** FX rate cache. One row per (base, quote, as_of_date); fetched once per day. */
 export const exchangeRates = pgTable(
@@ -187,3 +203,4 @@ export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type NewAuthIdentity = typeof authIdentities.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
+export type ReceiptAwaiting = typeof receiptAwaiting.$inferSelect;

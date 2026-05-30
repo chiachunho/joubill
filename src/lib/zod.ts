@@ -38,6 +38,7 @@ export const expenseInputSchema = z
     }),
     shareType: z.enum(["equal", "exact", "percent"]),
     splits: z.array(splitItemSchema).min(1),
+    receiptFileId: z.string().max(256).nullable().optional(),
   })
   .refine(
     (data) => {

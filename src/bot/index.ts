@@ -8,6 +8,7 @@ import { deleteExpenseCallback } from "./commands/deleteExpense";
 import { helpCommand } from "./commands/help";
 import { linkCommand } from "./commands/link";
 import { listCommand } from "./commands/list";
+import { receiptUploadHandler } from "./commands/receiptUpload";
 import { settleCommand } from "./commands/settle";
 import { startCommand } from "./commands/start";
 import type { BotContext } from "./context";
@@ -37,6 +38,7 @@ export function getBot(): Bot<BotContext> {
   bot.use(registerUser);
   bot.use(trackMembership);
   bot.use(deleteExpenseCallback);
+  bot.use(receiptUploadHandler);
   bot.use(startCommand);
   bot.use(helpCommand);
   bot.use(addCommand);

@@ -2,7 +2,7 @@ import { Composer, InlineKeyboard } from "grammy";
 import { and, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenseSplits, expenses, groupMembers, users } from "@/db/schema";
+import { expenseSplits, expenses, groupMembers, receiptAwaiting, users } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped, splitEqual } from "@/lib/money";
@@ -14,7 +14,7 @@ import type { BotContext } from "../context";
 
 export const addCommand = new Composer<BotContext>();
 
-type DbUser = {
+export type DbUser = {
   id: number;
   username: string | null;
   firstName: string;
@@ -237,28 +237,15 @@ addCommand.command("add", async (ctx) => {
   }
 
   const amount = parsed.amount!;
-  const shares = splitEqual(amount, participants.length);
-
-  const [expense] = await db
-    .insert(expenses)
-    .values({
-      groupId: group.id,
-      payerId: payer.id,
-      amount: amount.toFixed(2),
-      currency,
-      description: parsed.description,
-      createdBy: payer.id,
-    })
-    .returning();
-
-  await db.insert(expenseSplits).values(
-    participants.map((p, i) => ({
-      expenseId: expense.id,
-      debtorId: p.id,
-      amount: shares[i].toFixed(2),
-      shareType: "equal" as const,
-    })),
-  );
+  const { expense, shares } = await insertEqualSplitExpense({
+    groupId: group.id,
+    payerId: payer.id,
+    createdBy: payer.id,
+    amount,
+    currency,
+    description: parsed.description,
+    participants,
+  });
 
   // Echo "@username" only for people the user actually @-mentioned.
   const typedUsernames = new Set(parsed.mentionUsernames);
@@ -277,7 +264,7 @@ addCommand.command("add", async (ctx) => {
   await ctx.reply(text, { parse_mode: "HTML", reply_markup: buildKeyboard(ctx, expense.id) });
 });
 
-function buildKeyboard(ctx: BotContext, expenseId: number): InlineKeyboard {
+export function buildKeyboard(ctx: BotContext, expenseId: number): InlineKeyboard {
   const botUsername = ctx.me.username;
   const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
   const chatId = ctx.chat?.id;
@@ -285,5 +272,76 @@ function buildKeyboard(ctx: BotContext, expenseId: number): InlineKeyboard {
 
   return new InlineKeyboard()
     .url("編輯", editUrl)
+    .text("上傳收據", `upload_receipt:${expenseId}`)
     .text("刪除", `del_exp:${expenseId}`);
 }
+
+/** Inserts an expense + equal splits in one call. Returns the created expense and share amounts. */
+export async function insertEqualSplitExpense(params: {
+  groupId: number;
+  payerId: number;
+  createdBy: number;
+  amount: number;
+  currency: string;
+  description: string | null;
+  participants: DbUser[];
+  receiptFileId?: string | null;
+}) {
+  const { groupId, payerId, createdBy, amount, currency, description, participants, receiptFileId } =
+    params;
+  const shares = splitEqual(amount, participants.length);
+  const [expense] = await db
+    .insert(expenses)
+    .values({
+      groupId,
+      payerId,
+      amount: amount.toFixed(2),
+      currency,
+      description,
+      createdBy,
+      ...(receiptFileId !== undefined && { receiptFileId }),
+    })
+    .returning();
+  await db.insert(expenseSplits).values(
+    participants.map((p, i) => ({
+      expenseId: expense.id,
+      debtorId: p.id,
+      amount: shares[i].toFixed(2),
+      shareType: "equal" as const,
+    })),
+  );
+  return { expense, shares };
+}
+
+addCommand.callbackQuery(/^upload_receipt:(\d+)$/, async (ctx) => {
+  const expenseId = Number(ctx.match[1]);
+
+  if (!ctx.dbUser) {
+    await ctx.answerCallbackQuery({ text: "無法識別使用者", show_alert: true });
+    return;
+  }
+
+  const [expense] = await db.select().from(expenses).where(eq(expenses.id, expenseId));
+  if (!expense) {
+    await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
+    return;
+  }
+
+  const chatId = ctx.chat?.id;
+  if (!chatId) {
+    await ctx.answerCallbackQuery({ text: "無法取得群組資訊", show_alert: true });
+    return;
+  }
+
+  const sent = await ctx.reply("請回覆這則訊息並附上收據照片 📷", {
+    reply_markup: { force_reply: true, selective: true },
+  });
+
+  await db.insert(receiptAwaiting).values({
+    chatId,
+    messageId: sent.message_id,
+    expenseId,
+  });
+
+  await ctx.answerCallbackQuery();
+});

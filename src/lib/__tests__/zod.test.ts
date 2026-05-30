@@ -65,6 +65,23 @@ describe("expenseInputSchema", () => {
   it("requires at least one split", () => {
     expect(expenseInputSchema.safeParse({ ...validExpense, splits: [] }).success).toBe(false);
   });
+
+  it("accepts a receiptFileId string", () => {
+    expect(
+      expenseInputSchema.safeParse({ ...validExpense, receiptFileId: "AgACAgIAAx" }).success,
+    ).toBe(true);
+  });
+
+  it("accepts null receiptFileId", () => {
+    expect(
+      expenseInputSchema.safeParse({ ...validExpense, receiptFileId: null }).success,
+    ).toBe(true);
+  });
+
+  it("accepts missing receiptFileId (optional)", () => {
+    const { receiptFileId: _, ...withoutReceipt } = { ...validExpense, receiptFileId: undefined };
+    expect(expenseInputSchema.safeParse(withoutReceipt).success).toBe(true);
+  });
 });
 
 describe("settlementInputSchema", () => {

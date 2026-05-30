@@ -49,6 +49,7 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     description: expense.description,
     payerId: expense.payerId,
     spentAt: expense.spentAt,
+    receiptFileId: expense.receiptFileId,
     splits: splits.map((s) => ({
       debtorId: s.debtorId,
       amount: n(s.amount),
@@ -92,6 +93,8 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
       currency: input.currency,
       description: input.description,
       spentAt: new Date(input.spentAt),
+      // Only update receiptFileId when the client explicitly sends it (null = clear, absent = keep).
+      ...(input.receiptFileId !== undefined && { receiptFileId: input.receiptFileId }),
       updatedAt: new Date(),
     })
     .where(eq(expenses.id, ids.eid));

@@ -53,11 +53,23 @@ Project → **Settings → Environment Variables**,以下所有變數都加（En
 | `TELEGRAM_BOT_TOKEN` | BotFather 給的 token | |
 | `TELEGRAM_WEBHOOK_SECRET` | 自訂的強隨機字串 | **要記下來**,步驟 8 本機要用同一個值 |
 | `TELEGRAM_MINI_APP_NAME` | BotFather 的 app short name（例:`splitbill`）| |
+| `TELEGRAM_STORAGE_CHAT_ID` | 私有頻道的 chat_id（負數）| 見下方說明 |
 | `DATABASE_URL` | Neon **Pooled** 連線字串 + `?sslmode=require` | 用 pooled,不要用 direct |
 | `NEXT_PUBLIC_MINI_APP_URL` | `https://splitbill.example.com/mini` | **填自訂網域**,不要填 `*.vercel.app` |
 | `AUTH_SECRET` | 隨機字串 | Auth.js 簽署 session 用。`openssl rand -base64 32` 生成 |
 | `AUTH_TELEGRAM_CLIENT_ID` | BotFather Web Login 的 Client ID | 步驟 4 取得 |
 | `AUTH_TELEGRAM_CLIENT_SECRET` | BotFather Web Login 的 Client Secret | 步驟 4 取得 |
+
+#### 建立 Receipt Storage Channel
+
+收據照片存在 Telegram 自己的伺服器,bot 需要一個私有頻道當倉庫:
+
+1. 在 Telegram 建立一個**私有頻道**（名稱隨意,例如「SplitBill Storage」）
+2. 將 bot 加進頻道,設為 **Admin**,只需勾選 "Post Messages" 權限
+3. 取得頻道的 `chat_id`（大負數,格式如 `-1001234567890`）:
+   - 傳一則訊息到頻道,然後 forward 給 `@userinfobot`,它會回覆 `Forwarded from chat #XXXXXXXXXX`
+   - 或用 Bot API:`https://api.telegram.org/bot<TOKEN>/getUpdates` 傳訊息後看 `channel_post.chat.id`
+4. 把取得的 `chat_id` 填入 `TELEGRAM_STORAGE_CHAT_ID`
 
 ### 選填（GitHub / Google OAuth 登入）
 
@@ -103,7 +115,7 @@ Telegram OIDC 需要在 BotFather 取得 OIDC 憑證,並註冊 Redirect URI:
 pnpm db:push
 ```
 
-把 [`src/db/schema.ts`](../src/db/schema.ts) 的九張表同步到 Neon（`auth_identities`、`sessions` 是本次新增的）。本專案不走 migration 檔,直接 push。
+把 [`src/db/schema.ts`](../src/db/schema.ts) 的十張表同步到 Neon。本專案不走 migration 檔,直接 push。
 
 ## 7. 填充 auth_identities（一次性）
 
@@ -145,6 +157,9 @@ pnpm bot:set-webhook https://splitbill.example.com
 - 終端機看步驟 8 印出的 `getWebhookInfo`:`url` 是自訂網域、`last_error_message` 應為空。
 - 把 bot 拉進一個 Telegram 群組 → `/start` → 點「開啟 Splitbill」→ Mini App 正常載入、看得到資料。
 - 試 `/add 100 午餐 @someone` → Mini App 餘額有更新。
+- 試傳一張照片並在 caption 輸入 `/add 50 收據測試` → bot 回覆支出訊息。
+- 點 `/add` 後的「上傳收據」按鈕 → bot 發 ForceReply → 回覆並附照片 → bot 回 👍。
+- Mini App 編輯支出 → 點「附上收據照片」→ 選圖 → 看到縮圖（代表上傳成功且 proxy 正常）。
 
 **Web 登入**
 - 開 `https://splitbill.example.com/login` → 看到「使用 Telegram 登入」按鈕。
@@ -171,3 +186,5 @@ push 到 GitHub 預設分支 → Vercel 自動重新部署。
 - **Telegram 登入按鈕沒出現 / OIDC 失敗**:確認 `AUTH_TELEGRAM_CLIENT_ID`、`AUTH_TELEGRAM_CLIENT_SECRET` 已設定,且 BotFather Web Login 的 Redirect URI 完全吻合 `https://<domain>/api/auth/callback/telegram`。
 - **GitHub / Google 登入失敗**:`AUTH_GITHUB_*` / `AUTH_GOOGLE_*` 未設定,或 OAuth App 的 Callback URL 沒加。
 - **`/link` 連結開啟後一直跳回登入頁**:magic link token 已過期（7 天有效）,請在群組重新執行 `/link`。
+- **收據照片上傳失敗（502）**:`TELEGRAM_STORAGE_CHAT_ID` 設錯,或 bot 不是該頻道的 Admin / 沒有 "Post Messages" 權限。
+- **Mini App 顯示收據圖片空白**:`TELEGRAM_STORAGE_CHAT_ID` 正確但 `/api/tg-photo` proxy 失敗;查 Vercel Function logs 確認 `getFile` 是否有錯。

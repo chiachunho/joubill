@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import { mutate } from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Calendar as CalendarIcon, Check, X } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, Check, ImagePlus, Loader2, Trash2, X } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { MemberSelect } from "@/components/mini/MemberSelect";
@@ -34,7 +34,7 @@ import { computeSplits } from "@/lib/splits";
 import { cn } from "@/lib/utils";
 import { useAuthMode } from "@/components/AuthProvider";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
-import { webRawFetch } from "@/lib/web-fetch";
+import { tmaRawFetch, webRawFetch } from "@/lib/web-fetch";
 import {
   SUPPORTED_CURRENCIES,
   expenseFormSchema,
@@ -50,6 +50,7 @@ type Initial = {
   description: string | null;
   payerId: number;
   spentAt: string;
+  receiptFileId?: string | null;
   splits: Array<{ debtorId: number; amount: number; shareType: string }>;
 };
 
@@ -150,6 +151,7 @@ export function ExpenseForm(props: Props) {
       payerId: Number(values.payerId),
       spentAt: dayToNoonUtcIso(values.spentDate),
       shareType: values.shareType,
+      receiptFileId,
       splits: computeSplits(
         parseFloat(values.amount),
         values.shareType,
@@ -163,21 +165,12 @@ export function ExpenseForm(props: Props) {
       ? `/api/groups/${groupId}/expenses/${initial!.id}`
       : `/api/groups/${groupId}/expenses`;
 
-    let res: Response;
-    if (mode === "web") {
-      res = await webRawFetch(url, {
-        method: isEdit ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-    } else {
-      const { default: WebApp } = await import("@twa-dev/sdk");
-      res = await fetch(url, {
-        method: isEdit ? "PATCH" : "POST",
-        headers: { Authorization: `tma ${WebApp.initData}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-    }
+    const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
+    const res = await fetchFn(url, {
+      method: isEdit ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
 
     if (!res.ok) {
       const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -186,6 +179,38 @@ export function ExpenseForm(props: Props) {
     }
     revalidateGroup();
     router.push(back);
+  }
+
+  const [receiptFileId, setReceiptFileId] = useState<string | null>(
+    initial?.receiptFileId ?? null,
+  );
+  const [receiptUploading, setReceiptUploading] = useState(false);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleReceiptChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReceiptError(null);
+    setReceiptUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
+      const res = await fetchFn("/api/tg-upload", { method: "POST", body });
+      if (!res.ok) {
+        const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        setReceiptError(parsed.error ?? "上傳失敗");
+        return;
+      }
+      const { fileId } = (await res.json()) as { fileId: string };
+      setReceiptFileId(fileId);
+    } catch {
+      setReceiptError("上傳失敗，請再試一次");
+    } finally {
+      setReceiptUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   const [deletePending, setDeletePending] = useState(false);
@@ -344,6 +369,53 @@ export function ExpenseForm(props: Props) {
             </FormItem>
           )}
         />
+
+        {/* Receipt photo */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium leading-none">收據照片</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleReceiptChange}
+          />
+          {receiptFileId ? (
+            <div className="relative w-full overflow-hidden rounded-2xl bg-secondary/50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/tg-photo?fileId=${receiptFileId}`}
+                alt="收據"
+                className="max-h-48 w-full object-contain"
+              />
+              <button
+                type="button"
+                onClick={() => setReceiptFileId(null)}
+                className="absolute right-2 top-2 rounded-lg bg-black/50 p-1.5 text-white backdrop-blur-sm"
+                aria-label="移除收據"
+              >
+                <Trash2 className="size-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={receiptUploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-input bg-secondary/30 py-4 text-sm text-muted-foreground hover:bg-secondary/60 disabled:opacity-50"
+            >
+              {receiptUploading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <ImagePlus className="size-4" />
+              )}
+              {receiptUploading ? "上傳中…" : "附上收據照片"}
+            </button>
+          )}
+          {receiptError && (
+            <p className="text-sm text-destructive">{receiptError}</p>
+          )}
+        </div>
 
         {/* Payer */}
         <FormField

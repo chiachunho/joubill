@@ -13,6 +13,7 @@ export default defineConfig({
       TELEGRAM_BOT_TOKEN: "123456:test-bot-token",
       TELEGRAM_WEBHOOK_SECRET: "test-secret",
       TELEGRAM_MINI_APP_NAME: "splitbill_test",
+      TELEGRAM_STORAGE_CHAT_ID: "-1001234567890",
       NEXT_PUBLIC_MINI_APP_URL: "https://example.com/mini",
     },
   },

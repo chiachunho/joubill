@@ -6,6 +6,8 @@ const serverSchema = z.object({
   // Short name from BotFather /newapp (e.g. "splitbill"). Used to build the
   // direct-link Mini App URL: t.me/<bot>/<TELEGRAM_MINI_APP_NAME>
   TELEGRAM_MINI_APP_NAME: z.string().min(1),
+  // Private channel where the bot stores receipt photos; chat_id is a large negative number.
+  TELEGRAM_STORAGE_CHAT_ID: z.string().min(1),
   DATABASE_URL: z.string().url(),
 });
 
