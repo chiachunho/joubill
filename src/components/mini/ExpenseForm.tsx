@@ -380,7 +380,7 @@ export function ExpenseForm(props: Props) {
                     className={cn(
                       "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
                       field.value === m
-                        ? "bg-background text-foreground shadow-sm"
+                        ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
