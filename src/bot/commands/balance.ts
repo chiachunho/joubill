@@ -7,6 +7,7 @@ import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { computeGroupBalances } from "@/lib/settlement";
 
+import { escapeHtml } from "../format";
 import type { BotContext } from "../context";
 
 export const balanceCommand = new Composer<BotContext>();
@@ -44,9 +45,10 @@ balanceCommand.command("balance", async (ctx) => {
   const lines = sorted.map((b) => {
     const dot = b.amount >= 0 ? "🟢" : "🔴";
     const sign = b.amount >= 0 ? "+" : "−";
-    return `${dot} ${nameOf(b.userId)}　${sign}${fmtGrouped(Math.abs(b.amount))}`;
+    return `${dot} ${escapeHtml(nameOf(b.userId))}　<b>${sign}${fmtGrouped(Math.abs(b.amount))}</b>`;
   });
 
-  const text = `💰 ${ctx.dbGroup.title}　餘額 · ${currency}\n\n` + lines.join("\n");
-  await ctx.reply(text);
+  const text =
+    `💰 <b>${escapeHtml(ctx.dbGroup.title)}</b>　餘額 · ${currency}\n\n` + lines.join("\n");
+  await ctx.reply(text, { parse_mode: "HTML" });
 });

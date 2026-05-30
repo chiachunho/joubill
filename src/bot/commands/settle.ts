@@ -7,6 +7,7 @@ import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { computeGroupBalances, minimizeTransfers } from "@/lib/settlement";
 
+import { escapeHtml } from "../format";
 import type { BotContext } from "../context";
 
 export const settleCommand = new Composer<BotContext>();
@@ -45,12 +46,13 @@ settleCommand.command("settle", async (ctx) => {
   };
 
   const lines = transfers.map(
-    (t) => `${nameOf(t.fromUserId)} → ${nameOf(t.toUserId)}　${fmtGrouped(t.amount)}`,
+    (t) =>
+      `${escapeHtml(nameOf(t.fromUserId))} → ${escapeHtml(nameOf(t.toUserId))}　<b>${fmtGrouped(t.amount)}</b>`,
   );
 
   const text =
-    `🤝 ${ctx.dbGroup.title}　還款建議\n\n` +
+    `🤝 <b>${escapeHtml(ctx.dbGroup.title)}</b>　還款建議\n\n` +
     lines.join("\n") +
-    `\n\n共 ${transfers.length} 筆 · ${currency}`;
-  await ctx.reply(text);
+    `\n\n共 <b>${transfers.length}</b> 筆 · ${currency}`;
+  await ctx.reply(text, { parse_mode: "HTML" });
 });
