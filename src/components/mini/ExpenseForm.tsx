@@ -9,6 +9,8 @@ import { ArrowLeft, Calendar as CalendarIcon, Check, ImagePlus, Loader2, Trash2,
 
 import { Avatar } from "@/components/mini/Avatar";
 import { MemberSelect } from "@/components/mini/MemberSelect";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -186,6 +188,7 @@ export function ExpenseForm(props: Props) {
   );
   const [receiptUploading, setReceiptUploading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [receiptImgLoading, setReceiptImgLoading] = useState(!!initial?.receiptFileId);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -206,6 +209,7 @@ export function ExpenseForm(props: Props) {
       }
       const { fileId } = (await res.json()) as { fileId: string };
       setReceiptFileId(fileId);
+      setReceiptImgLoading(true);
     } catch {
       setReceiptError("上傳失敗，請再試一次");
     } finally {
@@ -384,6 +388,9 @@ export function ExpenseForm(props: Props) {
           />
           {receiptFileId ? (
             <div className="relative w-full overflow-hidden rounded-2xl bg-secondary/50">
+              {receiptImgLoading && (
+                <Skeleton className="h-48 w-full rounded-none" />
+              )}
               <button
                 type="button"
                 onClick={() => setLightboxOpen(true)}
@@ -394,7 +401,12 @@ export function ExpenseForm(props: Props) {
                 <img
                   src={`/api/tg-photo?fileId=${receiptFileId}`}
                   alt="收據"
-                  className="max-h-48 w-full object-contain"
+                  className={cn(
+                    "max-h-48 w-full object-contain transition-opacity duration-200",
+                    receiptImgLoading ? "opacity-0 h-0" : "opacity-100",
+                  )}
+                  onLoad={() => setReceiptImgLoading(false)}
+                  onError={() => setReceiptImgLoading(false)}
                 />
               </button>
               <button
@@ -597,31 +609,19 @@ export function ExpenseForm(props: Props) {
     </Form>
 
     {/* Receipt lightbox */}
-    {lightboxOpen && receiptFileId && (
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="收據大圖"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-        onClick={() => setLightboxOpen(false)}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`/api/tg-photo?fileId=${receiptFileId}`}
-          alt="收據大圖"
-          className="max-h-full max-w-full rounded-2xl object-contain"
-          onClick={(e) => e.stopPropagation()}
-        />
-        <button
-          type="button"
-          onClick={() => setLightboxOpen(false)}
-          className="absolute right-4 top-4 rounded-lg bg-black/50 p-2 text-white backdrop-blur-sm"
-          aria-label="關閉"
-        >
-          <X className="size-5" />
-        </button>
-      </div>
-    )}
+    <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+      <DialogContent className="border-0 bg-black/90 p-4 shadow-none backdrop-blur-sm max-w-[calc(100vw-2rem)] flex items-center justify-center [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
+        <DialogTitle className="sr-only">收據大圖</DialogTitle>
+        {receiptFileId && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`/api/tg-photo?fileId=${receiptFileId}`}
+            alt="收據大圖"
+            className="max-h-[85dvh] w-full rounded-2xl object-contain"
+          />
+        )}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
