@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Calendar as CalendarIcon, Check, ImagePlus, Loader2, Trash2, X } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -218,44 +219,19 @@ export function ExpenseForm(props: Props) {
     }
   }
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   async function handleDelete() {
     if (!initial) return;
-    if (mode === "web") {
-      if (!window.confirm("確定要刪除這筆支出嗎？")) return;
-      setDeletePending(true);
-      const res = await webRawFetch(`/api/groups/${groupId}/expenses/${initial.id}`, {
-        method: "DELETE",
-      });
-      setDeletePending(false);
-      if (!res.ok) { window.alert("刪除失敗"); return; }
-      revalidateGroup();
-      router.push(back);
-      return;
-    }
-    const { default: WebApp } = await import("@twa-dev/sdk");
-    WebApp.showPopup(
-      {
-        title: "確認刪除",
-        message: "這筆支出將被永久刪除。",
-        buttons: [
-          { id: "cancel", type: "cancel" },
-          { id: "delete", type: "destructive", text: "刪除" },
-        ],
-      },
-      async (buttonId?: string) => {
-        if (buttonId !== "delete") return;
-        setDeletePending(true);
-        const res = await fetch(`/api/groups/${groupId}/expenses/${initial.id}`, {
-          method: "DELETE",
-          headers: { Authorization: `tma ${WebApp.initData}` },
-        });
-        setDeletePending(false);
-        if (!res.ok) { WebApp.showAlert("刪除失敗"); return; }
-        revalidateGroup();
-        router.push(back);
-      },
-    );
+    setDeletePending(true);
+    const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
+    const res = await fetchFn(`/api/groups/${groupId}/expenses/${initial.id}`, { method: "DELETE" });
+    setDeletePending(false);
+    if (!res.ok) { setDeleteError("刪除失敗，請再試一次"); return; }
+    revalidateGroup();
+    router.push(back);
   }
 
   return (
@@ -599,13 +575,29 @@ export function ExpenseForm(props: Props) {
               variant="destructive"
               disabled={deletePending}
               className="rounded-lg"
-              onClick={handleDelete}
+              onClick={() => setDeleteConfirmOpen(true)}
             >
-              {deletePending ? "刪除中…" : "刪除"}
+              刪除
             </Button>
           )}
         </div>
+        {deleteError && (
+          <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+            {deleteError}
+          </p>
+        )}
       </form>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="確認刪除"
+        description="這筆支出將被永久刪除。"
+        confirmLabel="刪除"
+        variant="destructive"
+        loading={deletePending}
+        onConfirm={handleDelete}
+      />
     </Form>
 
     {/* Receipt lightbox */}

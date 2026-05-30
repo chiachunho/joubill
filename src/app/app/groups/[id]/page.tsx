@@ -6,6 +6,7 @@ import { ArrowRight, BarChart3, Check, ChevronLeft, History, Loader2, Plus, User
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
 import { fmt, monthLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
@@ -74,15 +75,22 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
     (state: Transfer[], idx: number) => state.filter((_, i) => i !== idx),
   );
   const [pendingIdx, setPendingIdx] = useState<number | null>(null);
+  const [settleConfirm, setSettleConfirm] = useState<{ transfer: Transfer; idx: number } | null>(null);
+  const [settleError, setSettleError] = useState<string | null>(null);
 
   function getPhoto(userId: number): string | null {
     return avatars?.userPhotos[userId] ?? null;
   }
 
-  async function markSettled(transfer: Transfer, idx: number) {
+  function markSettled(transfer: Transfer, idx: number) {
     if (!balance || pendingIdx !== null) return;
-    const msg = `確認已轉帳？\n${labelUser(transfer.from)} → ${labelUser(transfer.to)}: ${fmt(transfer.amount)} ${balance.currency}`;
-    if (!window.confirm(msg)) return;
+    setSettleConfirm({ transfer, idx });
+  }
+
+  async function doSettle() {
+    if (!settleConfirm || !balance) return;
+    const { transfer, idx } = settleConfirm;
+    setSettleConfirm(null);
     setPendingIdx(idx);
     startTransition(() => dropOptimisticTransfer(idx));
     try {
@@ -97,7 +105,7 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
         }),
       });
     } catch {
-      window.alert("標記失敗，已回復");
+      setSettleError("標記失敗，請再試一次");
     }
     await Promise.all([mutateBalance(), mutateExpenses()]);
     setPendingIdx(null);
@@ -301,6 +309,31 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
           </div>
         )}
       </section>
+
+      {settleError && (
+        <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+          {settleError}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={settleConfirm !== null}
+        onOpenChange={(open) => { if (!open) setSettleConfirm(null); }}
+        title="確認已轉帳"
+        description={
+          settleConfirm && balance ? (
+            <span>
+              {labelUser(settleConfirm.transfer.from)} → {labelUser(settleConfirm.transfer.to)}
+              <br />
+              <span className="num font-semibold text-foreground">
+                {fmt(settleConfirm.transfer.amount)} {balance.currency}
+              </span>
+            </span>
+          ) : undefined
+        }
+        confirmLabel="已完成"
+        onConfirm={doSettle}
+      />
     </div>
   );
 }

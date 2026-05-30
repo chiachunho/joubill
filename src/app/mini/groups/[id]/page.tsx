@@ -6,6 +6,7 @@ import { ArrowRight, BarChart3, Check, History, Loader2, Plus, Users } from "luc
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
 import { labelUser } from "@/lib/label";
 import { tmaFetch } from "@/lib/tma-fetch";
@@ -119,6 +120,8 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
   );
 
   const [pendingIdx, setPendingIdx] = useState<number | null>(null);
+  const [settleConfirm, setSettleConfirm] = useState<{ transfer: Transfer; idx: number } | null>(null);
+  const [settleError, setSettleError] = useState<string | null>(null);
 
   function getPhoto(userId: number): string | null {
     const apiPhoto = avatars?.userPhotos[userId] ?? null;
@@ -128,47 +131,33 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
     return null;
   }
 
-  async function markSettled(transfer: Transfer, idx: number) {
+  function markSettled(transfer: Transfer, idx: number) {
     if (!balance || pendingIdx !== null) return;
+    setSettleConfirm({ transfer, idx });
+  }
+
+  async function doSettle() {
+    if (!settleConfirm || !balance) return;
+    const { transfer, idx } = settleConfirm;
+    setSettleConfirm(null);
     setPendingIdx(idx);
+    startTransition(() => dropOptimisticTransfer(idx));
     try {
-      const { default: WebApp } = await import("@twa-dev/sdk");
-      WebApp.showPopup(
-        {
-          title: "確認已轉帳",
-          message: `${labelUser(transfer.from, selfUserId)} → ${labelUser(transfer.to, selfUserId)}: ${fmt(transfer.amount)} ${balance.currency}`,
-          buttons: [
-            { id: "cancel", type: "cancel" },
-            { id: "ok", type: "default", text: "已完成" },
-          ],
-        },
-        async (buttonId?: string) => {
-          if (buttonId !== "ok") {
-            setPendingIdx(null);
-            return;
-          }
-          startTransition(() => dropOptimisticTransfer(idx));
-          try {
-            await tmaFetch(`/api/groups/${id}/settlements`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                fromUserId: transfer.fromUserId,
-                toUserId: transfer.toUserId,
-                amount: transfer.amount,
-                currency: balance.currency,
-              }),
-            });
-          } catch {
-            WebApp.showAlert("標記失敗，已回復");
-          }
-          await Promise.all([mutateBalance(), mutateExpenses()]);
-          setPendingIdx(null);
-        },
-      );
+      await tmaFetch(`/api/groups/${id}/settlements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fromUserId: transfer.fromUserId,
+          toUserId: transfer.toUserId,
+          amount: transfer.amount,
+          currency: balance.currency,
+        }),
+      });
     } catch {
-      setPendingIdx(null);
+      setSettleError("標記失敗，請再試一次");
     }
+    await Promise.all([mutateBalance(), mutateExpenses()]);
+    setPendingIdx(null);
   }
 
   const error = expensesError ?? balanceError;
@@ -395,6 +384,31 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
           </div>
         )}
       </section>
+
+      {settleError && (
+        <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+          {settleError}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={settleConfirm !== null}
+        onOpenChange={(open) => { if (!open) setSettleConfirm(null); }}
+        title="確認已轉帳"
+        description={
+          settleConfirm && balance ? (
+            <span>
+              {labelUser(settleConfirm.transfer.from, selfUserId)} → {labelUser(settleConfirm.transfer.to, selfUserId)}
+              <br />
+              <span className="num font-semibold text-foreground">
+                {fmt(settleConfirm.transfer.amount)} {balance.currency}
+              </span>
+            </span>
+          ) : undefined
+        }
+        confirmLabel="已完成"
+        onConfirm={doSettle}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { mutate } from "swr";
 import { ArrowLeft, Calendar as CalendarIcon } from "lucide-react";
 
+import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -30,7 +31,7 @@ import {
 import { useAuthMode } from "@/components/AuthProvider";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
-import { webRawFetch } from "@/lib/web-fetch";
+import { tmaRawFetch, webRawFetch } from "@/lib/web-fetch";
 import { SUPPORTED_CURRENCIES, settlementFormSchema, type SettlementFormValues } from "@/lib/zod";
 
 type Member = {
@@ -129,46 +130,20 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
     router.push(back);
   }
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   async function handleDelete() {
     if (!initial) return;
-    if (mode === "web") {
-      if (!window.confirm("確定要刪除這筆還款記錄嗎？")) return;
-      setDeletePending(true);
-      const res = await webRawFetch(`/api/groups/${groupId}/settlements/${initial.id}`, {
-        method: "DELETE",
-      });
-      setDeletePending(false);
-      if (!res.ok) { window.alert("刪除失敗"); return; }
-      mutate(`/api/groups/${groupId}/settlements`);
-      mutate(`/api/groups/${groupId}/balance`);
-      router.push(back);
-      return;
-    }
-    const { default: WebApp } = await import("@twa-dev/sdk");
-    WebApp.showPopup(
-      {
-        title: "確認刪除",
-        message: "這筆還款記錄將被永久刪除。",
-        buttons: [
-          { id: "cancel", type: "cancel" },
-          { id: "delete", type: "destructive", text: "刪除" },
-        ],
-      },
-      async (buttonId?: string) => {
-        if (buttonId !== "delete") return;
-        setDeletePending(true);
-        const res = await fetch(`/api/groups/${groupId}/settlements/${initial.id}`, {
-          method: "DELETE",
-          headers: { Authorization: `tma ${WebApp.initData}` },
-        });
-        setDeletePending(false);
-        if (!res.ok) { WebApp.showAlert("刪除失敗"); return; }
-        mutate(`/api/groups/${groupId}/settlements`);
-        mutate(`/api/groups/${groupId}/balance`);
-        router.push(back);
-      },
-    );
+    setDeletePending(true);
+    const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
+    const res = await fetchFn(`/api/groups/${groupId}/settlements/${initial.id}`, { method: "DELETE" });
+    setDeletePending(false);
+    if (!res.ok) { setDeleteError("刪除失敗，請再試一次"); return; }
+    mutate(`/api/groups/${groupId}/settlements`);
+    mutate(`/api/groups/${groupId}/balance`);
+    router.push(back);
   }
 
   return (
@@ -332,13 +307,29 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
               variant="destructive"
               disabled={deletePending}
               className="rounded-lg"
-              onClick={handleDelete}
+              onClick={() => setDeleteConfirmOpen(true)}
             >
-              {deletePending ? "刪除中…" : "刪除"}
+              刪除
             </Button>
           )}
         </div>
+        {deleteError && (
+          <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+            {deleteError}
+          </p>
+        )}
       </form>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="確認刪除"
+        description="這筆還款記錄將被永久刪除。"
+        confirmLabel="刪除"
+        variant="destructive"
+        loading={deletePending}
+        onConfirm={handleDelete}
+      />
     </Form>
   );
 }
