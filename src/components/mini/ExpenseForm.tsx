@@ -433,18 +433,34 @@ export function ExpenseForm(props: Props) {
                         <FormField
                           control={form.control}
                           name={`participants.${i}.value`}
-                          render={({ field }) => (
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              inputMode="decimal"
-                              className="num w-24 text-right"
-                              placeholder={shareType === "percent" ? "%" : ""}
-                              disabled={!isIncluded}
-                              {...field}
-                            />
-                          )}
+                          render={({ field }) =>
+                            shareType === "percent" ? (
+                              <div className="relative">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  inputMode="decimal"
+                                  className="num w-24 pr-6 text-right"
+                                  disabled={!isIncluded}
+                                  {...field}
+                                />
+                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                                  %
+                                </span>
+                              </div>
+                            ) : (
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                inputMode="decimal"
+                                className="num w-24 text-right"
+                                disabled={!isIncluded}
+                                {...field}
+                              />
+                            )
+                          }
                         />
                       )}
                     </div>
