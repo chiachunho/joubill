@@ -18,6 +18,14 @@ export function fmt(amount: number): string {
   return s.endsWith(".00") ? s.slice(0, -3) : s;
 }
 
+/** Like fmt, but with thousands separators: 5200 -> "5,200", 1800.5 -> "1,800.50". */
+export function fmtGrouped(amount: number): string {
+  return amount.toLocaleString("en-US", {
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 /** Format a signed monetary amount: "+300 TWD" or "-33.50 TWD". */
 export function formatMoney(amount: number, currency: string): string {
   const sign = amount >= 0 ? "+" : "-";
