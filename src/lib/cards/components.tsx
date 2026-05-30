@@ -19,6 +19,7 @@ export function CardAvatar({
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={dataUrl}
+        alt=""
         width={size}
         height={size}
         style={{ width: size, height: size, borderRadius: size / 2, objectFit: "cover" }}

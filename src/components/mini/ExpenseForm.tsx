@@ -132,6 +132,16 @@ export function ExpenseForm(props: Props) {
       ? Math.abs(inputSum - 100) < 0.1
       : Math.abs(inputSum - totalAmount) < 0.02;
 
+  // Invalidate every SWR key affected by an expense create/edit/delete. The
+  // single-expense detail key must be included or re-opening the same record
+  // shows stale pre-edit data (revalidateOnFocus is off + dedupe).
+  function revalidateGroup() {
+    mutate(`/api/groups/${groupId}/expenses`);
+    mutate(`/api/groups/${groupId}/balance`);
+    mutate(`/api/groups/${groupId}/stats`);
+    if (initial) mutate(`/api/groups/${groupId}/expenses/${initial.id}`);
+  }
+
   async function onSubmit(values: ExpenseFormValues) {
     const body = {
       amount: parseFloat(values.amount),
@@ -174,9 +184,7 @@ export function ExpenseForm(props: Props) {
       form.setError("root", { message: parsed.error ?? `HTTP ${res.status}` });
       return;
     }
-    mutate(`/api/groups/${groupId}/expenses`);
-    mutate(`/api/groups/${groupId}/balance`);
-    mutate(`/api/groups/${groupId}/stats`);
+    revalidateGroup();
     router.push(back);
   }
 
@@ -191,9 +199,7 @@ export function ExpenseForm(props: Props) {
       });
       setDeletePending(false);
       if (!res.ok) { window.alert("刪除失敗"); return; }
-      mutate(`/api/groups/${groupId}/expenses`);
-      mutate(`/api/groups/${groupId}/balance`);
-      mutate(`/api/groups/${groupId}/stats`);
+      revalidateGroup();
       router.push(back);
       return;
     }
@@ -216,9 +222,7 @@ export function ExpenseForm(props: Props) {
         });
         setDeletePending(false);
         if (!res.ok) { WebApp.showAlert("刪除失敗"); return; }
-        mutate(`/api/groups/${groupId}/expenses`);
-        mutate(`/api/groups/${groupId}/balance`);
-        mutate(`/api/groups/${groupId}/stats`);
+        revalidateGroup();
         router.push(back);
       },
     );
