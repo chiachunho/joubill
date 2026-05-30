@@ -4,6 +4,8 @@
 
 @layer base {
   :root {
+    --font-sans: 'Chiron GoRound TC', system-ui, sans-serif;
+
     /* Brand palette (non-Telegram fallback)
      * 揪綠 #2EBD8F → 161 61% 46%
      * 帳金 #F5B731 → 41 91% 58%
