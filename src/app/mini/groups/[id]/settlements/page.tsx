@@ -61,8 +61,10 @@ export default function SettlementsPage({ params }: { params: Promise<{ id: stri
   const { data: avatars } = useSWR<AvatarsResponse>(`/api/groups/${id}/avatars`);
 
   function getPhoto(userId: number): string | null {
-    if (selfUserId !== undefined && userId === selfUserId && selfPhotoUrl) return selfPhotoUrl;
-    return avatars?.userPhotos[userId] ?? null;
+    const apiPhoto = avatars?.userPhotos[userId] ?? null;
+    if (apiPhoto) return apiPhoto;
+    if (selfUserId !== undefined && userId === selfUserId) return selfPhotoUrl;
+    return null;
   }
 
   if (error) {

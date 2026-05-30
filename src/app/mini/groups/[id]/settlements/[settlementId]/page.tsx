@@ -46,7 +46,7 @@ export default function EditSettlementPage({
 
   const photos = useMemo<Record<number, string | null>>(() => {
     const base: Record<number, string | null> = { ...(avatars?.userPhotos ?? {}) };
-    if (me?.userId && selfPhotoUrl) base[me.userId] = selfPhotoUrl;
+    if (me?.userId && selfPhotoUrl && !base[me.userId]) base[me.userId] = selfPhotoUrl;
     return base;
   }, [avatars, me?.userId, selfPhotoUrl]);
 

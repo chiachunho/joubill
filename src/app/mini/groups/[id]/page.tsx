@@ -121,8 +121,11 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
   const [pendingIdx, setPendingIdx] = useState<number | null>(null);
 
   function getPhoto(userId: number): string | null {
-    if (selfUserId !== undefined && userId === selfUserId && selfPhotoUrl) return selfPhotoUrl;
-    return avatars?.userPhotos[userId] ?? null;
+    const apiPhoto = avatars?.userPhotos[userId] ?? null;
+    if (apiPhoto) return apiPhoto;
+    // Fall back to TG SDK photo only for the current user when bot API has none
+    if (selfUserId !== undefined && userId === selfUserId) return selfPhotoUrl;
+    return null;
   }
 
   async function markSettled(transfer: Transfer, idx: number) {
