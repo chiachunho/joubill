@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { fetchAvatarDataUrls } from "@/lib/cards/avatars";
 import { renderSettleCard, type SettleRow } from "@/lib/cards/settleCard";
+import { labelUser } from "@/lib/label";
 import { fmt } from "@/lib/money";
 import { computeGroupBalances, minimizeTransfers } from "@/lib/settlement";
 
@@ -31,13 +32,19 @@ settleCommand.command("settle", async (ctx) => {
     new Set(transfers.flatMap((t) => [t.fromUserId, t.toUserId])),
   );
   const profileRows = await db
-    .select({ id: users.id, firstName: users.firstName, username: users.username, telegramId: users.telegramId })
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      username: users.username,
+      telegramId: users.telegramId,
+    })
     .from(users)
     .where(inArray(users.id, involvedIds));
   const profiles = new Map(profileRows.map((p) => [p.id, p]));
   const nameOf = (uid: number) => {
     const p = profiles.get(uid);
-    return p?.username ? "@" + p.username : (p?.firstName ?? `user#${uid}`);
+    return p ? labelUser(p) : `user#${uid}`;
   };
 
   // Try the rendered card first; fall back to text on any failure.

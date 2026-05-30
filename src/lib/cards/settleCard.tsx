@@ -23,9 +23,9 @@ export async function renderSettleCard(opts: {
   const { title, currency, rows, avatars } = opts;
 
   const person = (userId: number, name: string) => (
-    <div style={{ display: "flex", alignItems: "center" }}>
+    <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
       <CardAvatar userId={userId} name={name} dataUrl={avatars[userId] ?? null} size={48} />
-      <div style={{ display: "flex", marginLeft: 14, fontSize: 26 }}>{name}</div>
+      <div style={{ display: "flex", marginLeft: 14, fontSize: 26, whiteSpace: "nowrap" }}>{name}</div>
     </div>
   );
 
@@ -77,12 +77,30 @@ export async function renderSettleCard(opts: {
             }}
           >
             {person(r.fromUserId, r.fromName)}
-            <div style={{ display: "flex", marginLeft: 18, marginRight: 18, fontSize: 28, color: CARD.muted }}>
+            <div
+              style={{
+                display: "flex",
+                marginLeft: 18,
+                marginRight: 18,
+                fontSize: 28,
+                color: CARD.muted,
+                flexShrink: 0,
+              }}
+            >
               →
             </div>
             {person(r.toUserId, r.toName)}
-            <div style={{ display: "flex", flex: 1 }} />
-            <div style={{ display: "flex", fontSize: 30, fontWeight: 700, color: CARD.foreground }}>
+            <div style={{ display: "flex", flex: 1, minWidth: 24 }} />
+            <div
+              style={{
+                display: "flex",
+                fontSize: 30,
+                fontWeight: 700,
+                color: CARD.foreground,
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              }}
+            >
               {fmt(r.amount)} {currency}
             </div>
           </div>

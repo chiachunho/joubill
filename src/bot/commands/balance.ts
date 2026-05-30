@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { fetchAvatarDataUrls } from "@/lib/cards/avatars";
 import { renderBalanceCard, type BalanceRow } from "@/lib/cards/balanceCard";
+import { labelUser } from "@/lib/label";
 import { formatMoney } from "@/lib/money";
 import { computeGroupBalances } from "@/lib/settlement";
 
@@ -26,7 +27,13 @@ balanceCommand.command("balance", async (ctx) => {
   }
 
   const profileRows = await db
-    .select({ id: users.id, firstName: users.firstName, username: users.username, telegramId: users.telegramId })
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      username: users.username,
+      telegramId: users.telegramId,
+    })
     .from(users)
     .where(inArray(users.id, balances.map((b) => b.userId)));
   const profiles = new Map(profileRows.map((p) => [p.id, p]));
@@ -34,7 +41,7 @@ balanceCommand.command("balance", async (ctx) => {
   const sorted = [...balances].sort((a, b) => b.amount - a.amount);
   const nameOf = (uid: number) => {
     const p = profiles.get(uid);
-    return p?.username ? "@" + p.username : (p?.firstName ?? `user#${uid}`);
+    return p ? labelUser(p) : `user#${uid}`;
   };
 
   // Try the rendered card first; fall back to text on any failure.

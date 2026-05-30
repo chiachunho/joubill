@@ -37,7 +37,13 @@ export async function fetchAvatarDataUrls(
   );
 
   for (const r of results) {
-    if (r.status === "fulfilled") out[r.value.userId] = r.value.dataUrl;
+    if (r.status === "fulfilled") {
+      out[r.value.userId] = r.value.dataUrl;
+    } else {
+      // A user whose photo is restricted to contacts is not fetchable by the
+      // bot API; that surfaces here. Log so it's distinguishable from "no photo".
+      console.warn("[cards] avatar fetch failed:", r.reason);
+    }
   }
   return out;
 }

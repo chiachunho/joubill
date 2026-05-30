@@ -67,13 +67,27 @@ export async function renderBalanceCard(opts: {
             }}
           >
             <CardAvatar userId={r.userId} name={r.name} dataUrl={avatars[r.userId] ?? null} size={56} />
-            <div style={{ display: "flex", flex: 1, marginLeft: 18, fontSize: 28 }}>{r.name}</div>
+            <div
+              style={{
+                display: "flex",
+                flex: 1,
+                minWidth: 0,
+                marginLeft: 18,
+                marginRight: 18,
+                fontSize: 28,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {r.name}
+            </div>
             <div
               style={{
                 display: "flex",
                 fontSize: 30,
                 fontWeight: 700,
                 color: r.amount >= 0 ? CARD.positive : CARD.negative,
+                flexShrink: 0,
+                whiteSpace: "nowrap",
               }}
             >
               {r.amount >= 0 ? "+" : "-"}
