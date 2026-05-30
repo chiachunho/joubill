@@ -11,6 +11,7 @@ import { GroupsListSkeleton } from "@/components/mini/skeletons";
 type MyGroupsResponse = {
   groups: Array<{ id: number; title: string; defaultCurrency: string }>;
   activeGroupId: number | null;
+  activeExpenseId: number | null;
 };
 
 type GroupPhotosResponse = { photos: Record<number, string | null> };
@@ -21,7 +22,10 @@ export default function MiniHome() {
   const { data: photosData } = useSWR<GroupPhotosResponse>("/api/me/groups/photos");
 
   useEffect(() => {
-    if (data?.activeGroupId) {
+    if (!data?.activeGroupId) return;
+    if (data.activeExpenseId) {
+      router.replace(`/mini/groups/${data.activeGroupId}/expenses/${data.activeExpenseId}/edit`);
+    } else {
       router.replace(`/mini/groups/${data.activeGroupId}`);
     }
   }, [data, router]);

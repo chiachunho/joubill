@@ -24,7 +24,7 @@ async function setCommands(
   const res = await fetch(`https://api.telegram.org/bot${TOKEN}/setMyCommands`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ commands, scope, language_code: "zh-hant" }),
+    body: JSON.stringify({ commands, scope }),
   });
   const json = (await res.json()) as { ok: boolean; description?: string };
   if (!json.ok) throw new Error(`setMyCommands failed: ${JSON.stringify(json)}`);

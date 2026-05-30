@@ -36,6 +36,7 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
 
   if (src) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={name}

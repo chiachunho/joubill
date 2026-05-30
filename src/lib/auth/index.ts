@@ -11,8 +11,10 @@ import { upsertTelegramUser } from "./upsertTelegramUser";
 
 export type Auth = {
   user: User;
-  /** Group resolved from initData start_param (e.g. "group_<telegram_chat_id>"). Only set for the tma path. */
+  /** Group resolved from initData start_param. Only set for the tma path. */
   groupFromParam?: Group;
+  /** Internal expense ID from start_param "group_<chatId>_exp_<expenseId>". */
+  expenseFromParam?: number;
 };
 
 export const SESSION_COOKIE = "session";
@@ -66,17 +68,25 @@ export async function getAuth(req: Request): Promise<Auth> {
     const user = await upsertTelegramUser(verified.user);
 
     let groupFromParam: Group | undefined;
+    let expenseFromParam: number | undefined;
     if (verified.startParam?.startsWith("group_")) {
-      const telegramChatId = Number(verified.startParam.slice("group_".length));
+      // Formats: "group_<chatId>" or "group_<chatId>_exp_<expenseId>"
+      const withExp = verified.startParam.match(/^group_(-?\d+)_exp_(\d+)$/);
+      const telegramChatId = withExp
+        ? Number(withExp[1])
+        : Number(verified.startParam.slice("group_".length));
       if (Number.isFinite(telegramChatId)) {
         const [g] = await db
           .select()
           .from(groups)
           .where(eq(groups.telegramChatId, telegramChatId));
-        if (g) groupFromParam = g;
+        if (g) {
+          groupFromParam = g;
+          if (withExp) expenseFromParam = Number(withExp[2]);
+        }
       }
     }
-    return { user, groupFromParam };
+    return { user, groupFromParam, expenseFromParam };
   }
 
   // Path 2: web session cookie

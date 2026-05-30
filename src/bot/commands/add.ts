@@ -256,7 +256,7 @@ function buildKeyboard(ctx: BotContext, expenseId: number): InlineKeyboard {
   const botUsername = ctx.me.username;
   const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
   const chatId = ctx.chat?.id;
-  const editUrl = `https://t.me/${botUsername}/${appName}?startapp=group_${chatId}`;
+  const editUrl = `https://t.me/${botUsername}/${appName}?startapp=group_${chatId}_exp_${expenseId}`;
 
   return new InlineKeyboard()
     .url("編輯", editUrl)
