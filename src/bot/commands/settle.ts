@@ -51,8 +51,7 @@ settleCommand.command("settle", async (ctx) => {
   );
 
   const text =
-    `🤝 <b>${escapeHtml(ctx.dbGroup.title)}</b>　還款建議\n\n` +
-    lines.join("\n") +
-    `\n\n共 <b>${transfers.length}</b> 筆 · ${currency}`;
+    `🤝 <b>${escapeHtml(ctx.dbGroup.title)}</b>　還款建議 · ${currency}\n\n` +
+    lines.join("\n");
   await ctx.reply(text, { parse_mode: "HTML" });
 });
