@@ -4,6 +4,7 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
 import { expenseSplits, expenses, groupMembers, users } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
+import { labelUser } from "@/lib/label";
 import { fmt, splitEqual } from "@/lib/money";
 import { parseAddMessage, type ShareLine } from "@/lib/parseAdd";
 import { serverEnv } from "@/lib/env";
@@ -12,7 +13,21 @@ import type { BotContext } from "../context";
 
 export const addCommand = new Composer<BotContext>();
 
-type DbUser = { id: number; username: string | null; firstName: string; telegramId: number | null };
+type DbUser = {
+  id: number;
+  username: string | null;
+  firstName: string;
+  lastName: string | null;
+  telegramId: number | null;
+};
+
+/**
+ * Name for the result message. Echoes "@username" only when the user actually
+ * typed that @mention; otherwise shows the display name (firstName + lastName).
+ */
+function nameFor(u: DbUser, typedAt: boolean): string {
+  return typedAt && u.username ? "@" + u.username : labelUser(u);
+}
 
 /** Resolve a share line person to a group member row. Returns null if not found. */
 async function resolveSharePerson(
@@ -23,7 +38,7 @@ async function resolveSharePerson(
   if (share.type === "self") return selfUser;
 
   const baseQuery = db
-    .select({ id: users.id, username: users.username, firstName: users.firstName, telegramId: users.telegramId })
+    .select({ id: users.id, username: users.username, firstName: users.firstName, lastName: users.lastName, telegramId: users.telegramId })
     .from(users)
     .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
     .$dynamic();
@@ -70,8 +85,9 @@ addCommand.command("add", async (ctx) => {
 
   // ── Unequal split (multi-line) ─────────────────────────────────────────────
   if (parsed.shareLines.length > 0) {
-    // Resolve each share line to a DB user
-    const resolved: Array<{ user: DbUser; amount: number }> = [];
+    // Resolve each share line to a DB user. typedAt marks people the user
+    // wrote as @username (so the result echoes the @), vs 我 / @-list picks.
+    const resolved: Array<{ user: DbUser; amount: number; typedAt: boolean }> = [];
     for (const share of parsed.shareLines) {
       const user = await resolveSharePerson(share, payer, group.id);
       if (!user) {
@@ -87,7 +103,7 @@ addCommand.command("add", async (ctx) => {
         );
         return;
       }
-      resolved.push({ user, amount: share.amount });
+      resolved.push({ user, amount: share.amount, typedAt: share.type === "username" });
     }
 
     const specifiedIds = new Set(resolved.map((r) => r.user.id));
@@ -98,7 +114,7 @@ addCommand.command("add", async (ctx) => {
       (r) => ({ debtorId: r.user.id, amount: r.amount.toFixed(2), shareType: "exact" }),
     );
     const splitLabels: string[] = resolved.map(
-      (r) => `${r.user.username ? "@" + r.user.username : r.user.firstName} ${fmt(r.amount)}`,
+      (r) => `${nameFor(r.user, r.typedAt)} ${fmt(r.amount)}`,
     );
 
     if (parsed.amount !== null) {
@@ -115,7 +131,7 @@ addCommand.command("add", async (ctx) => {
 
       if (remainder > 0.005) {
         const allMembers = await db
-          .select({ id: users.id, username: users.username, firstName: users.firstName, telegramId: users.telegramId })
+          .select({ id: users.id, username: users.username, firstName: users.firstName, lastName: users.lastName, telegramId: users.telegramId })
           .from(users)
           .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
           .where(eq(groupMembers.groupId, group.id));
@@ -132,7 +148,7 @@ addCommand.command("add", async (ctx) => {
         const remainderShares = splitEqual(remainder, unspecified.length);
         unspecified.forEach((u, i) => {
           splitRows.push({ debtorId: u.id, amount: remainderShares[i].toFixed(2), shareType: "equal" });
-          splitLabels.push(`${u.username ? "@" + u.username : u.firstName} ${fmt(remainderShares[i])}`);
+          splitLabels.push(`${nameFor(u, false)} ${fmt(remainderShares[i])}`);
         });
       }
     } else {
@@ -158,7 +174,7 @@ addCommand.command("add", async (ctx) => {
 
     const descPart = parsed.description ? `（${parsed.description}）` : "";
     const text =
-      `${payer.firstName} 付了 ${fmt(expenseTotal)} ${currency}${descPart}\n` +
+      `${labelUser(payer)} 付了 ${fmt(expenseTotal)} ${currency}${descPart}\n` +
       splitLabels.join("、");
 
     await ctx.reply(text, { reply_markup: buildKeyboard(ctx, expense.id) });
@@ -178,7 +194,7 @@ addCommand.command("add", async (ctx) => {
       conditions.push(inArray(users.telegramId, parsed.mentionTelegramIds));
 
     const found = await db
-      .select({ id: users.id, username: users.username, firstName: users.firstName, telegramId: users.telegramId })
+      .select({ id: users.id, username: users.username, firstName: users.firstName, lastName: users.lastName, telegramId: users.telegramId })
       .from(users)
       .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
       .where(and(eq(groupMembers.groupId, group.id), or(...conditions)));
@@ -206,7 +222,7 @@ addCommand.command("add", async (ctx) => {
     participants = found;
   } else {
     participants = await db
-      .select({ id: users.id, username: users.username, firstName: users.firstName, telegramId: users.telegramId })
+      .select({ id: users.id, username: users.username, firstName: users.firstName, lastName: users.lastName, telegramId: users.telegramId })
       .from(users)
       .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
       .where(eq(groupMembers.groupId, group.id));
@@ -241,13 +257,17 @@ addCommand.command("add", async (ctx) => {
     })),
   );
 
+  // Echo "@username" only for people the user actually @-mentioned.
+  const typedUsernames = new Set(parsed.mentionUsernames);
+  const display = (p: DbUser) => nameFor(p, p.username ? typedUsernames.has(p.username) : false);
+
   const descPart = parsed.description ? `（${parsed.description}）` : "";
   const allSame = shares.every((s) => s === shares[0]);
   const splitLine = allSame
-    ? `${participants.map((p) => p.username ?? p.firstName).join("、")} 各 ${fmt(shares[0])}`
-    : participants.map((p, i) => `${p.username ?? p.firstName} ${fmt(shares[i])}`).join("、");
+    ? `${participants.map(display).join("、")} 各 ${fmt(shares[0])}`
+    : participants.map((p, i) => `${display(p)} ${fmt(shares[i])}`).join("、");
   const text =
-    `${payer.firstName} 付了 ${fmt(amount)} ${currency}${descPart}\n` + splitLine;
+    `${labelUser(payer)} 付了 ${fmt(amount)} ${currency}${descPart}\n` + splitLine;
 
   await ctx.reply(text, { reply_markup: buildKeyboard(ctx, expense.id) });
 });

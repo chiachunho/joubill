@@ -25,6 +25,15 @@ export function getBot(): Bot<BotContext> {
 
   const bot = new Bot<BotContext>(serverEnv().TELEGRAM_BOT_TOKEN);
 
+  // Send all bot messages silently (no notification ping). Applies to every
+  // send* method unless the call explicitly sets disable_notification.
+  bot.api.config.use((prev, method, payload, signal) => {
+    if (method.startsWith("send") && payload && !("disable_notification" in payload)) {
+      (payload as Record<string, unknown>).disable_notification = true;
+    }
+    return prev(method, payload, signal);
+  });
+
   bot.use(registerUser);
   bot.use(trackMembership);
   bot.use(deleteExpenseCallback);
