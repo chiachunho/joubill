@@ -2,7 +2,7 @@ import { Composer, InlineKeyboard } from "grammy";
 import { and, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenseSplits, expenses, groupMembers, receiptAwaiting, users } from "@/db/schema";
+import { expenseSplits, expenses, groupMembers, users } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped, splitEqual } from "@/lib/money";
@@ -272,7 +272,6 @@ export function buildKeyboard(ctx: BotContext, expenseId: number): InlineKeyboar
 
   return new InlineKeyboard()
     .url("編輯", editUrl)
-    .text("上傳收據", `upload_receipt:${expenseId}`)
     .text("刪除", `del_exp:${expenseId}`);
 }
 
@@ -313,35 +312,3 @@ export async function insertEqualSplitExpense(params: {
   return { expense, shares };
 }
 
-addCommand.callbackQuery(/^upload_receipt:(\d+)$/, async (ctx) => {
-  const expenseId = Number(ctx.match[1]);
-
-  if (!ctx.dbUser) {
-    await ctx.answerCallbackQuery({ text: "無法識別使用者", show_alert: true });
-    return;
-  }
-
-  const [expense] = await db.select().from(expenses).where(eq(expenses.id, expenseId));
-  if (!expense) {
-    await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
-    return;
-  }
-
-  const chatId = ctx.chat?.id;
-  if (!chatId) {
-    await ctx.answerCallbackQuery({ text: "無法取得群組資訊", show_alert: true });
-    return;
-  }
-
-  const sent = await ctx.reply("請回覆這則訊息並附上收據照片 📷", {
-    reply_markup: { force_reply: true, selective: true },
-  });
-
-  await db.insert(receiptAwaiting).values({
-    chatId,
-    messageId: sent.message_id,
-    expenseId,
-  });
-
-  await ctx.answerCallbackQuery();
-});

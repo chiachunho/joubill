@@ -1,8 +1,8 @@
 import { Composer } from "grammy";
-import { and, eq, lt } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenses, groupMembers, receiptAwaiting, users } from "@/db/schema";
+import { groupMembers, users } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
@@ -13,50 +13,12 @@ import type { BotContext } from "../context";
 
 export const receiptUploadHandler = new Composer<BotContext>();
 
-// Rows older than 24 h are no longer actionable — clean up opportunistically.
-const STALE_MS = 24 * 60 * 60 * 1000;
-
 receiptUploadHandler.on("message:photo", async (ctx) => {
   if (!ctx.dbGroup || !ctx.dbUser) return;
 
   const fileId = ctx.message.photo.at(-1)!.file_id;
 
-  // ── Path A: reply to a ForceReply "upload receipt" prompt ─────────────────
-  const replyToId = ctx.message.reply_to_message?.message_id;
-  if (replyToId) {
-    const [pending] = await db
-      .select()
-      .from(receiptAwaiting)
-      .where(
-        and(
-          eq(receiptAwaiting.chatId, ctx.chat.id),
-          eq(receiptAwaiting.messageId, replyToId),
-        ),
-      );
-
-    if (pending) {
-      if (ctx.message.media_group_id) {
-        await ctx.reply("收據只支援單張照片，請單獨傳送一張照片。");
-        return;
-      }
-      await Promise.all([
-        db
-          .update(expenses)
-          .set({ receiptFileId: fileId, updatedAt: new Date() })
-          .where(eq(expenses.id, pending.expenseId)),
-        db.delete(receiptAwaiting).where(eq(receiptAwaiting.id, pending.id)),
-      ]);
-      await ctx.react("👍");
-      return;
-    }
-
-    // Opportunistic stale cleanup — only fires on reply-photos, not every photo.
-    await db
-      .delete(receiptAwaiting)
-      .where(lt(receiptAwaiting.createdAt, new Date(Date.now() - STALE_MS)));
-  }
-
-  // ── Path B: photo sent with /add caption ──────────────────────────────────
+  // ── Photo sent with /add caption ─────────────────────────────────────────
   const caption = ctx.message.caption ?? "";
   const captionEntities = ctx.message.caption_entities ?? [];
 
@@ -67,8 +29,6 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
   const botUsername = ctx.me.username?.toLowerCase();
   if (cmdText !== "/add" && cmdText !== `/add@${botUsername}`) return;
 
-  // Telegram sends each photo in an album as a separate update; only the first carries the
-  // caption. Skip non-first album messages — the expense was already created by the first.
   if (ctx.message.media_group_id) {
     await ctx.reply("Caption 模式不支援一次傳送多張照片，請單獨傳送一張照片。");
     return;
@@ -85,21 +45,15 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
     return;
   }
 
-  // Multi-line split via caption is not supported — too complex for a caption.
-  // The user can /add first then attach the receipt via the inline button.
   if (parsed.shareLines.length > 0) {
-    await ctx.reply(
-      "Caption 模式不支援多行分帳，請先用 /add 建立支出，再用「上傳收據」按鈕附上照片。",
-    );
+    await ctx.reply("Caption 模式不支援多行分帳，請改用文字 /add 指令。");
     return;
   }
 
   const hasMentions =
     parsed.mentionUsernames.length > 0 || parsed.mentionTelegramIds.length > 0;
   if (hasMentions) {
-    await ctx.reply(
-      "Caption 模式不支援 @mention 指定分帳對象，請改用文字 /add 指令，或先 /add 建立支出後再用「上傳收據」附上照片。",
-    );
+    await ctx.reply("Caption 模式不支援 @mention 指定分帳對象，請改用文字 /add 指令。");
     return;
   }
 

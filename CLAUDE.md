@@ -59,12 +59,10 @@ Group membership is enforced separately via `assertGroupMember`.
 
 ### Database (`src/db/`)
 
-Drizzle ORM + Neon Serverless Postgres. Seven tables defined in `src/db/schema.ts`:
-`users` → `groups` → `group_members` (join) → `expenses` → `expense_splits` → `settlements` + `exchange_rates` + `receipt_awaiting`.
+Drizzle ORM + Neon Serverless Postgres. Nine tables defined in `src/db/schema.ts`:
+`users` → `groups` → `group_members` (join) → `expenses` → `expense_splits` → `settlements` + `exchange_rates` + `auth_identities` + `sessions`.
 
 Schema is pushed directly with `db:push` (no migration workflow). `numeric` columns come back as strings from Drizzle; use `n()` from `src/lib/money.ts` to parse them to numbers.
-
-`receipt_awaiting` stores in-flight "waiting for receipt photo" state for the ForceReply bot flow. Rows are cleaned up when a photo arrives or opportunistically after 24 h.
 
 ### Settlement logic
 
