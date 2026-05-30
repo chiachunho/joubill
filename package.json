@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "build:vercel": "sh scripts/vercel-build.sh",
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write .",
@@ -14,6 +15,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "bot:set-webhook": "tsx scripts/set-webhook.ts",
+    "bot:set-commands": "tsx scripts/set-commands.ts",
     "db:migrate-identities": "tsx scripts/migrate-identities.ts",
     "test": "vitest run",
     "test:watch": "vitest"

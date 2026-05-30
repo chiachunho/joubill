@@ -3,19 +3,19 @@ import { Composer } from "grammy";
 import type { BotContext } from "../context";
 
 const HELP_TEXT = [
-  "*揪帳指令*",
+  "*指令*",
   "",
-  "`/add 300 午餐`  全群均分",
-  "`/add 300 午餐 @alice @bob`  只算給被 @ 的人 (付款人不在其中)",
-  "`/add 300 @alice`  我幫 alice 付的 300 (alice 整筆欠你)",
-  "`/list`  最近 10 筆支出",
-  "`/balance`  目前每個人的淨額",
-  "`/settle`  最少筆數還款建議",
+  "`/add 300 午餐` — 全群均分",
+  "`/add 300 午餐 @alice @bob` — 指定分擔",
+  "`/add 300 午餐` — 不等額（換行指定每人金額）",
+  "`@alice 200`",
+  "`@bob 100`",
   "",
-  "加進群組後，所有講話的人會自動加入，就這樣。",
-  "點 /start 的按鈕可以打開揪帳 Mini App 看完整明細。",
+  "`/list` — 最近支出",
+  "`/balance` — 各人餘額",
+  "`/settle` — 還款建議",
   "",
-  "_沒設 username 的人也能被 @（Telegram 會自動把名字轉成 mention）_",
+  "講過話的人自動加入，也可以從 @ 清單選取沒有 username 的人。",
 ].join("\n");
 
 export const helpCommand = new Composer<BotContext>();

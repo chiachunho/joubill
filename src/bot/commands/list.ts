@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expenses, users } from "@/db/schema";
+import { fmt } from "@/lib/money";
 
 import type { BotContext } from "../context";
 
@@ -38,9 +39,12 @@ listCommand.command("list", async (ctx) => {
   const lines = rows.map((r) => {
     const who = r.payerUsername ? "@" + r.payerUsername : r.payerFirstName;
     const date = r.spentAt.toISOString().slice(5, 10).replace("-", "/");
-    return `#${r.id} ${date}  ${who}  ${r.amount} ${r.currency}` +
-      (r.description ? `  ${r.description}` : "");
+    const amount = fmt(Number(r.amount));
+    const desc = r.description ? `  ${r.description}` : "";
+    return `${date}  ${who}  ${amount} ${r.currency}${desc}`;
   });
 
-  await ctx.reply(`最近 ${rows.length} 筆支出\n` + lines.join("\n"));
+  await ctx.reply(`最近 ${rows.length} 筆\n\`\`\`\n` + lines.join("\n") + "\n```", {
+    parse_mode: "Markdown",
+  });
 });

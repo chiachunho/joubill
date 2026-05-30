@@ -3,6 +3,7 @@ import { inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { fmt } from "@/lib/money";
 import { computeGroupBalances, minimizeTransfers } from "@/lib/settlement";
 
 import type { BotContext } from "../context";
@@ -38,8 +39,10 @@ settleCommand.command("settle", async (ctx) => {
 
   const currency = ctx.dbGroup.defaultCurrency;
   const lines = transfers.map(
-    (t) => `${label(t.fromUserId)} → ${label(t.toUserId)}：${t.amount.toFixed(2)} ${currency}`,
+    (t) => `${label(t.fromUserId)} → ${label(t.toUserId)}  ${fmt(t.amount)} ${currency}`,
   );
 
-  await ctx.reply(`最少還款建議（共 ${transfers.length} 筆）\n` + lines.join("\n"));
+  await ctx.reply(`還款建議（${transfers.length} 筆）\n\`\`\`\n` + lines.join("\n") + "\n```", {
+    parse_mode: "Markdown",
+  });
 });

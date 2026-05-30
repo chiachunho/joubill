@@ -4,6 +4,7 @@ import { serverEnv } from "@/lib/env";
 
 import { addCommand } from "./commands/add";
 import { balanceCommand } from "./commands/balance";
+import { deleteExpenseCallback } from "./commands/deleteExpense";
 import { helpCommand } from "./commands/help";
 import { linkCommand } from "./commands/link";
 import { listCommand } from "./commands/list";
@@ -26,6 +27,7 @@ export function getBot(): Bot<BotContext> {
 
   bot.use(registerUser);
   bot.use(trackMembership);
+  bot.use(deleteExpenseCallback);
   bot.use(startCommand);
   bot.use(helpCommand);
   bot.use(addCommand);

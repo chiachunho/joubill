@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMoney, n, splitEqual } from "../money";
+import { fmt, formatMoney, n, splitEqual } from "../money";
 
 describe("splitEqual", () => {
   it("divides evenly when it can", () => {
@@ -37,17 +37,30 @@ describe("splitEqual", () => {
   });
 });
 
+describe("fmt", () => {
+  it("omits decimals for integers", () => {
+    expect(fmt(300)).toBe("300");
+    expect(fmt(0)).toBe("0");
+  });
+
+  it("shows 2 dp for non-integers", () => {
+    expect(fmt(33.33)).toBe("33.33");
+    expect(fmt(1.5)).toBe("1.50");
+  });
+});
+
 describe("formatMoney", () => {
   it("prefixes a + sign for positive amounts", () => {
-    expect(formatMoney(1234.5, "TWD")).toBe("+1,234.50 TWD");
+    expect(formatMoney(1234.5, "TWD")).toBe("+1234.50 TWD");
   });
 
-  it("keeps the - sign for negative amounts", () => {
-    expect(formatMoney(-99, "USD")).toBe("-99.00 USD");
+  it("omits decimals for integer amounts", () => {
+    expect(formatMoney(300, "TWD")).toBe("+300 TWD");
+    expect(formatMoney(-99, "USD")).toBe("-99 USD");
   });
 
-  it("does not sign zero", () => {
-    expect(formatMoney(0, "JPY")).toBe("0.00 JPY");
+  it("always shows a sign (including zero)", () => {
+    expect(formatMoney(0, "JPY")).toBe("+0 JPY");
   });
 });
 

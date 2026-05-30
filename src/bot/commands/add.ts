@@ -1,15 +1,46 @@
-import { Composer } from "grammy";
+import { Composer, InlineKeyboard } from "grammy";
 import { and, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expenseSplits, expenses, groupMembers, users } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
-import { splitEqual } from "@/lib/money";
-import { parseAddMessage } from "@/lib/parseAdd";
+import { fmt, splitEqual } from "@/lib/money";
+import { parseAddMessage, type ShareLine } from "@/lib/parseAdd";
+import { serverEnv } from "@/lib/env";
 
 import type { BotContext } from "../context";
 
 export const addCommand = new Composer<BotContext>();
+
+type DbUser = { id: number; username: string | null; firstName: string; telegramId: number | null };
+
+/** Resolve a share line person to a group member row. Returns null if not found. */
+async function resolveSharePerson(
+  share: ShareLine,
+  selfUser: DbUser,
+  groupId: number,
+): Promise<DbUser | null> {
+  if (share.type === "self") return selfUser;
+
+  const baseQuery = db
+    .select({ id: users.id, username: users.username, firstName: users.firstName, telegramId: users.telegramId })
+    .from(users)
+    .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
+    .$dynamic();
+
+  if (share.type === "username") {
+    const [row] = await baseQuery.where(
+      and(eq(groupMembers.groupId, groupId), eq(users.username, share.username)),
+    );
+    return row ?? null;
+  }
+
+  // telegramId
+  const [row] = await baseQuery.where(
+    and(eq(groupMembers.groupId, groupId), eq(users.telegramId, share.telegramId)),
+  );
+  return row ?? null;
+}
 
 addCommand.command("add", async (ctx) => {
   if (!ctx.dbGroup || !ctx.dbUser) {
@@ -28,40 +59,126 @@ addCommand.command("add", async (ctx) => {
   const group = ctx.dbGroup;
   const payer = ctx.dbUser;
 
-  // text_mention entities carry the full user object (these are mentions of
-  // people without a public @username). Auto-register them so "@-ing" a
-  // never-seen member just works. Regular username `mention` entities carry
-  // no id and can't be resolved via the Bot API, so those still rely on the
-  // person having registered some other way.
+  // Auto-register text_mention users (people without @username picked from mention list)
   for (const entity of ctx.message?.entities ?? []) {
     if (entity.type !== "text_mention" || !entity.user || entity.user.is_bot) continue;
     const u = await upsertTelegramUser(entity.user);
-    await db
-      .insert(groupMembers)
-      .values({ groupId: group.id, userId: u.id })
-      .onConflictDoNothing();
+    await db.insert(groupMembers).values({ groupId: group.id, userId: u.id }).onConflictDoNothing();
   }
 
-  // Resolve participants. With @-mentions (regular or text_mention) -> exactly
-  // those users. Without any mention -> all current group members.
+  const currency = group.defaultCurrency;
+
+  // ── Unequal split (multi-line) ─────────────────────────────────────────────
+  if (parsed.shareLines.length > 0) {
+    // Resolve each share line to a DB user
+    const resolved: Array<{ user: DbUser; amount: number }> = [];
+    for (const share of parsed.shareLines) {
+      const user = await resolveSharePerson(share, payer, group.id);
+      if (!user) {
+        const label =
+          share.type === "username"
+            ? "@" + share.username
+            : share.type === "telegramId"
+              ? `(tg:${share.telegramId})`
+              : "我";
+        await ctx.reply(
+          `找不到群組成員：${label}\n` +
+            `對方需要先在群組裡講過話，或被重新加進群組。`,
+        );
+        return;
+      }
+      resolved.push({ user, amount: share.amount });
+    }
+
+    const specifiedIds = new Set(resolved.map((r) => r.user.id));
+    const totalSpecified = resolved.reduce((s, r) => s + r.amount, 0);
+
+    let expenseTotal: number;
+    const splitRows: Array<{ debtorId: number; amount: string; shareType: string }> = resolved.map(
+      (r) => ({ debtorId: r.user.id, amount: r.amount.toFixed(2), shareType: "exact" }),
+    );
+    const splitLabels: string[] = resolved.map(
+      (r) => `${r.user.username ? "@" + r.user.username : r.user.firstName} ${fmt(r.amount)}`,
+    );
+
+    if (parsed.amount !== null) {
+      // Plan A: total given → split remainder among unspecified group members
+      expenseTotal = parsed.amount;
+      const remainder = Math.round((expenseTotal - totalSpecified) * 100) / 100;
+
+      if (remainder < -0.005) {
+        await ctx.reply(
+          `各人金額合計 ${totalSpecified.toFixed(2)} 超過總金額 ${expenseTotal.toFixed(2)}`,
+        );
+        return;
+      }
+
+      if (remainder > 0.005) {
+        const allMembers = await db
+          .select({ id: users.id, username: users.username, firstName: users.firstName, telegramId: users.telegramId })
+          .from(users)
+          .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
+          .where(eq(groupMembers.groupId, group.id));
+
+        const unspecified = allMembers.filter((m) => !specifiedIds.has(m.id));
+
+        if (unspecified.length === 0) {
+          await ctx.reply(
+            `各人金額合計 ${totalSpecified.toFixed(2)}，剩餘 ${remainder.toFixed(2)} 無人可平分（所有成員都已指定金額）`,
+          );
+          return;
+        }
+
+        const remainderShares = splitEqual(remainder, unspecified.length);
+        unspecified.forEach((u, i) => {
+          splitRows.push({ debtorId: u.id, amount: remainderShares[i].toFixed(2), shareType: "equal" });
+          splitLabels.push(`${u.username ? "@" + u.username : u.firstName} ${fmt(remainderShares[i])}`);
+        });
+      }
+    } else {
+      // Plan B: total = sum of specified shares
+      expenseTotal = totalSpecified;
+    }
+
+    const [expense] = await db
+      .insert(expenses)
+      .values({
+        groupId: group.id,
+        payerId: payer.id,
+        amount: expenseTotal.toFixed(2),
+        currency,
+        description: parsed.description,
+        createdBy: payer.id,
+      })
+      .returning();
+
+    await db.insert(expenseSplits).values(
+      splitRows.map((r) => ({ expenseId: expense.id, debtorId: r.debtorId, amount: r.amount, shareType: r.shareType })),
+    );
+
+    const descPart = parsed.description ? `（${parsed.description}）` : "";
+    const text =
+      `${payer.firstName} 付了 ${fmt(expenseTotal)} ${currency}${descPart}\n` +
+      splitLabels.join("、");
+
+    await ctx.reply(text, { reply_markup: buildKeyboard(ctx, expense.id) });
+    return;
+  }
+
+  // ── Equal split (single-line) ──────────────────────────────────────────────
   const hasMentions =
     parsed.mentionUsernames.length > 0 || parsed.mentionTelegramIds.length > 0;
-  let participants: { id: number; username: string | null; firstName: string }[];
+
+  let participants: DbUser[];
   if (hasMentions) {
     const conditions = [];
-    if (parsed.mentionUsernames.length > 0) {
+    if (parsed.mentionUsernames.length > 0)
       conditions.push(inArray(users.username, parsed.mentionUsernames));
-    }
-    if (parsed.mentionTelegramIds.length > 0) {
+    if (parsed.mentionTelegramIds.length > 0)
       conditions.push(inArray(users.telegramId, parsed.mentionTelegramIds));
-    }
+
     const found = await db
-      .select({
-        id: users.id,
-        username: users.username,
-        firstName: users.firstName,
-        telegramId: users.telegramId,
-      })
+      .select({ id: users.id, username: users.username, firstName: users.firstName, telegramId: users.telegramId })
       .from(users)
       .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
       .where(and(eq(groupMembers.groupId, group.id), or(...conditions)));
@@ -69,9 +186,8 @@ addCommand.command("add", async (ctx) => {
     const foundUsernames = new Set(found.map((u) => u.username));
     const foundTelegramIds = new Set(found.map((u) => u.telegramId));
     const missingUsernames = parsed.mentionUsernames.filter((u) => !foundUsernames.has(u));
-    const missingTelegramIds = parsed.mentionTelegramIds.filter(
-      (id) => !foundTelegramIds.has(id),
-    );
+    const missingTelegramIds = parsed.mentionTelegramIds.filter((id) => !foundTelegramIds.has(id));
+
     if (missingUsernames.length > 0 || missingTelegramIds.length > 0) {
       const missingLabels = [
         ...missingUsernames.map((u) => "@" + u),
@@ -90,7 +206,7 @@ addCommand.command("add", async (ctx) => {
     participants = found;
   } else {
     participants = await db
-      .select({ id: users.id, username: users.username, firstName: users.firstName })
+      .select({ id: users.id, username: users.username, firstName: users.firstName, telegramId: users.telegramId })
       .from(users)
       .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
       .where(eq(groupMembers.groupId, group.id));
@@ -101,18 +217,16 @@ addCommand.command("add", async (ctx) => {
     return;
   }
 
-  const shares = splitEqual(parsed.amount, participants.length);
+  const amount = parsed.amount!;
+  const shares = splitEqual(amount, participants.length);
 
-  // Insert expense, then splits. neon-http has no transaction; if splits fail
-  // mid-way the orphan expense has no effect on balances (the join below filters
-  // by groupId AND requires matching splits).
   const [expense] = await db
     .insert(expenses)
     .values({
       groupId: group.id,
       payerId: payer.id,
-      amount: parsed.amount.toFixed(2),
-      currency: group.defaultCurrency,
+      amount: amount.toFixed(2),
+      currency,
       description: parsed.description,
       createdBy: payer.id,
     })
@@ -127,13 +241,24 @@ addCommand.command("add", async (ctx) => {
     })),
   );
 
-  const names = participants.map((p) => p.username ?? p.firstName).join(", ");
-  await ctx.reply(
-    `已記下 #${expense.id}\n` +
-      `${payer.firstName} 付 ${parsed.amount.toFixed(2)} ${group.defaultCurrency}` +
-      (parsed.description ? `（${parsed.description}）` : "") +
-      `\n分給 ${participants.length} 人：${names}\n` +
-      `每人 ${shares[0].toFixed(2)} ${group.defaultCurrency}` +
-      (shares.some((s) => s !== shares[0]) ? "（含尾數調整）" : ""),
-  );
+  const descPart = parsed.description ? `（${parsed.description}）` : "";
+  const allSame = shares.every((s) => s === shares[0]);
+  const splitLine = allSame
+    ? `${participants.map((p) => p.username ?? p.firstName).join("、")} 各 ${fmt(shares[0])}`
+    : participants.map((p, i) => `${p.username ?? p.firstName} ${fmt(shares[i])}`).join("、");
+  const text =
+    `${payer.firstName} 付了 ${fmt(amount)} ${currency}${descPart}\n` + splitLine;
+
+  await ctx.reply(text, { reply_markup: buildKeyboard(ctx, expense.id) });
 });
+
+function buildKeyboard(ctx: BotContext, expenseId: number): InlineKeyboard {
+  const botUsername = ctx.me.username;
+  const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
+  const chatId = ctx.chat?.id;
+  const editUrl = `https://t.me/${botUsername}/${appName}?startapp=group_${chatId}`;
+
+  return new InlineKeyboard()
+    .url("編輯", editUrl)
+    .text("刪除", `del_exp:${expenseId}`);
+}

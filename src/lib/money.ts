@@ -12,14 +12,16 @@ export function splitEqual(amount: number, n: number): number[] {
   return Array.from({ length: n }, (_, i) => (i < remainder ? base + 1 : base) / 100);
 }
 
-/** Format an amount with the currency code suffixed: 1234.5 -> "1,234.50 TWD". */
+/** Format a number: integers show without decimals, others show 2 dp. */
+export function fmt(amount: number): string {
+  const s = amount.toFixed(2);
+  return s.endsWith(".00") ? s.slice(0, -3) : s;
+}
+
+/** Format a signed monetary amount: "+300 TWD" or "-33.50 TWD". */
 export function formatMoney(amount: number, currency: string): string {
-  const formatted = amount.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  const signed = amount > 0 ? `+${formatted}` : formatted;
-  return `${signed} ${currency}`;
+  const sign = amount >= 0 ? "+" : "-";
+  return `${sign}${fmt(Math.abs(amount))} ${currency}`;
 }
 
 /** Convert a Drizzle numeric column (returned as string) to a JS number. */

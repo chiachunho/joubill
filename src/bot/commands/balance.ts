@@ -28,12 +28,20 @@ balanceCommand.command("balance", async (ctx) => {
     .where(inArray(users.id, balances.map((b) => b.userId)));
   const profiles = new Map(profileRows.map((p) => [p.id, p]));
 
+  const currency = ctx.dbGroup.defaultCurrency;
   const sorted = [...balances].sort((a, b) => b.amount - a.amount);
+
+  // Right-align amounts by padding names to a consistent width
+  const maxNameLen = Math.max(...sorted.map((b) => {
+    const p = profiles.get(b.userId);
+    return (p?.username ? "@" + p.username : (p?.firstName ?? "")).length;
+  }));
+
   const lines = sorted.map((b) => {
     const p = profiles.get(b.userId);
     const who = p?.username ? "@" + p.username : (p?.firstName ?? `user#${b.userId}`);
-    return `${who.padEnd(16)} ${formatMoney(b.amount, ctx.dbGroup!.defaultCurrency)}`;
+    return `${who.padEnd(maxNameLen)}  ${formatMoney(b.amount, currency)}`;
   });
 
-  await ctx.reply("目前餘額\n```\n" + lines.join("\n") + "\n```", { parse_mode: "Markdown" });
+  await ctx.reply("餘額\n```\n" + lines.join("\n") + "\n```", { parse_mode: "Markdown" });
 });
