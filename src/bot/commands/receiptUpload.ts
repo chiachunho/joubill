@@ -1,8 +1,8 @@
 import { Composer } from "grammy";
-import { eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 
 import { db } from "@/db";
-import { groupMembers, users } from "@/db/schema";
+import { expenses, groupMembers, receiptAwaiting, users } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
@@ -13,12 +13,50 @@ import type { BotContext } from "../context";
 
 export const receiptUploadHandler = new Composer<BotContext>();
 
+// Rows older than 24 h are no longer actionable — clean up opportunistically.
+const STALE_MS = 24 * 60 * 60 * 1000;
+
 receiptUploadHandler.on("message:photo", async (ctx) => {
   if (!ctx.dbGroup || !ctx.dbUser) return;
 
   const fileId = ctx.message.photo.at(-1)!.file_id;
 
-  // ── Photo sent with /add caption ─────────────────────────────────────────
+  // ── Path A: reply to a ForceReply "upload receipt" prompt ─────────────────
+  const replyToId = ctx.message.reply_to_message?.message_id;
+  if (replyToId) {
+    const [pending] = await db
+      .select()
+      .from(receiptAwaiting)
+      .where(
+        and(
+          eq(receiptAwaiting.chatId, ctx.chat.id),
+          eq(receiptAwaiting.messageId, replyToId),
+        ),
+      );
+
+    if (pending) {
+      if (ctx.message.media_group_id) {
+        await ctx.reply("收據只支援單張照片，請單獨傳送一張照片。");
+        return;
+      }
+      await Promise.all([
+        db
+          .update(expenses)
+          .set({ receiptFileId: fileId, updatedAt: new Date() })
+          .where(eq(expenses.id, pending.expenseId)),
+        db.delete(receiptAwaiting).where(eq(receiptAwaiting.id, pending.id)),
+      ]);
+      await ctx.react("👍");
+      return;
+    }
+
+    // Opportunistic stale cleanup — only fires on reply-photos, not every photo.
+    await db
+      .delete(receiptAwaiting)
+      .where(lt(receiptAwaiting.createdAt, new Date(Date.now() - STALE_MS)));
+  }
+
+  // ── Path B: photo sent with /add caption (receipt already attached) ───────
   const caption = ctx.message.caption ?? "";
   const captionEntities = ctx.message.caption_entities ?? [];
 
@@ -100,6 +138,7 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
     ? `${allMembers.map((p) => mention(labelUser(p), p.telegramId)).join("、")} 各 ${fmtGrouped(shares[0])}`
     : allMembers.map((p, i) => `${mention(labelUser(p), p.telegramId)} ${fmtGrouped(shares[i])}`).join("、");
 
+  // Receipt already attached — no upload button needed.
   await ctx.reply(
     `${mention(labelUser(payer), payer.telegramId)} 付了 <b>${fmtGrouped(amount)} ${currency}</b>${descPart}\n${splitLine}`,
     { parse_mode: "HTML", reply_markup: buildKeyboard(ctx, expense.id) },

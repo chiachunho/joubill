@@ -115,7 +115,7 @@ Telegram OIDC 需要在 BotFather 取得 OIDC 憑證,並註冊 Redirect URI:
 pnpm db:push
 ```
 
-把 [`src/db/schema.ts`](../src/db/schema.ts) 的九張表同步到 Neon。本專案不走 migration 檔,直接 push。
+把 [`src/db/schema.ts`](../src/db/schema.ts) 的十張表同步到 Neon。本專案不走 migration 檔,直接 push。
 
 ## 7. 填充 auth_identities（一次性）
 
