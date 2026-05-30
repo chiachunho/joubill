@@ -7,7 +7,7 @@ import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { computeGroupBalances, minimizeTransfers } from "@/lib/settlement";
 
-import { escapeHtml } from "../format";
+import { escapeHtml, mention } from "../format";
 import type { BotContext } from "../context";
 
 export const settleCommand = new Composer<BotContext>();
@@ -36,18 +36,18 @@ settleCommand.command("settle", async (ctx) => {
       firstName: users.firstName,
       lastName: users.lastName,
       username: users.username,
+      telegramId: users.telegramId,
     })
     .from(users)
     .where(inArray(users.id, involvedIds));
   const profiles = new Map(profileRows.map((p) => [p.id, p]));
-  const nameOf = (uid: number) => {
+  const mentionOf = (uid: number) => {
     const p = profiles.get(uid);
-    return p ? labelUser(p) : `user#${uid}`;
+    return p ? mention(labelUser(p), p.telegramId) : `user#${uid}`;
   };
 
   const lines = transfers.map(
-    (t) =>
-      `${escapeHtml(nameOf(t.fromUserId))} → ${escapeHtml(nameOf(t.toUserId))}　<b>${fmtGrouped(t.amount)}</b>`,
+    (t) => `${mentionOf(t.fromUserId)} → ${mentionOf(t.toUserId)}　<b>${fmtGrouped(t.amount)}</b>`,
   );
 
   const text =

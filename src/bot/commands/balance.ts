@@ -7,7 +7,7 @@ import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { computeGroupBalances } from "@/lib/settlement";
 
-import { escapeHtml } from "../format";
+import { escapeHtml, mention } from "../format";
 import type { BotContext } from "../context";
 
 export const balanceCommand = new Composer<BotContext>();
@@ -31,13 +31,14 @@ balanceCommand.command("balance", async (ctx) => {
       firstName: users.firstName,
       lastName: users.lastName,
       username: users.username,
+      telegramId: users.telegramId,
     })
     .from(users)
     .where(inArray(users.id, balances.map((b) => b.userId)));
   const profiles = new Map(profileRows.map((p) => [p.id, p]));
-  const nameOf = (uid: number) => {
+  const mentionOf = (uid: number) => {
     const p = profiles.get(uid);
-    return p ? labelUser(p) : `user#${uid}`;
+    return p ? mention(labelUser(p), p.telegramId) : `user#${uid}`;
   };
 
   // Positive (owed money) first, then negative (owes money).
@@ -45,7 +46,7 @@ balanceCommand.command("balance", async (ctx) => {
   const lines = sorted.map((b) => {
     const dot = b.amount >= 0 ? "🟢" : "🔴";
     const sign = b.amount >= 0 ? "+" : "−";
-    return `${dot} ${escapeHtml(nameOf(b.userId))}　<b>${sign}${fmtGrouped(Math.abs(b.amount))}</b>`;
+    return `${dot} ${mentionOf(b.userId)}　<b>${sign}${fmtGrouped(Math.abs(b.amount))}</b>`;
   });
 
   const text =
