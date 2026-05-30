@@ -5,10 +5,11 @@ import { db } from "@/db";
 import { expenseSplits, expenses, groupMembers, users } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { labelUser } from "@/lib/label";
-import { fmt, splitEqual } from "@/lib/money";
+import { fmtGrouped, splitEqual } from "@/lib/money";
 import { parseAddMessage, type ShareLine } from "@/lib/parseAdd";
 import { serverEnv } from "@/lib/env";
 
+import { escapeHtml, mention } from "../format";
 import type { BotContext } from "../context";
 
 export const addCommand = new Composer<BotContext>();
@@ -22,11 +23,12 @@ type DbUser = {
 };
 
 /**
- * Name for the result message. Echoes "@username" only when the user actually
- * typed that @mention; otherwise shows the display name (firstName + lastName).
+ * Name for the result message (HTML). Echoes a plain "@username" when the user
+ * actually typed that @mention (Telegram auto-links it); otherwise renders the
+ * display name as a tappable tg://user inline mention.
  */
 function nameFor(u: DbUser, typedAt: boolean): string {
-  return typedAt && u.username ? "@" + u.username : labelUser(u);
+  return typedAt && u.username ? "@" + u.username : mention(labelUser(u), u.telegramId);
 }
 
 /** Resolve a share line person to a group member row. Returns null if not found. */
@@ -114,7 +116,7 @@ addCommand.command("add", async (ctx) => {
       (r) => ({ debtorId: r.user.id, amount: r.amount.toFixed(2), shareType: "exact" }),
     );
     const splitLabels: string[] = resolved.map(
-      (r) => `${nameFor(r.user, r.typedAt)} ${fmt(r.amount)}`,
+      (r) => `${nameFor(r.user, r.typedAt)} ${fmtGrouped(r.amount)}`,
     );
 
     if (parsed.amount !== null) {
@@ -148,7 +150,7 @@ addCommand.command("add", async (ctx) => {
         const remainderShares = splitEqual(remainder, unspecified.length);
         unspecified.forEach((u, i) => {
           splitRows.push({ debtorId: u.id, amount: remainderShares[i].toFixed(2), shareType: "equal" });
-          splitLabels.push(`${nameFor(u, false)} ${fmt(remainderShares[i])}`);
+          splitLabels.push(`${nameFor(u, false)} ${fmtGrouped(remainderShares[i])}`);
         });
       }
     } else {
@@ -172,12 +174,13 @@ addCommand.command("add", async (ctx) => {
       splitRows.map((r) => ({ expenseId: expense.id, debtorId: r.debtorId, amount: r.amount, shareType: r.shareType })),
     );
 
-    const descPart = parsed.description ? `（${parsed.description}）` : "";
+    const descPart = parsed.description ? `（${escapeHtml(parsed.description)}）` : "";
     const text =
-      `${labelUser(payer)} 付了 ${fmt(expenseTotal)} ${currency}${descPart}\n` +
+      `${mention(labelUser(payer), payer.telegramId)} 付了 ` +
+      `<b>${fmtGrouped(expenseTotal)} ${currency}</b>${descPart}\n` +
       splitLabels.join("、");
 
-    await ctx.reply(text, { reply_markup: buildKeyboard(ctx, expense.id) });
+    await ctx.reply(text, { parse_mode: "HTML", reply_markup: buildKeyboard(ctx, expense.id) });
     return;
   }
 
@@ -261,15 +264,17 @@ addCommand.command("add", async (ctx) => {
   const typedUsernames = new Set(parsed.mentionUsernames);
   const display = (p: DbUser) => nameFor(p, p.username ? typedUsernames.has(p.username) : false);
 
-  const descPart = parsed.description ? `（${parsed.description}）` : "";
+  const descPart = parsed.description ? `（${escapeHtml(parsed.description)}）` : "";
   const allSame = shares.every((s) => s === shares[0]);
   const splitLine = allSame
-    ? `${participants.map(display).join("、")} 各 ${fmt(shares[0])}`
-    : participants.map((p, i) => `${display(p)} ${fmt(shares[i])}`).join("、");
+    ? `${participants.map(display).join("、")} 各 ${fmtGrouped(shares[0])}`
+    : participants.map((p, i) => `${display(p)} ${fmtGrouped(shares[i])}`).join("、");
   const text =
-    `${labelUser(payer)} 付了 ${fmt(amount)} ${currency}${descPart}\n` + splitLine;
+    `${mention(labelUser(payer), payer.telegramId)} 付了 ` +
+    `<b>${fmtGrouped(amount)} ${currency}</b>${descPart}\n` +
+    splitLine;
 
-  await ctx.reply(text, { reply_markup: buildKeyboard(ctx, expense.id) });
+  await ctx.reply(text, { parse_mode: "HTML", reply_markup: buildKeyboard(ctx, expense.id) });
 });
 
 function buildKeyboard(ctx: BotContext, expenseId: number): InlineKeyboard {
