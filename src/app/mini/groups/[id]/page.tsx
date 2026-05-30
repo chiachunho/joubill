@@ -203,14 +203,14 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
           <img
             src={avatars.groupPhoto}
             alt={groupTitle}
-            className="size-10 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+            className="size-8 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
           />
         ) : (
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <Users className="size-4 text-primary" />
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <Users className="size-3.5 text-primary" />
           </div>
         )}
-        <h1 className="truncate text-lg font-semibold">{groupTitle}</h1>
+        <h1 className="truncate text-sm font-semibold">{groupTitle}</h1>
       </div>
 
       {allSettled && (

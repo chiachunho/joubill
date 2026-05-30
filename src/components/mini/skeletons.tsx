@@ -43,8 +43,8 @@ export function GroupPageSkeleton() {
   return (
     <div className="space-y-6 py-4">
       <div className="flex items-center justify-center gap-2.5 px-4">
-        <Skeleton className="size-10 shrink-0 rounded-full" />
-        <Skeleton className="h-5 w-32" />
+        <Skeleton className="size-8 shrink-0 rounded-full" />
+        <Skeleton className="h-4 w-32" />
       </div>
 
       <section className="px-4">
