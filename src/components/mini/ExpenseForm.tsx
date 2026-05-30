@@ -186,6 +186,7 @@ export function ExpenseForm(props: Props) {
   );
   const [receiptUploading, setReceiptUploading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleReceiptChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -254,6 +255,7 @@ export function ExpenseForm(props: Props) {
   }
 
   return (
+    <>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 py-4">
         {/* Header */}
@@ -382,12 +384,19 @@ export function ExpenseForm(props: Props) {
           />
           {receiptFileId ? (
             <div className="relative w-full overflow-hidden rounded-2xl bg-secondary/50">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/api/tg-photo?fileId=${receiptFileId}`}
-                alt="收據"
-                className="max-h-48 w-full object-contain"
-              />
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                className="w-full"
+                aria-label="查看收據大圖"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/tg-photo?fileId=${receiptFileId}`}
+                  alt="收據"
+                  className="max-h-48 w-full object-contain"
+                />
+              </button>
               <button
                 type="button"
                 onClick={() => setReceiptFileId(null)}
@@ -586,5 +595,33 @@ export function ExpenseForm(props: Props) {
         </div>
       </form>
     </Form>
+
+    {/* Receipt lightbox */}
+    {lightboxOpen && receiptFileId && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="收據大圖"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+        onClick={() => setLightboxOpen(false)}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/api/tg-photo?fileId=${receiptFileId}`}
+          alt="收據大圖"
+          className="max-h-full max-w-full rounded-2xl object-contain"
+          onClick={(e) => e.stopPropagation()}
+        />
+        <button
+          type="button"
+          onClick={() => setLightboxOpen(false)}
+          className="absolute right-4 top-4 rounded-lg bg-black/50 p-2 text-white backdrop-blur-sm"
+          aria-label="關閉"
+        >
+          <X className="size-5" />
+        </button>
+      </div>
+    )}
+    </>
   );
 }
