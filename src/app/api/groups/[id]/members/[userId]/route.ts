@@ -3,7 +3,7 @@ import { and, count, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { expenseSplits, groupMembers } from "@/db/schema";
+import { expenses, expenseSplits, groupMembers } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 
@@ -63,14 +63,8 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   const [{ expenseCount }] = await db
     .select({ expenseCount: count() })
     .from(expenseSplits)
-    .innerJoin(
-      groupMembers,
-      and(
-        eq(groupMembers.userId, expenseSplits.debtorId),
-        eq(groupMembers.groupId, groupId),
-      ),
-    )
-    .where(eq(expenseSplits.debtorId, targetUserId));
+    .innerJoin(expenses, eq(expenses.id, expenseSplits.expenseId))
+    .where(and(eq(expenseSplits.debtorId, targetUserId), eq(expenses.groupId, groupId)));
 
   if (expenseCount > 0) {
     return NextResponse.json({ error: "has expenses", expenseCount }, { status: 409 });

@@ -95,23 +95,26 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
     const target = deleteTarget;
     setDeleteLoading(true);
 
-    const res = await tmaRawFetch(`/api/groups/${id}/members/${target.id}`, { method: "DELETE" });
+    try {
+      const res = await tmaRawFetch(`/api/groups/${id}/members/${target.id}`, { method: "DELETE" });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+          setDeleteError(`無法刪除：此成員有 ${(data as { expenseCount?: number }).expenseCount ?? "多筆"} 筆費用記錄，只能停用。`);
+        } else {
+          setDeleteError("刪除失敗，請再試一次");
+        }
+        return;
+      }
+
+      await mutateMembers();
+    } catch {
+      setDeleteError("刪除失敗，請再試一次");
+    } finally {
       setDeleteLoading(false);
       setDeleteTarget(null);
-      if (res.status === 409) {
-        setDeleteError(`無法刪除：此成員有 ${(data as { expenseCount?: number }).expenseCount ?? "多筆"} 筆費用記錄，只能停用。`);
-      } else {
-        setDeleteError("刪除失敗，請再試一次");
-      }
-      return;
     }
-
-    setDeleteLoading(false);
-    setDeleteTarget(null);
-    await mutateMembers();
   }
 
   async function updateCurrency(currency: string) {
