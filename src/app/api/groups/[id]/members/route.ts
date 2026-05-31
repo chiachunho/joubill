@@ -25,6 +25,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       firstName: users.firstName,
       lastName: users.lastName,
       username: users.username,
+      status: groupMembers.status,
     })
     .from(users)
     .innerJoin(groupMembers, eq(groupMembers.userId, users.id))

@@ -2,7 +2,7 @@
 
 import { startTransition, use, useEffect, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Check, History, Loader2, Plus, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Check, History, Loader2, Plus, Settings, Users } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
@@ -186,20 +186,28 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <div className="space-y-6 py-4">
-      {/* Group header — photo + title grouped and centered together */}
-      <div className="flex items-center justify-center gap-2.5 px-4">
-        {avatars?.groupPhoto ? (
-          <img
-            src={avatars.groupPhoto}
-            alt={groupTitle}
-            className="size-8 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-          />
-        ) : (
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <Users className="size-3.5 text-primary" />
-          </div>
-        )}
-        <h1 className="truncate text-sm font-semibold">{groupTitle}</h1>
+      {/* Group header — photo + title centered, settings icon pinned right */}
+      <div className="relative flex items-center justify-center px-4">
+        <div className="flex items-center gap-2.5">
+          {avatars?.groupPhoto ? (
+            <img
+              src={avatars.groupPhoto}
+              alt={groupTitle}
+              className="size-8 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+            />
+          ) : (
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <Users className="size-3.5 text-primary" />
+            </div>
+          )}
+          <h1 className="truncate text-sm font-semibold">{groupTitle}</h1>
+        </div>
+        <Link
+          href={`/mini/groups/${id}/settings`}
+          className="absolute right-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Settings className="size-4" />
+        </Link>
       </div>
 
       {allSettled && (

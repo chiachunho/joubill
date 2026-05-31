@@ -51,6 +51,7 @@ export const groupMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+    status: varchar("status", { length: 16 }).notNull().default("active"),
   },
   (t) => [primaryKey({ columns: [t.groupId, t.userId] })],
 );
