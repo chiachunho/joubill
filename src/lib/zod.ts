@@ -36,7 +36,7 @@ export const expenseInputSchema = z
     spentAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
       message: "spentAt must be a valid date string",
     }),
-    shareType: z.enum(["equal", "exact", "percent"]),
+    shareType: z.enum(["equal", "exact", "percent", "shares", "adjustment"]),
     splits: z.array(splitItemSchema).min(1),
     receiptFileId: z.string().max(256).nullable().optional(),
   })
@@ -67,7 +67,7 @@ export const settlementInputSchema = z.object({
 
 export type SettlementInput = z.infer<typeof settlementInputSchema>;
 
-export const SHARE_TYPES = ["equal", "exact", "percent"] as const;
+export const SHARE_TYPES = ["equal", "exact", "percent", "shares", "adjustment"] as const;
 
 /**
  * Client-side form schema for the Mini App ExpenseForm (react-hook-form +
@@ -105,6 +105,19 @@ export const expenseFormSchema = z
     if (data.shareType === "percent") {
       if (Math.abs(sum - 100) >= 0.1) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "比例加總需為 100%", path: ["participants"] });
+      }
+    } else if (data.shareType === "shares") {
+      if (sum <= 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "份數合計須大於 0", path: ["participants"] });
+      }
+    } else if (data.shareType === "adjustment") {
+      const total = parseFloat(data.amount) || 0;
+      if (sum >= total) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "額外金額加總不能超過總金額",
+          path: ["participants"],
+        });
       }
     } else {
       const total = parseFloat(data.amount) || 0;

@@ -78,9 +78,12 @@ function dayToNoonUtcIso(d: Date): string {
 
 function buildDefaults(props: Props): ExpenseFormValues {
   const { members, initial, defaultCurrency, currentUserId } = props;
-  const shareType =
-    initial?.splits[0]?.shareType === "exact" || initial?.splits[0]?.shareType === "percent"
-      ? (initial.splits[0].shareType as ExpenseFormValues["shareType"])
+  const initialShareType = initial?.splits[0]?.shareType;
+  const shareType: ExpenseFormValues["shareType"] =
+    initialShareType === "exact" || initialShareType === "percent"
+      ? initialShareType
+      : initialShareType === "shares" || initialShareType === "adjustment"
+      ? "exact" // original share counts / adjustments aren't stored; load as exact amounts
       : "equal";
   const splitByDebtor = new Map((initial?.splits ?? []).map((s) => [s.debtorId, s.amount]));
   return {
@@ -132,8 +135,14 @@ export function ExpenseForm(props: Props) {
   const computedSplits = computeSplits(totalAmount, shareType, included);
   const inputSum = included.reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
   const splitsBalanced =
-    shareType === "percent"
+    shareType === "equal"
+      ? true
+      : shareType === "percent"
       ? Math.abs(inputSum - 100) < 0.1
+      : shareType === "shares"
+      ? inputSum > 0
+      : shareType === "adjustment"
+      ? inputSum < totalAmount && totalAmount > 0
       : Math.abs(inputSum - totalAmount) < 0.02;
 
   // Invalidate every SWR key affected by an expense create/edit/delete. The
@@ -440,20 +449,27 @@ export function ExpenseForm(props: Props) {
             <FormItem>
               <FormLabel>分帳方式</FormLabel>
               <div className="inline-flex w-full rounded-lg border border-input bg-secondary/40 p-0.5">
-                {(["equal", "exact", "percent"] as const).map((m) => (
+                {(["equal", "exact", "percent", "shares", "adjustment"] as const).map((m) => (
                   <button
                     key={m}
                     type="button"
-                    onClick={() => field.onChange(m)}
+                    onClick={() => {
+                      field.onChange(m);
+                      if (m === "shares") {
+                        fields.forEach((_, i) => form.setValue(`participants.${i}.value`, "1"));
+                      } else if (m === "adjustment") {
+                        fields.forEach((_, i) => form.setValue(`participants.${i}.value`, "0"));
+                      }
+                    }}
                     aria-pressed={field.value === m}
                     className={cn(
-                      "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                      "flex-1 rounded-md px-2 py-1.5 text-sm font-medium transition-all",
                       field.value === m
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {m === "equal" ? "均分" : m === "exact" ? "指定" : "比例"}
+                    {m === "equal" ? "均分" : m === "exact" ? "指定" : m === "percent" ? "比例" : m === "shares" ? "份數" : "調整"}
                   </button>
                 ))}
               </div>
@@ -518,6 +534,31 @@ export function ExpenseForm(props: Props) {
                                   %
                                 </span>
                               </div>
+                            ) : shareType === "shares" ? (
+                              <div className="relative">
+                                <Input
+                                  type="number"
+                                  step="1"
+                                  min="0"
+                                  inputMode="numeric"
+                                  className="num w-24 pr-7 text-right"
+                                  disabled={!isIncluded}
+                                  {...field}
+                                />
+                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                                  份
+                                </span>
+                              </div>
+                            ) : shareType === "adjustment" ? (
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                inputMode="decimal"
+                                className="num w-24 text-right"
+                                disabled={!isIncluded}
+                                {...field}
+                              />
                             ) : (
                               <Input
                                 type="number"
@@ -545,6 +586,10 @@ export function ExpenseForm(props: Props) {
                 >
                   {shareType === "percent"
                     ? `總計 ${inputSum.toFixed(2)}% / 100%`
+                    : shareType === "shares"
+                    ? `總計 ${inputSum.toFixed(2)} 份`
+                    : shareType === "adjustment"
+                    ? `額外 ${inputSum.toFixed(2)} / 每人基礎 ${included.length > 0 ? ((totalAmount - inputSum) / included.length).toFixed(2) : "0"} ${currency}`
                     : `總計 ${inputSum.toFixed(2)} / ${totalAmount.toFixed(2)} ${currency}`}
                   {splitsBalanced ? <Check className="size-3.5" /> : <X className="size-3.5" />}
                 </p>
