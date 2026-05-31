@@ -83,11 +83,29 @@ export async function getAuth(req: Request): Promise<Auth> {
         if (g) {
           groupFromParam = g;
           if (withExp) expenseFromParam = Number(withExp[2]);
-          // Auto-join: opening the Mini App via a group link registers the user.
-          await db
-            .insert(groupMembers)
-            .values({ groupId: g.id, userId: user.id })
-            .onConflictDoNothing();
+          // Auto-join when the user opens the Mini App via a group link.
+          // We only call getChatMember (slow) when the row is genuinely absent —
+          // subsequent requests hit onConflictDoNothing instantly.
+          const [existing] = await db
+            .select({ groupId: groupMembers.groupId })
+            .from(groupMembers)
+            .where(and(eq(groupMembers.userId, user.id), eq(groupMembers.groupId, g.id)));
+          if (!existing) {
+            const { TELEGRAM_BOT_TOKEN } = serverEnv();
+            const cmRes = await fetch(
+              `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMember?chat_id=${g.telegramChatId}&user_id=${user.telegramId}`,
+            ).catch(() => null);
+            const cmJson = cmRes?.ok
+              ? ((await cmRes.json()) as { ok: boolean; result?: { status: string } })
+              : null;
+            const status = cmJson?.ok ? cmJson.result?.status : undefined;
+            if (status && status !== "left" && status !== "kicked") {
+              await db
+                .insert(groupMembers)
+                .values({ groupId: g.id, userId: user.id })
+                .onConflictDoNothing();
+            }
+          }
         }
       }
     }
