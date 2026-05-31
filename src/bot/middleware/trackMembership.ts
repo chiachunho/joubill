@@ -1,4 +1,4 @@
-import { Composer } from "grammy";
+import { Composer, InlineKeyboard } from "grammy";
 
 import { db } from "@/db";
 import { groupMembers } from "@/db/schema";
@@ -32,4 +32,41 @@ trackMembership.on("message:new_chat_members", async (ctx, next) => {
     }
   }
   await next();
+});
+
+// When the bot itself is added to a group, send a welcome message with a
+// one-tap button so existing members can register without having to speak.
+trackMembership.on("my_chat_member", async (ctx, next) => {
+  const { old_chat_member, new_chat_member } = ctx.myChatMember;
+  const wasAbsent = old_chat_member.status === "left" || old_chat_member.status === "kicked";
+  const isNowPresent =
+    new_chat_member.status === "member" ||
+    new_chat_member.status === "administrator" ||
+    new_chat_member.status === "restricted";
+
+  if (wasAbsent && isNowPresent) {
+    const botUsername = ctx.me.username;
+    const joinLink = `https://t.me/${botUsername}?start=join_${ctx.chat.id}`;
+    const keyboard = new InlineKeyboard().url("加入揪帳 ✋", joinLink);
+    await ctx.reply(
+      "嗨！我是揪帳機器人 👋\n還沒在群組發過言的成員，點下面按鈕就能加入帳目，不需要先講話。",
+      { reply_markup: keyboard },
+    );
+  }
+
+  await next();
+});
+
+// Callback: member taps the inline "加入揪帳" button that appears in group chat.
+trackMembership.callbackQuery("join_group", async (ctx) => {
+  const group = ctx.dbGroup;
+  if (!group) {
+    await ctx.answerCallbackQuery({ text: "找不到群組資訊，請重試。" });
+    return;
+  }
+
+  const user = await upsertTelegramUser(ctx.from);
+  await db.insert(groupMembers).values({ groupId: group.id, userId: user.id }).onConflictDoNothing();
+
+  await ctx.answerCallbackQuery({ text: `✅ 已加入「${group.title}」的揪帳！` });
 });
