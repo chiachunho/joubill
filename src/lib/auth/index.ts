@@ -83,6 +83,11 @@ export async function getAuth(req: Request): Promise<Auth> {
         if (g) {
           groupFromParam = g;
           if (withExp) expenseFromParam = Number(withExp[2]);
+          // Auto-join: opening the Mini App via a group link registers the user.
+          await db
+            .insert(groupMembers)
+            .values({ groupId: g.id, userId: user.id })
+            .onConflictDoNothing();
         }
       }
     }
