@@ -15,13 +15,7 @@ if is_production || is_dev_preview; then
   pnpm bot:set-commands
 
   echo "[vercel-build] setting Telegram webhook..."
-  if is_production; then
-    # Use the stable custom domain for production.
-    pnpm bot:set-webhook "$NEXT_PUBLIC_MINI_APP_URL"
-  else
-    # Use this deployment's ephemeral URL for the dev preview.
-    pnpm bot:set-webhook "https://$VERCEL_URL"
-  fi
+  pnpm bot:set-webhook "$NEXT_PUBLIC_MINI_APP_URL"
 fi
 
 exec next build
