@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Users } from "lucide-react";
+import { Settings, Users } from "lucide-react";
 import useSWR from "swr";
 
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
@@ -62,28 +62,34 @@ export default function MiniHome() {
       <p className="sect px-4 mb-3">我的群組</p>
       <div className="mx-4 overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/50">
         {groups.map((g) => (
-          <Link
-            key={g.id}
-            href={`/mini/groups/${g.id}`}
-            className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40 active:bg-accent/60"
-          >
-            {photosData?.photos[g.id] ? (
-              <img
-                src={photosData.photos[g.id]!}
-                alt={g.title}
-                className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-              />
-            ) : (
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <Users className="size-4 text-primary" />
+          <div key={g.id} className="flex items-center">
+            <Link
+              href={`/mini/groups/${g.id}`}
+              className="flex flex-1 items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40 active:bg-accent/60"
+            >
+              {photosData?.photos[g.id] ? (
+                <img
+                  src={photosData.photos[g.id]!}
+                  alt={g.title}
+                  className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+                />
+              ) : (
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <Users className="size-4 text-primary" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{g.title}</p>
+                <p className="text-xs text-muted-foreground">{g.defaultCurrency}</p>
               </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{g.title}</p>
-              <p className="text-xs text-muted-foreground">{g.defaultCurrency}</p>
-            </div>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
-          </Link>
+            </Link>
+            <Link
+              href={`/mini/groups/${g.id}/settings`}
+              className="flex shrink-0 items-center px-4 py-3.5 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+            >
+              <Settings className="size-4" />
+            </Link>
+          </div>
         ))}
       </div>
     </div>
