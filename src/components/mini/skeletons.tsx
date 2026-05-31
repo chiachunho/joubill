@@ -138,6 +138,34 @@ export function StatsSkeleton() {
   );
 }
 
+/** Group settings: 一般 section (currency row) + 成員 section with rows. */
+export function GroupSettingsSkeleton() {
+  return (
+    <div className="space-y-6 py-4">
+      <div className="flex items-center gap-2 px-4">
+        <Skeleton className="size-7 rounded-lg" />
+        <Skeleton className="h-5 w-24" />
+      </div>
+
+      <section className="px-4">
+        <Skeleton className="mb-2.5 h-3 w-8" />
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <Skeleton className="size-7 rounded-full" />
+            <Skeleton className="h-3.5 flex-1" />
+            <Skeleton className="h-8 w-24 rounded-lg" />
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4">
+        <Skeleton className="mb-2.5 h-3 w-16" />
+        <Panel rows={3} />
+      </section>
+    </div>
+  );
+}
+
 /** Expense / settlement form. Expense adds the split-type toggle + participant panel. */
 export function FormSkeleton({ variant }: { variant: "expense" | "settlement" }) {
   return (

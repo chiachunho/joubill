@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExpenseForm } from "@/components/mini/ExpenseForm";
 import { FormSkeleton } from "@/components/mini/skeletons";
 
-type Member = { id: number; firstName: string; lastName: string | null; username: string | null };
+type Member = { id: number; firstName: string; lastName: string | null; username: string | null; status?: string | null };
 
 type ExpenseDetail = {
   id: number;

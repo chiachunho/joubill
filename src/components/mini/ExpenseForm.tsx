@@ -44,7 +44,7 @@ import {
   type ExpenseFormValues,
 } from "@/lib/zod";
 
-type Member = { id: number; firstName: string; lastName?: string | null; username: string | null };
+type Member = { id: number; firstName: string; lastName?: string | null; username: string | null; status?: string | null };
 
 type Initial = {
   id: number;
@@ -94,7 +94,7 @@ function buildDefaults(props: Props): ExpenseFormValues {
       const split = splitByDebtor.get(m.id);
       return {
         userId: m.id,
-        included: initial ? split !== undefined : true,
+        included: initial ? split !== undefined : m.status !== "inactive",
         value: split !== undefined ? split.toFixed(2) : "",
       };
     }),
