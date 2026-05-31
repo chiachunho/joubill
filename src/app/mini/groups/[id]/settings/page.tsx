@@ -2,7 +2,7 @@
 
 import { use, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Coins, Trash2 } from "lucide-react";
+import { Coins, Trash2 } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
@@ -159,13 +159,7 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
   return (
     <div className="space-y-6 py-4">
       {/* Header */}
-      <div className="flex items-center gap-2 px-4">
-        <button
-          onClick={back}
-          className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
+      <div className="px-4">
         <h1 className="text-lg font-semibold">群組設定</h1>
       </div>
 

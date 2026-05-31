@@ -142,8 +142,7 @@ export function StatsSkeleton() {
 export function GroupSettingsSkeleton() {
   return (
     <div className="space-y-6 py-4">
-      <div className="flex items-center gap-2 px-4">
-        <Skeleton className="size-7 rounded-lg" />
+      <div className="px-4">
         <Skeleton className="h-5 w-24" />
       </div>
 
