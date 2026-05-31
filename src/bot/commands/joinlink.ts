@@ -1,5 +1,7 @@
 import { Composer } from "grammy";
 
+import { serverEnv } from "@/lib/env";
+
 import type { BotContext } from "../context";
 
 export const joinLinkCommand = new Composer<BotContext>();
@@ -10,11 +12,11 @@ joinLinkCommand.command("joinlink", async (ctx) => {
     return;
   }
 
-  const botUsername = ctx.me.username;
-  const link = `https://t.me/${botUsername}?start=join_${ctx.chat!.id}`;
+  const { TELEGRAM_MINI_APP_NAME } = serverEnv();
+  const link = `https://t.me/${ctx.me.username}/${TELEGRAM_MINI_APP_NAME}?startapp=group_${ctx.chat!.id}`;
 
   await ctx.reply(
-    `把這個連結分享給群組成員，點一下即可加入揪帳：\n\n${link}\n\n點連結後在私訊 Bot 按「開始」就完成囉。`,
+    `把這個連結分享給群組成員，點一下即可加入揪帳：\n\n${link}\n\n點連結後開啟 App 就完成了。`,
     { link_preview_options: { is_disabled: true } },
   );
 });
