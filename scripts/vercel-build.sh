@@ -12,6 +12,9 @@ if [ "$VERCEL_ENV" = "production" ]; then
 
   echo "[vercel-build] updating bot command menu..."
   pnpm bot:set-commands
+
+  echo "[vercel-build] setting Telegram webhook..."
+  pnpm bot:set-webhook "$NEXT_PUBLIC_MINI_APP_URL"
 fi
 
 exec next build
