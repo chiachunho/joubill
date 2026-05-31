@@ -15,8 +15,6 @@ const HELP_TEXT = [
   "`/balance` — 各人餘額",
   "`/settle` — 還款建議",
   "",
-  "`/joinlink` — 產生加入連結，分享給還沒說過話的成員",
-  "",
   "講過話的人自動加入，也可以從 @ 清單選取沒有 username 的人。",
 ].join("\n");
 
