@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, use, useCallback, useState } from "react";
+import { use, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Coins, Trash2 } from "lucide-react";
 import useSWR from "swr";
@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { labelUser } from "@/lib/label";
+import { labelMember, labelUser } from "@/lib/label";
 import { tmaFetch } from "@/lib/tma-fetch";
 import { tmaRawFetch } from "@/lib/web-fetch";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
@@ -32,7 +32,7 @@ type Member = {
 type MembersResponse = { members: Member[] };
 type SettingsResponse = { defaultCurrency: string };
 type AvatarsResponse = { groupPhoto: string | null; userPhotos: Record<number, string | null> };
-type MeResponse = { userId: number; groups: Array<{ id: number; title: string }> };
+type MeResponse = { userId: number };
 
 export default function GroupSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -69,15 +69,13 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
     const newStatus = member.status === "active" ? "inactive" : "active";
     setTogglingId(member.id);
 
-    startTransition(() => {
-      mutateMembers(
-        (prev) =>
-          prev
-            ? { members: prev.members.map((m) => (m.id === member.id ? { ...m, status: newStatus } : m)) }
-            : prev,
-        { revalidate: false },
-      );
-    });
+    mutateMembers(
+      (prev) =>
+        prev
+          ? { members: prev.members.map((m) => (m.id === member.id ? { ...m, status: newStatus } : m)) }
+          : prev,
+      { revalidate: false },
+    );
 
     try {
       await tmaFetch(`/api/groups/${id}/members/${member.id}`, {
@@ -120,10 +118,8 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
     if (currencyPending) return;
     setCurrencyPending(true);
 
-    startTransition(() => {
-      mutateSettings((prev) => (prev ? { ...prev, defaultCurrency: currency } : prev), {
-        revalidate: false,
-      });
+    mutateSettings((prev) => (prev ? { ...prev, defaultCurrency: currency } : prev), {
+      revalidate: false,
     });
 
     try {
@@ -153,9 +149,9 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
     return <GroupSettingsSkeleton />;
   }
 
-  const activeMembers = membersData.members.filter((m) => m.status === "active");
-  const inactiveMembers = membersData.members.filter((m) => m.status === "inactive");
-  const sortedMembers = [...activeMembers, ...inactiveMembers];
+  const sortedMembers = membersData.members.toSorted((a, b) =>
+    a.status === b.status ? 0 : a.status === "active" ? -1 : 1,
+  );
 
   return (
     <div className="space-y-6 py-4">
@@ -269,7 +265,7 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
         title="刪除成員"
         description={
           deleteTarget
-            ? `確定要將「${labelUser({ userId: deleteTarget.id, firstName: deleteTarget.firstName, lastName: deleteTarget.lastName, username: deleteTarget.username })}」從群組移除嗎？此動作無法復原。`
+            ? `確定要將「${labelMember(deleteTarget)}」從群組移除嗎？此動作無法復原。`
             : undefined
         }
         confirmLabel="刪除"
