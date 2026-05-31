@@ -20,6 +20,8 @@ const splitItemSchema = z.object({
   amount: z.number().nonnegative(),
 });
 
+export const SHARE_TYPES = ["equal", "exact", "percent", "shares", "adjustment"] as const;
+
 /**
  * Body schema for POST /api/groups/[id]/expenses and PATCH /api/groups/[id]/expenses/[expenseId].
  *
@@ -36,7 +38,7 @@ export const expenseInputSchema = z
     spentAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
       message: "spentAt must be a valid date string",
     }),
-    shareType: z.enum(["equal", "exact", "percent", "shares", "adjustment"]),
+    shareType: z.enum(SHARE_TYPES),
     splits: z.array(splitItemSchema).min(1),
     receiptFileId: z.string().max(256).nullable().optional(),
   })
@@ -66,8 +68,6 @@ export const settlementInputSchema = z.object({
 });
 
 export type SettlementInput = z.infer<typeof settlementInputSchema>;
-
-export const SHARE_TYPES = ["equal", "exact", "percent", "shares", "adjustment"] as const;
 
 /**
  * Client-side form schema for the Mini App ExpenseForm (react-hook-form +
@@ -112,7 +112,7 @@ export const expenseFormSchema = z
       }
     } else if (data.shareType === "adjustment") {
       const total = parseFloat(data.amount) || 0;
-      if (sum >= total) {
+      if (sum > total) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "額外金額加總不能超過總金額",

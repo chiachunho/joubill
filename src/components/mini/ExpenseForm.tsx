@@ -121,7 +121,7 @@ export function ExpenseForm(props: Props) {
     defaultValues: buildDefaults(props),
     mode: "onChange",
   });
-  const { fields } = useFieldArray({ control: form.control, name: "participants" });
+  const { fields, replace } = useFieldArray({ control: form.control, name: "participants" });
 
   const amount = form.watch("amount");
   const currency = form.watch("currency");
@@ -142,7 +142,7 @@ export function ExpenseForm(props: Props) {
       : shareType === "shares"
       ? inputSum > 0
       : shareType === "adjustment"
-      ? inputSum < totalAmount && totalAmount > 0
+      ? inputSum <= totalAmount && totalAmount > 0
       : Math.abs(inputSum - totalAmount) < 0.02;
 
   // Invalidate every SWR key affected by an expense create/edit/delete. The
@@ -156,21 +156,25 @@ export function ExpenseForm(props: Props) {
   }
 
   async function onSubmit(values: ExpenseFormValues) {
+    // When editing a shares/adjustment expense the form loads it as "exact" since
+    // original inputs aren't re-derivable from stored amounts. Preserve the stored
+    // shareType so a description-only edit doesn't silently overwrite it.
+    const initialSplitType = initial?.splits[0]?.shareType;
+    const submittedShareType =
+      values.shareType === "exact" &&
+      (initialSplitType === "shares" || initialSplitType === "adjustment")
+        ? (initialSplitType as ExpenseFormValues["shareType"])
+        : values.shareType;
+
     const body = {
       amount: parseFloat(values.amount),
       currency: values.currency,
       description: values.description.trim() || null,
       payerId: Number(values.payerId),
       spentAt: dayToNoonUtcIso(values.spentDate),
-      shareType: values.shareType,
+      shareType: submittedShareType,
       receiptFileId,
-      splits: computeSplits(
-        parseFloat(values.amount),
-        values.shareType,
-        values.participants
-          .filter((p) => p.included)
-          .map((p) => ({ userId: p.userId, value: p.value })),
-      ),
+      splits: computedSplits,
     };
 
     const url = isEdit
@@ -456,9 +460,9 @@ export function ExpenseForm(props: Props) {
                     onClick={() => {
                       field.onChange(m);
                       if (m === "shares") {
-                        fields.forEach((_, i) => form.setValue(`participants.${i}.value`, "1"));
+                        replace(fields.map((f) => ({ ...f, value: "1" })));
                       } else if (m === "adjustment") {
-                        fields.forEach((_, i) => form.setValue(`participants.${i}.value`, "0"));
+                        replace(fields.map((f) => ({ ...f, value: "0" })));
                       }
                     }}
                     aria-pressed={field.value === m}
@@ -469,7 +473,7 @@ export function ExpenseForm(props: Props) {
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {m === "equal" ? "均分" : m === "exact" ? "指定" : m === "percent" ? "比例" : m === "shares" ? "份數" : "調整"}
+                    {{ equal: "均分", exact: "指定", percent: "比例", shares: "份數", adjustment: "調整" }[m]}
                   </button>
                 ))}
               </div>
@@ -549,16 +553,6 @@ export function ExpenseForm(props: Props) {
                                   份
                                 </span>
                               </div>
-                            ) : shareType === "adjustment" ? (
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                inputMode="decimal"
-                                className="num w-24 text-right"
-                                disabled={!isIncluded}
-                                {...field}
-                              />
                             ) : (
                               <Input
                                 type="number"
@@ -589,7 +583,7 @@ export function ExpenseForm(props: Props) {
                     : shareType === "shares"
                     ? `總計 ${inputSum.toFixed(2)} 份`
                     : shareType === "adjustment"
-                    ? `額外 ${inputSum.toFixed(2)} / 每人基礎 ${included.length > 0 ? ((totalAmount - inputSum) / included.length).toFixed(2) : "0"} ${currency}`
+                    ? `額外 ${inputSum.toFixed(2)} / 每人基礎 ${included.length > 0 ? (Math.floor(Math.max(totalAmount - inputSum, 0) * 100 / included.length) / 100).toFixed(2) : "0"} ${currency}`
                     : `總計 ${inputSum.toFixed(2)} / ${totalAmount.toFixed(2)} ${currency}`}
                   {splitsBalanced ? <Check className="size-3.5" /> : <X className="size-3.5" />}
                 </p>

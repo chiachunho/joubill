@@ -51,7 +51,10 @@ export function computeSplits(
   }
 
   if (shareType === "shares") {
-    const shareNums = participants.map((p) => Math.max(parseFloat(p.value ?? "1") || 0, 0));
+    const shareNums = participants.map((p) => {
+      const v = parseFloat(p.value ?? "");
+      return Math.max(Number.isNaN(v) ? 1 : v, 0); // blank/undefined → default 1 share; "0" → 0
+    });
     const totalShareCount = shareNums.reduce((s, x) => s + x, 0);
     if (totalShareCount <= 0) return participants.map((p) => ({ debtorId: p.userId, amount: 0 }));
     // Largest-remainder method: guarantees exact cent-precise sum
@@ -69,7 +72,7 @@ export function computeSplits(
   // adjustment: each person pays their extra amount + an equal slice of the remainder
   const adjustments = participants.map((p) => parseFloat(p.value ?? "0") || 0);
   const totalAdj = adjustments.reduce((s, x) => s + x, 0);
-  const baseTotal = Math.max(total - totalAdj, 0);
+  const baseTotal = total - totalAdj;
   const base = splitEqual(baseTotal, participants.length);
   return participants.map((p, i) => ({
     debtorId: p.userId,
