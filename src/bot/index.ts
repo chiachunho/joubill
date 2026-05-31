@@ -6,11 +6,13 @@ import { addCommand } from "./commands/add";
 import { balanceCommand } from "./commands/balance";
 import { deleteExpenseCallback } from "./commands/deleteExpense";
 import { helpCommand } from "./commands/help";
+import { joinLinkCommand } from "./commands/joinlink";
 import { linkCommand } from "./commands/link";
 import { listCommand } from "./commands/list";
 import { receiptUploadHandler } from "./commands/receiptUpload";
 import { settleCommand } from "./commands/settle";
 import { startCommand } from "./commands/start";
+import { forwardJoin } from "./handlers/forwardJoin";
 import type { BotContext } from "./context";
 import { registerUser } from "./middleware/registerUser";
 import { trackMembership } from "./middleware/trackMembership";
@@ -37,6 +39,7 @@ export function getBot(): Bot<BotContext> {
 
   bot.use(registerUser);
   bot.use(trackMembership);
+  bot.use(forwardJoin);
   bot.use(deleteExpenseCallback);
   bot.use(receiptUploadHandler);
   bot.use(startCommand);
@@ -46,6 +49,7 @@ export function getBot(): Bot<BotContext> {
   bot.use(balanceCommand);
   bot.use(settleCommand);
   bot.use(linkCommand);
+  bot.use(joinLinkCommand);
 
   bot.catch((err) => {
     console.error("[bot] unhandled error:", err);
