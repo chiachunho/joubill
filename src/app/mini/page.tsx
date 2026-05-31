@@ -85,7 +85,7 @@ export default function MiniHome() {
             </Link>
             <Link
               href={`/mini/groups/${g.id}/settings`}
-              className="flex shrink-0 items-center px-4 py-3.5 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+              className="flex shrink-0 items-center py-3.5 pl-2 pr-4 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
             >
               <Settings className="size-4" />
             </Link>
