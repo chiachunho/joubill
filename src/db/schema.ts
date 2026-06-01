@@ -81,7 +81,7 @@ export const expenses = pgTable(
   (t) => [index("expenses_group_spent_idx").on(t.groupId, t.spentAt)],
 );
 
-/** Per-debtor split of an expense. share_type: equal | exact | percent. */
+/** Per-debtor split of an expense. share_type: equal | exact | percent | shares | adjustment. */
 export const expenseSplits = pgTable(
   "expense_splits",
   {
@@ -94,6 +94,9 @@ export const expenseSplits = pgTable(
       .references(() => users.id),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     shareType: varchar("share_type", { length: 16 }).notNull().default("equal"),
+    /** Raw input value from the form: percentage for percent, share count for shares,
+     *  adjustment delta for adjustment. NULL for equal/exact (amount is the raw value). */
+    splitValue: numeric("split_value", { precision: 14, scale: 4 }),
   },
   (t) => [
     index("expense_splits_expense_idx").on(t.expenseId),

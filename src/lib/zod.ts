@@ -18,6 +18,7 @@ export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 const splitItemSchema = z.object({
   debtorId: z.number().int().positive(),
   amount: z.number().nonnegative(),
+  splitValue: z.number().nullable().optional(),
 });
 
 export const SHARE_TYPES = ["equal", "exact", "percent", "shares", "adjustment"] as const;

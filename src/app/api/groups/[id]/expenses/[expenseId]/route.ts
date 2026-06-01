@@ -38,6 +38,7 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
       debtorId: expenseSplits.debtorId,
       amount: expenseSplits.amount,
       shareType: expenseSplits.shareType,
+      splitValue: expenseSplits.splitValue,
     })
     .from(expenseSplits)
     .where(eq(expenseSplits.expenseId, ids.eid));
@@ -54,6 +55,7 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
       debtorId: s.debtorId,
       amount: n(s.amount),
       shareType: s.shareType,
+      splitValue: s.splitValue != null ? n(s.splitValue) : null,
     })),
   });
 });
@@ -108,6 +110,7 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
       debtorId: s.debtorId,
       amount: s.amount.toFixed(2),
       shareType: input.shareType,
+      splitValue: s.splitValue != null ? String(s.splitValue) : null,
     })),
   );
 
