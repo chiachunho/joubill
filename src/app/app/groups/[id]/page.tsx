@@ -2,7 +2,7 @@
 
 import { startTransition, use, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Check, ChevronLeft, History, Loader2, Plus, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Check, ChevronLeft, History, Loader2, Plus, Settings, Users } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
@@ -134,7 +134,7 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
 
   return (
     <div className="space-y-6 py-4">
-      {/* Back nav — back button absolute left, photo+title centered as a group */}
+      {/* Back nav — back button absolute left, photo+title centered, settings icon absolute right */}
       <div className="relative flex items-center justify-center gap-2.5 px-4 py-1">
         <Link
           href="/app"
@@ -155,6 +155,12 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
           </div>
         )}
         <h1 className="truncate text-sm font-semibold">{groupTitle}</h1>
+        <Link
+          href={`/app/groups/${id}/settings`}
+          className="absolute right-4 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Settings className="size-4" />
+        </Link>
       </div>
 
       {allSettled && (

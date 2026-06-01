@@ -45,6 +45,30 @@ describe("expenseFormSchema", () => {
     expect(r.success).toBe(true);
   });
 
+  it("equal mode passes with leftover '1' values from shares mode", () => {
+    const r = expenseFormSchema.safeParse({
+      ...base,
+      shareType: "equal" as const,
+      participants: [
+        { userId: 1, included: true, value: "1" },
+        { userId: 2, included: true, value: "1" },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("equal mode passes with leftover '0' values from adjustment mode", () => {
+    const r = expenseFormSchema.safeParse({
+      ...base,
+      shareType: "equal" as const,
+      participants: [
+        { userId: 1, included: true, value: "0" },
+        { userId: 2, included: true, value: "0" },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
   describe("exact mode", () => {
     const exact = { ...base, shareType: "exact" as const };
     it("passes when values sum to the amount", () => {
@@ -63,6 +87,26 @@ describe("expenseFormSchema", () => {
         participants: [
           { userId: 1, included: true, value: "100" },
           { userId: 2, included: true, value: "100" },
+        ],
+      });
+      expect(r.success).toBe(false);
+    });
+    it("fails when values are 0.01 short (e.g. 50.00 + 49.99 ≠ 100)", () => {
+      const r = expenseFormSchema.safeParse({
+        ...exact,
+        participants: [
+          { userId: 1, included: true, value: "50.00" },
+          { userId: 2, included: true, value: "49.99" },
+        ],
+      });
+      expect(r.success).toBe(false);
+    });
+    it("fails when values are 0.01 over (e.g. 50.00 + 50.01 > 100)", () => {
+      const r = expenseFormSchema.safeParse({
+        ...exact,
+        participants: [
+          { userId: 1, included: true, value: "50.00" },
+          { userId: 2, included: true, value: "50.01" },
         ],
       });
       expect(r.success).toBe(false);
@@ -87,6 +131,16 @@ describe("expenseFormSchema", () => {
         participants: [
           { userId: 1, included: true, value: "40" },
           { userId: 2, included: true, value: "40" },
+        ],
+      });
+      expect(r.success).toBe(false);
+    });
+    it("fails when percentages are 0.01 short (e.g. 50.00 + 49.99 ≠ 100)", () => {
+      const r = expenseFormSchema.safeParse({
+        ...percent,
+        participants: [
+          { userId: 1, included: true, value: "50.00" },
+          { userId: 2, included: true, value: "49.99" },
         ],
       });
       expect(r.success).toBe(false);

@@ -9,13 +9,14 @@
 export function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const original = process.emitWarning.bind(process);
-  process.emitWarning = ((warning: string | Error, ...args: unknown[]) => {
+  const proc = process;
+  const original = proc.emitWarning.bind(proc);
+  proc["emitWarning"] = ((warning: string | Error, ...args: unknown[]) => {
     const code =
       typeof args[0] === "object" && args[0] !== null
         ? (args[0] as { code?: string }).code
         : args[1];
     if (code === "DEP0169") return;
     return (original as (...a: unknown[]) => void)(warning, ...args);
-  }) as typeof process.emitWarning;
+  }) as typeof proc.emitWarning;
 }

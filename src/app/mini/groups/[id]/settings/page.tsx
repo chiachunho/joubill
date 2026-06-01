@@ -62,12 +62,14 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
   const [currencyPending, setCurrencyPending] = useState(false);
 
   async function toggleStatus(member: Member) {
     if (togglingId !== null) return;
     const newStatus = member.status === "active" ? "inactive" : "active";
     setTogglingId(member.id);
+    setToggleError(null);
 
     mutateMembers(
       (prev) =>
@@ -84,6 +86,7 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
         body: JSON.stringify({ status: newStatus }),
       });
     } catch {
+      setToggleError("更新失敗，請再試一次");
       await mutateMembers();
     } finally {
       setTogglingId(null);
@@ -105,15 +108,15 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
         } else {
           setDeleteError("刪除失敗，請再試一次");
         }
-        return;
+        return; // keep dialog open so user can see the error
       }
 
       await mutateMembers();
+      setDeleteTarget(null);
     } catch {
       setDeleteError("刪除失敗，請再試一次");
     } finally {
       setDeleteLoading(false);
-      setDeleteTarget(null);
     }
   }
 
@@ -241,6 +244,15 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
           })}
         </div>
       </section>
+
+      {toggleError && (
+        <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+          {toggleError}
+          <button onClick={() => setToggleError(null)} className="ml-2 text-xs underline opacity-70">
+            關閉
+          </button>
+        </div>
+      )}
 
       {deleteError && (
         <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
