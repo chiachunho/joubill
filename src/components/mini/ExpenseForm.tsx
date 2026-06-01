@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { labelMember } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
+import { splitEqual } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { useAuthMode } from "@/components/AuthProvider";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
@@ -144,6 +145,14 @@ export function ExpenseForm(props: Props) {
       : shareType === "adjustment"
       ? inputSum <= totalAmount && totalAmount > 0
       : Math.abs(inputSum - totalAmount) < 0.02;
+
+  const adjBases = (() => {
+    if (shareType !== "adjustment" || included.length === 0) return new Map<number, number>();
+    const adjBaseTotal = Math.max(totalAmount - inputSum, 0);
+    const bases = splitEqual(adjBaseTotal, included.length);
+    return new Map(included.map((p, idx) => [p.userId, bases[idx]]));
+  })();
+  const allIncluded = participants.every((p) => p.included);
 
   // Invalidate every SWR key affected by an expense create/edit/delete. The
   // single-expense detail key must be included or re-opening the same record
@@ -511,20 +520,32 @@ export function ExpenseForm(props: Props) {
                         userId={f.userId}
                         size="sm"
                       />
-                      <span className="flex-1 text-sm">{m ? labelMember(m) : `#${f.userId}`}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm leading-tight">{m ? labelMember(m) : `#${f.userId}`}</div>
+                        {shareType === "shares" && isIncluded && computed && (
+                          <div className="text-xs text-muted-foreground num mt-0.5">
+                            {computed.amount.toFixed(2)} {currency}
+                          </div>
+                        )}
+                        {shareType === "adjustment" && isIncluded && adjBases.has(f.userId) && (
+                          <div className="text-xs text-muted-foreground num mt-0.5">
+                            {adjBases.get(f.userId)!.toFixed(2)} {currency}
+                          </div>
+                        )}
+                      </div>
                       {shareType === "equal" ? (
-                        <Input
-                          disabled
-                          className="num w-24 text-right"
-                          value={isIncluded && computed ? computed.amount.toFixed(2) : ""}
-                        />
+                        isIncluded && computed ? (
+                          <span className="num text-sm shrink-0 text-muted-foreground">
+                            {computed.amount.toFixed(2)}
+                          </span>
+                        ) : null
                       ) : (
                         <FormField
                           control={form.control}
                           name={`participants.${i}.value`}
                           render={({ field }) =>
                             shareType === "percent" ? (
-                              <div className="relative">
+                              <div className="relative shrink-0">
                                 <Input
                                   type="number"
                                   step="0.01"
@@ -539,7 +560,7 @@ export function ExpenseForm(props: Props) {
                                 </span>
                               </div>
                             ) : shareType === "shares" ? (
-                              <div className="relative">
+                              <div className="relative shrink-0">
                                 <Input
                                   type="number"
                                   step="1"
@@ -553,13 +574,26 @@ export function ExpenseForm(props: Props) {
                                   份
                                 </span>
                               </div>
+                            ) : shareType === "adjustment" ? (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className="text-sm text-muted-foreground select-none">+</span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  inputMode="decimal"
+                                  className="num w-20 text-right"
+                                  disabled={!isIncluded}
+                                  {...field}
+                                />
+                              </div>
                             ) : (
                               <Input
                                 type="number"
                                 step="0.01"
                                 min="0"
                                 inputMode="decimal"
-                                className="num w-24 text-right"
+                                className="num w-24 text-right shrink-0"
                                 disabled={!isIncluded}
                                 {...field}
                               />
@@ -571,23 +605,71 @@ export function ExpenseForm(props: Props) {
                   );
                 })}
               </div>
-              {shareType !== "equal" && (
-                <p
-                  className={cn(
-                    "flex items-center gap-1 text-sm num",
-                    splitsBalanced ? "text-muted-foreground" : "text-rose-500",
-                  )}
-                >
-                  {shareType === "percent"
-                    ? `總計 ${inputSum.toFixed(2)}% / 100%`
-                    : shareType === "shares"
-                    ? `總計 ${inputSum.toFixed(2)} 份`
-                    : shareType === "adjustment"
-                    ? `額外 ${inputSum.toFixed(2)} / 每人基礎 ${included.length > 0 ? (Math.floor(Math.max(totalAmount - inputSum, 0) * 100 / included.length) / 100).toFixed(2) : "0"} ${currency}`
-                    : `總計 ${inputSum.toFixed(2)} / ${totalAmount.toFixed(2)} ${currency}`}
-                  {splitsBalanced ? <Check className="size-3.5" /> : <X className="size-3.5" />}
-                </p>
-              )}
+              {/* Stats bar */}
+              <div className="rounded-2xl bg-secondary/50 px-4 py-3">
+                {shareType === "equal" ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-baseline gap-1">
+                      {included.length > 0 && totalAmount > 0 ? (
+                        <>
+                          <span className="num text-sm font-medium">
+                            {(computedSplits[0]?.amount ?? 0).toFixed(2)}
+                          </span>
+                          <span className="text-xs text-muted-foreground">/ 人</span>
+                          <span className="text-xs text-muted-foreground ml-1">（{included.length} 人）</span>
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground num">0.00 / 人</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!allIncluded) replace(fields.map((f) => ({ ...f, included: true })));
+                      }}
+                      className={cn(
+                        "flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-all",
+                        allIncluded
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {allIncluded && <Check className="size-3" />}
+                      全選
+                    </button>
+                  </div>
+                ) : shareType === "percent" ? (
+                  <div className={cn("flex items-center gap-1.5 text-sm num", splitsBalanced ? "text-muted-foreground" : "text-rose-500")}>
+                    {inputSum.toFixed(2)}% / 100%
+                    {!splitsBalanced && (
+                      <span className="text-xs">，剩 {Math.max(0, 100 - inputSum).toFixed(2)}%</span>
+                    )}
+                    {splitsBalanced ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
+                  </div>
+                ) : shareType === "shares" ? (
+                  <div className={cn("flex items-center gap-1.5 text-sm num", splitsBalanced ? "text-muted-foreground" : "text-rose-500")}>
+                    共 {inputSum.toFixed(0)} 份
+                    {splitsBalanced ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
+                  </div>
+                ) : shareType === "adjustment" ? (
+                  <div className={cn("flex items-center gap-1.5 text-sm num", splitsBalanced ? "text-muted-foreground" : "text-rose-500")}>
+                    額外 {inputSum.toFixed(2)}，基礎每人{" "}
+                    {included.length > 0
+                      ? (Math.floor(Math.max(totalAmount - inputSum, 0) * 100 / included.length) / 100).toFixed(2)
+                      : "0.00"}{" "}
+                    {currency}
+                    {splitsBalanced ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
+                  </div>
+                ) : (
+                  <div className={cn("flex items-center gap-1.5 text-sm num", splitsBalanced ? "text-muted-foreground" : "text-rose-500")}>
+                    已填 {inputSum.toFixed(2)} / {totalAmount.toFixed(2)} {currency}
+                    {!splitsBalanced && totalAmount > 0 && (
+                      <span className="text-xs">，尚餘 {Math.abs(totalAmount - inputSum).toFixed(2)}</span>
+                    )}
+                    {splitsBalanced ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
+                  </div>
+                )}
+              </div>
               <FormMessage />
             </FormItem>
           )}
