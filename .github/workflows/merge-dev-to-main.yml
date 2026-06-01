@@ -1,0 +1,54 @@
+name: Merge dev → main & tag
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  merge-and-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fast-forward merge dev into main
+        run: |
+          git checkout main
+          git merge --ff-only origin/dev
+
+      - name: Compute next tag
+        id: tag
+        run: |
+          DATE=$(date -u +'%Y%m%d')
+          # Find the highest sequence number used today
+          LAST=$(git tag --list "${DATE}.*" | sort -t. -k2 -n | tail -1)
+          if [ -z "$LAST" ]; then
+            SEQ=1
+          else
+            SEQ=$(echo "$LAST" | awk -F. '{print $2 + 1}')
+          fi
+          echo "name=${DATE}.${SEQ}" >> "$GITHUB_OUTPUT"
+
+      - name: Push main
+        run: git push origin main
+
+      - name: Create and push tag
+        run: |
+          git tag "${{ steps.tag.outputs.name }}"
+          git push origin "${{ steps.tag.outputs.name }}"
+
+      - name: Summary
+        run: echo "### Released \`${{ steps.tag.outputs.name }}\`" >> "$GITHUB_STEP_SUMMARY"
