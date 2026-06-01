@@ -32,7 +32,7 @@ jobs:
       - name: Compute next tag
         id: tag
         run: |
-          DATE=$(date -u +'%Y%m%d')
+          DATE=$(TZ='Asia/Taipei' date +'%Y%m%d')
           # Find the highest sequence number used today
           LAST=$(git tag --list "${DATE}.*" | sort -t. -k2 -n | tail -1)
           if [ -z "$LAST" ]; then
