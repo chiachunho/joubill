@@ -1,8 +1,8 @@
 import { Composer } from "grammy";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenses, users } from "@/db/schema";
+import { expensePayers, expenses, users } from "@/db/schema";
 import { fmt } from "@/lib/money";
 
 import type { BotContext } from "../context";
@@ -22,11 +22,8 @@ listCommand.command("list", async (ctx) => {
       currency: expenses.currency,
       description: expenses.description,
       spentAt: expenses.spentAt,
-      payerFirstName: users.firstName,
-      payerUsername: users.username,
     })
     .from(expenses)
-    .innerJoin(users, eq(users.id, expenses.payerId))
     .where(eq(expenses.groupId, ctx.dbGroup.id))
     .orderBy(desc(expenses.spentAt))
     .limit(10);
@@ -36,8 +33,31 @@ listCommand.command("list", async (ctx) => {
     return;
   }
 
+  const expenseIds = rows.map((r) => r.id);
+  const payerRows = await db
+    .select({
+      expenseId: expensePayers.expenseId,
+      firstName: users.firstName,
+      username: users.username,
+    })
+    .from(expensePayers)
+    .innerJoin(users, eq(users.id, expensePayers.payerId))
+    .where(inArray(expensePayers.expenseId, expenseIds));
+
+  const payersByExpense = new Map<number, Array<{ firstName: string; username: string | null }>>();
+  for (const p of payerRows) {
+    const list = payersByExpense.get(p.expenseId) ?? [];
+    list.push({ firstName: p.firstName, username: p.username });
+    payersByExpense.set(p.expenseId, list);
+  }
+
   const lines = rows.map((r) => {
-    const who = r.payerUsername ? "@" + r.payerUsername : r.payerFirstName;
+    const payers = payersByExpense.get(r.id) ?? [];
+    const who = payers.length === 0
+      ? "?"
+      : payers.length === 1
+        ? (payers[0].username ? "@" + payers[0].username : payers[0].firstName)
+        : payers.map((p) => p.username ? "@" + p.username : p.firstName).join("、");
     const date = r.spentAt.toISOString().slice(5, 10).replace("-", "/");
     const amount = fmt(Number(r.amount));
     const desc = r.description ? `  ${r.description}` : "";

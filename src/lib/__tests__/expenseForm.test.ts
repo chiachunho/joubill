@@ -6,7 +6,7 @@ const base = {
   amount: "300",
   currency: "TWD" as const,
   description: "dinner",
-  payerId: "1",
+  payers: [{ userId: "1", amount: "300" }],
   spentDate: new Date("2026-05-27T12:00:00Z"),
   shareType: "equal" as const,
   participants: [

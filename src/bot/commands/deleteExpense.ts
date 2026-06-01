@@ -24,8 +24,8 @@ deleteExpenseCallback.callbackQuery(/^del_exp:(\d+)$/, async (ctx) => {
     return;
   }
 
-  if (expense.payerId !== user.id) {
-    await ctx.answerCallbackQuery({ text: "只有付款人可以刪除這筆支出", show_alert: true });
+  if (expense.createdBy !== user.id) {
+    await ctx.answerCallbackQuery({ text: "只有建立者可以刪除這筆支出", show_alert: true });
     return;
   }
 

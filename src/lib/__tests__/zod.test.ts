@@ -6,7 +6,7 @@ const validExpense = {
   amount: 300,
   currency: "TWD" as const,
   description: "dinner",
-  payerId: 1,
+  payers: [{ payerId: 1, amount: 300 }],
   spentAt: "2026-05-27T12:00:00.000Z",
   shareType: "equal" as const,
   splits: [
@@ -39,6 +39,7 @@ describe("expenseInputSchema", () => {
     const r = expenseInputSchema.safeParse({
       ...validExpense,
       amount: 100,
+      payers: [{ payerId: 1, amount: 100 }],
       splits: [
         { debtorId: 1, amount: 33.34 },
         { debtorId: 2, amount: 33.33 },
@@ -64,6 +65,32 @@ describe("expenseInputSchema", () => {
 
   it("requires at least one split", () => {
     expect(expenseInputSchema.safeParse({ ...validExpense, splits: [] }).success).toBe(false);
+  });
+
+  it("accepts multiple payers summing to the total", () => {
+    const r = expenseInputSchema.safeParse({
+      ...validExpense,
+      payers: [
+        { payerId: 1, amount: 180 },
+        { payerId: 2, amount: 120 },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects payers that don't sum to amount", () => {
+    const r = expenseInputSchema.safeParse({
+      ...validExpense,
+      payers: [
+        { payerId: 1, amount: 100 },
+        { payerId: 2, amount: 100 },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("requires at least one payer", () => {
+    expect(expenseInputSchema.safeParse({ ...validExpense, payers: [] }).success).toBe(false);
   });
 
   it("accepts a receiptFileIds array", () => {

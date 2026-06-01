@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenseReceipts, expenseSplits, expenses, users } from "@/db/schema";
+import { expenseReceipts, expensePayers, expenseSplits, expenses, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { n } from "@/lib/money";
@@ -29,14 +29,9 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       currency: expenses.currency,
       description: expenses.description,
       spentAt: expenses.spentAt,
-      payerId: expenses.payerId,
       legacyReceiptFileId: expenses.receiptFileId,
-      payerFirstName: users.firstName,
-      payerLastName: users.lastName,
-      payerUsername: users.username,
     })
     .from(expenses)
-    .innerJoin(users, eq(users.id, expenses.payerId))
     .where(eq(expenses.groupId, groupId))
     .orderBy(desc(expenses.spentAt));
 
@@ -45,7 +40,20 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
 
   const expenseIds = expenseRows.map((e) => e.id);
-  const [splitRows, receiptRows] = await Promise.all([
+
+  const [payerRows, splitRows, receiptRows] = await Promise.all([
+    db
+      .select({
+        expenseId: expensePayers.expenseId,
+        payerId: expensePayers.payerId,
+        amount: expensePayers.amount,
+        payerFirstName: users.firstName,
+        payerLastName: users.lastName,
+        payerUsername: users.username,
+      })
+      .from(expensePayers)
+      .innerJoin(users, eq(users.id, expensePayers.payerId))
+      .where(inArray(expensePayers.expenseId, expenseIds)),
     db
       .select({
         expenseId: expenseSplits.expenseId,
@@ -64,6 +72,13 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       .where(inArray(expenseReceipts.expenseId, expenseIds))
       .orderBy(expenseReceipts.expenseId, expenseReceipts.position),
   ]);
+
+  const payersByExpense = new Map<number, typeof payerRows>();
+  for (const p of payerRows) {
+    const list = payersByExpense.get(p.expenseId) ?? [];
+    list.push(p);
+    payersByExpense.set(p.expenseId, list);
+  }
 
   const splitsByExpense = new Map<number, typeof splitRows>();
   for (const s of splitRows) {
@@ -90,12 +105,13 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
         receiptsByExpense.get(e.id) ?? [],
         e.legacyReceiptFileId,
       ),
-      payer: {
-        userId: e.payerId,
-        firstName: e.payerFirstName,
-        lastName: e.payerLastName,
-        username: e.payerUsername,
-      },
+      payers: (payersByExpense.get(e.id) ?? []).map((p) => ({
+        userId: p.payerId,
+        firstName: p.payerFirstName,
+        lastName: p.payerLastName,
+        username: p.payerUsername,
+        amount: n(p.amount),
+      })),
       splits: (splitsByExpense.get(e.id) ?? []).map((s) => ({
         debtorId: s.debtorId,
         firstName: s.debtorFirstName,
@@ -121,7 +137,9 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   }
   const input = parsed.data;
 
-  const userIds = Array.from(new Set([input.payerId, ...input.splits.map((s) => s.debtorId)]));
+  const userIds = Array.from(
+    new Set([...input.payers.map((p) => p.payerId), ...input.splits.map((s) => s.debtorId)]),
+  );
   const missing = await findUsersNotInGroup(groupId, userIds);
   if (missing.length > 0) {
     return NextResponse.json(
@@ -130,13 +148,11 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     );
   }
 
-  let expenseId!: number;
-  await db.transaction(async (tx) => {
-    const [expense] = await tx
+  const expense = await db.transaction(async (tx) => {
+    const [row] = await tx
       .insert(expenses)
       .values({
         groupId,
-        payerId: input.payerId,
         amount: input.amount.toFixed(2),
         currency: input.currency,
         description: input.description,
@@ -144,12 +160,18 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
         createdBy: auth.user.id,
       })
       .returning();
-    expenseId = expense.id;
 
     const ops: Promise<unknown>[] = [
+      tx.insert(expensePayers).values(
+        input.payers.map((p) => ({
+          expenseId: row.id,
+          payerId: p.payerId,
+          amount: p.amount.toFixed(2),
+        })),
+      ),
       tx.insert(expenseSplits).values(
         input.splits.map((s) => ({
-          expenseId: expense.id,
+          expenseId: row.id,
           debtorId: s.debtorId,
           amount: s.amount.toFixed(2),
           shareType: input.shareType,
@@ -162,7 +184,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
       ops.push(
         tx.insert(expenseReceipts).values(
           input.receiptFileIds.map((fileId, i) => ({
-            expenseId: expense.id,
+            expenseId: row.id,
             fileId,
             position: i,
           })),
@@ -171,7 +193,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     }
 
     await Promise.all(ops);
+    return row;
   });
 
-  return NextResponse.json({ id: expenseId }, { status: 201 });
+  return NextResponse.json({ id: expense.id }, { status: 201 });
 });

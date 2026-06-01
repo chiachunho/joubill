@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenses, groups, users } from "@/db/schema";
+import { expensePayers, expenses, groups, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { getRate } from "@/lib/fx";
@@ -26,40 +26,31 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
   if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
 
-  const rows = await db
+  // For monthly chart: use total expense amounts (no payer join needed)
+  const expenseRows = await db
     .select({
       amount: expenses.amount,
       currency: expenses.currency,
       spentAt: expenses.spentAt,
-      payerId: expenses.payerId,
+    })
+    .from(expenses)
+    .where(eq(expenses.groupId, groupId));
+
+  // For by-payer totals: use expense_payers amounts (each payer's actual contribution)
+  const payerRows = await db
+    .select({
+      amount: expensePayers.amount,
+      currency: expenses.currency,
+      spentAt: expenses.spentAt,
+      payerId: expensePayers.payerId,
       payerFirstName: users.firstName,
       payerLastName: users.lastName,
       payerUsername: users.username,
     })
-    .from(expenses)
-    .innerJoin(users, eq(users.id, expenses.payerId))
+    .from(expensePayers)
+    .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
+    .innerJoin(users, eq(users.id, expensePayers.payerId))
     .where(eq(expenses.groupId, groupId));
-
-  // Normalize each amount to the group's default currency via FX cache.
-  const normalized: Array<{
-    value: number;
-    spentAt: Date;
-    payerId: number;
-    payerFirstName: string;
-    payerLastName: string | null;
-    payerUsername: string | null;
-  }> = [];
-  for (const r of rows) {
-    const rate = await getRate(r.currency, group.defaultCurrency, r.spentAt);
-    normalized.push({
-      value: n(r.amount) * rate,
-      spentAt: r.spentAt,
-      payerId: r.payerId,
-      payerFirstName: r.payerFirstName,
-      payerLastName: r.payerLastName,
-      payerUsername: r.payerUsername,
-    });
-  }
 
   // Build a 6-month window ending at the current month (zero-filled).
   const now = new Date();
@@ -70,10 +61,11 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     monthly.push({ month: key, total: 0 });
   }
   const monthIndex = new Map(monthly.map((m, idx) => [m.month, idx]));
-  for (const r of normalized) {
+  for (const r of expenseRows) {
+    const rate = await getRate(r.currency, group.defaultCurrency, r.spentAt);
     const key = `${r.spentAt.getFullYear()}-${String(r.spentAt.getMonth() + 1).padStart(2, "0")}`;
     const idx = monthIndex.get(key);
-    if (idx !== undefined) monthly[idx].total = Math.round((monthly[idx].total + r.value) * 100) / 100;
+    if (idx !== undefined) monthly[idx].total = Math.round((monthly[idx].total + n(r.amount) * rate) * 100) / 100;
   }
 
   // Per-payer totals across the entire group history.
@@ -81,7 +73,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     number,
     { userId: number; firstName: string; lastName: string | null; username: string | null; total: number }
   >();
-  for (const r of normalized) {
+  for (const r of payerRows) {
+    const rate = await getRate(r.currency, group.defaultCurrency, r.spentAt);
     const cur = byPayerMap.get(r.payerId) ?? {
       userId: r.payerId,
       firstName: r.payerFirstName,
@@ -89,7 +82,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       username: r.payerUsername,
       total: 0,
     };
-    cur.total += r.value;
+    cur.total += n(r.amount) * rate;
     byPayerMap.set(r.payerId, cur);
   }
   const byPayer = Array.from(byPayerMap.values())

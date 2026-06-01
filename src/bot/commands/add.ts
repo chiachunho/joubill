@@ -2,7 +2,7 @@ import { Composer, InlineKeyboard } from "grammy";
 import { and, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenseSplits, expenses, groupMembers, receiptAwaiting, users } from "@/db/schema";
+import { expensePayers, expenseSplits, expenses, groupMembers, receiptAwaiting, users } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped, splitEqual } from "@/lib/money";
@@ -162,7 +162,6 @@ addCommand.command("add", async (ctx) => {
       .insert(expenses)
       .values({
         groupId: group.id,
-        payerId: payer.id,
         amount: expenseTotal.toFixed(2),
         currency,
         description: parsed.description,
@@ -170,9 +169,12 @@ addCommand.command("add", async (ctx) => {
       })
       .returning();
 
-    await db.insert(expenseSplits).values(
-      splitRows.map((r) => ({ expenseId: expense.id, debtorId: r.debtorId, amount: r.amount, shareType: r.shareType })),
-    );
+    await Promise.all([
+      db.insert(expensePayers).values({ expenseId: expense.id, payerId: payer.id, amount: expenseTotal.toFixed(2) }),
+      db.insert(expenseSplits).values(
+        splitRows.map((r) => ({ expenseId: expense.id, debtorId: r.debtorId, amount: r.amount, shareType: r.shareType })),
+      ),
+    ]);
 
     const descPart = parsed.description ? `（${escapeHtml(parsed.description)}）` : "";
     const text =
@@ -326,7 +328,6 @@ export async function insertEqualSplitExpense(params: {
     .insert(expenses)
     .values({
       groupId,
-      payerId,
       amount: amount.toFixed(2),
       currency,
       description,
@@ -334,14 +335,17 @@ export async function insertEqualSplitExpense(params: {
       ...(receiptFileId !== undefined && { receiptFileId }),
     })
     .returning();
-  await db.insert(expenseSplits).values(
-    participants.map((p, i) => ({
-      expenseId: expense.id,
-      debtorId: p.id,
-      amount: shares[i].toFixed(2),
-      shareType: "equal" as const,
-    })),
-  );
+  await Promise.all([
+    db.insert(expensePayers).values({ expenseId: expense.id, payerId, amount: amount.toFixed(2) }),
+    db.insert(expenseSplits).values(
+      participants.map((p, i) => ({
+        expenseId: expense.id,
+        debtorId: p.id,
+        amount: shares[i].toFixed(2),
+        shareType: "equal" as const,
+      })),
+    ),
+  ]);
   return { expense, shares };
 }
 

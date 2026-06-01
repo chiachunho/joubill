@@ -56,7 +56,7 @@ export const groupMembers = pgTable(
   (t) => [primaryKey({ columns: [t.groupId, t.userId] })],
 );
 
-/** A single expense: who paid, how much, in what currency. Split details live in expense_splits. */
+/** A single expense: total amount, currency. Payers live in expense_payers; split details in expense_splits. */
 export const expenses = pgTable(
   "expenses",
   {
@@ -64,9 +64,6 @@ export const expenses = pgTable(
     groupId: integer("group_id")
       .notNull()
       .references(() => groups.id, { onDelete: "cascade" }),
-    payerId: integer("payer_id")
-      .notNull()
-      .references(() => users.id),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull(),
     description: text("description"),
@@ -79,6 +76,25 @@ export const expenses = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("expenses_group_spent_idx").on(t.groupId, t.spentAt)],
+);
+
+/** Per-payer contribution for an expense. Supports splitting payment across multiple people. */
+export const expensePayers = pgTable(
+  "expense_payers",
+  {
+    id: serial("id").primaryKey(),
+    expenseId: integer("expense_id")
+      .notNull()
+      .references(() => expenses.id, { onDelete: "cascade" }),
+    payerId: integer("payer_id")
+      .notNull()
+      .references(() => users.id),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+  },
+  (t) => [
+    index("expense_payers_expense_idx").on(t.expenseId),
+    index("expense_payers_payer_idx").on(t.payerId),
+  ],
 );
 
 /** Per-debtor split of an expense. share_type: equal | exact | percent | shares | adjustment. */
@@ -214,6 +230,8 @@ export type NewGroup = typeof groups.$inferInsert;
 export type GroupMember = typeof groupMembers.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type NewExpense = typeof expenses.$inferInsert;
+export type ExpensePayer = typeof expensePayers.$inferSelect;
+export type NewExpensePayer = typeof expensePayers.$inferInsert;
 export type ExpenseSplit = typeof expenseSplits.$inferSelect;
 export type NewExpenseSplit = typeof expenseSplits.$inferInsert;
 export type Settlement = typeof settlements.$inferSelect;
