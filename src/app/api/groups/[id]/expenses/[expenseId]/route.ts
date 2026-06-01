@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenseSplits, expenses } from "@/db/schema";
+import { expenseReceipts, expenseSplits, expenses } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { n } from "@/lib/money";
@@ -33,15 +33,29 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     .where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
   if (!expense) return NextResponse.json({ error: "expense not found" }, { status: 404 });
 
-  const splits = await db
-    .select({
-      debtorId: expenseSplits.debtorId,
-      amount: expenseSplits.amount,
-      shareType: expenseSplits.shareType,
-      splitValue: expenseSplits.splitValue,
-    })
-    .from(expenseSplits)
-    .where(eq(expenseSplits.expenseId, ids.eid));
+  const [splits, receiptRows] = await Promise.all([
+    db
+      .select({
+        debtorId: expenseSplits.debtorId,
+        amount: expenseSplits.amount,
+        shareType: expenseSplits.shareType,
+        splitValue: expenseSplits.splitValue,
+      })
+      .from(expenseSplits)
+      .where(eq(expenseSplits.expenseId, ids.eid)),
+    db
+      .select({ fileId: expenseReceipts.fileId })
+      .from(expenseReceipts)
+      .where(eq(expenseReceipts.expenseId, ids.eid))
+      .orderBy(expenseReceipts.position),
+  ]);
+
+  const receiptFileIds =
+    receiptRows.length > 0
+      ? receiptRows.map((r) => r.fileId)
+      : expense.receiptFileId
+        ? [expense.receiptFileId]
+        : [];
 
   return NextResponse.json({
     id: expense.id,
@@ -50,7 +64,7 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     description: expense.description,
     payerId: expense.payerId,
     spentAt: expense.spentAt,
-    receiptFileId: expense.receiptFileId,
+    receiptFileIds,
     splits: splits.map((s) => ({
       debtorId: s.debtorId,
       amount: n(s.amount),
@@ -95,14 +109,11 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
       currency: input.currency,
       description: input.description,
       spentAt: new Date(input.spentAt),
-      // Only update receiptFileId when the client explicitly sends it (null = clear, absent = keep).
-      ...(input.receiptFileId !== undefined && { receiptFileId: input.receiptFileId }),
       updatedAt: new Date(),
     })
     .where(eq(expenses.id, ids.eid));
 
-  // Replace splits wholesale. FK cascade not relevant since we're keeping the
-  // parent expense row; just delete-then-insert in order.
+  // Replace splits wholesale.
   await db.delete(expenseSplits).where(eq(expenseSplits.expenseId, ids.eid));
   await db.insert(expenseSplits).values(
     input.splits.map((s) => ({
@@ -113,6 +124,20 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
       splitValue: s.splitValue != null ? String(s.splitValue) : null,
     })),
   );
+
+  // Replace receipts when client explicitly sends the field ([] = clear all).
+  if (input.receiptFileIds !== undefined) {
+    await db.delete(expenseReceipts).where(eq(expenseReceipts.expenseId, ids.eid));
+    if (input.receiptFileIds.length > 0) {
+      await db.insert(expenseReceipts).values(
+        input.receiptFileIds.map((fileId, i) => ({
+          expenseId: ids.eid,
+          fileId,
+          position: i,
+        })),
+      );
+    }
+  }
 
   return NextResponse.json({ ok: true });
 });

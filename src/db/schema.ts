@@ -127,6 +127,21 @@ export const settlements = pgTable(
 );
 
 
+/** Up to 5 receipt photos per expense. Position determines display order. */
+export const expenseReceipts = pgTable(
+  "expense_receipts",
+  {
+    id: serial("id").primaryKey(),
+    expenseId: integer("expense_id")
+      .notNull()
+      .references(() => expenses.id, { onDelete: "cascade" }),
+    fileId: text("file_id").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("expense_receipts_expense_idx").on(t.expenseId)],
+);
+
 /**
  * Tracks in-flight "waiting for receipt photo" states in group chats.
  * Created when a user clicks the "Upload Receipt" button after a text /add;
@@ -209,3 +224,4 @@ export type NewAuthIdentity = typeof authIdentities.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type ReceiptAwaiting = typeof receiptAwaiting.$inferSelect;
+export type ExpenseReceipt = typeof expenseReceipts.$inferSelect;

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenseSplits, expenses, users } from "@/db/schema";
+import { expenseReceipts, expenseSplits, expenses, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { n } from "@/lib/money";
@@ -29,7 +29,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       description: expenses.description,
       spentAt: expenses.spentAt,
       payerId: expenses.payerId,
-      receiptFileId: expenses.receiptFileId,
+      legacyReceiptFileId: expenses.receiptFileId,
       payerFirstName: users.firstName,
       payerLastName: users.lastName,
       payerUsername: users.username,
@@ -44,24 +44,38 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
 
   const expenseIds = expenseRows.map((e) => e.id);
-  const splitRows = await db
-    .select({
-      expenseId: expenseSplits.expenseId,
-      debtorId: expenseSplits.debtorId,
-      amount: expenseSplits.amount,
-      debtorFirstName: users.firstName,
-      debtorLastName: users.lastName,
-      debtorUsername: users.username,
-    })
-    .from(expenseSplits)
-    .innerJoin(users, eq(users.id, expenseSplits.debtorId))
-    .where(inArray(expenseSplits.expenseId, expenseIds));
+  const [splitRows, receiptRows] = await Promise.all([
+    db
+      .select({
+        expenseId: expenseSplits.expenseId,
+        debtorId: expenseSplits.debtorId,
+        amount: expenseSplits.amount,
+        debtorFirstName: users.firstName,
+        debtorLastName: users.lastName,
+        debtorUsername: users.username,
+      })
+      .from(expenseSplits)
+      .innerJoin(users, eq(users.id, expenseSplits.debtorId))
+      .where(inArray(expenseSplits.expenseId, expenseIds)),
+    db
+      .select({ expenseId: expenseReceipts.expenseId, fileId: expenseReceipts.fileId })
+      .from(expenseReceipts)
+      .where(inArray(expenseReceipts.expenseId, expenseIds))
+      .orderBy(expenseReceipts.expenseId, expenseReceipts.position),
+  ]);
 
   const splitsByExpense = new Map<number, typeof splitRows>();
   for (const s of splitRows) {
     const list = splitsByExpense.get(s.expenseId) ?? [];
     list.push(s);
     splitsByExpense.set(s.expenseId, list);
+  }
+
+  const receiptsByExpense = new Map<number, string[]>();
+  for (const r of receiptRows) {
+    const list = receiptsByExpense.get(r.expenseId) ?? [];
+    list.push(r.fileId);
+    receiptsByExpense.set(r.expenseId, list);
   }
 
   return NextResponse.json({
@@ -71,7 +85,9 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       currency: e.currency,
       description: e.description,
       spentAt: e.spentAt,
-      receiptFileId: e.receiptFileId,
+      receiptFileIds:
+        receiptsByExpense.get(e.id) ??
+        (e.legacyReceiptFileId ? [e.legacyReceiptFileId] : []),
       payer: {
         userId: e.payerId,
         firstName: e.payerFirstName,
@@ -122,19 +138,34 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
       description: input.description,
       spentAt: new Date(input.spentAt),
       createdBy: auth.user.id,
-      receiptFileId: input.receiptFileId ?? null,
     })
     .returning();
 
-  await db.insert(expenseSplits).values(
-    input.splits.map((s) => ({
-      expenseId: expense.id,
-      debtorId: s.debtorId,
-      amount: s.amount.toFixed(2),
-      shareType: input.shareType,
-      splitValue: s.splitValue != null ? String(s.splitValue) : null,
-    })),
-  );
+  const ops: Promise<unknown>[] = [
+    db.insert(expenseSplits).values(
+      input.splits.map((s) => ({
+        expenseId: expense.id,
+        debtorId: s.debtorId,
+        amount: s.amount.toFixed(2),
+        shareType: input.shareType,
+        splitValue: s.splitValue != null ? String(s.splitValue) : null,
+      })),
+    ),
+  ];
+
+  if (input.receiptFileIds && input.receiptFileIds.length > 0) {
+    ops.push(
+      db.insert(expenseReceipts).values(
+        input.receiptFileIds.map((fileId, i) => ({
+          expenseId: expense.id,
+          fileId,
+          position: i,
+        })),
+      ),
+    );
+  }
+
+  await Promise.all(ops);
 
   return NextResponse.json({ id: expense.id }, { status: 201 });
 });

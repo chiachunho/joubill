@@ -13,7 +13,7 @@ type MembersResponse = { members: Member[] };
 type AvatarsResponse = { userPhotos: Record<number, string | null> };
 type ExpenseDetail = {
   id: number; amount: number; currency: string; description: string | null;
-  payerId: number; spentAt: string; receiptFileId?: string | null;
+  payerId: number; spentAt: string; receiptFileIds: string[];
   splits: Array<{ debtorId: number; amount: number; shareType: string }>;
 };
 
