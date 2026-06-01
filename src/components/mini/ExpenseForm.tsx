@@ -697,7 +697,7 @@ export function ExpenseForm(props: Props) {
         <div className="flex gap-2 pt-1">
           <Button
             type="submit"
-            disabled={form.formState.isSubmitting || !form.formState.isValid}
+            disabled={form.formState.isSubmitting || !form.formState.isValid || receiptUploading}
             className="flex-1 rounded-lg"
           >
             {form.formState.isSubmitting ? "儲存中…" : "儲存"}
