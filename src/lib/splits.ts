@@ -44,10 +44,29 @@ export function computeSplits(
   }
 
   if (shareType === "percent") {
-    return participants.map((p) => {
-      const pct = parseFloat(p.value ?? "0") || 0;
-      return { debtorId: p.userId, amount: Math.round(((total * pct) / 100) * 100) / 100 };
-    });
+    const pcts = participants.map((p) => parseFloat(p.value ?? "0") || 0);
+    const pctSum = pcts.reduce((s, x) => s + x, 0);
+
+    // Largest-remainder method: only when percentages sum to 100% (balanced).
+    // Guarantees the sum of rounded amounts equals `total` exactly, avoiding
+    // server-side rejection from accumulated per-participant rounding drift.
+    // For unbalanced/in-progress inputs, fall back to independent rounding.
+    if (Math.abs(pctSum - 100) < 0.005) {
+      const totalCents = Math.round(total * 100);
+      const rawCents = pcts.map((pct) => (totalCents * pct) / 100);
+      const floors = rawCents.map(Math.floor);
+      const remainderCents = totalCents - floors.reduce((s, x) => s + x, 0);
+      const fracs = rawCents
+        .map((r, i) => ({ i, frac: r - floors[i] }))
+        .sort((a, b) => b.frac - a.frac);
+      for (let k = 0; k < remainderCents; k++) floors[fracs[k].i]++;
+      return participants.map((p, i) => ({ debtorId: p.userId, amount: floors[i] / 100 }));
+    }
+
+    return participants.map((p, i) => ({
+      debtorId: p.userId,
+      amount: Math.round(((total * pcts[i]) / 100) * 100) / 100,
+    }));
   }
 
   if (shareType === "shares") {

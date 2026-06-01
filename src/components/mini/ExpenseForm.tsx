@@ -466,7 +466,7 @@ export function ExpenseForm(props: Props) {
                       if (m === "exact" || m === "percent") {
                         // Pre-fill with equal-split values so users only need to adjust differences.
                         const total = m === "percent" ? 100 : totalAmount;
-                        const includedCount = participants.filter((p) => p.included).length;
+                        const includedCount = included.length;
                         if (includedCount > 0 && total > 0) {
                           const equalAmounts = splitEqual(total, includedCount);
                           let idx = 0;
@@ -644,9 +644,7 @@ export function ExpenseForm(props: Props) {
                 ) : shareType === "adjustment" ? (
                   <div className={cn("flex items-center gap-1.5 text-sm num", splitsBalanced ? "text-muted-foreground" : "text-rose-500")}>
                     額外 {inputSum.toFixed(2)} {currency} · 每人{" "}
-                    {included.length > 0
-                      ? (Math.floor(Math.max(totalAmount - inputSum, 0) * 100 / included.length) / 100).toFixed(2)
-                      : "0.00"}{" "}
+                    {(adjBases.values().next().value ?? 0).toFixed(2)}{" "}
                     {currency}
                     {splitsBalanced ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
                   </div>

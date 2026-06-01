@@ -9,7 +9,7 @@
 export function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const proc = process as typeof process;
+  const proc = process;
   const original = proc.emitWarning.bind(proc);
   proc["emitWarning"] = ((warning: string | Error, ...args: unknown[]) => {
     const code =
