@@ -204,7 +204,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
         </div>
         <Link
           href={`/mini/groups/${id}/settings`}
-          className="absolute right-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="absolute right-4 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <Settings className="size-4" />
         </Link>
