@@ -45,9 +45,9 @@ export const expenseInputSchema = z
   .refine(
     (data) => {
       const sum = data.splits.reduce((s, x) => s + x.amount, 0);
-      return Math.abs(sum - data.amount) < 0.02;
+      return Math.abs(sum - data.amount) < 0.005;
     },
-    { message: "splits sum must equal amount (within ±0.01)" },
+    { message: "splits sum must equal amount (within ±0.005)" },
   );
 
 export type ExpenseInput = z.infer<typeof expenseInputSchema>;
@@ -103,7 +103,7 @@ export const expenseFormSchema = z
 
     const sum = included.reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
     if (data.shareType === "percent") {
-      if (Math.abs(sum - 100) >= 0.1) {
+      if (Math.abs(sum - 100) >= 0.005) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "比例加總需為 100%", path: ["participants"] });
       }
     } else if (data.shareType === "shares") {
@@ -121,7 +121,7 @@ export const expenseFormSchema = z
       }
     } else {
       const total = parseFloat(data.amount) || 0;
-      if (Math.abs(sum - total) >= 0.02) {
+      if (Math.abs(sum - total) >= 0.005) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "分帳金額加總與總金額不符",

@@ -139,12 +139,12 @@ export function ExpenseForm(props: Props) {
     shareType === "equal"
       ? true
       : shareType === "percent"
-      ? Math.abs(inputSum - 100) < 0.1
+      ? Math.abs(inputSum - 100) < 0.005
       : shareType === "shares"
       ? inputSum > 0
       : shareType === "adjustment"
       ? inputSum <= totalAmount && totalAmount > 0
-      : Math.abs(inputSum - totalAmount) < 0.02;
+      : Math.abs(inputSum - totalAmount) < 0.005;
 
   const adjBases = (() => {
     if (shareType !== "adjustment" || included.length === 0) return new Map<number, number>();
@@ -273,12 +273,7 @@ export function ExpenseForm(props: Props) {
               <ArrowLeft className="size-4" />
             </Button>
           )}
-          <div>
-            <h1 className="text-lg font-semibold">{isEdit ? "編輯支出" : "新增支出"}</h1>
-            {isEdit && (
-              <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>
-            )}
-          </div>
+          <h1 className="text-lg font-semibold">{isEdit ? "編輯支出" : "新增支出"}</h1>
         </div>
 
         {/* Amount + currency row */}
@@ -468,10 +463,23 @@ export function ExpenseForm(props: Props) {
                     type="button"
                     onClick={() => {
                       field.onChange(m);
-                      if (m === "shares") {
-                        replace(fields.map((f) => ({ ...f, value: "1" })));
-                      } else if (m === "adjustment") {
-                        replace(fields.map((f) => ({ ...f, value: "0" })));
+                      if (m === "exact" || m === "percent") {
+                        // Pre-fill with equal-split values so users only need to adjust differences.
+                        const total = m === "percent" ? 100 : totalAmount;
+                        const includedCount = participants.filter((p) => p.included).length;
+                        if (includedCount > 0 && total > 0) {
+                          const equalAmounts = splitEqual(total, includedCount);
+                          let idx = 0;
+                          replace(fields.map((f, i) => ({
+                            ...f,
+                            value: participants[i]?.included ? equalAmounts[idx++].toFixed(2) : "",
+                          })));
+                        } else {
+                          replace(fields.map((f) => ({ ...f, value: "" })));
+                        }
+                      } else {
+                        const defaultValue = m === "shares" ? "1" : m === "adjustment" ? "0" : "";
+                        replace(fields.map((f) => ({ ...f, value: defaultValue })));
                       }
                     }}
                     aria-pressed={field.value === m}
@@ -503,7 +511,7 @@ export function ExpenseForm(props: Props) {
                   const isIncluded = participants[i]?.included ?? false;
                   const computed = computedSplits.find((x) => x.debtorId === f.userId);
                   return (
-                    <div key={f.id} className="flex items-center gap-3 px-4 py-3">
+                    <div key={f.id} className="flex items-center gap-3 px-4 py-3 min-h-[60px]">
                       <FormField
                         control={form.control}
                         name={`participants.${i}.included`}
@@ -533,13 +541,7 @@ export function ExpenseForm(props: Props) {
                           </div>
                         )}
                       </div>
-                      {shareType === "equal" ? (
-                        isIncluded && computed ? (
-                          <span className="num text-sm shrink-0 text-muted-foreground">
-                            {computed.amount.toFixed(2)}
-                          </span>
-                        ) : null
-                      ) : (
+                      {shareType === "equal" ? null : (
                         <FormField
                           control={form.control}
                           name={`participants.${i}.value`}
@@ -609,19 +611,9 @@ export function ExpenseForm(props: Props) {
               <div className="rounded-2xl bg-secondary/50 px-4 py-3">
                 {shareType === "equal" ? (
                   <div className="flex items-center justify-between">
-                    <div className="flex items-baseline gap-1">
-                      {included.length > 0 && totalAmount > 0 ? (
-                        <>
-                          <span className="num text-sm font-medium">
-                            {(computedSplits[0]?.amount ?? 0).toFixed(2)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">/ 人</span>
-                          <span className="text-xs text-muted-foreground ml-1">（{included.length} 人）</span>
-                        </>
-                      ) : (
-                        <span className="text-sm text-muted-foreground num">0.00 / 人</span>
-                      )}
-                    </div>
+                    <span className="text-sm text-muted-foreground num">
+                      每人 {(computedSplits[0]?.amount ?? 0).toFixed(2)} {currency} · 共 {included.length} 人
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
@@ -641,9 +633,7 @@ export function ExpenseForm(props: Props) {
                 ) : shareType === "percent" ? (
                   <div className={cn("flex items-center gap-1.5 text-sm num", splitsBalanced ? "text-muted-foreground" : "text-rose-500")}>
                     {inputSum.toFixed(2)}% / 100%
-                    {!splitsBalanced && (
-                      <span className="text-xs">，剩 {Math.max(0, 100 - inputSum).toFixed(2)}%</span>
-                    )}
+                    {!splitsBalanced && <> · 尚餘 {Math.max(0, 100 - inputSum).toFixed(2)}%</>}
                     {splitsBalanced ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
                   </div>
                 ) : shareType === "shares" ? (
@@ -653,7 +643,7 @@ export function ExpenseForm(props: Props) {
                   </div>
                 ) : shareType === "adjustment" ? (
                   <div className={cn("flex items-center gap-1.5 text-sm num", splitsBalanced ? "text-muted-foreground" : "text-rose-500")}>
-                    額外 {inputSum.toFixed(2)}，基礎每人{" "}
+                    額外 {inputSum.toFixed(2)} {currency} · 每人{" "}
                     {included.length > 0
                       ? (Math.floor(Math.max(totalAmount - inputSum, 0) * 100 / included.length) / 100).toFixed(2)
                       : "0.00"}{" "}
@@ -662,10 +652,8 @@ export function ExpenseForm(props: Props) {
                   </div>
                 ) : (
                   <div className={cn("flex items-center gap-1.5 text-sm num", splitsBalanced ? "text-muted-foreground" : "text-rose-500")}>
-                    已填 {inputSum.toFixed(2)} / {totalAmount.toFixed(2)} {currency}
-                    {!splitsBalanced && totalAmount > 0 && (
-                      <span className="text-xs">，尚餘 {Math.abs(totalAmount - inputSum).toFixed(2)}</span>
-                    )}
+                    {inputSum.toFixed(2)} / {totalAmount.toFixed(2)} {currency}
+                    {!splitsBalanced && totalAmount > 0 && <> · 尚餘 {Math.abs(totalAmount - inputSum).toFixed(2)}</>}
                     {splitsBalanced ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
                   </div>
                 )}
