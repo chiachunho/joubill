@@ -141,7 +141,7 @@ export function ExpenseForm(props: Props) {
   const lockedParticipants = useRef<Set<number>>(new Set());
 
   function distributeRemainder(type: "exact" | "percent") {
-    const total = type === "percent" ? 100 : totalAmount;
+    const total = type === "percent" ? 100 : (parseFloat(form.getValues("amount")) || 0);
     const current = form.getValues("participants");
     const locked = lockedParticipants.current;
     const lockedSum = current
@@ -179,16 +179,11 @@ export function ExpenseForm(props: Props) {
       ? inputSum <= totalAmount && totalAmount > 0
       : Math.abs(inputSum - totalAmount) < 0.005;
 
-  // Precompute default values for shares/percent inputs (used for focus-clear / blur-restore UX).
+  // Default value per userId for shares inputs (used for focus-clear / blur-restore UX).
   const defaultValueByUserId = (() => {
     const map = new Map<number, string>();
     if (shareType === "shares") {
       included.forEach((p) => map.set(p.userId, "1"));
-    } else if (shareType === "percent") {
-      if (included.length > 0) {
-        const equalAmounts = splitEqual(100, included.length);
-        included.forEach((p, idx) => map.set(p.userId, equalAmounts[idx].toFixed(2)));
-      }
     }
     return map;
   })();
