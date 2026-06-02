@@ -69,6 +69,81 @@ describe("expenseFormSchema", () => {
     expect(r.success).toBe(true);
   });
 
+  describe("multi-payer", () => {
+    it("accepts two payers when amounts sum to total", () => {
+      const r = expenseFormSchema.safeParse({
+        ...base,
+        amount: "300",
+        payers: [
+          { userId: "1", amount: "180" },
+          { userId: "2", amount: "120" },
+        ],
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("rejects when payer amounts don't sum to total", () => {
+      const r = expenseFormSchema.safeParse({
+        ...base,
+        amount: "300",
+        payers: [
+          { userId: "1", amount: "100" },
+          { userId: "2", amount: "100" },
+        ],
+      });
+      expect(r.success).toBe(false);
+      if (!r.success) {
+        const msg = r.error.flatten().fieldErrors.payers;
+        expect(msg).toBeDefined();
+      }
+    });
+
+    it("rejects when a payer userId is empty", () => {
+      const r = expenseFormSchema.safeParse({
+        ...base,
+        amount: "300",
+        payers: [
+          { userId: "", amount: "150" },
+          { userId: "2", amount: "150" },
+        ],
+      });
+      expect(r.success).toBe(false);
+      if (!r.success) {
+        const msg = r.error.flatten().fieldErrors.payers;
+        expect(msg).toBeDefined();
+      }
+    });
+
+    it("rejects non-numeric amount in multi-payer scenario", () => {
+      const r = expenseFormSchema.safeParse({
+        ...base,
+        amount: "300",
+        payers: [
+          { userId: "1", amount: "abc" },
+          { userId: "2", amount: "150" },
+        ],
+      });
+      expect(r.success).toBe(false);
+      if (!r.success) {
+        const msg = r.error.flatten().fieldErrors.payers;
+        expect(msg).toBeDefined();
+      }
+    });
+
+    it("accepts three payers summing to total", () => {
+      const r = expenseFormSchema.safeParse({
+        ...base,
+        amount: "300",
+        payers: [
+          { userId: "1", amount: "100" },
+          { userId: "2", amount: "100" },
+          { userId: "3", amount: "100" },
+        ],
+      });
+      expect(r.success).toBe(true);
+    });
+  });
+
   describe("exact mode", () => {
     const exact = { ...base, shareType: "exact" as const };
     it("passes when values sum to the amount", () => {

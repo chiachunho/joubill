@@ -105,6 +105,57 @@ describe("expenseInputSchema", () => {
     expect(r.success).toBe(false);
   });
 
+  it("rejects a payer with zero amount", () => {
+    const r = expenseInputSchema.safeParse({
+      ...validExpense,
+      amount: 300,
+      payers: [
+        { payerId: 1, amount: 0 },
+        { payerId: 2, amount: 300 },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects a payer with negative amount", () => {
+    const r = expenseInputSchema.safeParse({
+      ...validExpense,
+      payers: [{ payerId: 1, amount: -300 }],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("allows ±0.005 rounding slack in the payers sum", () => {
+    const r = expenseInputSchema.safeParse({
+      ...validExpense,
+      amount: 100,
+      payers: [
+        { payerId: 1, amount: 33.34 },
+        { payerId: 2, amount: 33.33 },
+        { payerId: 3, amount: 33.33 },
+      ],
+      splits: [
+        { debtorId: 1, amount: 33.34 },
+        { debtorId: 2, amount: 33.33 },
+        { debtorId: 3, amount: 33.33 },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts three payers summing to total", () => {
+    const r = expenseInputSchema.safeParse({
+      ...validExpense,
+      amount: 300,
+      payers: [
+        { payerId: 1, amount: 100 },
+        { payerId: 2, amount: 100 },
+        { payerId: 3, amount: 100 },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
   it("accepts a receiptFileIds array", () => {
     expect(
       expenseInputSchema.safeParse({ ...validExpense, receiptFileIds: ["AgACAgIAAx", "BgACBgIBBy"] }).success,
