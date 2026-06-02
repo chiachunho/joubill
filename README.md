@@ -1,123 +1,124 @@
 # Splitbill Telegram Bot
 
-Splitwise 風格的 Telegram 群組分帳 Bot + Mini App。
-單一 Next.js (App Router) 同時承載 Mini App 前端、grammY webhook、與資料 API。
+> 中文版：[README.zh-TW.md](README.zh-TW.md)
+
+A Splitwise-style group expense-splitting Telegram Bot + Mini App. A single
+Next.js (App Router) app serves the Mini App frontend, a standalone web
+frontend, the grammY webhook, and the data API at once.
 
 ## Stack
 
-- **Frontend / Server**：Next.js 15 (App Router) + React 19
-- **UI**：Tailwind CSS + shadcn/ui
-- **Bot**：grammY (webhook 模式)
-- **DB**：Neon Serverless Postgres + Drizzle ORM
-- **驗證**：Zod
-- **部署**：Vercel (Free)
+- **Frontend / Server**: Next.js 15 (App Router) + React 19
+- **UI**: Tailwind CSS + shadcn/ui
+- **Bot**: grammY (webhook mode)
+- **DB**: Neon Serverless Postgres + Drizzle ORM
+- **Validation**: Zod
+- **Web login**: Auth.js (NextAuth v5) — Telegram OAuth, optional GitHub / Google
+- **Deploy**: Vercel
 
-## 開發前置
+## Prerequisites
 
-1. 建立 Telegram Bot：跟 [@BotFather](https://t.me/BotFather) 申請、拿到 `BOT_TOKEN`。
-2. 註冊 direct-link Mini App（讓群組裡也能開啟）：
+1. Create a Telegram Bot: register with [@BotFather](https://t.me/BotFather) and get the `TELEGRAM_BOT_TOKEN`.
+2. Register a direct-link Mini App (so it opens inside groups too):
    ```
-   @BotFather → /newapp → 選你的 bot
+   @BotFather → /newapp → pick your bot
      - Title: Splitbill
-     - Description: 群組分帳
-     - Photo: 任意 640x360
-     - Web App URL: https://<你的對外網址>/mini
-       (本機 dev 用 ngrok URL；之後可用 /editapp 改)
-     - Short name: splitbill  ← 這個填到 TELEGRAM_MINI_APP_NAME
+     - Description: Group expense splitting
+     - Photo: any 640x360
+     - Web App URL: https://<your-public-url>/mini
+       (use an ngrok URL for local dev; change later with /editapp)
+     - Short name: splitbill  ← this goes into TELEGRAM_MINI_APP_NAME
    ```
-3. 建立 Neon 專案：[neon.tech](https://neon.tech) → 拿 `DATABASE_URL`（建議 pooled，`?sslmode=require`）。
-4. 複製環境變數：
+3. (Optional, for web login) BotFather → Bot Settings → Web Login → note the Client ID / Secret.
+4. Create a Neon project: [neon.tech](https://neon.tech) → get `DATABASE_URL` (use the pooled connection + `?sslmode=require`).
+5. Copy the environment variables:
    ```bash
    cp .env.example .env.local
-   # 填入 TELEGRAM_BOT_TOKEN / TELEGRAM_WEBHOOK_SECRET / TELEGRAM_MINI_APP_NAME
-   #     / DATABASE_URL / NEXT_PUBLIC_MINI_APP_URL
+   # fill in the values — see .env.example for the full list
    ```
 
-## 本機開發
+## Local development
 
 ```bash
 pnpm install
-pnpm db:push           # 把 schema 同步到 Neon
+pnpm db:push           # sync the schema to Neon
 pnpm dev               # http://localhost:3000
 ```
 
-### 對外曝光給 Telegram
+### Exposing to Telegram
 
-Telegram webhook 需要 https，本機開發用 ngrok / cloudflared：
+Telegram webhooks require HTTPS; for local dev use ngrok / cloudflared:
 
 ```bash
-# 任一即可
+# either one
 ngrok http 3000
 cloudflared tunnel --url http://localhost:3000
 ```
 
-### 設定 webhook
+### Setting the webhook
 
-拿到對外網址後（例如 `https://abc.ngrok.app`）：
-
-```bash
-curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://abc.ngrok.app/api/telegram",
-    "secret_token": "<TELEGRAM_WEBHOOK_SECRET>",
-    "allowed_updates": ["message", "callback_query"]
-  }'
-```
-
-驗證：
+Once you have a public URL (e.g. `https://abc.ngrok.app`):
 
 ```bash
-curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getWebhookInfo"
+pnpm bot:set-webhook https://abc.ngrok.app
 ```
 
-之後在 Telegram 群組裡加入 Bot 並輸入 `/start`。
+The script appends `/api/telegram`, sets the `secret_token` from
+`TELEGRAM_WEBHOOK_SECRET`, and prints `getWebhookInfo` to confirm.
 
-## 指令
+Then add the bot to a Telegram group and send `/start`.
 
-- `/start`：在當前群組註冊自己 + 群組
-- `/help`：指令說明
-- `/add <金額> <說明> @user1 @user2 ...`：新增支出（均分）
-- `/list`：列出最近支出
-- `/balance`：顯示目前餘額
-- `/settle`：產生最少筆數的還款建議
-- 開啟 Mini App：使用 `/start` 回覆訊息裡的按鈕
+## Commands
 
-## Mini App
+- `/start` — register yourself + the group in the current chat
+- `/help` — command reference
+- `/add <amount> <description> @user1 @user2 ...` — add an expense (split evenly)
+- `/list` — list recent expenses
+- `/balance` — show current balances
+- `/settle` — produce the minimum-transfer repayment plan
+- `/link` — get a magic link that opens this group in the web app
+- Open the Mini App: use the button in the `/start` reply
 
-`/mini` 路由是 Telegram Mini App 的進入點，必須透過 Bot 的 `web_app` 按鈕進入（會帶 `initData`），瀏覽器直接打開只能看到預覽。
+## Two entry points
 
-## 結構
+- **Mini App** (`/mini`) — opens inside Telegram via the bot's `web_app` button (carries `initData`). Opening it directly in a browser only shows a preview.
+- **Web App** (`/app`, sign in at `/login`) — a standalone browser app for users without Telegram, authenticated with an Auth.js session cookie. Magic links (`/g/<token>`) drop a logged-in user straight into a group.
+
+## Structure
 
 ```
 src/
 ├── app/
 │   ├── api/telegram/route.ts     # grammY webhook
-│   ├── api/groups/[id]/...       # Mini App 用 API
-│   ├── mini/                     # Mini App 頁面
+│   ├── api/auth/...              # Auth.js handlers (web login)
+│   ├── api/groups/[id]/...       # REST API (shared by both frontends)
+│   ├── api/me/groups/...         # current user's groups
+│   ├── api/tg-photo, tg-upload   # receipt-photo proxy + upload
+│   ├── mini/                     # Mini App pages (Telegram)
+│   ├── app/                      # Web App pages (browser)
+│   ├── login/, g/[token]/        # web login + magic-link entry
 │   ├── layout.tsx
-│   └── page.tsx                  # 公開 landing
+│   └── page.tsx                  # public landing
+├── auth.ts                       # Auth.js config (Telegram / GitHub / Google)
 ├── bot/
-│   ├── index.ts                  # Bot 實例
+│   ├── index.ts                  # lazy bot singleton
 │   ├── commands/                 # /start, /add, /balance, ...
-│   └── middleware/               # 自動註冊
-├── components/ui/                # shadcn 元件
+│   └── middleware/               # auto-registration
+├── components/                   # shadcn ui + mini/web components
 ├── db/
 │   ├── index.ts                  # Drizzle client
-│   └── schema.ts                 # 7 張表
+│   └── schema.ts                 # 12 tables
 └── lib/
     ├── env.ts                    # typed env
-    ├── utils.ts                  # cn()
-    ├── initData.ts               # Telegram Mini App HMAC 驗證
-    ├── settlement.ts             # greedy 最少筆數演算法
-    ├── fx.ts                     # 匯率快取
-    └── zod.ts                    # 輸入 schema
+    ├── auth/                     # initData HMAC, sessions, magic links, route guard
+    ├── settlement-core.ts        # pure greedy min-transfer algorithm
+    ├── settlement.ts             # DB-backed balance queries
+    ├── fx.ts                     # exchange-rate cache
+    └── zod.ts                    # input schemas
 ```
 
-## 部署
+## Deployment
 
-Vercel：
-
-1. Push 到 GitHub，Vercel 連專案。
-2. Env：把 `.env.local` 的內容貼到 Vercel Project Settings → Environment Variables。
-3. 部署後，重新設一次 webhook 指向 Vercel domain。
+Production runs on Vercel (frontend + bot webhook + API in one deploy) behind a
+custom domain, backed by Neon Postgres. Full step-by-step in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).

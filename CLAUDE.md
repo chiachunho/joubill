@@ -21,25 +21,30 @@ pnpm vitest run src/lib/__tests__/settlement.test.ts
 pnpm db:push        # Sync Drizzle schema to Neon (no migration files)
 pnpm db:generate    # Generate migration SQL (not normally needed)
 pnpm db:studio      # Drizzle Studio GUI
-pnpm bot:set-webhook  # tsx scripts/set-webhook.ts
+pnpm bot:set-webhook    # tsx scripts/set-webhook.ts <https-domain>
+pnpm bot:set-commands   # tsx scripts/set-commands.ts (register the bot's slash-command menu)
 
-# One-time data migrations (run BEFORE pnpm db:push when noted):
-pnpm tsx scripts/migrate-payers.ts  # populate expense_payers from expenses.payer_id
+# One-time data migrations:
+pnpm tsx scripts/migrate-payers.ts  # (run BEFORE db:push) populate expense_payers from expenses.payer_id
+pnpm db:migrate-identities          # (run AFTER db:push) backfill auth_identities from users.telegramId
 ```
 
 Package manager is **pnpm**. Do not use npm or yarn.
 
 ## Architecture
 
-A single Next.js 15 (App Router) app serves three concerns simultaneously:
+A single Next.js 15 (App Router) app serves four concerns simultaneously:
 
 1. **Telegram Bot** — grammY webhook at `POST /api/telegram`
-2. **Mini App frontend** — React pages at `/mini/**`
-3. **Mini App REST API** — Next.js route handlers at `/api/groups/[id]/**`
+2. **Mini App frontend** — React pages at `/mini/**` (Telegram-embedded, `initData` auth)
+3. **Web App frontend** — React pages at `/app/**` (standalone browser, Auth.js session-cookie auth) + `/login` + magic-link entry `/g/[token]`
+4. **REST API** — Next.js route handlers at `/api/**` (shared by both frontends)
+
+The Mini App and Web App reuse the same page components; they differ only in how auth/context is supplied (see API Auth and Web Auth below).
 
 ### Bot (`src/bot/`)
 
-`src/bot/index.ts` exports a lazy singleton `getBot()` — the bot instance is not created until the first webhook hit, so `BOT_TOKEN` doesn't need to exist at build time. Middleware runs in registration order: `registerUser` → `trackMembership` → commands.
+`src/bot/index.ts` exports a lazy singleton `getBot()` — the bot instance is not created until the first webhook hit, so `TELEGRAM_BOT_TOKEN` doesn't need to exist at build time. Middleware runs in registration order: `registerUser` → `trackMembership` → commands.
 
 Two middleware layers auto-populate the DB:
 - `registerUser` — upserts the `users` row for any message sender
@@ -53,17 +58,27 @@ Telegram Mini App accessed via the bot's `web_app` button. All pages are client 
 
 ### API Auth (`src/lib/auth/`)
 
-Every API route handler wraps with `withAuth` (`src/lib/auth/route.ts`), which calls `getAuth(req)` to:
-1. Parse the `Authorization: tma <raw>` header
-2. HMAC-verify the Telegram `initData` string (`src/lib/auth/initData.ts`)
-3. Upsert the user row and resolve `start_param` → group
+Every API route handler wraps with `withAuth` (`src/lib/auth/route.ts`), which calls `getAuth(req)`. `getAuth` accepts **two** auth sources and returns the same `Auth { user, groupFromParam? }` shape regardless:
+
+1. **Mini App** — `Authorization: tma <raw>` header → HMAC-verify the Telegram `initData` string (`src/lib/auth/initData.ts`) → upsert user + resolve `start_param` → group (`groupFromParam` set).
+2. **Web App** — `session` cookie → look up a non-expired row in `sessions` → user (`groupFromParam` is `null`; the web frontend picks the group itself).
 
 Group membership is enforced separately via `assertGroupMember`.
 
+### Web Auth (`src/auth.ts`, `src/lib/auth/`)
+
+Standalone web login runs on **Auth.js (NextAuth v5)** with a Drizzle adapter (`src/lib/auth/nextAuthAdapter.ts`). Providers: **Telegram** (custom OAuth2 + PKCE — see [`docs/telegram-oauth-spec.md`](docs/telegram-oauth-spec.md) for the protocol quirks), plus optional **GitHub** / **Google** (enabled only when their env vars are set). Handler routes live at `/api/auth/[...nextauth]` and `/api/auth/logout`.
+
+Identity is **multi-provider**: one `users` row can have many `auth_identities` (`provider`, `providerUid`). Both the Mini App (`initData`) and Telegram web login key on the **numeric Telegram user id** (not the OIDC `sub`), so the same person resolves to one user across both paths. The bot's user-upsert path goes through `src/lib/auth/upsertTelegramUser.ts`.
+
+**Magic links** (`src/lib/auth/magicLink.ts`): the bot's `/link` command emits a signed `/g/<token>` URL (7-day expiry) that carries `groupId`; opening it logs the web user straight into that group, mirroring the Mini App's `start_param`.
+
+Fetchers: Mini App pages use `tmaFetch` (`src/lib/tma-fetch.ts`, attaches the `tma` header); Web App pages use `src/lib/web-fetch.ts` (`credentials: "include"`, cookie-based).
+
 ### Database (`src/db/`)
 
-Drizzle ORM + Neon Serverless Postgres. Eleven tables defined in `src/db/schema.ts`:
-`users` → `groups` → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` → `settlements` + `exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting`.
+Drizzle ORM + Neon Serverless Postgres. Twelve tables defined in `src/db/schema.ts`:
+`users` → `groups` → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `settlements` + `exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting`.
 
 **Multi-payer model**: An expense has one or more payers in `expense_payers` (who paid, how much each) and one or more debtors in `expense_splits` (who owes, how much each). Both tables reference `expenses.id` with `ON DELETE CASCADE`. `expense_payers` has a `UNIQUE(expense_id, payer_id)` constraint. Both sides must sum to `expenses.amount`.
 
@@ -87,7 +102,7 @@ Exchange rates are cached per `(base, quote, date)` in the `exchange_rates` tabl
 
 ### Receipt photos (`src/app/api/tg-photo/` and `src/app/api/tg-upload/`)
 
-Receipts are stored on Telegram's servers. Only the `file_id` (permanent) is written to `expenses.receipt_file_id`. Serving goes through the `/api/tg-photo` proxy (accepts `?fileId=` or `?path=`) so the bot token never appears in client URLs.
+Receipts are stored on Telegram's servers — only the permanent `file_id` is persisted. An expense can have **up to 5 receipt photos**, stored as rows in `expense_receipts` (`position` sets display order). The legacy single-photo column `expenses.receipt_file_id` still exists and is written by the bot's `/add`; the expenses API merges it with `expense_receipts` rows. Serving goes through the `/api/tg-photo` proxy (accepts `?fileId=` or `?path=`) so the bot token never appears in client URLs.
 
 Upload flow (Mini App): `POST /api/tg-upload` (auth-protected) → `sendPhoto` to the private storage channel → returns `file_id` → saved with the expense.
 
@@ -102,6 +117,11 @@ Validated at runtime (not build time) via `serverEnv()` in `src/lib/env.ts`:
 - `TELEGRAM_STORAGE_CHAT_ID` — `chat_id` of the private Telegram channel used as photo storage (bot must be admin with "Post Messages" permission)
 - `DATABASE_URL` — Neon pooled connection string
 - `NEXT_PUBLIC_MINI_APP_URL` — public URL of the `/mini` route
+
+The web-auth (Auth.js) vars are **not** in `serverEnv()` — Auth.js reads them directly from `process.env`:
+- `AUTH_SECRET` — required; signs Auth.js sessions (`openssl rand -base64 32`)
+- `AUTH_TELEGRAM_CLIENT_ID` / `AUTH_TELEGRAM_CLIENT_SECRET` — from BotFather → Bot Settings → Web Login
+- `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — optional; each provider is enabled only when its pair is present
 
 All route handlers must set `export const runtime = "nodejs"` and `export const dynamic = "force-dynamic"` because they use the Neon serverless driver.
 
