@@ -33,9 +33,10 @@ async function main() {
       AND  NOT EXISTS (
              SELECT 1 FROM expense_payers ep WHERE ep.expense_id = e.id
            )
+    RETURNING id
   `;
 
-  console.log(`Migrated ${result.length ?? "unknown"} expense rows into expense_payers.`);
+  console.log(`Migrated ${result.length} expense rows into expense_payers.`);
   console.log("Now run `pnpm db:push` to drop expenses.payer_id and sync the schema.");
 }
 

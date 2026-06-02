@@ -589,18 +589,23 @@ export function ExpenseForm(props: Props) {
                       <FormField
                         control={form.control}
                         name={`payers.${i}.userId`}
-                        render={({ field }) => (
-                          <MemberSelect
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            members={members.filter(
-                              (m) =>
-                                String(m.id) === field.value ||
-                                !selectedPayerIds.has(String(m.id)),
-                            )}
-                            photos={photos}
-                            placeholder="選擇付款人"
-                          />
+                        render={({ field, fieldState }) => (
+                          <FormItem className="space-y-1">
+                            <FormControl>
+                              <MemberSelect
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                members={members.filter(
+                                  (m) =>
+                                    String(m.id) === field.value ||
+                                    !selectedPayerIds.has(String(m.id)),
+                                )}
+                                photos={photos}
+                                placeholder="選擇付款人"
+                              />
+                            </FormControl>
+                            {fieldState.error && <FormMessage />}
+                          </FormItem>
                         )}
                       />
                     </div>

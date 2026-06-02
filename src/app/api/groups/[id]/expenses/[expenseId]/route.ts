@@ -172,14 +172,17 @@ export const DELETE = withAuth(async (req: Request, ctx: Params) => {
   if (!ids) return NextResponse.json({ error: "invalid id" }, { status: 400 });
   await assertGroupMember(auth.user.id, ids.groupId);
 
-  const result = await db
-    .delete(expenses)
-    .where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)))
-    .returning({ id: expenses.id });
+  const [expense] = await db
+    .select({ id: expenses.id, createdBy: expenses.createdBy })
+    .from(expenses)
+    .where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
+  if (!expense) return NextResponse.json({ error: "expense not found" }, { status: 404 });
 
-  if (result.length === 0) {
-    return NextResponse.json({ error: "expense not found" }, { status: 404 });
+  if (expense.createdBy !== auth.user.id) {
+    return NextResponse.json({ error: "只有建立者可以刪除這筆支出" }, { status: 403 });
   }
+
+  await db.delete(expenses).where(eq(expenses.id, ids.eid));
   // expense_payers and expense_splits cascade-deleted via FK.
   return NextResponse.json({ ok: true });
 });
