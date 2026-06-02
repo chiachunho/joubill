@@ -96,7 +96,7 @@ export const expenseSplits = pgTable(
     shareType: varchar("share_type", { length: 16 }).notNull().default("equal"),
     /** Raw input value from the form: percentage for percent, share count for shares,
      *  adjustment delta for adjustment. NULL for equal/exact (amount is the raw value). */
-    splitValue: numeric("split_value", { precision: 14, scale: 4 }),
+    splitValue: numeric("split_value", { precision: 14, scale: 6 }),
   },
   (t) => [
     index("expense_splits_expense_idx").on(t.expenseId),

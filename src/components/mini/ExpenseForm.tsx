@@ -172,12 +172,31 @@ export function ExpenseForm(props: Props) {
   }
 
   async function onSubmit(values: ExpenseFormValues) {
-    // Build a map of userId → raw input value for attaching splitValue to each split.
+    const initialSplits = initial?.splits ?? [];
+    const initialShareType = initialSplits[0]?.shareType as ExpenseFormValues["shareType"] | undefined;
+    // Old records without splitValues (pre-migration) load as "exact" in buildDefaults.
+    // Preserve the original stored shareType so a description-only edit doesn't corrupt the DB.
+    const RESTORABLE = new Set<string>(["percent", "shares", "adjustment"]);
+    const loadedAsExactFallback =
+      values.shareType === "exact" &&
+      initialShareType !== undefined &&
+      RESTORABLE.has(initialShareType) &&
+      !initialSplits.every((s) => s.splitValue != null);
+    const submittedShareType = loadedAsExactFallback ? initialShareType! : values.shareType;
+
+    // Store raw inputs for percent/shares/adjustment so editing restores the original type.
+    const NEEDS_RAW = new Set<string>(["percent", "shares", "adjustment"]);
+    const storeRawValue = NEEDS_RAW.has(submittedShareType);
+
+    // Build map of userId → raw input value (null when blank/NaN — not the same as zero).
     const rawValueByUserId = new Map(
-      values.participants.filter((p) => p.included).map((p) => [p.userId, parseFloat(p.value) || 0]),
+      values.participants
+        .filter((p) => p.included)
+        .map((p) => {
+          const v = parseFloat(p.value);
+          return [p.userId, Number.isFinite(v) ? v : null] as const;
+        }),
     );
-    // Store raw input values for percent/shares/adjustment so editing restores the original type.
-    const storeRawValue = values.shareType !== "equal" && values.shareType !== "exact";
 
     const body = {
       amount: parseFloat(values.amount),
@@ -185,7 +204,7 @@ export function ExpenseForm(props: Props) {
       description: values.description.trim() || null,
       payerId: Number(values.payerId),
       spentAt: dayToNoonUtcIso(values.spentDate),
-      shareType: values.shareType,
+      shareType: submittedShareType,
       receiptFileId,
       splits: computedSplits.map((s) => ({
         ...s,
