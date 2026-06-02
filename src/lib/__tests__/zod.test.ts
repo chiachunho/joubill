@@ -93,6 +93,18 @@ describe("expenseInputSchema", () => {
     expect(expenseInputSchema.safeParse({ ...validExpense, payers: [] }).success).toBe(false);
   });
 
+  it("rejects duplicate payerIds", () => {
+    const r = expenseInputSchema.safeParse({
+      ...validExpense,
+      amount: 300,
+      payers: [
+        { payerId: 1, amount: 150 },
+        { payerId: 1, amount: 150 },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
+
   it("accepts a receiptFileIds array", () => {
     expect(
       expenseInputSchema.safeParse({ ...validExpense, receiptFileIds: ["AgACAgIAAx", "BgACBgIBBy"] }).success,

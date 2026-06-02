@@ -182,7 +182,7 @@ export const DELETE = withAuth(async (req: Request, ctx: Params) => {
     return NextResponse.json({ error: "只有建立者可以刪除這筆支出" }, { status: 403 });
   }
 
-  await db.delete(expenses).where(eq(expenses.id, ids.eid));
+  await db.delete(expenses).where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
   // expense_payers and expense_splits cascade-deleted via FK.
   return NextResponse.json({ ok: true });
 });

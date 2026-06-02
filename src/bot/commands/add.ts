@@ -158,23 +158,25 @@ addCommand.command("add", async (ctx) => {
       expenseTotal = totalSpecified;
     }
 
-    const [expense] = await db
-      .insert(expenses)
-      .values({
-        groupId: group.id,
-        amount: expenseTotal.toFixed(2),
-        currency,
-        description: parsed.description,
-        createdBy: payer.id,
-      })
-      .returning();
-
-    await Promise.all([
-      db.insert(expensePayers).values({ expenseId: expense.id, payerId: payer.id, amount: expenseTotal.toFixed(2) }),
-      db.insert(expenseSplits).values(
-        splitRows.map((r) => ({ expenseId: expense.id, debtorId: r.debtorId, amount: r.amount, shareType: r.shareType })),
-      ),
-    ]);
+    const expense = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(expenses)
+        .values({
+          groupId: group.id,
+          amount: expenseTotal.toFixed(2),
+          currency,
+          description: parsed.description,
+          createdBy: payer.id,
+        })
+        .returning();
+      await Promise.all([
+        tx.insert(expensePayers).values({ expenseId: row.id, payerId: payer.id, amount: expenseTotal.toFixed(2) }),
+        tx.insert(expenseSplits).values(
+          splitRows.map((r) => ({ expenseId: row.id, debtorId: r.debtorId, amount: r.amount, shareType: r.shareType })),
+        ),
+      ]);
+      return row;
+    });
 
     const descPart = parsed.description ? `（${escapeHtml(parsed.description)}）` : "";
     const text =
@@ -324,28 +326,31 @@ export async function insertEqualSplitExpense(params: {
   const { groupId, payerId, createdBy, amount, currency, description, participants, receiptFileId } =
     params;
   const shares = splitEqual(amount, participants.length);
-  const [expense] = await db
-    .insert(expenses)
-    .values({
-      groupId,
-      amount: amount.toFixed(2),
-      currency,
-      description,
-      createdBy,
-      ...(receiptFileId !== undefined && { receiptFileId }),
-    })
-    .returning();
-  await Promise.all([
-    db.insert(expensePayers).values({ expenseId: expense.id, payerId, amount: amount.toFixed(2) }),
-    db.insert(expenseSplits).values(
-      participants.map((p, i) => ({
-        expenseId: expense.id,
-        debtorId: p.id,
-        amount: shares[i].toFixed(2),
-        shareType: "equal" as const,
-      })),
-    ),
-  ]);
+  const expense = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(expenses)
+      .values({
+        groupId,
+        amount: amount.toFixed(2),
+        currency,
+        description,
+        createdBy,
+        ...(receiptFileId !== undefined && { receiptFileId }),
+      })
+      .returning();
+    await Promise.all([
+      tx.insert(expensePayers).values({ expenseId: row.id, payerId, amount: amount.toFixed(2) }),
+      tx.insert(expenseSplits).values(
+        participants.map((p, i) => ({
+          expenseId: row.id,
+          debtorId: p.id,
+          amount: shares[i].toFixed(2),
+          shareType: "equal" as const,
+        })),
+      ),
+    ]);
+    return row;
+  });
   return { expense, shares };
 }
 

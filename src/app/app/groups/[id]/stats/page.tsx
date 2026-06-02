@@ -157,7 +157,7 @@ export default function AppStatsPage({ params }: { params: Promise<{ id: string 
           ) : (
             <>
               <p className="mb-3 text-xs text-muted-foreground">
-                合計{" "}
+                歷史合計{" "}
                 <span className="num font-semibold text-foreground">{fmt(grandTotal)}</span>{" "}
                 {stats.currency}
               </p>

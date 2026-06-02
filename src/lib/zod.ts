@@ -62,6 +62,13 @@ export const expenseInputSchema = z
       return Math.abs(sum - data.amount) < 0.005;
     },
     { message: "payers sum must equal amount (within ±0.005)" },
+  )
+  .refine(
+    (data) => {
+      const ids = data.payers.map((p) => p.payerId);
+      return ids.length === new Set(ids).size;
+    },
+    { message: "duplicate payerId in payers array" },
   );
 
 export type ExpenseInput = z.infer<typeof expenseInputSchema>;
@@ -119,10 +126,13 @@ export const expenseFormSchema = z
       const emptyPayer = data.payers.some((p) => !p.userId);
       if (emptyPayer) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "請選擇付款人", path: ["payers"] });
-      }
-      const payerSum = data.payers.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-      if (Math.abs(payerSum - total) >= 0.005) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "付款人金額加總需等於總金額", path: ["payers"] });
+      } else if (data.payers.length > 1 && data.payers.some((p) => !Number.isFinite(parseFloat(p.amount)))) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "請輸入有效金額", path: ["payers"] });
+      } else {
+        const payerSum = data.payers.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+        if (Math.abs(payerSum - total) >= 0.005) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "付款人金額加總需等於總金額", path: ["payers"] });
+        }
       }
     }
 

@@ -94,6 +94,7 @@ export const expensePayers = pgTable(
   (t) => [
     index("expense_payers_expense_idx").on(t.expenseId),
     index("expense_payers_payer_idx").on(t.payerId),
+    unique("expense_payers_expense_payer_unique").on(t.expenseId, t.payerId),
   ],
 );
 
