@@ -137,6 +137,26 @@ export function ExpenseForm(props: Props) {
     return { [v.shareType]: v.participants.map((p) => p.value) } as Partial<Record<ExpenseFormValues["shareType"], string[]>>;
   })());
 
+  // Track which participant userId's have been manually set by the user (for auto-distribution).
+  const lockedParticipants = useRef<Set<number>>(new Set());
+
+  function distributeRemainder(type: "exact" | "percent") {
+    const total = type === "percent" ? 100 : totalAmount;
+    const current = form.getValues("participants");
+    const locked = lockedParticipants.current;
+    const lockedSum = current
+      .filter((p) => p.included && locked.has(p.userId))
+      .reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
+    const unlocked = current.filter((p) => p.included && !locked.has(p.userId));
+    if (unlocked.length === 0) return;
+    const remainder = Math.max(total - lockedSum, 0);
+    const shares = splitEqual(remainder, unlocked.length);
+    unlocked.forEach((p, idx) => {
+      const i = current.findIndex((c) => c.userId === p.userId);
+      if (i >= 0) form.setValue(`participants.${i}.value`, shares[idx].toFixed(2));
+    });
+  }
+
   const amount = form.watch("amount");
   const currency = form.watch("currency");
   const shareType = form.watch("shareType");
@@ -550,6 +570,7 @@ export function ExpenseForm(props: Props) {
                       // Save current values before switching away.
                       savedValuesByType.current[field.value as ExpenseFormValues["shareType"]] =
                         participants.map((p) => p.value);
+                      lockedParticipants.current = new Set();
 
                       field.onChange(m);
 
@@ -655,18 +676,17 @@ export function ExpenseForm(props: Props) {
                                   disabled={!isIncluded}
                                   {...field}
                                   onFocus={(e) => {
-                                    const def = defaultValueByUserId.get(f.userId);
-                                    if (def !== undefined && field.value === def) {
-                                      field.onChange("");
-                                      e.target.value = "";
-                                    }
+                                    field.onChange("");
+                                    e.target.value = "";
                                   }}
                                   onBlur={(e) => {
                                     field.onBlur();
                                     if (!e.target.value) {
-                                      const def = defaultValueByUserId.get(f.userId) ?? "";
-                                      field.onChange(def);
+                                      lockedParticipants.current.delete(f.userId);
+                                    } else {
+                                      lockedParticipants.current.add(f.userId);
                                     }
+                                    distributeRemainder("percent");
                                   }}
                                 />
                                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -724,6 +744,19 @@ export function ExpenseForm(props: Props) {
                                 className="num w-24 text-right shrink-0"
                                 disabled={!isIncluded}
                                 {...field}
+                                onFocus={(e) => {
+                                  field.onChange("");
+                                  e.target.value = "";
+                                }}
+                                onBlur={(e) => {
+                                  field.onBlur();
+                                  if (!e.target.value) {
+                                    lockedParticipants.current.delete(f.userId);
+                                  } else {
+                                    lockedParticipants.current.add(f.userId);
+                                  }
+                                  distributeRemainder("exact");
+                                }}
                               />
                             )
                           }
