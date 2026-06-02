@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import { mutate } from "swr";
@@ -141,20 +141,44 @@ export function ExpenseForm(props: Props) {
   const lockedParticipants = useRef<Set<number>>(new Set());
 
   function distributeRemainder(type: "exact" | "percent") {
-    const total = type === "percent" ? 100 : (parseFloat(form.getValues("amount")) || 0);
+    const total = type === "percent" ? 100 : (n(form.getValues("amount")) || 0);
     const current = form.getValues("participants");
     const locked = lockedParticipants.current;
-    const lockedSum = current
-      .filter((p) => p.included && locked.has(p.userId))
-      .reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
-    const unlocked = current.filter((p) => p.included && !locked.has(p.userId));
+    const indexByUserId = new Map(current.map((p, i) => [p.userId, i]));
+    const { lockedSum, unlocked } = current.reduce(
+      (acc, p) => {
+        if (!p.included) return acc;
+        if (locked.has(p.userId)) acc.lockedSum += n(p.value) || 0;
+        else acc.unlocked.push(p);
+        return acc;
+      },
+      { lockedSum: 0, unlocked: [] as typeof current },
+    );
     if (unlocked.length === 0) return;
-    const remainder = Math.max(total - lockedSum, 0);
-    const shares = splitEqual(remainder, unlocked.length);
+    const shares = splitEqual(Math.max(total - lockedSum, 0), unlocked.length);
     unlocked.forEach((p, idx) => {
-      const i = current.findIndex((c) => c.userId === p.userId);
-      if (i >= 0) form.setValue(`participants.${i}.value`, shares[idx].toFixed(2));
+      const i = indexByUserId.get(p.userId);
+      if (i !== undefined) form.setValue(`participants.${i}.value`, String(shares[idx]));
     });
+  }
+
+  function makeDistributeHandlers(
+    type: "exact" | "percent",
+    userId: number,
+    field: { onChange: (v: string) => void; onBlur: () => void },
+  ) {
+    return {
+      onFocus(e: React.FocusEvent<HTMLInputElement>) {
+        field.onChange("");
+        e.target.value = "";
+      },
+      onBlur(e: React.FocusEvent<HTMLInputElement>) {
+        field.onBlur();
+        if (!e.target.value) lockedParticipants.current.delete(userId);
+        else lockedParticipants.current.add(userId);
+        distributeRemainder(type);
+      },
+    };
   }
 
   const amount = form.watch("amount");
@@ -180,13 +204,11 @@ export function ExpenseForm(props: Props) {
       : Math.abs(inputSum - totalAmount) < 0.005;
 
   // Default value per userId for shares inputs (used for focus-clear / blur-restore UX).
-  const defaultValueByUserId = (() => {
+  const defaultValueByUserId = useMemo(() => {
     const map = new Map<number, string>();
-    if (shareType === "shares") {
-      included.forEach((p) => map.set(p.userId, "1"));
-    }
+    if (shareType === "shares") included.forEach((p) => map.set(p.userId, "1"));
     return map;
-  })();
+  }, [shareType, included]);
 
   const adjBases = (() => {
     if (shareType !== "adjustment" || included.length === 0) return new Map<number, number>();
@@ -670,19 +692,7 @@ export function ExpenseForm(props: Props) {
                                   className="num w-24 pr-6 text-right"
                                   disabled={!isIncluded}
                                   {...field}
-                                  onFocus={(e) => {
-                                    field.onChange("");
-                                    e.target.value = "";
-                                  }}
-                                  onBlur={(e) => {
-                                    field.onBlur();
-                                    if (!e.target.value) {
-                                      lockedParticipants.current.delete(f.userId);
-                                    } else {
-                                      lockedParticipants.current.add(f.userId);
-                                    }
-                                    distributeRemainder("percent");
-                                  }}
+                                  {...makeDistributeHandlers("percent", f.userId, field)}
                                 />
                                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                                   %
@@ -739,19 +749,7 @@ export function ExpenseForm(props: Props) {
                                 className="num w-24 text-right shrink-0"
                                 disabled={!isIncluded}
                                 {...field}
-                                onFocus={(e) => {
-                                  field.onChange("");
-                                  e.target.value = "";
-                                }}
-                                onBlur={(e) => {
-                                  field.onBlur();
-                                  if (!e.target.value) {
-                                    lockedParticipants.current.delete(f.userId);
-                                  } else {
-                                    lockedParticipants.current.add(f.userId);
-                                  }
-                                  distributeRemainder("exact");
-                                }}
+                                {...makeDistributeHandlers("exact", f.userId, field)}
                               />
                             )
                           }
