@@ -22,6 +22,9 @@ pnpm db:push        # Sync Drizzle schema to Neon (no migration files)
 pnpm db:generate    # Generate migration SQL (not normally needed)
 pnpm db:studio      # Drizzle Studio GUI
 pnpm bot:set-webhook  # tsx scripts/set-webhook.ts
+
+# One-time data migrations (run BEFORE pnpm db:push when noted):
+pnpm tsx scripts/migrate-payers.ts  # populate expense_payers from expenses.payer_id
 ```
 
 Package manager is **pnpm**. Do not use npm or yarn.
@@ -59,18 +62,24 @@ Group membership is enforced separately via `assertGroupMember`.
 
 ### Database (`src/db/`)
 
-Drizzle ORM + Neon Serverless Postgres. Ten tables defined in `src/db/schema.ts`:
-`users` → `groups` → `group_members` (join) → `expenses` → `expense_splits` → `settlements` + `exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting`.
+Drizzle ORM + Neon Serverless Postgres. Eleven tables defined in `src/db/schema.ts`:
+`users` → `groups` → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` → `settlements` + `exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting`.
+
+**Multi-payer model**: An expense has one or more payers in `expense_payers` (who paid, how much each) and one or more debtors in `expense_splits` (who owes, how much each). Both tables reference `expenses.id` with `ON DELETE CASCADE`. `expense_payers` has a `UNIQUE(expense_id, payer_id)` constraint. Both sides must sum to `expenses.amount`.
 
 `receipt_awaiting` stores in-flight "waiting for receipt photo" state for the ForceReply bot flow (only triggered after text-only `/add`; not shown when photo is already attached via caption).
 
 Schema is pushed directly with `db:push` (no migration workflow). `numeric` columns come back as strings from Drizzle; use `n()` from `src/lib/money.ts` to parse them to numbers.
+
+**Schema upgrade procedure** (when adding tables or dropping columns): if the change requires a data migration, place a script in `scripts/` that reads the old data and writes the new shape, run it first, then run `pnpm db:push`. The script must abort loudly if the source column/table is already gone. See `scripts/migrate-payers.ts` as a reference.
 
 ### Settlement logic
 
 Split across two files deliberately:
 - `src/lib/settlement-core.ts` — pure greedy min-transfer algorithm, no DB, fully testable
 - `src/lib/settlement.ts` — DB queries that build `NetBalance[]`, then delegates to core
+
+`computeGroupBalances` joins through `expense_payers` (not `expenses`) to credit payers, and through `expense_splits` to debit debtors. Both sides are FX-normalised to the group's `defaultCurrency` using historical rates.
 
 ### FX (`src/lib/fx.ts`)
 
@@ -106,6 +115,7 @@ Things that bite, in priority order:
 - The Telegram webhook only needs re-setting (`pnpm bot:set-webhook https://<domain>`) when the **domain changes** — not on every deploy.
 - Both `NEXT_PUBLIC_MINI_APP_URL` (private-chat button) and the BotFather-registered Web App URL (group direct-link) must point at the production `/mini`.
 - Schema reaches Neon via `pnpm db:push` (run from a machine whose `DATABASE_URL` points at the prod DB); there is no migration step in CI.
+- **When a schema change requires a data migration**, run `pnpm tsx scripts/<migration>.ts` BEFORE `pnpm db:push`. The scripts are idempotent and abort loudly if prerequisites are missing. Running `db:push` first drops source columns and makes the migration impossible without a restore.
 - `TELEGRAM_STORAGE_CHAT_ID` must be set before deploying the receipt-photo feature. Create a private channel, add the bot as admin, get the `chat_id` (a large negative number), and add it to Vercel env vars + local `.env.local`.
 
 ### Testing

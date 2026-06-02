@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenseSplits, expenses, settlements } from "@/db/schema";
+import { expensePayers, expenseSplits, expenses, settlements } from "@/db/schema";
 
 import { getRate } from "./fx";
 import { n } from "./money";
@@ -33,12 +33,13 @@ export async function computeGroupBalances(
 
   const paidRows = await db
     .select({
-      payerId: expenses.payerId,
-      amount: expenses.amount,
+      payerId: expensePayers.payerId,
+      amount: expensePayers.amount,
       currency: expenses.currency,
       spentAt: expenses.spentAt,
     })
-    .from(expenses)
+    .from(expensePayers)
+    .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
     .where(eq(expenses.groupId, groupId));
   for (const r of paidRows) {
     const rate = await getRate(r.currency, quoteCurrency, r.spentAt);

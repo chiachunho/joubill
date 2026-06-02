@@ -25,6 +25,8 @@ type Profile = {
   username: string | null;
 };
 
+type ExpensePayer = { userId: number; firstName: string; lastName: string | null; username: string | null; amount: number };
+
 type ExpensesResponse = {
   expenses: Array<{
     id: number;
@@ -32,7 +34,7 @@ type ExpensesResponse = {
     currency: string;
     description: string | null;
     spentAt: string;
-    payer: { userId: number; firstName: string; lastName: string | null; username: string | null };
+    payers: ExpensePayer[];
     splits: Array<{ debtorId: number; firstName: string; lastName: string | null; username: string | null; amount: number }>;
   }>;
 };
@@ -282,21 +284,39 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                 <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
                   {exps.map((e) => {
                     const day = new Date(e.spentAt).toISOString().slice(8, 10);
+                    const payerLabel = e.payers.length === 0
+                      ? "?"
+                      : e.payers.length === 1
+                        ? labelUser(e.payers[0], selfUserId)
+                        : e.payers.length === 2
+                          ? `${labelUser(e.payers[0], selfUserId)}、${labelUser(e.payers[1], selfUserId)}`
+                          : `${labelUser(e.payers[0], selfUserId)} +${e.payers.length - 1}`;
                     return (
                       <Link
                         key={e.id}
                         href={`/app/groups/${id}/expenses/${e.id}/edit`}
                         className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
                       >
-                        <Avatar src={getPhoto(e.payer.userId)} name={labelUser(e.payer)} userId={e.payer.userId} size="sm" />
+                        <div className="relative flex shrink-0">
+                          {e.payers.slice(0, 2).map((p, idx) => (
+                            <div key={p.userId} className={idx > 0 ? "-ml-2" : ""}>
+                              <Avatar src={getPhoto(p.userId)} name={labelUser(p)} userId={p.userId} size="sm" />
+                            </div>
+                          ))}
+                          {e.payers.length > 2 && (
+                            <span className="-ml-2 flex size-7 items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground ring-2 ring-background">
+                              +{e.payers.length - 2}
+                            </span>
+                          )}
+                        </div>
                         <div className="min-w-0 flex-1">
                           {e.description ? (
                             <>
                               <p className="truncate text-sm font-medium">{e.description}</p>
-                              <p className="truncate text-xs text-muted-foreground">{labelUser(e.payer, selfUserId)} 付</p>
+                              <p className="truncate text-xs text-muted-foreground">{payerLabel} 付</p>
                             </>
                           ) : (
-                            <p className="text-sm font-medium">{labelUser(e.payer, selfUserId)} 付</p>
+                            <p className="text-sm font-medium">{payerLabel} 付</p>
                           )}
                         </div>
                         <div className="shrink-0 text-right">

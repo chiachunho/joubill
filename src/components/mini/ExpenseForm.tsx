@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import { mutate } from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, ImagePlus, Loader2, X } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, ImagePlus, Loader2, Plus, Trash2, X } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -52,7 +52,7 @@ type Initial = {
   amount: number;
   currency: string;
   description: string | null;
-  payerId: number;
+  payers: Array<{ payerId: number; amount: number }>;
   spentAt: string;
   receiptFileIds?: string[];
   splits: Array<{ debtorId: number; amount: number; shareType: string; splitValue?: number | null }>;
@@ -97,7 +97,9 @@ function buildDefaults(props: Props): ExpenseFormValues {
     amount: initial ? initial.amount.toFixed(2) : "",
     currency: (initial?.currency ?? defaultCurrency) as ExpenseFormValues["currency"],
     description: initial?.description ?? "",
-    payerId: String(initial?.payerId ?? currentUserId),
+    payers: initial?.payers.length
+      ? initial.payers.map((p) => ({ userId: String(p.payerId), amount: p.amount.toFixed(2) }))
+      : [{ userId: String(currentUserId), amount: initial ? initial.amount.toFixed(2) : "" }],
     spentDate: initial ? new Date(initial.spentAt) : new Date(),
     shareType,
     participants: members.map((m) => {
@@ -130,6 +132,10 @@ export function ExpenseForm(props: Props) {
     mode: "onChange",
   });
   const { fields, replace } = useFieldArray({ control: form.control, name: "participants" });
+  const { fields: payerFields, append: appendPayer, remove: removePayer } = useFieldArray({
+    control: form.control,
+    name: "payers",
+  });
 
   // Persist participant values per shareType so switching away and back restores the original inputs.
   const savedValuesByType = useRef<Partial<Record<ExpenseFormValues["shareType"], string[]>>>((() => {
@@ -185,8 +191,21 @@ export function ExpenseForm(props: Props) {
   const currency = form.watch("currency");
   const shareType = form.watch("shareType");
   const participants = form.watch("participants");
+  const payers = form.watch("payers");
+
+  // Auto-sync the single payer's amount to the total when there is only one payer
+  useEffect(() => {
+    if (payers.length === 1) {
+      form.setValue("payers.0.amount", amount, { shouldValidate: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amount, payers.length]);
 
   const totalAmount = parseFloat(amount) || 0;
+  const payerSum = payers.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+  const payersBalanced = totalAmount > 0 && Math.abs(payerSum - totalAmount) < 0.005;
+  const selectedPayerIds = new Set(payers.map((p) => p.userId).filter(Boolean));
+
   const included = participants
     .filter((p) => p.included)
     .map((p) => ({ userId: p.userId, value: p.value }));
@@ -259,7 +278,10 @@ export function ExpenseForm(props: Props) {
       amount: parseFloat(values.amount),
       currency: values.currency,
       description: values.description.trim() || null,
-      payerId: Number(values.payerId),
+      payers: values.payers.map((p) => ({
+        payerId: Number(p.userId),
+        amount: parseFloat(p.amount),
+      })),
       spentAt: dayToNoonUtcIso(values.spentDate),
       shareType: submittedShareType,
       receiptFileIds,
@@ -553,19 +575,87 @@ export function ExpenseForm(props: Props) {
           )}
         </div>
 
-        {/* Payer */}
+        {/* Payers */}
         <FormField
           control={form.control}
-          name="payerId"
-          render={({ field }) => (
+          name="payers"
+          render={() => (
             <FormItem>
               <FormLabel>付款人</FormLabel>
-              <MemberSelect
-                value={field.value}
-                onValueChange={field.onChange}
-                members={members}
-                photos={photos}
-              />
+              <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
+                {payerFields.map((f, i) => (
+                  <div key={f.id} className="flex items-center gap-2 px-4 py-3 min-h-[60px]">
+                    <div className="flex-1 min-w-0">
+                      <FormField
+                        control={form.control}
+                        name={`payers.${i}.userId`}
+                        render={({ field, fieldState }) => (
+                          <FormItem className="space-y-1">
+                            <FormControl>
+                              <MemberSelect
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                members={members.filter(
+                                  (m) =>
+                                    String(m.id) === field.value ||
+                                    !selectedPayerIds.has(String(m.id)),
+                                )}
+                                photos={photos}
+                                placeholder="選擇付款人"
+                              />
+                            </FormControl>
+                            {fieldState.error && <FormMessage />}
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    {payerFields.length > 1 && (
+                      <>
+                        <FormField
+                          control={form.control}
+                          name={`payers.${i}.amount`}
+                          render={({ field }) => (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              inputMode="decimal"
+                              className="num w-24 text-right shrink-0"
+                              {...field}
+                            />
+                          )}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removePayer(i)}
+                          className="shrink-0 rounded-lg p-1 text-muted-foreground hover:text-destructive transition-colors"
+                          aria-label="移除付款人"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {payerFields.length > 1 && (
+                <div className="rounded-2xl bg-secondary/50 px-4 py-3">
+                  <div className={cn("flex items-center gap-1.5 text-sm num", payersBalanced ? "text-muted-foreground" : "text-rose-500")}>
+                    已付 {payerSum.toFixed(2)} / {totalAmount.toFixed(2)} {currency}
+                    {!payersBalanced && totalAmount > 0 && <> · 差 {Math.abs(totalAmount - payerSum).toFixed(2)}</>}
+                    {payersBalanced ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
+                  </div>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => appendPayer({ userId: "", amount: "" })}
+                disabled={payerFields.length >= members.length}
+                className="flex items-center gap-1.5 text-sm text-primary hover:underline disabled:opacity-40 transition-opacity"
+              >
+                <Plus className="size-3.5" />
+                新增付款人
+              </button>
               <FormMessage />
             </FormItem>
           )}

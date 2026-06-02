@@ -21,6 +21,11 @@ const splitItemSchema = z.object({
   splitValue: z.number().nullable().optional(),
 });
 
+const payerItemSchema = z.object({
+  payerId: z.number().int().positive(),
+  amount: z.number().positive(),
+});
+
 export const SHARE_TYPES = ["equal", "exact", "percent", "shares", "adjustment"] as const;
 
 /**
@@ -29,13 +34,14 @@ export const SHARE_TYPES = ["equal", "exact", "percent", "shares", "adjustment"]
  * Splits are always sent as final amounts in the same currency as the expense; for
  * percent-mode the client does the multiplication before posting. share_type is
  * stored as metadata only — the source of truth for balances is splits[].amount.
+ * Payers must also sum to the expense total.
  */
 export const expenseInputSchema = z
   .object({
     amount: z.number().positive().max(10_000_000),
     currency: z.enum(SUPPORTED_CURRENCIES),
     description: z.string().max(500).nullable(),
-    payerId: z.number().int().positive(),
+    payers: z.array(payerItemSchema).min(1),
     spentAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
       message: "spentAt must be a valid date string",
     }),
@@ -49,6 +55,20 @@ export const expenseInputSchema = z
       return Math.abs(sum - data.amount) < 0.005;
     },
     { message: "splits sum must equal amount (within ±0.005)" },
+  )
+  .refine(
+    (data) => {
+      const sum = data.payers.reduce((s, x) => s + x.amount, 0);
+      return Math.abs(sum - data.amount) < 0.005;
+    },
+    { message: "payers sum must equal amount (within ±0.005)" },
+  )
+  .refine(
+    (data) => {
+      const ids = data.payers.map((p) => p.payerId);
+      return ids.length === new Set(ids).size;
+    },
+    { message: "duplicate payerId in payers array" },
   );
 
 export type ExpenseInput = z.infer<typeof expenseInputSchema>;
@@ -83,7 +103,12 @@ export const expenseFormSchema = z
       .refine((v) => Number.isFinite(parseFloat(v)) && parseFloat(v) > 0, "請輸入有效金額"),
     currency: z.enum(SUPPORTED_CURRENCIES),
     description: z.string().max(500),
-    payerId: z.string().min(1),
+    payers: z.array(
+      z.object({
+        userId: z.string().min(1),
+        amount: z.string(),
+      }),
+    ).min(1),
     spentDate: z.date(),
     shareType: z.enum(SHARE_TYPES),
     participants: z.array(
@@ -95,6 +120,23 @@ export const expenseFormSchema = z
     ),
   })
   .superRefine((data, ctx) => {
+    // Payers validation
+    const total = parseFloat(data.amount) || 0;
+    if (total > 0) {
+      const emptyPayer = data.payers.some((p) => !p.userId);
+      if (emptyPayer) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "請選擇付款人", path: ["payers"] });
+      } else if (data.payers.length > 1 && data.payers.some((p) => !Number.isFinite(parseFloat(p.amount)))) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "請輸入有效金額", path: ["payers"] });
+      } else {
+        const payerSum = data.payers.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+        if (Math.abs(payerSum - total) >= 0.005) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "付款人金額加總需等於總金額", path: ["payers"] });
+        }
+      }
+    }
+
+    // Participants validation
     const included = data.participants.filter((p) => p.included);
     if (included.length === 0) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "至少選一位參與者", path: ["participants"] });
@@ -112,7 +154,6 @@ export const expenseFormSchema = z
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "份數合計須大於 0", path: ["participants"] });
       }
     } else if (data.shareType === "adjustment") {
-      const total = parseFloat(data.amount) || 0;
       if (sum > total) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -121,7 +162,6 @@ export const expenseFormSchema = z
         });
       }
     } else {
-      const total = parseFloat(data.amount) || 0;
       if (Math.abs(sum - total) >= 0.005) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

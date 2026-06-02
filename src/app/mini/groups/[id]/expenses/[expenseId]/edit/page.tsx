@@ -14,7 +14,7 @@ type ExpenseDetail = {
   amount: number;
   currency: string;
   description: string | null;
-  payerId: number;
+  payers: Array<{ payerId: number; amount: number }>;
   spentAt: string;
   receiptFileIds: string[];
   splits: Array<{ debtorId: number; amount: number; shareType: string }>;
