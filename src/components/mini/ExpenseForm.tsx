@@ -427,7 +427,7 @@ export function ExpenseForm(props: Props) {
             <div className="grid grid-cols-3 gap-1.5">
               {receiptFileIds.map((fileId, i) => (
                 <div
-                  key={`${fileId}-${i}`}
+                  key={fileId}
                   className="relative aspect-square overflow-hidden rounded-lg bg-secondary/50"
                 >
                   {!loadedFileIds.has(fileId) && (

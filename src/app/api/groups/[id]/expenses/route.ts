@@ -130,44 +130,48 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     );
   }
 
-  const [expense] = await db
-    .insert(expenses)
-    .values({
-      groupId,
-      payerId: input.payerId,
-      amount: input.amount.toFixed(2),
-      currency: input.currency,
-      description: input.description,
-      spentAt: new Date(input.spentAt),
-      createdBy: auth.user.id,
-    })
-    .returning();
+  let expenseId!: number;
+  await db.transaction(async (tx) => {
+    const [expense] = await tx
+      .insert(expenses)
+      .values({
+        groupId,
+        payerId: input.payerId,
+        amount: input.amount.toFixed(2),
+        currency: input.currency,
+        description: input.description,
+        spentAt: new Date(input.spentAt),
+        createdBy: auth.user.id,
+      })
+      .returning();
+    expenseId = expense.id;
 
-  const ops: Promise<unknown>[] = [
-    db.insert(expenseSplits).values(
-      input.splits.map((s) => ({
-        expenseId: expense.id,
-        debtorId: s.debtorId,
-        amount: s.amount.toFixed(2),
-        shareType: input.shareType,
-        splitValue: s.splitValue != null ? String(s.splitValue) : null,
-      })),
-    ),
-  ];
-
-  if (input.receiptFileIds && input.receiptFileIds.length > 0) {
-    ops.push(
-      db.insert(expenseReceipts).values(
-        input.receiptFileIds.map((fileId, i) => ({
+    const ops: Promise<unknown>[] = [
+      tx.insert(expenseSplits).values(
+        input.splits.map((s) => ({
           expenseId: expense.id,
-          fileId,
-          position: i,
+          debtorId: s.debtorId,
+          amount: s.amount.toFixed(2),
+          shareType: input.shareType,
+          splitValue: s.splitValue != null ? String(s.splitValue) : null,
         })),
       ),
-    );
-  }
+    ];
 
-  await Promise.all(ops);
+    if (input.receiptFileIds && input.receiptFileIds.length > 0) {
+      ops.push(
+        tx.insert(expenseReceipts).values(
+          input.receiptFileIds.map((fileId, i) => ({
+            expenseId: expense.id,
+            fileId,
+            position: i,
+          })),
+        ),
+      );
+    }
 
-  return NextResponse.json({ id: expense.id }, { status: 201 });
+    await Promise.all(ops);
+  });
+
+  return NextResponse.json({ id: expenseId }, { status: 201 });
 });
