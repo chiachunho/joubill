@@ -131,6 +131,12 @@ export function ExpenseForm(props: Props) {
   });
   const { fields, replace } = useFieldArray({ control: form.control, name: "participants" });
 
+  // Persist participant values per shareType so switching away and back restores the original inputs.
+  const savedValuesByType = useRef<Partial<Record<ExpenseFormValues["shareType"], string[]>>>((() => {
+    const d = buildDefaults(props);
+    return { [d.shareType]: d.participants.map((p) => p.value) } as Partial<Record<ExpenseFormValues["shareType"], string[]>>;
+  })());
+
   const amount = form.watch("amount");
   const currency = form.watch("currency");
   const shareType = form.watch("shareType");
@@ -541,7 +547,20 @@ export function ExpenseForm(props: Props) {
                     key={m}
                     type="button"
                     onClick={() => {
+                      // Save current values before switching away.
+                      savedValuesByType.current[field.value as ExpenseFormValues["shareType"]] =
+                        participants.map((p) => p.value);
+
                       field.onChange(m);
+
+                      // If we have saved values for the target type, restore them.
+                      const saved = savedValuesByType.current[m];
+                      if (saved) {
+                        replace(fields.map((f, i) => ({ ...f, value: saved[i] ?? "" })));
+                        return;
+                      }
+
+                      // Otherwise use new-record defaults.
                       if (m === "exact" || m === "percent") {
                         // Pre-fill with equal-split values so users only need to adjust differences.
                         const total = m === "percent" ? 100 : totalAmount;
