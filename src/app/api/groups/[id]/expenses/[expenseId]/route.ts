@@ -6,6 +6,7 @@ import { expenseReceipts, expenseSplits, expenses } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { n } from "@/lib/money";
+import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -50,12 +51,10 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
       .orderBy(expenseReceipts.position),
   ]);
 
-  const receiptFileIds =
-    receiptRows.length > 0
-      ? receiptRows.map((r) => r.fileId)
-      : expense.receiptFileId
-        ? [expense.receiptFileId]
-        : [];
+  const receiptFileIds = resolveReceiptFileIds(
+    receiptRows.map((r) => r.fileId),
+    expense.receiptFileId,
+  );
 
   return NextResponse.json({
     id: expense.id,
@@ -101,43 +100,48 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
     );
   }
 
-  await db
-    .update(expenses)
-    .set({
-      payerId: input.payerId,
-      amount: input.amount.toFixed(2),
-      currency: input.currency,
-      description: input.description,
-      spentAt: new Date(input.spentAt),
-      updatedAt: new Date(),
-    })
-    .where(eq(expenses.id, ids.eid));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(expenses)
+      .set({
+        payerId: input.payerId,
+        amount: input.amount.toFixed(2),
+        currency: input.currency,
+        description: input.description,
+        spentAt: new Date(input.spentAt),
+        // When receipts are explicitly managed, also clear the legacy single-file column so
+        // the GET fallback cannot resurrect a "cleared" bot-uploaded receipt.
+        ...(input.receiptFileIds !== undefined && { receiptFileId: null }),
+        updatedAt: new Date(),
+      })
+      .where(eq(expenses.id, ids.eid));
 
-  // Replace splits wholesale.
-  await db.delete(expenseSplits).where(eq(expenseSplits.expenseId, ids.eid));
-  await db.insert(expenseSplits).values(
-    input.splits.map((s) => ({
-      expenseId: ids.eid,
-      debtorId: s.debtorId,
-      amount: s.amount.toFixed(2),
-      shareType: input.shareType,
-      splitValue: s.splitValue != null ? String(s.splitValue) : null,
-    })),
-  );
+    // Replace splits wholesale.
+    await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, ids.eid));
+    await tx.insert(expenseSplits).values(
+      input.splits.map((s) => ({
+        expenseId: ids.eid,
+        debtorId: s.debtorId,
+        amount: s.amount.toFixed(2),
+        shareType: input.shareType,
+        splitValue: s.splitValue != null ? String(s.splitValue) : null,
+      })),
+    );
 
-  // Replace receipts when client explicitly sends the field ([] = clear all).
-  if (input.receiptFileIds !== undefined) {
-    await db.delete(expenseReceipts).where(eq(expenseReceipts.expenseId, ids.eid));
-    if (input.receiptFileIds.length > 0) {
-      await db.insert(expenseReceipts).values(
-        input.receiptFileIds.map((fileId, i) => ({
-          expenseId: ids.eid,
-          fileId,
-          position: i,
-        })),
-      );
+    // Replace receipts when client explicitly sends the field ([] = clear all).
+    if (input.receiptFileIds !== undefined) {
+      await tx.delete(expenseReceipts).where(eq(expenseReceipts.expenseId, ids.eid));
+      if (input.receiptFileIds.length > 0) {
+        await tx.insert(expenseReceipts).values(
+          input.receiptFileIds.map((fileId, i) => ({
+            expenseId: ids.eid,
+            fileId,
+            position: i,
+          })),
+        );
+      }
     }
-  }
+  });
 
   return NextResponse.json({ ok: true });
 });

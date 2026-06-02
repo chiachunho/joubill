@@ -6,6 +6,7 @@ import { expenseReceipts, expenseSplits, expenses, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { n } from "@/lib/money";
+import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -85,9 +86,10 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       currency: e.currency,
       description: e.description,
       spentAt: e.spentAt,
-      receiptFileIds:
-        receiptsByExpense.get(e.id) ??
-        (e.legacyReceiptFileId ? [e.legacyReceiptFileId] : []),
+      receiptFileIds: resolveReceiptFileIds(
+        receiptsByExpense.get(e.id) ?? [],
+        e.legacyReceiptFileId,
+      ),
       payer: {
         userId: e.payerId,
         firstName: e.payerFirstName,

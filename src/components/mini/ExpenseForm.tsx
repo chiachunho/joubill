@@ -270,7 +270,8 @@ export function ExpenseForm(props: Props) {
         .filter((r): r is PromiseFulfilledResult<string> => r.status === "fulfilled")
         .map((r) => r.value);
       const failedCount = results.filter((r) => r.status === "rejected").length;
-      if (succeeded.length > 0) setReceiptFileIds((prev) => [...prev, ...succeeded]);
+      // Cap at 5 in the updater in case `remaining` was computed from stale closure state.
+      if (succeeded.length > 0) setReceiptFileIds((prev) => [...prev, ...succeeded].slice(0, 5));
       if (failedCount > 0)
         setReceiptError(failedCount === 1 ? "1 張照片上傳失敗" : `${failedCount} 張照片上傳失敗`);
     } finally {
@@ -426,7 +427,7 @@ export function ExpenseForm(props: Props) {
             <div className="grid grid-cols-3 gap-1.5">
               {receiptFileIds.map((fileId, i) => (
                 <div
-                  key={fileId}
+                  key={`${fileId}-${i}`}
                   className="relative aspect-square overflow-hidden rounded-lg bg-secondary/50"
                 >
                   {!loadedFileIds.has(fileId) && (
@@ -774,40 +775,46 @@ export function ExpenseForm(props: Props) {
     {/* Receipt lightbox */}
     <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
       <DialogContent className="border-0 bg-black/90 p-4 shadow-none backdrop-blur-sm max-w-[calc(100vw-2rem)] flex flex-col items-center gap-3 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
-        <DialogTitle className="sr-only">
-          收據大圖 {lightboxIndex + 1} / {receiptFileIds.length}
-        </DialogTitle>
-        {receiptFileIds.length > 0 && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`/api/tg-photo?fileId=${receiptFileIds[Math.min(lightboxIndex, receiptFileIds.length - 1)]}`}
-            alt="收據大圖"
-            className="max-h-[80dvh] w-full rounded-2xl object-contain"
-          />
-        )}
-        {receiptFileIds.length > 1 && (
-          <div className="flex items-center gap-4 text-white">
-            <button
-              type="button"
-              onClick={() => setLightboxIndex((i) => (i - 1 + receiptFileIds.length) % receiptFileIds.length)}
-              className="rounded-lg p-1.5 hover:bg-white/10"
-              aria-label="上一張"
-            >
-              <ChevronLeft className="size-5" />
-            </button>
-            <span className="text-sm tabular-nums">
-              {lightboxIndex + 1} / {receiptFileIds.length}
-            </span>
-            <button
-              type="button"
-              onClick={() => setLightboxIndex((i) => (i + 1) % receiptFileIds.length)}
-              className="rounded-lg p-1.5 hover:bg-white/10"
-              aria-label="下一張"
-            >
-              <ChevronRight className="size-5" />
-            </button>
-          </div>
-        )}
+        {receiptFileIds.length > 0 && (() => {
+          const safeIdx = Math.min(lightboxIndex, receiptFileIds.length - 1);
+          return (
+            <>
+              <DialogTitle className="sr-only">
+                收據大圖 {safeIdx + 1} / {receiptFileIds.length}
+              </DialogTitle>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/tg-photo?fileId=${receiptFileIds[safeIdx]}`}
+                alt="收據大圖"
+                className="max-h-[80dvh] w-full rounded-2xl object-contain"
+              />
+              {receiptFileIds.length > 1 && (
+                <div className="flex items-center gap-4 text-white">
+                  <button
+                    type="button"
+                    onClick={() => setLightboxIndex((i) => (Math.min(i, receiptFileIds.length - 1) - 1 + receiptFileIds.length) % receiptFileIds.length)}
+                    className="rounded-lg p-1.5 hover:bg-white/10"
+                    aria-label="上一張"
+                  >
+                    <ChevronLeft className="size-5" />
+                  </button>
+                  <span className="text-sm tabular-nums">
+                    {safeIdx + 1} / {receiptFileIds.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLightboxIndex((i) => (Math.min(i, receiptFileIds.length - 1) + 1) % receiptFileIds.length)}
+                    className="rounded-lg p-1.5 hover:bg-white/10"
+                    aria-label="下一張"
+                  >
+                    <ChevronRight className="size-5" />
+                  </button>
+                </div>
+              )}
+            </>
+          );
+        })()}
+        {receiptFileIds.length === 0 && <DialogTitle className="sr-only">收據大圖</DialogTitle>}
       </DialogContent>
     </Dialog>
     </>
