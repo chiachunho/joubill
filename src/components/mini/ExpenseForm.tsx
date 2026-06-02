@@ -133,8 +133,8 @@ export function ExpenseForm(props: Props) {
 
   // Persist participant values per shareType so switching away and back restores the original inputs.
   const savedValuesByType = useRef<Partial<Record<ExpenseFormValues["shareType"], string[]>>>((() => {
-    const d = buildDefaults(props);
-    return { [d.shareType]: d.participants.map((p) => p.value) } as Partial<Record<ExpenseFormValues["shareType"], string[]>>;
+    const v = form.getValues();
+    return { [v.shareType]: v.participants.map((p) => p.value) } as Partial<Record<ExpenseFormValues["shareType"], string[]>>;
   })());
 
   const amount = form.watch("amount");
