@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { labelMember } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
-import { splitEqual } from "@/lib/money";
+import { n, splitEqual } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { useAuthMode } from "@/components/AuthProvider";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
