@@ -1,136 +1,157 @@
-# Mini App 設計系統 / Design System
+# Mini App Design System
 
-> Mini App (`/mini/**`) 的視覺規範。**動手改 UI 前先讀這份。**
-> 目標:任何頁面、任何元件都從同一套 token 與 pattern 長出來,避免「每個元件圓角不一樣」這種漂移再發生。
+> 中文版：[design-system.zh-TW.md](design-system.zh-TW.md)
 
-核心原則:**永遠用 token,不要寫死數值。** 看到要用 `rounded-[9px]`、`#10b981`、`text-[13px]` 之前,先回來看這份有沒有對應的 token。
+> Visual conventions for the Mini App (`/mini/**`). **Read this before touching any UI.**
+> Goal: every page and component grows from the same set of tokens and patterns,
+> so the "every component has a slightly different corner radius" kind of drift never happens again.
+
+Core principle: **always use tokens, never hardcode values.** Before reaching for
+`rounded-[9px]`, `#10b981`, or `text-[13px]`, come back here and check whether a
+token already covers it.
 
 ---
 
-## 1. 顏色 Color
+## 1. Color
 
-顏色**全部走 shadcn CSS 變數**(`hsl(var(--…))`),這些變數在 runtime 由 Telegram 主題參數覆寫(見 [`use-tg-theme.ts`](../src/lib/use-tg-theme.ts))。**禁止在元件裡寫死 hex / 具名 Tailwind 顏色當品牌色**,否則切換 Telegram 深淺色主題會壞掉。
+Colors **all go through shadcn CSS variables** (`hsl(var(--…))`); those variables
+are overridden at runtime by Telegram theme params (see
+[`use-tg-theme.ts`](../src/lib/use-tg-theme.ts)). **Never hardcode a hex /
+named-Tailwind color as a brand color in a component** — switching Telegram
+light/dark themes would break it.
 
-### 品牌色票 (Brand Palette)
+### Brand palette
 
-當 Telegram 主題未套用時，`globals.css` 的 `:root` 預設值使用以下品牌色：
+When no Telegram theme is applied, `globals.css`'s `:root` defaults use these brand colors:
 
-| 名稱 | HEX | CSS 變數 | 用途 |
+| Name | HEX | CSS variable | Use |
 | --- | --- | --- | --- |
-| 揪綠 | `#2EBD8F` | `--primary` / `--ring` | 主行動按鈕、選中態 |
-| 帳金 | `#F5B731` | `--brand-gold` | 財務亮點（見下方說明） |
-| 深綠 | `#1F9D74` | — | 深色版揪綠，目前保留於 dark mode `--primary` 參考 |
-| 米白 | `#F2F0EB` | `--background` | 頁面底色 |
-| 墨黑 | `#1A1A1A` | `--foreground` | 主要文字 |
+| Jiu-green | `#2EBD8F` | `--primary` / `--ring` | primary action buttons, selected state |
+| Ledger-gold | `#F5B731` | `--brand-gold` | financial highlights (see below) |
+| Deep green | `#1F9D74` | — | dark variant of jiu-green; kept as a dark-mode `--primary` reference |
+| Off-white | `#F2F0EB` | `--background` | page background |
+| Ink-black | `#1A1A1A` | `--foreground` | primary text |
 
-#### 帳金 (`--brand-gold`) 使用規則
+#### Ledger-gold (`--brand-gold`) rules
 
-帳金是財務語境的點綴色，**不走 Tailwind 語義 class**，需直接引用 CSS 變數：
+Ledger-gold is an accent for financial contexts. It does **not** go through a
+Tailwind semantic class — reference the CSS variable directly:
 
 ```tsx
-// 金額欄位的強調底色
+// emphasis color for an amount field
 <span style={{ color: "hsl(var(--brand-gold))" }}>...</span>
 
-// 或透過 Tailwind arbitrary value
+// or via a Tailwind arbitrary value
 <span className="text-[hsl(var(--brand-gold))]">...</span>
 ```
 
-帳金**不取代** `text-emerald-500` / `text-rose-500`（正負餘額語意色保持不變），僅用於「中性金額強調」（如累計金額、未結算總額）。
+Ledger-gold does **not** replace `text-emerald-500` / `text-rose-500` (the
+positive/negative balance semantics stay); it's only for "neutral amount
+emphasis" (e.g. cumulative totals, unsettled sums).
 
-### 標準語義 class
+### Standard semantic classes
 
-| 用途 | class | 說明 |
+| Use | class | Notes |
 | --- | --- | --- |
-| 頁面背景 | `bg-background` | 跟隨 TG `bg_color`；預設米白 |
-| 主要文字 | `text-foreground` | |
-| 次要 / 提示文字 | `text-muted-foreground` | 日期、說明、單位 |
-| 面板底色 | `bg-secondary/50` | grouped panel 專用(見 §5) |
-| 分隔線 | `divide-border/40`、`border-border` | |
-| 主行動 | `bg-primary text-primary-foreground` | 主按鈕、選中態；預設揪綠 |
-| 主色淡底 | `bg-primary/10 text-primary` | 次要 pill、icon tile |
+| Page background | `bg-background` | follows TG `bg_color`; defaults to off-white |
+| Primary text | `text-foreground` | |
+| Secondary / hint text | `text-muted-foreground` | dates, descriptions, units |
+| Panel background | `bg-secondary/50` | for grouped panels (see §5) |
+| Dividers | `divide-border/40`, `border-border` | |
+| Primary action | `bg-primary text-primary-foreground` | primary button, selected state; defaults to jiu-green |
+| Tinted primary | `bg-primary/10 text-primary` | secondary pills, icon tiles |
 
-**唯二允許的具名顏色** — 僅用於財務數字的正負,語意固定:
+**The only two named colors allowed** — strictly for the sign of financial figures:
 
-- 正 / 應收:`text-emerald-500`
-- 負 / 應付:`text-rose-500`
-- 錯誤態背景:`bg-destructive/10 text-destructive`
+- positive / receivable: `text-emerald-500`
+- negative / payable: `text-rose-500`
+- error-state background: `bg-destructive/10 text-destructive`
 
-頭像底色是例外:[`Avatar.tsx`](../src/components/mini/Avatar.tsx) 內建一組固定色盤,依 `userId` 取模,不要在外面另外指定。
+Avatar background colors are an exception: [`Avatar.tsx`](../src/components/mini/Avatar.tsx)
+has a fixed built-in palette keyed by `userId` modulo — don't override it from outside.
 
 ---
 
-## 2. 圓角 Radius —— 只有兩階
+## 2. Radius — only two tiers
 
-圓角全部由 `--radius` 衍生(`globals.css` 定義為 `0.625rem` = 10px;`tailwind.config.ts` 把 `lg/md/sm` 綁到它)。**就兩個階層,不要再發明第三種:**
+Radius is all derived from `--radius` (`globals.css` defines it as `0.625rem` =
+10px; `tailwind.config.ts` binds `lg/md/sm` to it). **Just two tiers — don't
+invent a third:**
 
-| 階層 | class | 值 | 用在 |
+| Tier | class | value | used for |
 | --- | --- | --- | --- |
-| **容器 Container** | `rounded-2xl` | 16px | grouped panel、卡片、icon tile、大區塊 |
-| **控制元件 Control** | `rounded-lg` | 10px | 所有 button / input / select / pill / segmented toggle |
+| **Container** | `rounded-2xl` | 16px | grouped panels, cards, icon tiles, large blocks |
+| **Control** | `rounded-lg` | 10px | all button / input / select / pill / segmented toggles |
 
-巢狀的內層(例如 segmented toggle 內的選項)用 `rounded-md`(8px),剛好對齊外層 `rounded-lg` + `p-0.5`。圓形(頭像、icon)用 `rounded-full`。
+Nested inner elements (e.g. options inside a segmented toggle) use `rounded-md`
+(8px), which aligns neatly with an outer `rounded-lg` + `p-0.5`. Circles
+(avatars, icons) use `rounded-full`.
 
-> ⚠️ **不要用 `rounded-xl` 或 `rounded-[Npx]`。** shadcn 的 `Button`/`Input`/`SelectTrigger` 已統一改成 `rounded-lg`,自訂控制元件也一律 `rounded-lg`——直接沿用,不要 override。容器一律 `rounded-2xl`。
-
----
-
-## 3. 字體與數字 Typography
-
-- 字體:**Plus Jakarta Sans**,在 [`layout.tsx`](../src/app/layout.tsx) 以 `--font-sans` 載入,`font-sans` 自動套用。不要再 import 其他字體。
-- **財務數字一律加 `.num`**(`globals.css`):啟用 `tabular-nums` + 收緊字距,讓金額對齊。任何顯示金額、百分比、餘額的地方都要加。
-- **區塊小標一律用 `.sect`**:大寫、字距放寬的 micro-label,放在 grouped panel 上方(例:`Balance · TWD`、`Expenses (12)`)。
-- 頁面標題:`text-lg font-semibold`(不要 `text-xl font-bold`,那是舊樣式)。
-- 內文:預設 `text-sm`;輔助資訊 `text-xs text-muted-foreground`。
+> ⚠️ **Don't use `rounded-xl` or `rounded-[Npx]`.** shadcn's `Button`/`Input`/`SelectTrigger`
+> are unified to `rounded-lg`; custom controls are also always `rounded-lg` — reuse
+> it, don't override. Containers are always `rounded-2xl`.
 
 ---
 
-## 4. 間距與版面 Spacing & Layout
+## 3. Typography & numbers
 
-- 頁面左右留白:`px-4`(`mini/layout.tsx` 的 `<main>` 已限制 `max-w-xl`,頁面自己負責左右 padding)。
-- 區塊之間:容器外層 `space-y-6 py-4`。
-- panel row 內距:`px-4 py-3`。
-- `.sect` 與其下 panel 的間距:`mb-2.5`。
+- Font: **Plus Jakarta Sans**, loaded in [`layout.tsx`](../src/app/layout.tsx) as `--font-sans`; `font-sans` applies it automatically. Don't import other fonts.
+- **Financial numbers always get `.num`** (`globals.css`): enables `tabular-nums` + tighter tracking so amounts line up. Add it anywhere you show an amount, percentage, or balance.
+- **Section micro-labels always use `.sect`**: uppercase, widened-tracking micro-label above a grouped panel (e.g. `Balance · TWD`, `Expenses (12)`).
+- Page titles: `text-lg font-semibold` (not `text-xl font-bold` — that's the old style).
+- Body: `text-sm` by default; supporting info `text-xs text-muted-foreground`.
 
 ---
 
-## 5. 核心 Pattern:Grouped Panel
+## 4. Spacing & layout
 
-iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
+- Page horizontal padding: `px-4` (`mini/layout.tsx`'s `<main>` already caps `max-w-xl`; pages own their left/right padding).
+- Between blocks: outer container `space-y-6 py-4`.
+- Panel row padding: `px-4 py-3`.
+- Gap between a `.sect` and its panel: `mb-2.5`.
+
+---
+
+## 5. Core pattern: grouped panel
+
+The iOS-style grouped panel is the standard container for lists / balances / participants:
 
 ```tsx
 <section className="px-4">
   <p className="sect mb-2.5">Balance · TWD</p>
   <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
-    {/* 每個 row: flex items-center gap-3 px-4 py-3 */}
+    {/* each row: flex items-center gap-3 px-4 py-3 */}
   </div>
 </section>
 ```
 
-要點:`rounded-2xl` + `bg-secondary/50` + `overflow-hidden` + `divide-y divide-border/40`。列表 row 統一 `flex items-center gap-3 px-4 py-3`,左頭像、中文字、右金額(`.num`)。
+Key points: `rounded-2xl` + `bg-secondary/50` + `overflow-hidden` + `divide-y
+divide-border/40`. List rows are uniformly `flex items-center gap-3 px-4 py-3` —
+avatar left, text middle, amount right (`.num`).
 
 ---
 
-## 6. 三種狀態 States(每個資料頁都要有)
+## 6. The three states (every data page needs them)
 
-| 狀態 | 做法 |
+| State | Approach |
 | --- | --- |
-| **Loading** | **不要用 spinner**。用頁面形狀的 skeleton —— [`skeletons.tsx`](../src/components/mini/skeletons.tsx) 已有對應每頁的 export。新頁面要新增對應 skeleton,沿用裡面的 `Skeleton` primitive 與 panel 形狀。 |
-| **Empty** | 置中、`text-sm text-muted-foreground`,視情況加一個 `size-14 rounded-2xl bg-secondary` 的 icon tile。 |
-| **Error** | 置中文案 + 細的 `text-xs text-muted-foreground/60` 錯誤明細。 |
+| **Loading** | **No spinner.** Use page-shaped skeletons — [`skeletons.tsx`](../src/components/mini/skeletons.tsx) already exports one per page. New pages add a matching skeleton, reusing the `Skeleton` primitive and panel shapes inside. |
+| **Empty** | Centered, `text-sm text-muted-foreground`, optionally a `size-14 rounded-2xl bg-secondary` icon tile. |
+| **Error** | Centered message + a thin `text-xs text-muted-foreground/60` error detail. |
 
 ---
 
-## 7. 圖示 Icons
+## 7. Icons
 
-- 一律用 [`lucide-react`](https://lucide.dev),尺寸 `size-3.5` ~ `size-4`。
-- **控制元件(按鈕)不要放 emoji**——用 lucide icon。(慶祝性質的純文字訊息可以用 emoji,例如「已結清 🎉」。)
+- Always [`lucide-react`](https://lucide.dev), size `size-3.5` ~ `size-4`.
+- **No emoji on controls (buttons)** — use a lucide icon. (Celebratory plain-text messages may use emoji, e.g. "Settled 🎉".)
 
 ---
 
-## 8. 改動前的 checklist
+## 8. Pre-change checklist
 
-- [ ] 圓角只用了 `rounded-2xl`(容器)/ `rounded-lg`(控制)/ `rounded-full`?沒有 `rounded-xl`、`rounded-[…]`?
-- [ ] 顏色都走 CSS 變數?沒有寫死品牌 hex?正負金額用 emerald/rose?
-- [ ] 金額有 `.num`?區塊有 `.sect` 小標?
-- [ ] Loading 是 skeleton 不是 spinner?Empty / Error 狀態都有?
-- [ ] 用了既有 shadcn / `components/mini` 元件,而不是重刻一個?
+- [ ] Radius is only `rounded-2xl` (container) / `rounded-lg` (control) / `rounded-full`? No `rounded-xl`, `rounded-[…]`?
+- [ ] All colors go through CSS variables? No hardcoded brand hex? Positive/negative amounts use emerald/rose?
+- [ ] Amounts have `.num`? Sections have a `.sect` micro-label?
+- [ ] Loading is a skeleton, not a spinner? Empty / Error states both present?
+- [ ] Reused existing shadcn / `components/mini` components instead of re-rolling one?
