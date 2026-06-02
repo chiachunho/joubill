@@ -3,7 +3,7 @@ import { and, count, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { expenses, expenseSplits, groupMembers } from "@/db/schema";
+import { expenses, expensePayers, expenseSplits, groupMembers } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 
@@ -60,12 +60,22 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     return NextResponse.json({ error: "cannot remove yourself" }, { status: 400 });
   }
 
-  const [{ expenseCount }] = await db
-    .select({ expenseCount: count() })
+  // Block removal if the member is referenced by any expense in this group, either as
+  // a debtor (expense_splits) or a payer (expense_payers). Missing the payer side lets
+  // a payer-only member be deleted, which orphans their recorded contribution on edit.
+  const [{ debtorCount }] = await db
+    .select({ debtorCount: count() })
     .from(expenseSplits)
     .innerJoin(expenses, eq(expenses.id, expenseSplits.expenseId))
     .where(and(eq(expenseSplits.debtorId, targetUserId), eq(expenses.groupId, groupId)));
 
+  const [{ payerCount }] = await db
+    .select({ payerCount: count() })
+    .from(expensePayers)
+    .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
+    .where(and(eq(expensePayers.payerId, targetUserId), eq(expenses.groupId, groupId)));
+
+  const expenseCount = debtorCount + payerCount;
   if (expenseCount > 0) {
     return NextResponse.json({ error: "has expenses", expenseCount }, { status: 409 });
   }
