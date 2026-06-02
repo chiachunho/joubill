@@ -66,21 +66,32 @@ describe("expenseInputSchema", () => {
     expect(expenseInputSchema.safeParse({ ...validExpense, splits: [] }).success).toBe(false);
   });
 
-  it("accepts a receiptFileId string", () => {
+  it("accepts a receiptFileIds array", () => {
     expect(
-      expenseInputSchema.safeParse({ ...validExpense, receiptFileId: "AgACAgIAAx" }).success,
+      expenseInputSchema.safeParse({ ...validExpense, receiptFileIds: ["AgACAgIAAx", "BgACBgIBBy"] }).success,
     ).toBe(true);
   });
 
-  it("accepts null receiptFileId", () => {
-    expect(
-      expenseInputSchema.safeParse({ ...validExpense, receiptFileId: null }).success,
-    ).toBe(true);
+  it("accepts missing receiptFileIds (optional)", () => {
+    expect(expenseInputSchema.safeParse(validExpense).success).toBe(true);
   });
 
-  it("accepts missing receiptFileId (optional)", () => {
-    const { receiptFileId: _, ...withoutReceipt } = { ...validExpense, receiptFileId: undefined };
-    expect(expenseInputSchema.safeParse(withoutReceipt).success).toBe(true);
+  it("rejects receiptFileIds with more than 5 entries", () => {
+    expect(
+      expenseInputSchema.safeParse({
+        ...validExpense,
+        receiptFileIds: ["a", "b", "c", "d", "e", "f"],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a receiptFileId entry exceeding 256 chars", () => {
+    expect(
+      expenseInputSchema.safeParse({
+        ...validExpense,
+        receiptFileIds: ["x".repeat(257)],
+      }).success,
+    ).toBe(false);
   });
 });
 

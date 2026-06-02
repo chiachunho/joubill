@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import { mutate } from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Calendar as CalendarIcon, Check, ImagePlus, Loader2, Trash2, X } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, ImagePlus, Loader2, X } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -54,7 +54,7 @@ type Initial = {
   description: string | null;
   payerId: number;
   spentAt: string;
-  receiptFileId?: string | null;
+  receiptFileIds?: string[];
   splits: Array<{ debtorId: number; amount: number; shareType: string; splitValue?: number | null }>;
 };
 
@@ -205,7 +205,7 @@ export function ExpenseForm(props: Props) {
       payerId: Number(values.payerId),
       spentAt: dayToNoonUtcIso(values.spentDate),
       shareType: submittedShareType,
-      receiptFileId,
+      receiptFileIds,
       splits: computedSplits.map((s) => ({
         ...s,
         splitValue: storeRawValue ? (rawValueByUserId.get(s.debtorId) ?? null) : null,
@@ -232,39 +232,56 @@ export function ExpenseForm(props: Props) {
     router.push(back);
   }
 
-  const [receiptFileId, setReceiptFileId] = useState<string | null>(
-    initial?.receiptFileId ?? null,
+  const [receiptFileIds, setReceiptFileIds] = useState<string[]>(
+    initial?.receiptFileIds ?? [],
   );
   const [receiptUploading, setReceiptUploading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
-  const [receiptImgLoading, setReceiptImgLoading] = useState(!!initial?.receiptFileId);
+  const [loadedFileIds, setLoadedFileIds] = useState<Set<string>>(
+    () => new Set(initial?.receiptFileIds ?? []),
+  );
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleReceiptChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    const remaining = 5 - receiptFileIds.length;
+    const toUpload = files.slice(0, remaining);
     setReceiptError(null);
     setReceiptUploading(true);
     try {
-      const body = new FormData();
-      body.append("file", file);
       const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
-      const res = await fetchFn("/api/tg-upload", { method: "POST", body });
-      if (!res.ok) {
-        const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        setReceiptError(parsed.error ?? "上傳失敗");
-        return;
-      }
-      const { fileId } = (await res.json()) as { fileId: string };
-      setReceiptFileId(fileId);
-      setReceiptImgLoading(true);
-    } catch {
-      setReceiptError("上傳失敗，請再試一次");
+      const results = await Promise.allSettled(
+        toUpload.map(async (file) => {
+          const body = new FormData();
+          body.append("file", file);
+          const res = await fetchFn("/api/tg-upload", { method: "POST", body });
+          if (!res.ok) {
+            const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+            throw new Error(parsed.error ?? "上傳失敗");
+          }
+          const { fileId } = (await res.json()) as { fileId: string };
+          return fileId;
+        }),
+      );
+      const succeeded = results
+        .filter((r): r is PromiseFulfilledResult<string> => r.status === "fulfilled")
+        .map((r) => r.value);
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+      // Cap at 5 in the updater in case `remaining` was computed from stale closure state.
+      if (succeeded.length > 0) setReceiptFileIds((prev) => [...prev, ...succeeded].slice(0, 5));
+      if (failedCount > 0)
+        setReceiptError(failedCount === 1 ? "1 張照片上傳失敗" : `${failedCount} 張照片上傳失敗`);
     } finally {
       setReceiptUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  }
+
+  function removeReceipt(index: number) {
+    setReceiptFileIds((prev) => prev.filter((_, i) => i !== index));
   }
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -395,47 +412,69 @@ export function ExpenseForm(props: Props) {
           )}
         />
 
-        {/* Receipt photo */}
+        {/* Receipt photos */}
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium leading-none">收據照片</span>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             onChange={handleReceiptChange}
           />
-          {receiptFileId ? (
-            <div className="relative w-full overflow-hidden rounded-2xl bg-secondary/50">
-              {receiptImgLoading && (
-                <Skeleton className="h-48 w-full rounded-none" />
-              )}
-              <button
-                type="button"
-                onClick={() => setLightboxOpen(true)}
-                className="w-full"
-                aria-label="查看收據大圖"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/tg-photo?fileId=${receiptFileId}`}
-                  alt="收據"
-                  className={cn(
-                    "max-h-48 w-full object-contain transition-opacity duration-200",
-                    receiptImgLoading ? "opacity-0 h-0" : "opacity-100",
+          {receiptFileIds.length > 0 ? (
+            <div className="grid grid-cols-3 gap-1.5">
+              {receiptFileIds.map((fileId, i) => (
+                <div
+                  key={fileId}
+                  className="relative aspect-square overflow-hidden rounded-lg bg-secondary/50"
+                >
+                  {!loadedFileIds.has(fileId) && (
+                    <Skeleton className="absolute inset-0 rounded-none" />
                   )}
-                  onLoad={() => setReceiptImgLoading(false)}
-                  onError={() => setReceiptImgLoading(false)}
-                />
-              </button>
-              <button
-                type="button"
-                onClick={() => setReceiptFileId(null)}
-                className="absolute right-2 top-2 rounded-lg bg-black/50 p-1.5 text-white backdrop-blur-sm"
-                aria-label="移除收據"
-              >
-                <Trash2 className="size-4" />
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}
+                    className="absolute inset-0"
+                    aria-label={`查看第 ${i + 1} 張收據大圖`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/tg-photo?fileId=${fileId}`}
+                      alt={`收據 ${i + 1}`}
+                      className="h-full w-full object-cover"
+                      onLoad={() => setLoadedFileIds((prev) => new Set([...prev, fileId]))}
+                      onError={() => setLoadedFileIds((prev) => new Set([...prev, fileId]))}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeReceipt(i)}
+                    className="absolute right-1 top-1 rounded-md bg-black/50 p-1 text-white backdrop-blur-sm"
+                    aria-label="移除此收據"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+              ))}
+              {receiptFileIds.length < 5 && (
+                <button
+                  type="button"
+                  disabled={receiptUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-square flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-input bg-secondary/30 text-muted-foreground hover:bg-secondary/60 disabled:opacity-50"
+                >
+                  {receiptUploading ? (
+                    <Loader2 className="size-5 animate-spin" />
+                  ) : (
+                    <>
+                      <ImagePlus className="size-5" />
+                      <span className="text-xs">{receiptFileIds.length}/5</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           ) : (
             <button
@@ -697,7 +736,7 @@ export function ExpenseForm(props: Props) {
         <div className="flex gap-2 pt-1">
           <Button
             type="submit"
-            disabled={form.formState.isSubmitting || !form.formState.isValid}
+            disabled={form.formState.isSubmitting || !form.formState.isValid || receiptUploading}
             className="flex-1 rounded-lg"
           >
             {form.formState.isSubmitting ? "儲存中…" : "儲存"}
@@ -735,16 +774,47 @@ export function ExpenseForm(props: Props) {
 
     {/* Receipt lightbox */}
     <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
-      <DialogContent className="border-0 bg-black/90 p-4 shadow-none backdrop-blur-sm max-w-[calc(100vw-2rem)] flex items-center justify-center [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
-        <DialogTitle className="sr-only">收據大圖</DialogTitle>
-        {receiptFileId && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`/api/tg-photo?fileId=${receiptFileId}`}
-            alt="收據大圖"
-            className="max-h-[85dvh] w-full rounded-2xl object-contain"
-          />
-        )}
+      <DialogContent className="border-0 bg-black/90 p-4 shadow-none backdrop-blur-sm max-w-[calc(100vw-2rem)] flex flex-col items-center gap-3 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
+        {receiptFileIds.length > 0 && (() => {
+          const safeIdx = Math.min(lightboxIndex, receiptFileIds.length - 1);
+          return (
+            <>
+              <DialogTitle className="sr-only">
+                收據大圖 {safeIdx + 1} / {receiptFileIds.length}
+              </DialogTitle>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/tg-photo?fileId=${receiptFileIds[safeIdx]}`}
+                alt="收據大圖"
+                className="max-h-[80dvh] w-full rounded-2xl object-contain"
+              />
+              {receiptFileIds.length > 1 && (
+                <div className="flex items-center gap-4 text-white">
+                  <button
+                    type="button"
+                    onClick={() => setLightboxIndex((i) => (Math.min(i, receiptFileIds.length - 1) - 1 + receiptFileIds.length) % receiptFileIds.length)}
+                    className="rounded-lg p-1.5 hover:bg-white/10"
+                    aria-label="上一張"
+                  >
+                    <ChevronLeft className="size-5" />
+                  </button>
+                  <span className="text-sm tabular-nums">
+                    {safeIdx + 1} / {receiptFileIds.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLightboxIndex((i) => (Math.min(i, receiptFileIds.length - 1) + 1) % receiptFileIds.length)}
+                    className="rounded-lg p-1.5 hover:bg-white/10"
+                    aria-label="下一張"
+                  >
+                    <ChevronRight className="size-5" />
+                  </button>
+                </div>
+              )}
+            </>
+          );
+        })()}
+        {receiptFileIds.length === 0 && <DialogTitle className="sr-only">收據大圖</DialogTitle>}
       </DialogContent>
     </Dialog>
     </>
