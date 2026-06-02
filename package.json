@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
+    "db:push": "drizzle-kit push --force",
     "db:studio": "drizzle-kit studio",
     "bot:set-webhook": "tsx scripts/set-webhook.ts",
     "bot:set-commands": "tsx scripts/set-commands.ts",

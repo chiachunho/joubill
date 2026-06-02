@@ -132,6 +132,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
       debtorId: s.debtorId,
       amount: s.amount.toFixed(2),
       shareType: input.shareType,
+      splitValue: s.splitValue != null ? String(s.splitValue) : null,
     })),
   );
 

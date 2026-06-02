@@ -55,7 +55,7 @@ type Initial = {
   payerId: number;
   spentAt: string;
   receiptFileId?: string | null;
-  splits: Array<{ debtorId: number; amount: number; shareType: string }>;
+  splits: Array<{ debtorId: number; amount: number; shareType: string; splitValue?: number | null }>;
 };
 
 type Props = {
@@ -79,14 +79,20 @@ function dayToNoonUtcIso(d: Date): string {
 
 function buildDefaults(props: Props): ExpenseFormValues {
   const { members, initial, defaultCurrency, currentUserId } = props;
-  const initialShareType = initial?.splits[0]?.shareType;
+  const initialSplits = initial?.splits ?? [];
+  const initialShareType = initialSplits[0]?.shareType;
+  // Use the stored shareType as-is when splitValues are available to restore inputs.
+  // For shares/adjustment/percent without splitValues (old records), fall back to exact.
+  const hasSplitValues = initialSplits.length > 0 && initialSplits.every((s) => s.splitValue != null);
   const shareType: ExpenseFormValues["shareType"] =
-    initialShareType === "exact" || initialShareType === "percent"
-      ? initialShareType
-      : initialShareType === "shares" || initialShareType === "adjustment"
-      ? "exact" // original share counts / adjustments aren't stored; load as exact amounts
-      : "equal";
-  const splitByDebtor = new Map((initial?.splits ?? []).map((s) => [s.debtorId, s.amount]));
+    !initialShareType || initialShareType === "equal" ? "equal"
+    : initialShareType === "exact" ? "exact"
+    : hasSplitValues ? (initialShareType as ExpenseFormValues["shareType"])
+    : "exact";
+  // Use splitValue (raw input) when available; otherwise fall back to computed amount.
+  const splitByDebtor = new Map(
+    initialSplits.map((s) => [s.debtorId, s.splitValue ?? s.amount]),
+  );
   return {
     amount: initial ? initial.amount.toFixed(2) : "",
     currency: (initial?.currency ?? defaultCurrency) as ExpenseFormValues["currency"],
@@ -95,11 +101,12 @@ function buildDefaults(props: Props): ExpenseFormValues {
     spentDate: initial ? new Date(initial.spentAt) : new Date(),
     shareType,
     participants: members.map((m) => {
-      const split = splitByDebtor.get(m.id);
+      const rawVal = splitByDebtor.get(m.id);
       return {
         userId: m.id,
-        included: initial ? split !== undefined : m.status !== "inactive",
-        value: split !== undefined ? split.toFixed(2) : "",
+        included: initial ? rawVal !== undefined : m.status !== "inactive",
+        // Strip trailing zeros from split values (e.g. "2.0000" → "2", "33.3300" → "33.33")
+        value: rawVal !== undefined ? String(parseFloat(rawVal.toFixed(4))) : "",
       };
     }),
   };
@@ -165,15 +172,31 @@ export function ExpenseForm(props: Props) {
   }
 
   async function onSubmit(values: ExpenseFormValues) {
-    // When editing a shares/adjustment expense the form loads it as "exact" since
-    // original inputs aren't re-derivable from stored amounts. Preserve the stored
-    // shareType so a description-only edit doesn't silently overwrite it.
-    const initialSplitType = initial?.splits[0]?.shareType;
-    const submittedShareType =
+    const initialSplits = initial?.splits ?? [];
+    const initialShareType = initialSplits[0]?.shareType as ExpenseFormValues["shareType"] | undefined;
+    // Old records without splitValues (pre-migration) load as "exact" in buildDefaults.
+    // Preserve the original stored shareType so a description-only edit doesn't corrupt the DB.
+    const RESTORABLE = new Set<string>(["percent", "shares", "adjustment"]);
+    const loadedAsExactFallback =
       values.shareType === "exact" &&
-      (initialSplitType === "shares" || initialSplitType === "adjustment")
-        ? (initialSplitType as ExpenseFormValues["shareType"])
-        : values.shareType;
+      initialShareType !== undefined &&
+      RESTORABLE.has(initialShareType) &&
+      !initialSplits.every((s) => s.splitValue != null);
+    const submittedShareType = loadedAsExactFallback ? initialShareType! : values.shareType;
+
+    // Store raw inputs for percent/shares/adjustment so editing restores the original type.
+    const NEEDS_RAW = new Set<string>(["percent", "shares", "adjustment"]);
+    const storeRawValue = NEEDS_RAW.has(submittedShareType);
+
+    // Build map of userId → raw input value (null when blank/NaN — not the same as zero).
+    const rawValueByUserId = new Map(
+      values.participants
+        .filter((p) => p.included)
+        .map((p) => {
+          const v = parseFloat(p.value);
+          return [p.userId, Number.isFinite(v) ? v : null] as const;
+        }),
+    );
 
     const body = {
       amount: parseFloat(values.amount),
@@ -183,7 +206,10 @@ export function ExpenseForm(props: Props) {
       spentAt: dayToNoonUtcIso(values.spentDate),
       shareType: submittedShareType,
       receiptFileId,
-      splits: computedSplits,
+      splits: computedSplits.map((s) => ({
+        ...s,
+        splitValue: storeRawValue ? (rawValueByUserId.get(s.debtorId) ?? null) : null,
+      })),
     };
 
     const url = isEdit
