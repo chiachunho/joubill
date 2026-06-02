@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import { mutate } from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, ImagePlus, Loader2, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, ImagePlus, Loader2, Plus, X } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -46,6 +46,7 @@ import {
 } from "@/lib/zod";
 
 type Member = { id: number; firstName: string; lastName?: string | null; username: string | null; status?: string | null };
+type MultiPayerEntry = { userId: number; included: boolean; amount: string };
 
 type Initial = {
   id: number;
@@ -68,6 +69,29 @@ type Props = {
   /** Where to navigate after save/delete. Defaults to /mini/groups/:groupId. */
   returnPath?: string;
 };
+
+function distributePayerAmounts(
+  entries: MultiPayerEntry[],
+  locked: Set<number>,
+  total: number,
+): MultiPayerEntry[] {
+  const { lockedSum, unlocked } = entries.reduce(
+    (acc, e) => {
+      if (!e.included) return acc;
+      if (locked.has(e.userId)) acc.lockedSum += parseFloat(e.amount) || 0;
+      else acc.unlocked.push(e);
+      return acc;
+    },
+    { lockedSum: 0, unlocked: [] as MultiPayerEntry[] },
+  );
+  if (unlocked.length === 0) return entries;
+  const shares = splitEqual(Math.max(total - lockedSum, 0), unlocked.length);
+  const newAmounts = new Map(unlocked.map((e, i) => [e.userId, shares[i].toFixed(2)]));
+  return entries.map((e) => ({
+    ...e,
+    amount: newAmounts.has(e.userId) ? newAmounts.get(e.userId)! : e.amount,
+  }));
+}
 
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -132,7 +156,7 @@ export function ExpenseForm(props: Props) {
     mode: "onChange",
   });
   const { fields, replace } = useFieldArray({ control: form.control, name: "participants" });
-  const { fields: payerFields, append: appendPayer, remove: removePayer } = useFieldArray({
+  const { replace: replacePayerFields } = useFieldArray({
     control: form.control,
     name: "payers",
   });
@@ -145,6 +169,33 @@ export function ExpenseForm(props: Props) {
 
   // Track which participant userId's have been manually set by the user (for auto-distribution).
   const lockedParticipants = useRef<Set<number>>(new Set());
+
+  const [multiPayerMode, setMultiPayerMode] = useState<boolean>(
+    () => (initial?.payers.length ?? 0) > 1,
+  );
+  const [multiPayerEntries, setMultiPayerEntries] = useState<MultiPayerEntry[]>(() => {
+    if ((initial?.payers.length ?? 0) > 1) {
+      const payerMap = new Map(initial!.payers.map((p) => [p.payerId, p.amount]));
+      const base = members.map((m) => ({
+        userId: m.id,
+        included: payerMap.has(m.id),
+        amount: payerMap.has(m.id) ? payerMap.get(m.id)!.toFixed(2) : "",
+      }));
+      // Carry payers that are no longer group members (e.g. removed after the
+      // expense was created) so their saved amount isn't silently dropped on save.
+      const memberIds = new Set(members.map((m) => m.id));
+      const orphanPayers = initial!.payers
+        .filter((p) => !memberIds.has(p.payerId))
+        .map((p) => ({ userId: p.payerId, included: true, amount: p.amount.toFixed(2) }));
+      return [...base, ...orphanPayers];
+    }
+    return [];
+  });
+  // Treat already-saved payer amounts as locked so the mount-time redistribute effect
+  // doesn't overwrite them with an even split (e.g. saved 70/30 → shown 50/50).
+  const lockedPayerAmounts = useRef<Set<number>>(
+    new Set((initial?.payers.length ?? 0) > 1 ? initial!.payers.map((p) => p.payerId) : []),
+  );
 
   function distributeRemainder(type: "exact" | "percent") {
     const total = type === "percent" ? 100 : (n(form.getValues("amount")) || 0);
@@ -187,24 +238,99 @@ export function ExpenseForm(props: Props) {
     };
   }
 
+  function enterMultiPayerMode() {
+    const currentPayerId = Number(form.getValues("payers.0.userId"));
+    const totalAmt = parseFloat(form.getValues("amount")) || 0;
+    lockedPayerAmounts.current = new Set();
+    const base = members.map((m) => ({ userId: m.id, included: m.id === currentPayerId, amount: "" }));
+    setMultiPayerEntries(distributePayerAmounts(base, new Set(), totalAmt));
+    setMultiPayerMode(true);
+  }
+
+  function togglePayerIncluded(userId: number, checked: boolean) {
+    lockedPayerAmounts.current.delete(userId);
+    setMultiPayerEntries((prev) => {
+      const next = prev.map((e) => (e.userId === userId ? { ...e, included: checked, amount: checked ? e.amount : "" } : e));
+      return distributePayerAmounts(next, lockedPayerAmounts.current, parseFloat(amount) || 0);
+    });
+  }
+
+  function makeMultiPayerAmountHandlers(userId: number) {
+    return {
+      onFocus() {
+        setMultiPayerEntries((prev) => prev.map((e) => (e.userId === userId ? { ...e, amount: "" } : e)));
+      },
+      onChange(ev: React.ChangeEvent<HTMLInputElement>) {
+        const val = ev.target.value;
+        setMultiPayerEntries((prev) => prev.map((e) => (e.userId === userId ? { ...e, amount: val } : e)));
+      },
+      onBlur(ev: React.FocusEvent<HTMLInputElement>) {
+        const val = ev.target.value;
+        if (!val) lockedPayerAmounts.current.delete(userId);
+        else lockedPayerAmounts.current.add(userId);
+        setMultiPayerEntries((prev) => {
+          const next = prev.map((e) => (e.userId === userId ? { ...e, amount: val } : e));
+          return distributePayerAmounts(next, lockedPayerAmounts.current, parseFloat(amount) || 0);
+        });
+      },
+    };
+  }
+
   const amount = form.watch("amount");
   const currency = form.watch("currency");
   const shareType = form.watch("shareType");
   const participants = form.watch("participants");
   const payers = form.watch("payers");
 
-  // Auto-sync the single payer's amount to the total when there is only one payer
+  // Single mode: keep the lone payer's amount equal to the total.
   useEffect(() => {
-    if (payers.length === 1) {
-      form.setValue("payers.0.amount", amount, { shouldValidate: true });
+    if (!multiPayerMode) form.setValue("payers.0.amount", amount, { shouldValidate: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amount, multiPayerMode]);
+
+  // Multi mode: redistribute unlocked payers when the total changes. Keyed on `amount`
+  // only — never on payers.length, or focus-clearing a field would feed back and refill it.
+  useEffect(() => {
+    if (multiPayerMode) {
+      setMultiPayerEntries((prev) =>
+        distributePayerAmounts(prev, lockedPayerAmounts.current, parseFloat(amount) || 0),
+      );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amount, payers.length]);
+  }, [amount, multiPayerMode]);
+
+  // Reconcile members that load/join after mount (e.g. SWR revalidation) into the
+  // payer entries so they become selectable; existing entries keep their edited state.
+  useEffect(() => {
+    if (!multiPayerMode) return;
+    setMultiPayerEntries((prev) => {
+      const known = new Set(prev.map((e) => e.userId));
+      const additions = members
+        .filter((m) => !known.has(m.id))
+        .map((m) => ({ userId: m.id, included: false, amount: "" }));
+      return additions.length > 0 ? [...prev, ...additions] : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, multiPayerMode]);
+
+  // Keep the form's payers field in sync with multi-payer entries so zod validation fires correctly
+  useEffect(() => {
+    if (!multiPayerMode) return;
+    const active = multiPayerEntries
+      .filter((e) => e.included && parseFloat(e.amount) > 0)
+      .map((e) => ({ userId: String(e.userId), amount: e.amount }));
+    replacePayerFields(active.length > 0 ? active : [{ userId: "", amount: "" }]);
+    // `replace` is programmatic, so isValid won't recompute on its own — trigger it
+    // explicitly or the submit button's enabled state lags behind payer edits.
+    void form.trigger("payers");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [multiPayerMode, multiPayerEntries]);
 
   const totalAmount = parseFloat(amount) || 0;
-  const payerSum = payers.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+  const payerSum = multiPayerMode
+    ? multiPayerEntries.filter((e) => e.included).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+    : payers.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
   const payersBalanced = totalAmount > 0 && Math.abs(payerSum - totalAmount) < 0.005;
-  const selectedPayerIds = new Set(payers.map((p) => p.userId).filter(Boolean));
 
   const included = participants
     .filter((p) => p.included)
@@ -582,80 +708,81 @@ export function ExpenseForm(props: Props) {
           render={() => (
             <FormItem>
               <FormLabel>付款人</FormLabel>
-              <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
-                {payerFields.map((f, i) => (
-                  <div key={f.id} className="flex items-center gap-2 px-4 py-3 min-h-[60px]">
-                    <div className="flex-1 min-w-0">
-                      <FormField
-                        control={form.control}
-                        name={`payers.${i}.userId`}
-                        render={({ field, fieldState }) => (
-                          <FormItem className="space-y-1">
-                            <FormControl>
-                              <MemberSelect
-                                value={field.value}
-                                onValueChange={field.onChange}
-                                members={members.filter(
-                                  (m) =>
-                                    String(m.id) === field.value ||
-                                    !selectedPayerIds.has(String(m.id)),
-                                )}
-                                photos={photos}
-                                placeholder="選擇付款人"
-                              />
-                            </FormControl>
-                            {fieldState.error && <FormMessage />}
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    {payerFields.length > 1 && (
-                      <>
-                        <FormField
-                          control={form.control}
-                          name={`payers.${i}.amount`}
-                          render={({ field }) => (
+              {multiPayerMode ? (
+                <>
+                  <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
+                    {multiPayerEntries.map((entry) => {
+                      const m = members.find((x) => x.id === entry.userId);
+                      return (
+                        <div key={entry.userId} className="flex items-center gap-3 px-4 py-3 min-h-[60px]">
+                          <Checkbox
+                            checked={entry.included}
+                            onCheckedChange={(c) => togglePayerIncluded(entry.userId, c === true)}
+                          />
+                          <Avatar
+                            src={photos?.[entry.userId] ?? null}
+                            name={m ? labelMember(m) : String(entry.userId)}
+                            userId={entry.userId}
+                            size="sm"
+                          />
+                          <div className="flex-1 min-w-0 text-sm leading-tight truncate">
+                            {m ? labelMember(m) : `#${entry.userId}`}
+                          </div>
+                          {entry.included && (
                             <Input
                               type="number"
                               step="0.01"
                               min="0"
                               inputMode="decimal"
                               className="num w-24 text-right shrink-0"
-                              {...field}
+                              value={entry.amount}
+                              {...makeMultiPayerAmountHandlers(entry.userId)}
                             />
                           )}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removePayer(i)}
-                          className="shrink-0 rounded-lg p-1 text-muted-foreground hover:text-destructive transition-colors"
-                          aria-label="移除付款人"
-                        >
-                          <X className="size-4" />
-                        </button>
-                      </>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {totalAmount > 0 && (
+                    <div className="rounded-2xl bg-secondary/50 px-4 py-3">
+                      <div className={cn("flex items-center gap-1.5 text-sm num", payersBalanced ? "text-muted-foreground" : "text-rose-500")}>
+                        已付 {payerSum.toFixed(2)} / {totalAmount.toFixed(2)} {currency}
+                        {!payersBalanced && <> · 差 {Math.abs(totalAmount - payerSum).toFixed(2)}</>}
+                        {payersBalanced ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="payers.0.userId"
+                    render={({ field, fieldState }) => (
+                      <FormItem>
+                        <FormControl>
+                          <MemberSelect
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            members={members}
+                            photos={photos}
+                            placeholder="選擇付款人"
+                          />
+                        </FormControl>
+                        {fieldState.error && <FormMessage />}
+                      </FormItem>
                     )}
-                  </div>
-                ))}
-              </div>
-              {payerFields.length > 1 && (
-                <div className="rounded-2xl bg-secondary/50 px-4 py-3">
-                  <div className={cn("flex items-center gap-1.5 text-sm num", payersBalanced ? "text-muted-foreground" : "text-rose-500")}>
-                    已付 {payerSum.toFixed(2)} / {totalAmount.toFixed(2)} {currency}
-                    {!payersBalanced && totalAmount > 0 && <> · 差 {Math.abs(totalAmount - payerSum).toFixed(2)}</>}
-                    {payersBalanced ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
-                  </div>
-                </div>
+                  />
+                  <button
+                    type="button"
+                    onClick={enterMultiPayerMode}
+                    className="flex items-center gap-1.5 text-sm text-primary hover:underline transition-opacity"
+                  >
+                    <Plus className="size-3.5" />
+                    新增付款人
+                  </button>
+                </>
               )}
-              <button
-                type="button"
-                onClick={() => appendPayer({ userId: "", amount: "" })}
-                disabled={payerFields.length >= members.length}
-                className="flex items-center gap-1.5 text-sm text-primary hover:underline disabled:opacity-40 transition-opacity"
-              >
-                <Plus className="size-3.5" />
-                新增付款人
-              </button>
               <FormMessage />
             </FormItem>
           )}
