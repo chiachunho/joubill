@@ -153,6 +153,20 @@ export function ExpenseForm(props: Props) {
       ? inputSum <= totalAmount && totalAmount > 0
       : Math.abs(inputSum - totalAmount) < 0.005;
 
+  // Precompute default values for shares/percent inputs (used for focus-clear / blur-restore UX).
+  const defaultValueByUserId = (() => {
+    const map = new Map<number, string>();
+    if (shareType === "shares") {
+      included.forEach((p) => map.set(p.userId, "1"));
+    } else if (shareType === "percent") {
+      if (included.length > 0) {
+        const equalAmounts = splitEqual(100, included.length);
+        included.forEach((p, idx) => map.set(p.userId, equalAmounts[idx].toFixed(2)));
+      }
+    }
+    return map;
+  })();
+
   const adjBases = (() => {
     if (shareType !== "adjustment" || included.length === 0) return new Map<number, number>();
     const adjBaseTotal = Math.max(totalAmount - inputSum, 0);
@@ -621,6 +635,20 @@ export function ExpenseForm(props: Props) {
                                   className="num w-24 pr-6 text-right"
                                   disabled={!isIncluded}
                                   {...field}
+                                  onFocus={(e) => {
+                                    const def = defaultValueByUserId.get(f.userId);
+                                    if (def !== undefined && field.value === def) {
+                                      field.onChange("");
+                                      e.target.value = "";
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    field.onBlur();
+                                    if (!e.target.value) {
+                                      const def = defaultValueByUserId.get(f.userId) ?? "";
+                                      field.onChange(def);
+                                    }
+                                  }}
                                 />
                                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                                   %
@@ -636,6 +664,20 @@ export function ExpenseForm(props: Props) {
                                   className="num w-24 pr-7 text-right"
                                   disabled={!isIncluded}
                                   {...field}
+                                  onFocus={(e) => {
+                                    const def = defaultValueByUserId.get(f.userId);
+                                    if (def !== undefined && field.value === def) {
+                                      field.onChange("");
+                                      e.target.value = "";
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    field.onBlur();
+                                    if (!e.target.value) {
+                                      const def = defaultValueByUserId.get(f.userId) ?? "";
+                                      field.onChange(def);
+                                    }
+                                  }}
                                 />
                                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                                   份
