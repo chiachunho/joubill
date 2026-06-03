@@ -64,6 +64,9 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [currencyPending, setCurrencyPending] = useState(false);
+  const [deleteGroupOpen, setDeleteGroupOpen] = useState(false);
+  const [deleteGroupLoading, setDeleteGroupLoading] = useState(false);
+  const [deleteGroupError, setDeleteGroupError] = useState<string | null>(null);
 
   async function toggleStatus(member: Member) {
     if (togglingId !== null) return;
@@ -117,6 +120,24 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
       setDeleteError("刪除失敗，請再試一次");
     } finally {
       setDeleteLoading(false);
+    }
+  }
+
+  async function doDeleteGroup() {
+    setDeleteGroupLoading(true);
+    setDeleteGroupError(null);
+
+    try {
+      const res = await tmaRawFetch(`/api/groups/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setDeleteGroupError("刪除失敗，請再試一次");
+        return;
+      }
+      router.replace("/mini");
+    } catch {
+      setDeleteGroupError("刪除失敗，請再試一次");
+    } finally {
+      setDeleteGroupLoading(false);
     }
   }
 
@@ -266,6 +287,25 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
+      {/* 危險區域 */}
+      <section className="px-4">
+        <p className="sect mb-2.5">危險區域</p>
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <button
+            onClick={() => setDeleteGroupOpen(true)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+              <Trash2 className="size-3.5 text-destructive" />
+            </div>
+            <span className="text-sm font-medium">刪除群組</span>
+          </button>
+        </div>
+        {deleteGroupError && (
+          <p className="mt-2 text-xs text-destructive">{deleteGroupError}</p>
+        )}
+      </section>
+
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
@@ -281,6 +321,19 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
         variant="destructive"
         loading={deleteLoading}
         onConfirm={doDelete}
+      />
+
+      <ConfirmDialog
+        open={deleteGroupOpen}
+        onOpenChange={(open) => {
+          if (!open) setDeleteGroupOpen(false);
+        }}
+        title="刪除群組"
+        description="確定要刪除此群組嗎？所有費用、結算紀錄將永久刪除，此動作無法復原。"
+        confirmLabel="刪除"
+        variant="destructive"
+        loading={deleteGroupLoading}
+        onConfirm={doDeleteGroup}
       />
     </div>
   );
