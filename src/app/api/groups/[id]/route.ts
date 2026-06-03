@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { groupDeleteRequests, groupMembers, groups } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { labelUser } from "@/lib/label";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     .where(eq(groupMembers.groupId, groupId));
 
   const { user } = auth;
-  const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || "某人";
+  const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
   const bot = getBot();
 
   // Single member — delete immediately without requiring approval
@@ -56,8 +57,11 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     .where(eq(groupDeleteRequests.groupId, groupId));
 
   if (existing) {
-    // Return the existing request so the frontend can show the pending state
-    return NextResponse.json({ pending: true, requestId: existing.id });
+    if (existing.expiresAt >= new Date()) {
+      return NextResponse.json({ pending: true, requestId: existing.id });
+    }
+    // Expired — clean it up and fall through to create a fresh request
+    await db.delete(groupDeleteRequests).where(eq(groupDeleteRequests.id, existing.id));
   }
 
   const expiresAt = new Date(Date.now() + EXPIRY_MS);

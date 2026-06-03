@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { getBot } from "@/bot";
 import { db } from "@/db";
-import { groupDeleteRequests, groupMembers, groups, users } from "@/db/schema";
+import { groupDeleteRequests, groups, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { labelUser } from "@/lib/label";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,9 +50,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     request: {
       id: row.id,
       requestedBy: row.requestedBy,
-      requestedByName:
-        [row.firstName, row.lastName].filter(Boolean).join(" ") ||
-        (row.username ? `@${row.username}` : "某人"),
+      requestedByName: labelUser({ firstName: row.firstName, lastName: row.lastName, username: row.username }),
       createdAt: row.createdAt,
       expiresAt: row.expiresAt,
     },
@@ -92,7 +91,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
 
   const { user } = auth;
-  const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || "某人";
+  const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
   const bot = getBot();
 
   if (request.telegramMessageId) {
@@ -144,7 +143,7 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
 
   if (request.telegramMessageId && group) {
     const { user } = auth;
-    const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || "某人";
+    const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
     const action = isRequester ? "取消了刪除申請" : "拒絕了刪除申請";
     const bot = getBot();
 

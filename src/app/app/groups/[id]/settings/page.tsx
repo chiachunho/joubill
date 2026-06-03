@@ -2,12 +2,12 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ChevronLeft, Clock, Coins, Loader2, Trash2 } from "lucide-react";
+import { ChevronLeft, Coins, Trash2 } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import {
   Select,
@@ -32,19 +32,9 @@ type MembersResponse = { members: Member[] };
 type SettingsResponse = { defaultCurrency: string };
 type AvatarsResponse = { groupPhoto: string | null; userPhotos: Record<number, string | null> };
 type MeResponse = { userId: number };
-type DeleteRequestResponse = {
-  request: {
-    id: number;
-    requestedBy: number;
-    requestedByName: string;
-    createdAt: string;
-    expiresAt: string;
-  } | null;
-};
 
 export default function AppGroupSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const router = useRouter();
 
   const { data: me } = useSWR<MeResponse>("/api/me/groups");
   const selfUserId = me?.userId;
@@ -63,24 +53,12 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
 
   const { data: avatars } = useSWR<AvatarsResponse>(`/api/groups/${id}/avatars`);
 
-  const { data: deleteRequestData, mutate: mutateDeleteRequest } =
-    useSWR<DeleteRequestResponse>(`/api/groups/${id}/delete-request`, {
-      refreshInterval: 10_000,
-    });
-
-  const pendingRequest = deleteRequestData?.request ?? null;
-
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [currencyPending, setCurrencyPending] = useState(false);
-  const [deleteGroupOpen, setDeleteGroupOpen] = useState(false);
-  const [deleteGroupLoading, setDeleteGroupLoading] = useState(false);
-  const [deleteGroupError, setDeleteGroupError] = useState<string | null>(null);
-  const [approvingDelete, setApprovingDelete] = useState(false);
-  const [cancellingDelete, setCancellingDelete] = useState(false);
 
   async function toggleStatus(member: Member) {
     if (togglingId !== null) return;
@@ -125,7 +103,7 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
         } else {
           setDeleteError("刪除失敗，請再試一次");
         }
-        return; // keep dialog open so user can see the error
+        return;
       }
 
       await mutateMembers();
@@ -134,64 +112,6 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
       setDeleteError("刪除失敗，請再試一次");
     } finally {
       setDeleteLoading(false);
-    }
-  }
-
-  async function doDeleteGroup() {
-    setDeleteGroupLoading(true);
-    setDeleteGroupError(null);
-
-    try {
-      const res = await webRawFetch(`/api/groups/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        setDeleteGroupError("刪除失敗，請再試一次");
-        return;
-      }
-      const data = (await res.json()) as { ok?: boolean; pending?: boolean };
-      if (data.pending) {
-        setDeleteGroupOpen(false);
-        await mutateDeleteRequest();
-      } else {
-        router.replace("/app");
-      }
-    } catch {
-      setDeleteGroupError("刪除失敗，請再試一次");
-    } finally {
-      setDeleteGroupLoading(false);
-    }
-  }
-
-  async function approveDeleteRequest() {
-    setApprovingDelete(true);
-    setDeleteGroupError(null);
-    try {
-      const res = await webRawFetch(`/api/groups/${id}/delete-request`, { method: "POST" });
-      if (!res.ok) {
-        setDeleteGroupError("操作失敗，請再試一次");
-        await mutateDeleteRequest();
-        return;
-      }
-      router.replace("/app");
-    } catch {
-      setDeleteGroupError("操作失敗，請再試一次");
-    } finally {
-      setApprovingDelete(false);
-    }
-  }
-
-  async function cancelDeleteRequest() {
-    setCancellingDelete(true);
-    setDeleteGroupError(null);
-    try {
-      const res = await webRawFetch(`/api/groups/${id}/delete-request`, { method: "DELETE" });
-      if (!res.ok) {
-        setDeleteGroupError("操作失敗，請再試一次");
-      }
-      await mutateDeleteRequest();
-    } catch {
-      setDeleteGroupError("操作失敗，請再試一次");
-    } finally {
-      setCancellingDelete(false);
     }
   }
 
@@ -348,82 +268,13 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
         </div>
       )}
 
-      {/* 危險區域 */}
-      <section className="px-4">
-        <p className="sect mb-2.5">危險區域</p>
-        {pendingRequest && selfUserId !== undefined ? (
-          pendingRequest.requestedBy === selfUserId ? (
-            <div className="overflow-hidden rounded-2xl bg-secondary/50">
-              <div className="flex items-center gap-3 px-4 py-3">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-                  <Clock className="size-3.5 text-muted-foreground" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">等待其他成員確認</p>
-                  <p className="text-xs text-muted-foreground">已申請刪除群組</p>
-                </div>
-                <button
-                  onClick={cancelDeleteRequest}
-                  disabled={cancellingDelete}
-                  className="rounded-lg px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                >
-                  {cancellingDelete ? <Loader2 className="size-3.5 animate-spin" /> : "取消申請"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-destructive/30 bg-destructive/5">
-              <div className="px-4 py-3">
-                <p className="text-sm font-medium text-destructive">
-                  {pendingRequest.requestedByName} 申請刪除此群組
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  同意後所有費用與結算紀錄將永久清除。
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    onClick={approveDeleteRequest}
-                    disabled={approvingDelete || cancellingDelete}
-                    className="flex-1 rounded-lg bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
-                  >
-                    {approvingDelete ? (
-                      <Loader2 className="mx-auto size-3.5 animate-spin" />
-                    ) : (
-                      "同意刪除"
-                    )}
-                  </button>
-                  <button
-                    onClick={cancelDeleteRequest}
-                    disabled={approvingDelete || cancellingDelete}
-                    className="flex-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                  >
-                    {cancellingDelete ? (
-                      <Loader2 className="mx-auto size-3.5 animate-spin" />
-                    ) : (
-                      "拒絕"
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )
-        ) : (
-          <div className="overflow-hidden rounded-2xl bg-secondary/50">
-            <button
-              onClick={() => setDeleteGroupOpen(true)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-destructive transition-colors hover:bg-destructive/10"
-            >
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-                <Trash2 className="size-3.5 text-destructive" />
-              </div>
-              <span className="text-sm font-medium">刪除群組</span>
-            </button>
-          </div>
-        )}
-        {deleteGroupError && (
-          <p className="mt-2 text-xs text-destructive">{deleteGroupError}</p>
-        )}
-      </section>
+      <DangerZoneSection
+        groupId={id}
+        membersCount={membersData.members.length}
+        selfUserId={selfUserId}
+        rawFetch={webRawFetch}
+        redirectPath="/app"
+      />
 
       <ConfirmDialog
         open={deleteTarget !== null}
@@ -440,26 +291,6 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
         variant="destructive"
         loading={deleteLoading}
         onConfirm={doDelete}
-      />
-
-      <ConfirmDialog
-        open={deleteGroupOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteGroupOpen(false);
-            setDeleteGroupError(null);
-          }
-        }}
-        title="刪除群組"
-        description={
-          (membersData?.members.length ?? 0) > 1
-            ? "群組有多位成員，申請後需要另一位成員確認才會刪除。所有費用與結算紀錄將永久清除。"
-            : "確定要刪除此群組嗎？所有費用與結算紀錄將永久清除，此動作無法復原。"
-        }
-        confirmLabel={(membersData?.members.length ?? 0) > 1 ? "申請刪除" : "刪除"}
-        variant="destructive"
-        loading={deleteGroupLoading}
-        onConfirm={doDeleteGroup}
       />
     </div>
   );
