@@ -6,7 +6,6 @@ import { addCommand } from "./commands/add";
 import { balanceCommand } from "./commands/balance";
 import { deleteExpenseCallback } from "./commands/deleteExpense";
 import { helpCommand } from "./commands/help";
-import { linkCommand } from "./commands/link";
 import { listCommand } from "./commands/list";
 import { receiptUploadHandler } from "./commands/receiptUpload";
 import { settleCommand } from "./commands/settle";
@@ -47,7 +46,6 @@ export function getBot(): Bot<BotContext> {
   bot.use(listCommand);
   bot.use(balanceCommand);
   bot.use(settleCommand);
-  bot.use(linkCommand);
 
   bot.catch((err) => {
     console.error("[bot] unhandled error:", err);

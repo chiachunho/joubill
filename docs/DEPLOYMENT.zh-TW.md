@@ -168,10 +168,6 @@ pnpm bot:set-webhook https://splitbill.example.com
 - 點按鈕 → 跳到 Telegram OAuth → 授權 → 跳回 `/app` → 看到群組列表。
 - 點一個群組 → 餘額、支出列表正常顯示。
 
-**Magic Link**
-- 在群組裡輸入 `/link` → bot 回覆連結。
-- 未登入的情況下點連結 → 被跳到 `/login?next=...` → 登入後直接進那個群組。
-
 ---
 
 ## 之後的更新
@@ -187,6 +183,5 @@ push 到 GitHub 預設分支 → Vercel 自動重新部署。
 - **DB 連線錯誤**:確認用的是 Neon **pooled** 連線字串且帶 `?sslmode=require`。
 - **Telegram 登入按鈕沒出現 / OIDC 失敗**:確認 `AUTH_TELEGRAM_CLIENT_ID`、`AUTH_TELEGRAM_CLIENT_SECRET` 已設定,且 BotFather Web Login 的 Redirect URI 完全吻合 `https://<domain>/api/auth/callback/telegram`。
 - **GitHub / Google 登入失敗**:`AUTH_GITHUB_*` / `AUTH_GOOGLE_*` 未設定,或 OAuth App 的 Callback URL 沒加。
-- **`/link` 連結開啟後一直跳回登入頁**:magic link token 已過期（7 天有效）,請在群組重新執行 `/link`。
 - **收據照片上傳失敗（502）**:`TELEGRAM_STORAGE_CHAT_ID` 設錯,或 bot 不是該頻道的 Admin / 沒有 "Post Messages" 權限。
 - **Mini App 顯示收據圖片空白**:`TELEGRAM_STORAGE_CHAT_ID` 正確但 `/api/tg-photo` proxy 失敗;查 Vercel Function logs 確認 `getFile` 是否有錯。
