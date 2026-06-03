@@ -76,13 +76,12 @@ Then add the bot to a Telegram group and send `/start`.
 - `/list` — list recent expenses
 - `/balance` — show current balances
 - `/settle` — produce the minimum-transfer repayment plan
-- `/link` — get a magic link that opens this group in the web app
 - Open the Mini App: use the button in the `/start` reply
 
 ## Two entry points
 
 - **Mini App** (`/mini`) — opens inside Telegram via the bot's `web_app` button (carries `initData`). Opening it directly in a browser only shows a preview.
-- **Web App** (`/app`, sign in at `/login`) — a standalone browser app for users without Telegram, authenticated with an Auth.js session cookie. Magic links (`/g/<token>`) drop a logged-in user straight into a group.
+- **Web App** (`/app`, sign in at `/login`) — a standalone browser app for users without Telegram, authenticated with an Auth.js session cookie.
 
 ## Structure
 
@@ -96,7 +95,7 @@ src/
 │   ├── api/tg-photo, tg-upload   # receipt-photo proxy + upload
 │   ├── mini/                     # Mini App pages (Telegram)
 │   ├── app/                      # Web App pages (browser)
-│   ├── login/, g/[token]/        # web login + magic-link entry
+│   ├── login/                    # web login
 │   ├── layout.tsx
 │   └── page.tsx                  # public landing
 ├── auth.ts                       # Auth.js config (Telegram / GitHub / Google)
@@ -110,7 +109,7 @@ src/
 │   └── schema.ts                 # 12 tables
 └── lib/
     ├── env.ts                    # typed env
-    ├── auth/                     # initData HMAC, sessions, magic links, route guard
+    ├── auth/                     # initData HMAC, sessions, route guard
     ├── settlement-core.ts        # pure greedy min-transfer algorithm
     ├── settlement.ts             # DB-backed balance queries
     ├── fx.ts                     # exchange-rate cache
