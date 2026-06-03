@@ -49,7 +49,13 @@ function TelegramIcon() {
   );
 }
 
-export function OAuthButtons({ callbackUrl = "/app" }: { callbackUrl?: string }) {
+interface OAuthButtonsProps {
+  callbackUrl?: string;
+  showGithub?: boolean;
+  showGoogle?: boolean;
+}
+
+export function OAuthButtons({ callbackUrl = "/app", showGithub = false, showGoogle = false }: OAuthButtonsProps) {
   return (
     <div className="flex flex-col gap-3">
       <button
@@ -59,20 +65,24 @@ export function OAuthButtons({ callbackUrl = "/app" }: { callbackUrl?: string })
         <TelegramIcon />
         使用 Telegram 登入
       </button>
-      <button
-        onClick={() => signIn("github", { callbackUrl })}
-        className="flex items-center justify-center gap-2.5 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary active:bg-secondary/80"
-      >
-        <GitHubIcon />
-        使用 GitHub 登入
-      </button>
-      <button
-        onClick={() => signIn("google", { callbackUrl })}
-        className="flex items-center justify-center gap-2.5 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary active:bg-secondary/80"
-      >
-        <GoogleIcon />
-        使用 Google 登入
-      </button>
+      {showGithub && (
+        <button
+          onClick={() => signIn("github", { callbackUrl })}
+          className="flex items-center justify-center gap-2.5 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary active:bg-secondary/80"
+        >
+          <GitHubIcon />
+          使用 GitHub 登入
+        </button>
+      )}
+      {showGoogle && (
+        <button
+          onClick={() => signIn("google", { callbackUrl })}
+          className="flex items-center justify-center gap-2.5 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary active:bg-secondary/80"
+        >
+          <GoogleIcon />
+          使用 Google 登入
+        </button>
+      )}
     </div>
   );
 }

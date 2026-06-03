@@ -89,8 +89,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     TelegramOIDC,
     // Both GitHub and Google verify email before sharing it, so auto-linking is safe.
-    GitHub({ allowDangerousEmailAccountLinking: true }),
-    Google({ allowDangerousEmailAccountLinking: true }),
+    // Each provider is only registered when its credential env vars are present.
+    ...(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET
+      ? [GitHub({ allowDangerousEmailAccountLinking: true })]
+      : []),
+    ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
+      ? [Google({ allowDangerousEmailAccountLinking: true })]
+      : []),
   ],
   // Use "session" as the cookie name so our existing resolveSession() picks
   // up Auth.js-created sessions without any changes to API route auth.

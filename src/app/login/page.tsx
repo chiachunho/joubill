@@ -21,7 +21,11 @@ export default async function LoginPage({ searchParams }: Props) {
           </div>
         </div>
         <SessionProvider>
-          <OAuthButtons callbackUrl={callbackUrl} />
+          <OAuthButtons
+            callbackUrl={callbackUrl}
+            showGithub={!!(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET)}
+            showGoogle={!!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET)}
+          />
         </SessionProvider>
       </div>
     </div>
