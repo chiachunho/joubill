@@ -890,7 +890,7 @@ export function ExpenseForm(props: Props) {
                         )}
                         {shareType === "adjustment" && isIncluded && adjBases.has(f.userId) && (
                           <div className="text-xs text-muted-foreground num mt-0.5">
-                            {adjBases.get(f.userId)!.toFixed(2)} {currency}
+                            {(adjBases.get(f.userId)! + (parseFloat(participants[i]?.value) || 0)).toFixed(2)} {currency}
                           </div>
                         )}
                       </div>
