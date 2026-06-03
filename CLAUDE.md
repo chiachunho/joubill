@@ -37,7 +37,7 @@ A single Next.js 15 (App Router) app serves four concerns simultaneously:
 
 1. **Telegram Bot** — grammY webhook at `POST /api/telegram`
 2. **Mini App frontend** — React pages at `/mini/**` (Telegram-embedded, `initData` auth)
-3. **Web App frontend** — React pages at `/app/**` (standalone browser, Auth.js session-cookie auth) + `/login` + magic-link entry `/g/[token]`
+3. **Web App frontend** — React pages at `/app/**` (standalone browser, Auth.js session-cookie auth) + `/login`
 4. **REST API** — Next.js route handlers at `/api/**` (shared by both frontends)
 
 The Mini App and Web App reuse the same page components; they differ only in how auth/context is supplied (see API Auth and Web Auth below).
@@ -70,8 +70,6 @@ Group membership is enforced separately via `assertGroupMember`.
 Standalone web login runs on **Auth.js (NextAuth v5)** with a Drizzle adapter (`src/lib/auth/nextAuthAdapter.ts`). Providers: **Telegram** (custom OAuth2 + PKCE — see [`docs/telegram-oauth-spec.md`](docs/telegram-oauth-spec.md) for the protocol quirks), plus optional **GitHub** / **Google** (enabled only when their env vars are set). Handler routes live at `/api/auth/[...nextauth]` and `/api/auth/logout`.
 
 Identity is **multi-provider**: one `users` row can have many `auth_identities` (`provider`, `providerUid`). Both the Mini App (`initData`) and Telegram web login key on the **numeric Telegram user id** (not the OIDC `sub`), so the same person resolves to one user across both paths. The bot's user-upsert path goes through `src/lib/auth/upsertTelegramUser.ts`.
-
-**Magic links** (`src/lib/auth/magicLink.ts`): the bot's `/link` command emits a signed `/g/<token>` URL (7-day expiry) that carries `groupId`; opening it logs the web user straight into that group, mirroring the Mini App's `start_param`.
 
 Fetchers: Mini App pages use `tmaFetch` (`src/lib/tma-fetch.ts`, attaches the `tma` header); Web App pages use `src/lib/web-fetch.ts` (`credentials: "include"`, cookie-based).
 

@@ -187,10 +187,6 @@ Opening the Mini App inside a group uses the BotFather-registered direct-link
 - Tap it → redirect to Telegram OAuth → authorize → redirect back to `/app` → see the group list.
 - Tap a group → balances and the expense list render.
 
-**Magic link**
-- In a group, run `/link` → the bot replies with a link.
-- Tap the link while logged out → redirected to `/login?next=...` → after login you land directly in that group.
-
 ---
 
 ## Subsequent updates
@@ -207,6 +203,5 @@ re-run step 8 when the domain or the secret changes.
 - **DB connection errors**: confirm you're using the Neon **pooled** connection string with `?sslmode=require`.
 - **Telegram login button missing / OIDC fails**: confirm `AUTH_TELEGRAM_CLIENT_ID` / `AUTH_TELEGRAM_CLIENT_SECRET` are set and the BotFather Web Login Redirect URI matches `https://<domain>/api/auth/callback/telegram` exactly.
 - **GitHub / Google login fails**: `AUTH_GITHUB_*` / `AUTH_GOOGLE_*` unset, or the OAuth App Callback URL wasn't added.
-- **`/link` link bounces back to login**: the magic-link token expired (7-day validity); re-run `/link` in the group.
 - **Receipt upload fails (502)**: `TELEGRAM_STORAGE_CHAT_ID` is wrong, or the bot isn't an Admin / lacks "Post Messages" in that channel.
 - **Mini App shows a blank receipt image**: `TELEGRAM_STORAGE_CHAT_ID` is correct but the `/api/tg-photo` proxy failed; check Vercel Function logs for a `getFile` error.
