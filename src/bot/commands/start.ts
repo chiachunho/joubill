@@ -6,26 +6,32 @@ import type { BotContext } from "../context";
 
 export const startCommand = new Composer<BotContext>();
 
+/** Build and send the group welcome message (used by /start and bot-join events). */
+export async function sendGroupWelcome(
+  ctx: BotContext & { chat: { id: number }; me: { username: string } },
+) {
+  const botUsername = ctx.me.username;
+  const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
+  // Telegram restriction: web_app button only works in private chat.
+  // In groups use a url button with startapp so Telegram auto-launches the Mini App.
+  const miniAppLink = `https://t.me/${botUsername}/${appName}?startapp=group_${ctx.chat.id}`;
+  const keyboard = new InlineKeyboard()
+    .url("加入揪帳 ✋", miniAppLink)
+    .row()
+    .url("開啟揪帳", miniAppLink);
+  await ctx.reply(
+    "嗨！我是揪帳機器人 👋\n" +
+      "幫這個群組記帳分帳，/add 記第一筆，/help 看指令。\n" +
+      "還沒在群組發過言的成員，點「加入揪帳」就能加入帳目。",
+    { reply_markup: keyboard },
+  );
+}
+
 startCommand.command("start", async (ctx) => {
   const isGroup = ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
 
   if (isGroup) {
-    // Telegram restriction: the web_app inline-button type is private-chat only.
-    // In groups we instead use a url button pointing to the BotFather-registered
-    // direct-link Mini App (t.me/<bot>/<app>); Telegram clients auto-launch it as
-    // a Mini App. The startapp value is delivered as start_param inside initData,
-    // which getAuth reads to auto-join the user to the group.
-    const botUsername = ctx.me.username;
-    const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
-    const startParam = `group_${ctx.chat.id}`;
-    const miniAppLink = `https://t.me/${botUsername}/${appName}?startapp=${startParam}`;
-
-    const name = ctx.from?.first_name ?? "";
-    const greeting =
-      `嗨 ${name}！揪帳幫這個群組記帳分帳。\n` +
-      `/add 記第一筆，/help 看指令，或開啟 App 看明細。`;
-    const keyboard = new InlineKeyboard().url("開啟揪帳", miniAppLink);
-    await ctx.reply(greeting, { reply_markup: keyboard });
+    await sendGroupWelcome(ctx as Parameters<typeof sendGroupWelcome>[0]);
     return;
   }
 
