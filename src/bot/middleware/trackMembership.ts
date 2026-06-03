@@ -1,11 +1,11 @@
-import { Composer, InlineKeyboard } from "grammy";
+import { Composer } from "grammy";
 
 import { db } from "@/db";
 import { groupMembers } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
-import { serverEnv } from "@/lib/env";
 
 import type { BotContext } from "../context";
+import { sendGroupWelcome } from "../commands/start";
 
 /**
  * Register users added to a group even if they never speak.
@@ -49,13 +49,7 @@ trackMembership.on("my_chat_member", async (ctx, next) => {
     new_chat_member.status === "restricted";
 
   if (wasAbsent && isNowPresent) {
-    const { TELEGRAM_MINI_APP_NAME } = serverEnv();
-    const joinLink = `https://t.me/${ctx.me.username}/${TELEGRAM_MINI_APP_NAME}?startapp=group_${ctx.chat.id}`;
-    const keyboard = new InlineKeyboard().url("加入揪帳 ✋", joinLink);
-    await ctx.reply(
-      "嗨！我是揪帳機器人 👋\n還沒在群組發過言的成員，點下面按鈕就能加入帳目，不需要先講話。",
-      { reply_markup: keyboard },
-    );
+    await sendGroupWelcome(ctx as Parameters<typeof sendGroupWelcome>[0]);
   }
 
   await next();
