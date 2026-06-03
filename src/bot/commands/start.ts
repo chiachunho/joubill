@@ -15,14 +15,9 @@ export async function sendGroupWelcome(
   // Telegram restriction: web_app button only works in private chat.
   // In groups use a url button with startapp so Telegram auto-launches the Mini App.
   const miniAppLink = `https://t.me/${botUsername}/${appName}?startapp=group_${ctx.chat.id}`;
-  const keyboard = new InlineKeyboard()
-    .url("加入揪帳 ✋", miniAppLink)
-    .row()
-    .url("開啟揪帳", miniAppLink);
+  const keyboard = new InlineKeyboard().url("開啟揪帳 →", miniAppLink);
   await ctx.reply(
-    "嗨！我是揪帳機器人 👋\n" +
-      "幫這個群組記帳分帳，/add 記第一筆，/help 看指令。\n" +
-      "還沒在群組發過言的成員，點「加入揪帳」就能加入帳目。",
+    "嗨！我是揪帳機器人 👋\n/add 記第一筆，/help 看指令。就這樣，記帳分帳超級簡單。",
     { reply_markup: keyboard },
   );
 }
