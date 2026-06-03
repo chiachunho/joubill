@@ -83,6 +83,9 @@ const TelegramOIDC = {
   },
 };
 
+export const githubEnabled = !!(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET);
+export const googleEnabled = !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: splitbillAdapter,
   session: { strategy: "database" },
@@ -90,12 +93,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     TelegramOIDC,
     // Both GitHub and Google verify email before sharing it, so auto-linking is safe.
     // Each provider is only registered when its credential env vars are present.
-    ...(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET
-      ? [GitHub({ allowDangerousEmailAccountLinking: true })]
-      : []),
-    ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
-      ? [Google({ allowDangerousEmailAccountLinking: true })]
-      : []),
+    ...(githubEnabled ? [GitHub({ allowDangerousEmailAccountLinking: true })] : []),
+    ...(googleEnabled ? [Google({ allowDangerousEmailAccountLinking: true })] : []),
   ],
   // Use "session" as the cookie name so our existing resolveSession() picks
   // up Auth.js-created sessions without any changes to API route auth.

@@ -1,5 +1,6 @@
 import { SessionProvider } from "next-auth/react";
 
+import { githubEnabled, googleEnabled } from "@/auth";
 import { Logo } from "@/components/Logo";
 import { OAuthButtons } from "@/components/OAuthButtons";
 
@@ -23,8 +24,8 @@ export default async function LoginPage({ searchParams }: Props) {
         <SessionProvider>
           <OAuthButtons
             callbackUrl={callbackUrl}
-            showGithub={!!(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET)}
-            showGoogle={!!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET)}
+            showGithub={githubEnabled}
+            showGoogle={googleEnabled}
           />
         </SessionProvider>
       </div>
