@@ -955,6 +955,16 @@ export function ExpenseForm(props: Props) {
                                   className="num w-20 text-right"
                                   disabled={!isIncluded}
                                   {...field}
+                                  onFocus={(e) => {
+                                    if (field.value === "0") {
+                                      field.onChange("");
+                                      e.target.value = "";
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    field.onBlur();
+                                    if (!e.target.value) field.onChange("0");
+                                  }}
                                 />
                               </div>
                             ) : (
