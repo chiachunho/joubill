@@ -32,9 +32,7 @@ startCommand.command("start", async (ctx) => {
 
   // Private chat: the web_app button can launch the Mini App directly.
   const name = ctx.from?.first_name ?? "";
-  const greeting =
-    `嗨 ${name}！把我加進群組就能開始分帳。\n` +
-    `點下面開啟 App，或輸入 /help 看怎麼用。`;
+  const greeting = `嗨 ${name}！把我加進群組就能開始分帳。\n就這樣，超級簡單。`;
   const keyboard = new InlineKeyboard().webApp(
     "開啟揪帳",
     clientEnv.NEXT_PUBLIC_MINI_APP_URL,
