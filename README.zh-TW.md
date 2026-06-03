@@ -73,13 +73,12 @@ pnpm bot:set-webhook https://abc.ngrok.app
 - `/list`：列出最近支出
 - `/balance`：顯示目前餘額
 - `/settle`：產生最少筆數的還款建議
-- `/link`：取得能在 Web App 開啟此群組的 magic link
 - 開啟 Mini App：使用 `/start` 回覆訊息裡的按鈕
 
 ## 兩個進入點
 
 - **Mini App**（`/mini`）：透過 Bot 的 `web_app` 按鈕在 Telegram 內開啟（會帶 `initData`）。瀏覽器直接打開只能看到預覽。
-- **Web App**（`/app`，登入頁 `/login`）：給沒裝 Telegram 的人用的一般網頁，靠 Auth.js session cookie 驗證。Magic link（`/g/<token>`）可讓已登入者直接進某個群組。
+- **Web App**（`/app`，登入頁 `/login`）：給沒裝 Telegram 的人用的一般網頁，靠 Auth.js session cookie 驗證。
 
 ## 結構
 
@@ -93,7 +92,7 @@ src/
 │   ├── api/tg-photo, tg-upload   # 收據照片 proxy + 上傳
 │   ├── mini/                     # Mini App 頁面（Telegram）
 │   ├── app/                      # Web App 頁面（瀏覽器）
-│   ├── login/, g/[token]/        # Web 登入 + magic link 進入點
+│   ├── login/                    # Web 登入
 │   ├── layout.tsx
 │   └── page.tsx                  # 公開 landing
 ├── auth.ts                       # Auth.js 設定（Telegram / GitHub / Google）
@@ -107,7 +106,7 @@ src/
 │   └── schema.ts                 # 12 張表
 └── lib/
     ├── env.ts                    # typed env
-    ├── auth/                     # initData HMAC、session、magic link、route guard
+    ├── auth/                     # initData HMAC、session、route guard
     ├── settlement-core.ts        # 純粹的 greedy 最少筆數演算法
     ├── settlement.ts             # 碰 DB 的餘額查詢
     ├── fx.ts                     # 匯率快取
