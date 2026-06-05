@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { ChevronRight, LogOut, Users } from "lucide-react";
+import { ChevronRight, UserCircle, Users } from "lucide-react";
 import useSWR from "swr";
 
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
@@ -24,11 +24,6 @@ export default function AppHome() {
     }
   }, [error]);
 
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    window.location.href = "/login";
-  }
-
   if (error && !String(error).includes("401")) {
     return (
       <div className="px-4 py-12 text-center">
@@ -44,13 +39,12 @@ export default function AppHome() {
     <div className="py-6">
       <div className="mb-3 flex items-center justify-between px-4">
         <p className="sect">我的群組</p>
-        <button
-          onClick={logout}
-          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary active:bg-secondary/80"
+        <Link
+          href="/app/settings"
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
-          <LogOut className="size-3.5" />
-          登出
-        </button>
+          <UserCircle className="size-4" />
+        </Link>
       </div>
 
       {data.groups.length === 0 ? (
