@@ -235,6 +235,24 @@ export const sessions = pgTable("sessions", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
+/**
+ * Pending group deletion request. Required when group has >1 member — a second member
+ * must approve before the group is deleted. One row per group (enforced by unique on groupId).
+ */
+export const groupDeleteRequests = pgTable("group_delete_requests", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id")
+    .notNull()
+    .unique()
+    .references(() => groups.id, { onDelete: "cascade" }),
+  requestedBy: integer("requested_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  telegramMessageId: integer("telegram_message_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Convenient row types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -257,3 +275,4 @@ export type NewSession = typeof sessions.$inferInsert;
 export type ReceiptAwaiting = typeof receiptAwaiting.$inferSelect;
 export type AddAwaiting = typeof addAwaiting.$inferSelect;
 export type ExpenseReceipt = typeof expenseReceipts.$inferSelect;
+export type GroupDeleteRequest = typeof groupDeleteRequests.$inferSelect;

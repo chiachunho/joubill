@@ -7,6 +7,7 @@ import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import {
   Select,
@@ -108,7 +109,7 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
         } else {
           setDeleteError("刪除失敗，請再試一次");
         }
-        return; // keep dialog open so user can see the error
+        return;
       }
 
       await mutateMembers();
@@ -265,6 +266,14 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
           </button>
         </div>
       )}
+
+      <DangerZoneSection
+        groupId={id}
+        membersCount={membersData.members.length}
+        selfUserId={selfUserId}
+        rawFetch={tmaRawFetch}
+        redirectPath="/mini"
+      />
 
       <ConfirmDialog
         open={deleteTarget !== null}
