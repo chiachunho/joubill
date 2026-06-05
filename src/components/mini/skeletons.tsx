@@ -165,6 +165,37 @@ export function GroupSettingsSkeleton() {
   );
 }
 
+/** Personal settings: profile block + about section. */
+export function PersonalSettingsSkeleton() {
+  return (
+    <div className="space-y-6 py-4">
+      <div className="px-4">
+        <Skeleton className="h-5 w-24" />
+      </div>
+
+      <section className="px-4">
+        <div className="flex items-center gap-4 rounded-2xl bg-secondary/50 px-4 py-4">
+          <Skeleton className="size-12 rounded-full" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4">
+        <Skeleton className="mb-2.5 h-3 w-8" />
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <div className="flex items-center justify-between px-4 py-3">
+            <Skeleton className="h-3.5 w-10" />
+            <Skeleton className="h-3.5 w-16" />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 /** Expense / settlement form. Expense adds the split-type toggle + participant panel. */
 export function FormSkeleton({ variant }: { variant: "expense" | "settlement" }) {
   return (
