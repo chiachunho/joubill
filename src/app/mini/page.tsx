@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Users } from "lucide-react";
+import { ChevronRight, UserCircle, Users } from "lucide-react";
 import useSWR from "swr";
 
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
@@ -59,6 +59,15 @@ export default function MiniHome() {
 
   return (
     <div className="py-6">
+      <div className="relative flex items-center justify-center px-4 mb-6">
+        <p className="text-sm font-semibold text-foreground">揪帳</p>
+        <Link
+          href="/mini/settings"
+          className="absolute right-4 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <UserCircle className="size-4" />
+        </Link>
+      </div>
       <p className="sect px-4 mb-3">我的群組</p>
       <div className="mx-4 overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/50">
         {groups.map((g) => (

@@ -2,7 +2,7 @@
 
 import { startTransition, use, useEffect, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Check, History, Loader2, Plus, Settings, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Check, History, Loader2, Plus, Settings, UserCircle, Users } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
@@ -188,9 +188,15 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <div className="space-y-6 py-4">
-      {/* Group header — photo + title centered, settings icon pinned right */}
+      {/* Group header — photo + title centered, user icon left, settings icon right */}
       <div className="relative flex items-center justify-center px-4">
-        <div className="flex items-center gap-2.5">
+        <Link
+          href="/mini/settings"
+          className="absolute left-4 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <UserCircle className="size-4" />
+        </Link>
+        <div className="flex min-w-0 items-center gap-2.5">
           {avatars?.groupPhoto ? (
             <img
               src={avatars.groupPhoto}
