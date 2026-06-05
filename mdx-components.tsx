@@ -52,6 +52,14 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       </div>
     ),
     hr: () => <hr className="my-10 border-border" />,
+    a: ({ children, href }) => (
+      <a
+        href={href}
+        className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+      >
+        {children}
+      </a>
+    ),
     strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
     table: ({ children }) => (
       <div className="mb-4 overflow-x-auto rounded-2xl border border-border/40">
