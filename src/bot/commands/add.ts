@@ -1,8 +1,8 @@
 import { Composer, InlineKeyboard } from "grammy";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, lt, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expensePayers, expenseSplits, expenses, groupMembers, receiptAwaiting, users } from "@/db/schema";
+import { addAwaiting, expensePayers, expenseSplits, expenses, groupMembers, receiptAwaiting, users } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped, splitEqual } from "@/lib/money";
@@ -59,25 +59,16 @@ async function resolveSharePerson(
   return row ?? null;
 }
 
-addCommand.command("add", async (ctx) => {
-  if (!ctx.dbGroup || !ctx.dbUser) {
-    await ctx.reply("這個指令只能在群組裡用，把我加進群組再試。");
-    return;
-  }
-
-  let parsed;
-  try {
-    parsed = parseAddMessage(ctx.message?.text ?? "", ctx.message?.entities ?? []);
-  } catch (err) {
-    await ctx.reply(err instanceof Error ? err.message : "輸入格式錯誤");
-    return;
-  }
-
+async function handleAddParsed(
+  ctx: BotContext & { dbGroup: NonNullable<BotContext["dbGroup"]>; dbUser: NonNullable<BotContext["dbUser"]> },
+  parsed: import("@/lib/parseAdd").ParsedAdd,
+  originalEntities: readonly import("grammy/types").MessageEntity[] = [],
+) {
   const group = ctx.dbGroup;
   const payer = ctx.dbUser;
 
   // Auto-register text_mention users (people without @username picked from mention list)
-  for (const entity of ctx.message?.entities ?? []) {
+  for (const entity of originalEntities) {
     if (entity.type !== "text_mention" || !entity.user || entity.user.is_bot) continue;
     const u = await upsertTelegramUser(entity.user);
     await db.insert(groupMembers).values({ groupId: group.id, userId: u.id }).onConflictDoNothing();
@@ -87,8 +78,6 @@ addCommand.command("add", async (ctx) => {
 
   // ── Unequal split (multi-line) ─────────────────────────────────────────────
   if (parsed.shareLines.length > 0) {
-    // Resolve each share line to a DB user. typedAt marks people the user
-    // wrote as @username (so the result echoes the @), vs 我 / @-list picks.
     const resolved: Array<{ user: DbUser; amount: number; typedAt: boolean }> = [];
     for (const share of parsed.shareLines) {
       const user = await resolveSharePerson(share, payer, group.id);
@@ -251,7 +240,6 @@ addCommand.command("add", async (ctx) => {
     participants,
   });
 
-  // Echo "@username" only for people the user actually @-mentioned.
   const typedUsernames = new Set(parsed.mentionUsernames);
   const display = (p: DbUser) => nameFor(p, p.username ? typedUsernames.has(p.username) : false);
 
@@ -266,6 +254,38 @@ addCommand.command("add", async (ctx) => {
     splitLine;
 
   await ctx.reply(text, { parse_mode: "HTML", reply_markup: buildKeyboard(ctx, expense.id, { showReceiptButton: true }) });
+}
+
+addCommand.command("add", async (ctx) => {
+  if (!ctx.dbGroup || !ctx.dbUser) {
+    await ctx.reply("這個指令只能在群組裡用，把我加進群組再試。");
+    return;
+  }
+
+  // Detect bare /add with no arguments → ForceReply so user can type inline
+  const cmdBody = (ctx.message?.text ?? "").replace(/^\/add(@\w+)?\s*/i, "");
+  if (!cmdBody.trim()) {
+    const sent = await ctx.reply(
+      "請輸入費用內容，例如：\n<code>500 吃飯</code>\n或多行分帳：\n<code>800 聚餐\n@alice 300\n我 500</code>",
+      { parse_mode: "HTML", reply_markup: { force_reply: true, selective: true } },
+    );
+    await db.insert(addAwaiting).values({ chatId: ctx.chat!.id, messageId: sent.message_id });
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = parseAddMessage(ctx.message?.text ?? "", ctx.message?.entities ?? []);
+  } catch (err) {
+    await ctx.reply(err instanceof Error ? err.message : "輸入格式錯誤");
+    return;
+  }
+
+  await handleAddParsed(
+    ctx as Parameters<typeof handleAddParsed>[0],
+    parsed,
+    ctx.message?.entities ?? [],
+  );
 });
 
 export function buildKeyboard(
@@ -310,6 +330,50 @@ addCommand.callbackQuery(/^upload_receipt:(\d+)$/, async (ctx) => {
 
   await db.insert(receiptAwaiting).values({ chatId, messageId: sent.message_id, expenseId });
   await ctx.answerCallbackQuery();
+});
+
+const STALE_MS = 24 * 60 * 60 * 1000;
+
+// Handle text replies to the ForceReply "enter expense" prompt.
+addCommand.on("message:text", async (ctx, next) => {
+  if (!ctx.dbGroup || !ctx.dbUser) return next();
+
+  const replyToId = ctx.message.reply_to_message?.message_id;
+  if (!replyToId) return next();
+
+  const [pending] = await db
+    .select()
+    .from(addAwaiting)
+    .where(and(eq(addAwaiting.chatId, ctx.chat.id), eq(addAwaiting.messageId, replyToId)));
+
+  if (!pending) return next();
+
+  // Delete the pending row (and opportunistically clean up stale rows)
+  await Promise.all([
+    db.delete(addAwaiting).where(eq(addAwaiting.id, pending.id)),
+    db.delete(addAwaiting).where(lt(addAwaiting.createdAt, new Date(Date.now() - STALE_MS))),
+  ]);
+
+  // Prepend /add so the existing parser handles it correctly
+  const syntheticText = "/add " + ctx.message.text;
+  const syntheticEntities = (ctx.message.entities ?? []).map((e) => ({
+    ...e,
+    offset: e.offset + 5, // shift by length of "/add "
+  }));
+
+  let parsed;
+  try {
+    parsed = parseAddMessage(syntheticText, syntheticEntities);
+  } catch (err) {
+    await ctx.reply(err instanceof Error ? err.message : "輸入格式錯誤");
+    return;
+  }
+
+  await handleAddParsed(
+    ctx as Parameters<typeof handleAddParsed>[0],
+    parsed,
+    ctx.message.entities ?? [],
+  );
 });
 
 /** Inserts an expense + equal splits in one call. Returns the created expense and share amounts. */

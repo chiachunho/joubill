@@ -174,6 +174,18 @@ export const receiptAwaiting = pgTable("receipt_awaiting", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Tracks in-flight "waiting for /add details" states in group chats.
+ * Created when a user sends /add with no arguments; deleted once the user
+ * replies with expense text (or the row expires after 24 h).
+ */
+export const addAwaiting = pgTable("add_awaiting", {
+  id: serial("id").primaryKey(),
+  chatId: bigint("chat_id", { mode: "number" }).notNull(),
+  messageId: integer("message_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** FX rate cache. One row per (base, quote, as_of_date); fetched once per day. */
 export const exchangeRates = pgTable(
   "exchange_rates",
@@ -243,4 +255,5 @@ export type NewAuthIdentity = typeof authIdentities.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type ReceiptAwaiting = typeof receiptAwaiting.$inferSelect;
+export type AddAwaiting = typeof addAwaiting.$inferSelect;
 export type ExpenseReceipt = typeof expenseReceipts.$inferSelect;

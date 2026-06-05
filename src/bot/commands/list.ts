@@ -1,9 +1,10 @@
-import { Composer } from "grammy";
+import { Composer, InlineKeyboard } from "grammy";
 import { desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expensePayers, expenses, users } from "@/db/schema";
 import { fmt } from "@/lib/money";
+import { serverEnv } from "@/lib/env";
 
 import type { BotContext } from "../context";
 
@@ -64,7 +65,10 @@ listCommand.command("list", async (ctx) => {
     return `${date}  ${who}  ${amount} ${r.currency}${desc}`;
   });
 
+  const { TELEGRAM_MINI_APP_NAME } = serverEnv();
+  const appUrl = `https://t.me/${ctx.me.username}/${TELEGRAM_MINI_APP_NAME}?startapp=group_${ctx.chat!.id}`;
   await ctx.reply(`最近 ${rows.length} 筆\n\`\`\`\n` + lines.join("\n") + "\n```", {
     parse_mode: "Markdown",
+    reply_markup: new InlineKeyboard().webApp("開啟揪帳", appUrl),
   });
 });
