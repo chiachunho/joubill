@@ -11,7 +11,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h2: ({ children, id }) => (
       <h2
         id={id}
-        className="mb-3 mt-6 scroll-mt-24 text-lg font-semibold text-foreground"
+        className="mb-3 mt-4 scroll-mt-24 text-lg font-semibold text-foreground"
       >
         {children}
       </h2>
@@ -51,7 +51,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         <div className="text-foreground/70 [&>p:last-child]:mb-0">{children}</div>
       </div>
     ),
-    hr: () => <hr className="mt-8 border-border" />,
+    hr: () => <hr className="mt-8 mb-4 border-border" />,
     a: ({ children, href }) => (
       <a
         href={href}
