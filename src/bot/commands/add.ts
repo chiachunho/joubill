@@ -267,7 +267,11 @@ addCommand.command("add", async (ctx) => {
   if (!cmdBody.trim()) {
     const sent = await ctx.reply(
       "請輸入費用內容，例如：\n<code>500 吃飯</code>\n或多行分帳：\n<code>800 聚餐\n@alice 300\n我 500</code>",
-      { parse_mode: "HTML", reply_markup: { force_reply: true, selective: true } },
+      {
+        parse_mode: "HTML",
+        reply_to_message_id: ctx.message!.message_id,
+        reply_markup: { force_reply: true, selective: true },
+      },
     );
     await db.insert(addAwaiting).values({ chatId: ctx.chat!.id, messageId: sent.message_id });
     return;
