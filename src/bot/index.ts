@@ -3,6 +3,7 @@ import { Bot } from "grammy";
 import { serverEnv } from "@/lib/env";
 
 import { addCommand } from "./commands/add";
+import { appCommand } from "./commands/app";
 import { balanceCommand } from "./commands/balance";
 import { deleteExpenseCallback } from "./commands/deleteExpense";
 import { helpCommand } from "./commands/help";
@@ -43,6 +44,7 @@ export function getBot(): Bot<BotContext> {
   bot.use(startCommand);
   bot.use(helpCommand);
   bot.use(addCommand);
+  bot.use(appCommand);
   bot.use(listCommand);
   bot.use(balanceCommand);
   bot.use(settleCommand);

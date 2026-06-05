@@ -1,4 +1,4 @@
-import { Composer } from "grammy";
+import { Composer, InlineKeyboard } from "grammy";
 import { inArray } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -6,6 +6,7 @@ import { users } from "@/db/schema";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { computeGroupBalances } from "@/lib/settlement";
+import { serverEnv } from "@/lib/env";
 
 import { escapeHtml, mention } from "../format";
 import type { BotContext } from "../context";
@@ -49,7 +50,12 @@ balanceCommand.command("balance", async (ctx) => {
     return `${dot} ${mentionOf(b.userId)}　<b>${sign}${fmtGrouped(Math.abs(b.amount))}</b>`;
   });
 
+  const { TELEGRAM_MINI_APP_NAME } = serverEnv();
+  const appUrl = `https://t.me/${ctx.me.username}/${TELEGRAM_MINI_APP_NAME}?startapp=group_${ctx.chat!.id}`;
   const text =
     `💰 <b>${escapeHtml(ctx.dbGroup.title)}</b>　餘額 · ${currency}\n\n` + lines.join("\n");
-  await ctx.reply(text, { parse_mode: "HTML" });
+  await ctx.reply(text, {
+    parse_mode: "HTML",
+    reply_markup: new InlineKeyboard().webApp("開啟揪帳", appUrl),
+  });
 });
