@@ -4,14 +4,12 @@ import { Info } from "lucide-react";
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     h1: ({ children }) => (
-      <h1 className="mb-8 border-b border-border pb-6 text-2xl font-semibold text-foreground">
-        {children}
-      </h1>
+      <h1 className="mb-6 text-2xl font-semibold text-foreground">{children}</h1>
     ),
     h2: ({ children, id }) => (
       <h2
         id={id}
-        className="mb-3 mt-4 scroll-mt-24 text-lg font-semibold text-foreground"
+        className="mb-3 mt-6 scroll-mt-24 text-lg font-semibold text-foreground"
       >
         {children}
       </h2>
