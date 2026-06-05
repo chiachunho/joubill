@@ -1,45 +1,39 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "lucide-react";
+import useSWR from "swr";
 
 import { PersonalSettingsSkeleton } from "@/components/mini/skeletons";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
-type TgUser = {
+type ProfileResponse = {
   firstName: string;
-  lastName?: string;
-  username?: string;
-  photoUrl?: string;
+  lastName: string | null;
+  username: string | null;
+  photoUrl: string | null;
 };
 
 export default function PersonalSettingsPage() {
   const router = useRouter();
-  // Fall back to the groups list if there is no history to go back to
   const back = useCallback(() => router.push("/mini"), [router]);
   useTelegramBackButton(back);
 
-  const [user, setUser] = useState<TgUser | null>(null);
+  const { data: profile, error } = useSWR<ProfileResponse>("/api/me/profile");
 
-  useEffect(() => {
-    import("@twa-dev/sdk")
-      .then(({ default: WebApp }) => {
-        const u = WebApp.initDataUnsafe.user;
-        setUser(
-          u
-            ? { firstName: u.first_name, lastName: u.last_name, username: u.username, photoUrl: u.photo_url }
-            : { firstName: "使用者" },
-        );
-      })
-      .catch(() => {
-        setUser({ firstName: "使用者" });
-      });
-  }, []);
+  if (error) {
+    return (
+      <div className="px-4 py-12 text-center">
+        <p className="text-sm text-muted-foreground">無法載入</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{String(error)}</p>
+      </div>
+    );
+  }
 
-  if (!user) return <PersonalSettingsSkeleton />;
+  if (!profile) return <PersonalSettingsSkeleton />;
 
-  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+  const displayName = [profile.firstName, profile.lastName].filter(Boolean).join(" ");
 
   return (
     <div className="space-y-6 py-4">
@@ -49,9 +43,9 @@ export default function PersonalSettingsPage() {
 
       <section className="px-4">
         <div className="flex items-center gap-4 rounded-2xl bg-secondary/50 px-4 py-4">
-          {user.photoUrl ? (
+          {profile.photoUrl ? (
             <img
-              src={user.photoUrl}
+              src={profile.photoUrl}
               alt={displayName}
               className="size-12 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
             />
@@ -62,8 +56,8 @@ export default function PersonalSettingsPage() {
           )}
           <div className="min-w-0">
             <p className="truncate font-semibold">{displayName}</p>
-            {user.username && (
-              <p className="truncate text-sm text-muted-foreground">@{user.username}</p>
+            {profile.username && (
+              <p className="truncate text-sm text-muted-foreground">@{profile.username}</p>
             )}
           </div>
         </div>

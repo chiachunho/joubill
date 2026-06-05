@@ -11,6 +11,7 @@ type ProfileResponse = {
   firstName: string;
   lastName: string | null;
   username: string | null;
+  photoUrl: string | null;
 };
 
 export default function AppSettingsPage() {
@@ -56,9 +57,17 @@ export default function AppSettingsPage() {
 
       <section className="px-4">
         <div className="flex items-center gap-4 rounded-2xl bg-secondary/50 px-4 py-4">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <User className="size-5 text-primary" />
-          </div>
+          {profile.photoUrl ? (
+            <img
+              src={profile.photoUrl}
+              alt={displayName}
+              className="size-12 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+            />
+          ) : (
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <User className="size-5 text-primary" />
+            </div>
+          )}
           <div className="min-w-0">
             <p className="truncate font-semibold">{displayName}</p>
             {profile.username && (
