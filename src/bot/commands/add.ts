@@ -373,11 +373,14 @@ addCommand.on("message:text", async (ctx, next) => {
     return;
   }
 
-  await handleAddParsed(
-    ctx as Parameters<typeof handleAddParsed>[0],
-    parsed,
-    ctx.message.entities ?? [],
-  );
+  await Promise.all([
+    handleAddParsed(
+      ctx as Parameters<typeof handleAddParsed>[0],
+      parsed,
+      ctx.message.entities ?? [],
+    ),
+    ctx.api.deleteMessage(ctx.chat.id, replyToId).catch(() => undefined),
+  ]);
 });
 
 /** Inserts an expense + equal splits in one call. Returns the created expense and share amounts. */
