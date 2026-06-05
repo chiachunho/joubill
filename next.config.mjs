@@ -4,7 +4,12 @@ let appVersion = "dev";
 try {
   appVersion = execSync("git describe --tags", { encoding: "utf8" }).trim();
 } catch {
-  // no tags yet or not a git repo — show "dev"
+  // no tags — fall back to short commit SHA
+  try {
+    appVersion = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+  } catch {
+    // not a git repo
+  }
 }
 
 /** @type {import('next').NextConfig} */
