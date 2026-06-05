@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, LogOut, User } from "lucide-react";
 import useSWR from "swr";
@@ -12,15 +13,22 @@ type ProfileResponse = {
   username: string | null;
 };
 
-async function logout() {
-  await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-  window.location.href = "/login";
-}
-
 export default function AppSettingsPage() {
   const { data: profile, error } = useSWR<ProfileResponse>("/api/me/profile");
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  if (error) {
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch {
+      // network error — redirect anyway; server session expires naturally
+    }
+    window.location.href = "/login";
+  }
+
+  if (error && !String(error).includes("401")) {
     return (
       <div className="px-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">無法載入</p>
@@ -75,11 +83,12 @@ export default function AppSettingsPage() {
       <section className="px-4">
         <div className="overflow-hidden rounded-2xl bg-secondary/50">
           <button
-            onClick={logout}
-            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
           >
             <LogOut className="size-4" />
-            登出
+            {loggingOut ? "登出中…" : "登出"}
           </button>
         </div>
       </section>

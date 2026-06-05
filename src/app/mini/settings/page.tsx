@@ -16,25 +16,25 @@ type TgUser = {
 
 export default function PersonalSettingsPage() {
   const router = useRouter();
-  const back = useCallback(() => router.back(), [router]);
+  // Fall back to the groups list if there is no history to go back to
+  const back = useCallback(() => router.push("/mini"), [router]);
   useTelegramBackButton(back);
 
   const [user, setUser] = useState<TgUser | null>(null);
 
   useEffect(() => {
-    import("@twa-dev/sdk").then(({ default: WebApp }) => {
-      const u = WebApp.initDataUnsafe.user;
-      if (u) {
-        setUser({
-          firstName: u.first_name,
-          lastName: u.last_name,
-          username: u.username,
-          photoUrl: u.photo_url,
-        });
-      } else {
+    import("@twa-dev/sdk")
+      .then(({ default: WebApp }) => {
+        const u = WebApp.initDataUnsafe.user;
+        setUser(
+          u
+            ? { firstName: u.first_name, lastName: u.last_name, username: u.username, photoUrl: u.photo_url }
+            : { firstName: "使用者" },
+        );
+      })
+      .catch(() => {
         setUser({ firstName: "使用者" });
-      }
-    });
+      });
   }, []);
 
   if (!user) return <PersonalSettingsSkeleton />;

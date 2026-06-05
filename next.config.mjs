@@ -2,9 +2,9 @@ import { execSync } from "child_process";
 
 let appVersion = "dev";
 try {
-  appVersion = execSync("git describe --tags --always", { encoding: "utf8" }).trim();
+  appVersion = execSync("git describe --tags", { encoding: "utf8" }).trim();
 } catch {
-  // not a git repo or no tags yet
+  // no tags yet or not a git repo — show "dev"
 }
 
 /** @type {import('next').NextConfig} */

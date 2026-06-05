@@ -196,7 +196,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
         >
           <UserCircle className="size-4" />
         </Link>
-        <div className="flex items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
           {avatars?.groupPhoto ? (
             <img
               src={avatars.groupPhoto}
