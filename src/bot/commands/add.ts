@@ -329,6 +329,7 @@ addCommand.callbackQuery(/^upload_receipt:(\d+)$/, async (ctx) => {
   }
 
   const sent = await ctx.reply("請回覆這則訊息並附上收據照片 📷", {
+    reply_to_message_id: ctx.callbackQuery.message?.message_id,
     reply_markup: { force_reply: true, selective: true },
   });
 
