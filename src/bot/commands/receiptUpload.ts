@@ -45,6 +45,7 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
           .set({ receiptFileId: fileId, updatedAt: new Date() })
           .where(eq(expenses.id, pending.expenseId)),
         db.delete(receiptAwaiting).where(eq(receiptAwaiting.id, pending.id)),
+        ctx.api.deleteMessage(ctx.chat.id, replyToId).catch(() => undefined),
       ]);
       await ctx.react("👍");
       return;
