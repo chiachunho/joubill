@@ -4,48 +4,64 @@ on:
   pull_request:
     branches: [main, dev]
 
-jobs:
-  check:
-    runs-on: ubuntu-latest
+env:
+  DATABASE_URL: postgresql://dummy:dummy@localhost/dummy
+  TELEGRAM_BOT_TOKEN: dummy
+  TELEGRAM_WEBHOOK_SECRET: dummy
+  TELEGRAM_MINI_APP_NAME: dummy
+  TELEGRAM_STORAGE_CHAT_ID: "0"
+  NEXT_PUBLIC_MINI_APP_URL: http://localhost:3000/mini
+  AUTH_SECRET: dummy-secret-for-ci-build-only
 
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
-        with:
-          version: latest
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
 
-      - name: Lint
-        run: pnpm lint
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
 
-      - name: Type check
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
-        env:
-          DATABASE_URL: postgresql://dummy:dummy@localhost/dummy
-          TELEGRAM_BOT_TOKEN: dummy
-          TELEGRAM_WEBHOOK_SECRET: dummy
-          TELEGRAM_MINI_APP_NAME: dummy
-          TELEGRAM_STORAGE_CHAT_ID: "0"
-          NEXT_PUBLIC_MINI_APP_URL: http://localhost:3000/mini
-
-      - name: Build
-        run: pnpm build
-        env:
-          DATABASE_URL: postgresql://dummy:dummy@localhost/dummy
-          TELEGRAM_BOT_TOKEN: dummy
-          TELEGRAM_WEBHOOK_SECRET: dummy
-          TELEGRAM_MINI_APP_NAME: dummy
-          TELEGRAM_STORAGE_CHAT_ID: "0"
-          NEXT_PUBLIC_MINI_APP_URL: http://localhost:3000/mini
-          AUTH_SECRET: dummy-secret-for-ci-build-only
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
