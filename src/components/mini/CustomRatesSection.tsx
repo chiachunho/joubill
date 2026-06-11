@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
 import useSWR, { mutate as globalMutate } from "swr";
 
+import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,15 +42,20 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
   const [base, setBase] = useState<string>("");
   const [rateInput, setRateInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
-  // Market reference for the currency being added/updated.
-  const { data: reference } = useSWR<{ marketRate: number | null }>(
+  // Market reference + count of existing expenses the new rate would re-convert.
+  const { data: reference } = useSWR<{
+    marketRate: number | null;
+    affectedExpenses: number;
+  }>(
     base && base !== defaultCurrency
       ? `/api/groups/${groupId}/rates/effective?base=${base}`
       : null,
   );
+  const affectedExpenses = reference?.affectedExpenses ?? 0;
 
   // Balances and stats are computed with these rates — refresh them after a change.
   function revalidateDerived() {
@@ -82,7 +88,15 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
       setErrMsg("儲存失敗，請再試一次");
     } finally {
       setSaving(false);
+      setConfirmOpen(false);
     }
+  }
+
+  /** Existing records get re-converted — make the user confirm when any exist. */
+  function requestSave() {
+    if (!canSave) return;
+    if (affectedExpenses > 0) setConfirmOpen(true);
+    else void save();
   }
 
   async function remove(row: RateRow) {
@@ -187,7 +201,7 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
               size="sm"
               className="h-8 rounded-lg"
               disabled={!canSave}
-              onClick={save}
+              onClick={requestSave}
             >
               {saving ? <Loader2 className="size-3.5 animate-spin" /> : "儲存"}
             </Button>
@@ -195,6 +209,12 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
           {base && reference?.marketRate != null && (
             <p className="num text-xs text-muted-foreground">
               市場參考：1 {base} ≈ {fmtRate(reference.marketRate)} {defaultCurrency}
+            </p>
+          )}
+          {base && affectedExpenses > 0 && (
+            <p className="text-xs text-muted-foreground">
+              帳本中已有 <span className="num">{affectedExpenses}</span> 筆 {base}{" "}
+              支出，儲存後將以新匯率重新換算。
             </p>
           )}
           <p className="text-xs text-muted-foreground">
@@ -210,6 +230,16 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="套用到既有紀錄"
+        description={`帳本中已有 ${affectedExpenses} 筆 ${base} 支出。儲存後，這些紀錄（除已自訂單筆匯率者外）都會改以 1 ${base} = ${rateInput} ${defaultCurrency} 重新換算，餘額可能因此變動。`}
+        confirmLabel="儲存"
+        loading={saving}
+        onConfirm={() => void save()}
+      />
     </section>
   );
 }
