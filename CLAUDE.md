@@ -102,7 +102,9 @@ Rate resolution priority, highest first:
 2. **Group custom rate** — `group_exchange_rates` rows (managed in group settings via `GET/PUT/DELETE /api/groups/[id]/rates`). One agreed rate per `(group, base, quote)` that applies to **all** of the group's expenses in that currency, past and future — a deliberate departure from the historical-rate principle. Inverse pairs are derived automatically (`buildOverrideMap`); explicit pairs win over derived inverses. Loaded once per request with `loadGroupRateOverrides` and passed to `getRate` as the optional `overrides` map.
 3. **Market rate** — cached per `(base, quote, date)` in the `exchange_rates` table (global, shared across groups; group overrides are never written into it). Historical expenses always use the rate as of `spent_at`, so balances don't silently shift when rates move.
 
-`GET /api/groups/[id]/rates/effective?base=X` returns the effective rate (group override or market), the market reference, and `affectedExpenses` (existing expenses in `base` without an applicable pin) — used by the expense form prefill and the settings page, which warns and asks for confirmation before a new group rate re-converts existing records.
+`GET /api/groups/[id]/rates/effective?base=X` returns the effective rate (group override or market), the market reference, and `affectedExpenses` (existing expenses in `base` without an applicable pin) — used by the expense form prefill and the settings page.
+
+When existing records would be re-converted, the settings page asks for the scope before saving. `PUT /api/groups/[id]/rates` with `lockExisting: true` first pins every affected expense at its **current** effective rate (old group rate or per-day market rate, resolved before the upsert) so the new rate only applies to future records — this is how "each trip has its own agreed rate" is supported.
 
 ### Receipt photos (`src/app/api/tg-photo/` and `src/app/api/tg-upload/`)
 

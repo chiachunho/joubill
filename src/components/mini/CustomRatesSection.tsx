@@ -4,8 +4,15 @@ import { useState } from "react";
 import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
 import useSWR, { mutate as globalMutate } from "swr";
 
-import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -41,7 +48,9 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
 
   const [base, setBase] = useState<string>("");
   const [rateInput, setRateInput] = useState("");
-  const [saving, setSaving] = useState(false);
+  /** Which confirm-dialog choice is in flight (null = not saving). */
+  const [savingMode, setSavingMode] = useState<"all" | "lock" | null>(null);
+  const saving = savingMode !== null;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -57,46 +66,53 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
   );
   const affectedExpenses = reference?.affectedExpenses ?? 0;
 
-  // Balances and stats are computed with these rates — refresh them after a change.
+  // Balances, stats and expense fx pins are derived from these rates — refresh after a change.
   function revalidateDerived() {
     globalMutate(`/api/groups/${groupId}/balance`);
     globalMutate(`/api/groups/${groupId}/stats`);
+    globalMutate(`/api/groups/${groupId}/expenses`);
   }
 
   const parsedRate = parseFloat(rateInput);
   const canSave = base !== "" && Number.isFinite(parsedRate) && parsedRate > 0 && !saving;
 
-  async function save() {
-    if (!canSave) return;
-    setSaving(true);
+  async function save(mode: "all" | "lock") {
+    if (saving) return;
+    setSavingMode(mode);
     setErrMsg(null);
     try {
       const res = await rawFetch(`/api/groups/${groupId}/rates`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ base, quote: defaultCurrency, rate: parsedRate }),
+        body: JSON.stringify({
+          base,
+          quote: defaultCurrency,
+          rate: parsedRate,
+          lockExisting: mode === "lock",
+        }),
       });
       if (!res.ok) {
-        setErrMsg("儲存失敗，請再試一次");
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setErrMsg(data.error ?? "儲存失敗，請再試一次");
         return;
       }
       setBase("");
       setRateInput("");
       await mutate();
       revalidateDerived();
+      setConfirmOpen(false);
     } catch {
       setErrMsg("儲存失敗，請再試一次");
     } finally {
-      setSaving(false);
-      setConfirmOpen(false);
+      setSavingMode(null);
     }
   }
 
-  /** Existing records get re-converted — make the user confirm when any exist. */
+  /** Existing records would be re-converted — let the user pick the scope first. */
   function requestSave() {
     if (!canSave) return;
     if (affectedExpenses > 0) setConfirmOpen(true);
-    else void save();
+    else void save("all");
   }
 
   async function remove(row: RateRow) {
@@ -214,7 +230,7 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
           {base && affectedExpenses > 0 && (
             <p className="text-xs text-muted-foreground">
               帳本中已有 <span className="num">{affectedExpenses}</span> 筆 {base}{" "}
-              支出，儲存後將以新匯率重新換算。
+              支出，儲存時可選擇是否套用到這些舊紀錄。
             </p>
           )}
           <p className="text-xs text-muted-foreground">
@@ -231,15 +247,52 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
         </div>
       )}
 
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title="套用到既有紀錄"
-        description={`帳本中已有 ${affectedExpenses} 筆 ${base} 支出。儲存後，這些紀錄（除已自訂單筆匯率者外）都會改以 1 ${base} = ${rateInput} ${defaultCurrency} 重新換算，餘額可能因此變動。`}
-        confirmLabel="儲存"
-        loading={saving}
-        onConfirm={() => void save()}
-      />
+      <Dialog open={confirmOpen} onOpenChange={saving ? undefined : setConfirmOpen}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>套用範圍</DialogTitle>
+            <DialogDescription>
+              帳本中已有 {affectedExpenses} 筆 {base} 支出（不含已自訂單筆匯率者）。新匯率 1{" "}
+              {base} = {rateInput} {defaultCurrency} 要套用到哪些紀錄？
+              「只套用到之後」會把既有紀錄鎖定在目前使用的匯率，餘額不變。
+            </DialogDescription>
+          </DialogHeader>
+          {errMsg && <p className="text-sm text-destructive">{errMsg}</p>}
+          <DialogFooter className="flex-col gap-2">
+            <Button
+              className="w-full rounded-lg"
+              disabled={saving}
+              onClick={() => void save("lock")}
+            >
+              {savingMode === "lock" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                "只套用到之後的支出"
+              )}
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full rounded-lg"
+              disabled={saving}
+              onClick={() => void save("all")}
+            >
+              {savingMode === "all" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                "套用到全部（重算舊紀錄）"
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full rounded-lg"
+              disabled={saving}
+              onClick={() => setConfirmOpen(false)}
+            >
+              取消
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
