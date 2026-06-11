@@ -3,7 +3,7 @@ import { and, count, eq, isNull, ne, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { expenses, groups } from "@/db/schema";
+import { expenses, groups, settlements } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { getRate, loadGroupRateOverrides, overrideKey } from "@/lib/fx";
@@ -28,9 +28,10 @@ const querySchema = z.object({
  * `date` (default today). `marketRate` is always included as a reference
  * (null when the FX API is unreachable and the cache is empty).
  *
- * `affectedExpenses` counts the group's existing expenses in `base` that a
- * group custom rate would re-convert — i.e. those without an applicable
- * per-expense pinned rate. Used by the settings page to warn before saving.
+ * `affectedExpenses` / `affectedSettlements` count the group's existing
+ * records in `base` that a group custom rate would re-convert — i.e. those
+ * without an applicable pinned rate. Used by the settings page to warn
+ * before saving or deleting a group rate.
  */
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
@@ -65,21 +66,38 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       source: "same",
       marketRate: 1,
       affectedExpenses: 0,
+      affectedSettlements: 0,
     });
   }
 
-  // Pins only apply while fx_quote matches the current default currency, so an
-  // expense counts as affected when it has no pin or the pin is dormant.
-  const [affected] = await db
-    .select({ count: count() })
-    .from(expenses)
-    .where(
-      and(
-        eq(expenses.groupId, groupId),
-        eq(expenses.currency, base),
-        or(isNull(expenses.fxRate), isNull(expenses.fxQuote), ne(expenses.fxQuote, quote)),
+  // Pins only apply while fx_quote matches the current default currency, so a
+  // record counts as affected when it has no pin or the pin is dormant.
+  const [[affected], [affectedSettled]] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.groupId, groupId),
+          eq(expenses.currency, base),
+          or(isNull(expenses.fxRate), isNull(expenses.fxQuote), ne(expenses.fxQuote, quote)),
+        ),
       ),
-    );
+    db
+      .select({ count: count() })
+      .from(settlements)
+      .where(
+        and(
+          eq(settlements.groupId, groupId),
+          eq(settlements.currency, base),
+          or(
+            isNull(settlements.fxRate),
+            isNull(settlements.fxQuote),
+            ne(settlements.fxQuote, quote),
+          ),
+        ),
+      ),
+  ]);
 
   const overrides = await loadGroupRateOverrides(groupId);
   const override = overrides.get(overrideKey(base, quote)) ?? null;
@@ -99,5 +117,6 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     source: override != null ? "group" : marketRate != null ? "market" : null,
     marketRate,
     affectedExpenses: affected.count,
+    affectedSettlements: affectedSettled.count,
   });
 });

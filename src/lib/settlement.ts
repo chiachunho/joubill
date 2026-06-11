@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, settlements } from "@/db/schema";
 
-import { expensePinnedRate, getRate, loadGroupRateOverrides } from "./fx";
+import { getRate, loadGroupRateOverrides, pinnedRate } from "./fx";
 import { n } from "./money";
 import type { NetBalance } from "./settlement-core";
 
@@ -47,7 +47,7 @@ export async function computeGroupBalances(
     .where(eq(expenses.groupId, groupId));
   for (const r of paidRows) {
     const rate =
-      expensePinnedRate(r, quoteCurrency) ??
+      pinnedRate(r, quoteCurrency) ??
       (await getRate(r.currency, quoteCurrency, r.spentAt, overrides));
     bump(r.payerId, n(r.amount) * rate);
   }
@@ -66,7 +66,7 @@ export async function computeGroupBalances(
     .where(eq(expenses.groupId, groupId));
   for (const r of owedRows) {
     const rate =
-      expensePinnedRate(r, quoteCurrency) ??
+      pinnedRate(r, quoteCurrency) ??
       (await getRate(r.currency, quoteCurrency, r.spentAt, overrides));
     bump(r.debtorId, -n(r.amount) * rate);
   }
@@ -78,11 +78,15 @@ export async function computeGroupBalances(
       amount: settlements.amount,
       currency: settlements.currency,
       settledAt: settlements.settledAt,
+      fxRate: settlements.fxRate,
+      fxQuote: settlements.fxQuote,
     })
     .from(settlements)
     .where(eq(settlements.groupId, groupId));
   for (const r of settled) {
-    const rate = await getRate(r.currency, quoteCurrency, r.settledAt, overrides);
+    const rate =
+      pinnedRate(r, quoteCurrency) ??
+      (await getRate(r.currency, quoteCurrency, r.settledAt, overrides));
     bump(r.from, n(r.amount) * rate);
     bump(r.to, -n(r.amount) * rate);
   }

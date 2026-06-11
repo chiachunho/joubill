@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
-import { and, asc, eq, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { expenses, groupExchangeRates, groups } from "@/db/schema";
+import { groupExchangeRates, groups } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { getRate, loadGroupRateOverrides } from "@/lib/fx";
+import { loadGroupRateOverrides } from "@/lib/fx";
 import { n } from "@/lib/money";
+import {
+  affectedCurrencyFor,
+  applyRateLock,
+  planRateLock,
+  type RateLockPlan,
+} from "@/lib/rate-lock";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -72,71 +78,34 @@ export const PUT = withAuth(async (req: Request, { params }: Params) => {
   }
   const { base, quote, rate, lockExisting } = body.data;
 
-  // Resolve the pins BEFORE the new rate exists: each affected expense gets its
-  // current effective rate (old group rate or market rate as of spent_at), so
+  // Resolve the pins BEFORE the new rate exists: each affected record gets its
+  // current effective rate (old group rate or market rate as of its date), so
   // existing balances don't move. Network/cache lookups happen outside the
   // transaction below.
-  let pinUpdates: Array<{ ids: number[]; rate: string }> = [];
-  let pinQuote: string | null = null;
-  let lockedCount = 0;
+  let plan: RateLockPlan | null = null;
   if (lockExisting) {
     const [group] = await db
       .select({ defaultCurrency: groups.defaultCurrency })
       .from(groups)
       .where(eq(groups.id, groupId));
     if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
-    pinQuote = group.defaultCurrency;
 
-    if (base !== pinQuote) {
-      const overrides = await loadGroupRateOverrides(groupId);
-      const affected = await db
-        .select({ id: expenses.id, spentAt: expenses.spentAt })
-        .from(expenses)
-        .where(
-          and(
-            eq(expenses.groupId, groupId),
-            eq(expenses.currency, base),
-            or(
-              isNull(expenses.fxRate),
-              isNull(expenses.fxQuote),
-              ne(expenses.fxQuote, pinQuote),
-            ),
-          ),
-        );
-
+    const lockCurrency = affectedCurrencyFor({ base, quote }, group.defaultCurrency);
+    if (lockCurrency) {
       try {
-        const rateByDay = new Map<string, number>();
-        const idsByRate = new Map<string, number[]>();
-        for (const e of affected) {
-          const day = e.spentAt.toISOString().slice(0, 10);
-          let r = rateByDay.get(day);
-          if (r === undefined) {
-            r = await getRate(base, pinQuote, e.spentAt, overrides);
-            rateByDay.set(day, r);
-          }
-          const key = String(r);
-          const ids = idsByRate.get(key) ?? [];
-          ids.push(e.id);
-          idsByRate.set(key, ids);
-        }
-        pinUpdates = Array.from(idsByRate.entries()).map(([r, ids]) => ({ ids, rate: r }));
+        const overrides = await loadGroupRateOverrides(groupId);
+        plan = await planRateLock(groupId, lockCurrency, group.defaultCurrency, overrides);
       } catch {
         return NextResponse.json(
           { error: "無法取得既有紀錄的歷史匯率，請稍後再試" },
           { status: 502 },
         );
       }
-      lockedCount = affected.length;
     }
   }
 
   const row = await db.transaction(async (tx) => {
-    for (const u of pinUpdates) {
-      await tx
-        .update(expenses)
-        .set({ fxRate: u.rate, fxQuote: pinQuote, updatedAt: new Date() })
-        .where(inArray(expenses.id, u.ids));
-    }
+    if (plan) await applyRateLock(tx, plan);
     const [saved] = await tx
       .insert(groupExchangeRates)
       .values({
@@ -160,7 +129,8 @@ export const PUT = withAuth(async (req: Request, { params }: Params) => {
     quote: row.quote,
     rate: n(row.rate),
     updatedAt: row.updatedAt,
-    lockedExpenses: lockedCount,
+    lockedExpenses: plan?.lockedExpenses ?? 0,
+    lockedSettlements: plan?.lockedSettlements ?? 0,
   });
 });
 
@@ -169,6 +139,12 @@ const deleteSchema = z.object({
   quote: z.enum(SUPPORTED_CURRENCIES),
 });
 
+/**
+ * Remove a group custom rate. With `?lock=1`, affected records are first
+ * pinned at the rate being deleted (their current effective rate), so the
+ * delete only changes how FUTURE records convert; without it, old records
+ * fall back to market rates.
+ */
 export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const groupId = Number((await params).id);
@@ -185,16 +161,50 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid base/quote" }, { status: 400 });
   }
+  const { base, quote } = parsed.data;
+  const lock = url.searchParams.get("lock") === "1";
 
-  await db
-    .delete(groupExchangeRates)
-    .where(
-      and(
-        eq(groupExchangeRates.groupId, groupId),
-        eq(groupExchangeRates.base, parsed.data.base),
-        eq(groupExchangeRates.quote, parsed.data.quote),
-      ),
-    );
+  let plan: RateLockPlan | null = null;
+  if (lock) {
+    const [group] = await db
+      .select({ defaultCurrency: groups.defaultCurrency })
+      .from(groups)
+      .where(eq(groups.id, groupId));
+    if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
 
-  return NextResponse.json({ ok: true });
+    // A dormant rate (pair doesn't touch the default currency) affects nothing.
+    const lockCurrency = affectedCurrencyFor({ base, quote }, group.defaultCurrency);
+    if (lockCurrency) {
+      try {
+        // Overrides still include the rate being deleted — that's the point:
+        // records get frozen at it.
+        const overrides = await loadGroupRateOverrides(groupId);
+        plan = await planRateLock(groupId, lockCurrency, group.defaultCurrency, overrides);
+      } catch {
+        return NextResponse.json(
+          { error: "無法取得既有紀錄的歷史匯率，請稍後再試" },
+          { status: 502 },
+        );
+      }
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    if (plan) await applyRateLock(tx, plan);
+    await tx
+      .delete(groupExchangeRates)
+      .where(
+        and(
+          eq(groupExchangeRates.groupId, groupId),
+          eq(groupExchangeRates.base, base),
+          eq(groupExchangeRates.quote, quote),
+        ),
+      );
+  });
+
+  return NextResponse.json({
+    ok: true,
+    lockedExpenses: plan?.lockedExpenses ?? 0,
+    lockedSettlements: plan?.lockedSettlements ?? 0,
+  });
 });

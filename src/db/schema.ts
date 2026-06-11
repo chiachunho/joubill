@@ -143,6 +143,11 @@ export const settlements = pgTable(
       .references(() => users.id),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull(),
+    /** Optional pinned FX rate, same semantics as expenses.fx_rate/fx_quote.
+     *  Written by the rate-lock flow so old settlements keep their conversion
+     *  when the group rate changes. */
+    fxRate: numeric("fx_rate", { precision: 20, scale: 10 }),
+    fxQuote: varchar("fx_quote", { length: 3 }),
     settledAt: timestamp("settled_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

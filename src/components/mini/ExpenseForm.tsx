@@ -291,6 +291,22 @@ export function ExpenseForm(props: Props) {
   const participants = form.watch("participants");
   const payers = form.watch("payers");
 
+  // A rate typed for one currency is meaningless for another — clear the field
+  // when the currency changes, restoring the saved pin when switching back to
+  // the record's stored currency.
+  useEffect(() => {
+    const restored =
+      initial?.fxRate != null &&
+      initial.fxQuote === props.defaultCurrency &&
+      currency === initial.currency
+        ? String(initial.fxRate)
+        : "";
+    if (form.getValues("fxRate") !== restored) {
+      form.setValue("fxRate", restored, { shouldValidate: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency]);
+
   // Reference rate for the FX field (group custom rate if set, else market rate
   // as of the spend date). Uses the surrounding SWRProvider's fetcher, so it
   // works in both the Mini App and the Web App.

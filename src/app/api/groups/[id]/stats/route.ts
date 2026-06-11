@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { expensePayers, expenses, groups, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { expensePinnedRate, getRate, loadGroupRateOverrides } from "@/lib/fx";
+import { getRate, loadGroupRateOverrides, pinnedRate } from "@/lib/fx";
 import { n } from "@/lib/money";
 
 export const runtime = "nodejs";
@@ -69,7 +69,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const monthIndex = new Map(monthly.map((m, idx) => [m.month, idx]));
   for (const r of expenseRows) {
     const rate =
-      expensePinnedRate(r, group.defaultCurrency) ??
+      pinnedRate(r, group.defaultCurrency) ??
       (await getRate(r.currency, group.defaultCurrency, r.spentAt, overrides));
     const key = `${r.spentAt.getFullYear()}-${String(r.spentAt.getMonth() + 1).padStart(2, "0")}`;
     const idx = monthIndex.get(key);
@@ -83,7 +83,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   >();
   for (const r of payerRows) {
     const rate =
-      expensePinnedRate(r, group.defaultCurrency) ??
+      pinnedRate(r, group.defaultCurrency) ??
       (await getRate(r.currency, group.defaultCurrency, r.spentAt, overrides));
     const cur = byPayerMap.get(r.payerId) ?? {
       userId: r.payerId,

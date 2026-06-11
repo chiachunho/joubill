@@ -83,11 +83,12 @@ export async function loadGroupRateOverrides(groupId: number): Promise<RateOverr
 }
 
 /**
- * Per-expense pinned rate: applies only when the expense's stored fx_quote
- * matches the target quote currency (a later default-currency change makes
- * the pin dormant rather than silently wrong). Pure so it can be unit-tested.
+ * Per-record pinned rate (expenses and settlements share the fx columns):
+ * applies only when the stored fx_quote matches the target quote currency
+ * (a later default-currency change makes the pin dormant rather than
+ * silently wrong). Pure so it can be unit-tested.
  */
-export function expensePinnedRate(
+export function pinnedRate(
   fx: { fxRate: string | number | null; fxQuote: string | null },
   quote: string,
 ): number | null {

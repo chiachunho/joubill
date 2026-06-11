@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  buildOverrideMap,
-  expensePinnedRate,
-  getRate,
-  overrideKey,
-  parseFxResponse,
-} from "../fx";
+import { buildOverrideMap, getRate, overrideKey, parseFxResponse, pinnedRate } from "../fx";
 
 describe("parseFxResponse", () => {
   const payload = {
@@ -80,20 +74,20 @@ describe("buildOverrideMap", () => {
   });
 });
 
-describe("expensePinnedRate", () => {
+describe("pinnedRate", () => {
   it("returns the pinned rate when the quote matches", () => {
-    expect(expensePinnedRate({ fxRate: "0.215", fxQuote: "TWD" }, "TWD")).toBe(0.215);
+    expect(pinnedRate({ fxRate: "0.215", fxQuote: "TWD" }, "TWD")).toBe(0.215);
     // numeric column may arrive as string or number; quote compare is case-insensitive
-    expect(expensePinnedRate({ fxRate: 0.215, fxQuote: "twd" }, "TWD")).toBe(0.215);
+    expect(pinnedRate({ fxRate: 0.215, fxQuote: "twd" }, "TWD")).toBe(0.215);
   });
 
   it("returns null when the pin targets a different quote currency", () => {
-    expect(expensePinnedRate({ fxRate: "0.215", fxQuote: "TWD" }, "USD")).toBeNull();
+    expect(pinnedRate({ fxRate: "0.215", fxQuote: "TWD" }, "USD")).toBeNull();
   });
 
   it("returns null when unset or invalid", () => {
-    expect(expensePinnedRate({ fxRate: null, fxQuote: null }, "TWD")).toBeNull();
-    expect(expensePinnedRate({ fxRate: "0", fxQuote: "TWD" }, "TWD")).toBeNull();
-    expect(expensePinnedRate({ fxRate: "-1", fxQuote: "TWD" }, "TWD")).toBeNull();
+    expect(pinnedRate({ fxRate: null, fxQuote: null }, "TWD")).toBeNull();
+    expect(pinnedRate({ fxRate: "0", fxQuote: "TWD" }, "TWD")).toBeNull();
+    expect(pinnedRate({ fxRate: "-1", fxQuote: "TWD" }, "TWD")).toBeNull();
   });
 });

@@ -25,6 +25,11 @@ import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 
 type RateRow = { id: number; base: string; quote: string; rate: number; updatedAt: string };
 type RatesResponse = { defaultCurrency: string; rates: RateRow[] };
+type EffectiveResponse = {
+  marketRate: number | null;
+  affectedExpenses: number;
+  affectedSettlements: number;
+};
 
 type Props = {
   groupId: string;
@@ -36,6 +41,18 @@ type Props = {
 /** Trim a stored rate for display: 0.2200000000 → "0.22". */
 function fmtRate(rate: number): string {
   return String(parseFloat(rate.toFixed(6)));
+}
+
+/** "3 筆支出、1 筆還款" (settlements omitted when zero). */
+function fmtAffected(expenses: number, settlements: number): string {
+  return settlements > 0 ? `${expenses} 筆支出、${settlements} 筆還款` : `${expenses} 筆支出`;
+}
+
+/** The non-default side of the pair — the currency whose records the rate converts. */
+function affectedCurrencyOf(row: RateRow, defaultCurrency: string): string | null {
+  if (row.quote === defaultCurrency) return row.base;
+  if (row.base === defaultCurrency) return row.quote;
+  return null;
 }
 
 /**
@@ -52,19 +69,30 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
   const [savingMode, setSavingMode] = useState<"all" | "lock" | null>(null);
   const saving = savingMode !== null;
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RateRow | null>(null);
+  /** Which delete-dialog choice is in flight (null = not deleting). */
+  const [deleteMode, setDeleteMode] = useState<"plain" | "lock" | null>(null);
+  const deleting = deleteMode !== null;
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
-  // Market reference + count of existing expenses the new rate would re-convert.
-  const { data: reference } = useSWR<{
-    marketRate: number | null;
-    affectedExpenses: number;
-  }>(
+  // Market reference + counts of existing records the new rate would re-convert.
+  const { data: reference } = useSWR<EffectiveResponse>(
     base && base !== defaultCurrency
       ? `/api/groups/${groupId}/rates/effective?base=${base}`
       : null,
   );
   const affectedExpenses = reference?.affectedExpenses ?? 0;
+  const affectedSettlements = reference?.affectedSettlements ?? 0;
+  const affectedTotal = affectedExpenses + affectedSettlements;
+
+  // Same counts for the rate being deleted (its records fall back to market rates).
+  const deleteCurrency = deleteTarget ? affectedCurrencyOf(deleteTarget, defaultCurrency) : null;
+  const { data: deleteCounts } = useSWR<EffectiveResponse>(
+    deleteCurrency ? `/api/groups/${groupId}/rates/effective?base=${deleteCurrency}` : null,
+  );
+  const deleteAffectedTotal = deleteCurrency
+    ? (deleteCounts?.affectedExpenses ?? 0) + (deleteCounts?.affectedSettlements ?? 0)
+    : 0;
 
   // Balances, stats and expense fx pins are derived from these rates — refresh after a change.
   function revalidateDerived() {
@@ -111,29 +139,32 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
   /** Existing records would be re-converted — let the user pick the scope first. */
   function requestSave() {
     if (!canSave) return;
-    if (affectedExpenses > 0) setConfirmOpen(true);
+    if (affectedTotal > 0) setConfirmOpen(true);
     else void save("all");
   }
 
-  async function remove(row: RateRow) {
-    if (deletingId !== null) return;
-    setDeletingId(row.id);
+  async function remove(mode: "plain" | "lock") {
+    if (!deleteTarget || deleting) return;
+    setDeleteMode(mode);
     setErrMsg(null);
     try {
+      const lockParam = mode === "lock" ? "&lock=1" : "";
       const res = await rawFetch(
-        `/api/groups/${groupId}/rates?base=${row.base}&quote=${row.quote}`,
+        `/api/groups/${groupId}/rates?base=${deleteTarget.base}&quote=${deleteTarget.quote}${lockParam}`,
         { method: "DELETE" },
       );
       if (!res.ok) {
-        setErrMsg("刪除失敗，請再試一次");
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setErrMsg(data.error ?? "刪除失敗，請再試一次");
         return;
       }
       await mutate();
       revalidateDerived();
+      setDeleteTarget(null);
     } catch {
       setErrMsg("刪除失敗，請再試一次");
     } finally {
-      setDeletingId(null);
+      setDeleteMode(null);
     }
   }
 
@@ -161,12 +192,12 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
                 )}
               </div>
               <button
-                onClick={() => remove(row)}
-                disabled={deletingId !== null}
+                onClick={() => setDeleteTarget(row)}
+                disabled={deleting}
                 className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
                 aria-label={`刪除 ${row.base} 自訂匯率`}
               >
-                {deletingId === row.id ? (
+                {deleting && deleteTarget?.id === row.id ? (
                   <Loader2 className="size-3.5 animate-spin" />
                 ) : (
                   <Trash2 className="size-3.5" />
@@ -227,10 +258,10 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
               市場參考：1 {base} ≈ {fmtRate(reference.marketRate)} {defaultCurrency}
             </p>
           )}
-          {base && affectedExpenses > 0 && (
+          {base && affectedTotal > 0 && (
             <p className="text-xs text-muted-foreground">
-              帳本中已有 <span className="num">{affectedExpenses}</span> 筆 {base}{" "}
-              支出，儲存時可選擇是否套用到這些舊紀錄。
+              帳本中已有 {fmtAffected(affectedExpenses, affectedSettlements)}（{base}
+              ），儲存時可選擇是否套用到這些舊紀錄。
             </p>
           )}
           <p className="text-xs text-muted-foreground">
@@ -252,9 +283,9 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
           <DialogHeader>
             <DialogTitle>套用範圍</DialogTitle>
             <DialogDescription>
-              帳本中已有 {affectedExpenses} 筆 {base} 支出（不含已自訂單筆匯率者）。新匯率 1{" "}
-              {base} = {rateInput} {defaultCurrency} 要套用到哪些紀錄？
-              「只套用到之後」會把既有紀錄鎖定在目前使用的匯率，餘額不變。
+              帳本中已有 {fmtAffected(affectedExpenses, affectedSettlements)} 使用 {base}
+              （不含已自訂單筆匯率者）。新匯率 1 {base} = {rateInput} {defaultCurrency}{" "}
+              要套用到哪些紀錄？「只套用到之後」會把既有紀錄鎖定在目前使用的匯率，餘額不變。
             </DialogDescription>
           </DialogHeader>
           {errMsg && <p className="text-sm text-destructive">{errMsg}</p>}
@@ -267,7 +298,7 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
               {savingMode === "lock" ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
-                "只套用到之後的支出"
+                "只套用到之後的紀錄"
               )}
             </Button>
             <Button
@@ -287,6 +318,73 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
               className="w-full rounded-lg"
               disabled={saving}
               onClick={() => setConfirmOpen(false)}
+            >
+              取消
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={deleting ? undefined : (open) => !open && setDeleteTarget(null)}
+      >
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>刪除自訂匯率</DialogTitle>
+            <DialogDescription>
+              {deleteTarget && deleteCurrency && deleteAffectedTotal > 0 ? (
+                <>
+                  帳本中有{" "}
+                  {fmtAffected(
+                    deleteCounts?.affectedExpenses ?? 0,
+                    deleteCounts?.affectedSettlements ?? 0,
+                  )}{" "}
+                  正使用 1 {deleteTarget.base} = {fmtRate(deleteTarget.rate)} {deleteTarget.quote}
+                  。直接刪除後，這些紀錄會改用市場匯率重新換算；
+                  「鎖定舊紀錄」會讓它們維持在這個匯率，只有之後的新紀錄改用市場匯率。
+                </>
+              ) : deleteTarget && !deleteCurrency ? (
+                "此設定目前未生效，刪除不會影響任何紀錄。"
+              ) : (
+                "沒有紀錄使用此匯率，可以直接刪除。"
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {errMsg && <p className="text-sm text-destructive">{errMsg}</p>}
+          <DialogFooter className="flex-col gap-2">
+            {deleteCurrency && deleteAffectedTotal > 0 && (
+              <Button
+                className="w-full rounded-lg"
+                disabled={deleting}
+                onClick={() => void remove("lock")}
+              >
+                {deleteMode === "lock" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  "刪除並鎖定舊紀錄"
+                )}
+              </Button>
+            )}
+            <Button
+              variant={deleteCurrency && deleteAffectedTotal > 0 ? "destructive" : "default"}
+              className="w-full rounded-lg"
+              disabled={deleting}
+              onClick={() => void remove("plain")}
+            >
+              {deleteMode === "plain" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : deleteCurrency && deleteAffectedTotal > 0 ? (
+                "直接刪除（改用市場匯率）"
+              ) : (
+                "刪除"
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full rounded-lg"
+              disabled={deleting}
+              onClick={() => setDeleteTarget(null)}
             >
               取消
             </Button>
