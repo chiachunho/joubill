@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { expensePayers, expenses, groups, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { getRate } from "@/lib/fx";
+import { expensePinnedRate, getRate, loadGroupRateOverrides } from "@/lib/fx";
 import { n } from "@/lib/money";
 
 export const runtime = "nodejs";
@@ -26,12 +26,16 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
   if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
 
+  const overrides = await loadGroupRateOverrides(groupId);
+
   // For monthly chart: use total expense amounts (no payer join needed)
   const expenseRows = await db
     .select({
       amount: expenses.amount,
       currency: expenses.currency,
       spentAt: expenses.spentAt,
+      fxRate: expenses.fxRate,
+      fxQuote: expenses.fxQuote,
     })
     .from(expenses)
     .where(eq(expenses.groupId, groupId));
@@ -42,6 +46,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       amount: expensePayers.amount,
       currency: expenses.currency,
       spentAt: expenses.spentAt,
+      fxRate: expenses.fxRate,
+      fxQuote: expenses.fxQuote,
       payerId: expensePayers.payerId,
       payerFirstName: users.firstName,
       payerLastName: users.lastName,
@@ -62,7 +68,9 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
   const monthIndex = new Map(monthly.map((m, idx) => [m.month, idx]));
   for (const r of expenseRows) {
-    const rate = await getRate(r.currency, group.defaultCurrency, r.spentAt);
+    const rate =
+      expensePinnedRate(r, group.defaultCurrency) ??
+      (await getRate(r.currency, group.defaultCurrency, r.spentAt, overrides));
     const key = `${r.spentAt.getFullYear()}-${String(r.spentAt.getMonth() + 1).padStart(2, "0")}`;
     const idx = monthIndex.get(key);
     if (idx !== undefined) monthly[idx].total = Math.round((monthly[idx].total + n(r.amount) * rate) * 100) / 100;
@@ -74,7 +82,9 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     { userId: number; firstName: string; lastName: string | null; username: string | null; total: number }
   >();
   for (const r of payerRows) {
-    const rate = await getRate(r.currency, group.defaultCurrency, r.spentAt);
+    const rate =
+      expensePinnedRate(r, group.defaultCurrency) ??
+      (await getRate(r.currency, group.defaultCurrency, r.spentAt, overrides));
     const cur = byPayerMap.get(r.payerId) ?? {
       userId: r.payerId,
       firstName: r.payerFirstName,

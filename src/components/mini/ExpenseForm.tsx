@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
-import { mutate } from "swr";
+import useSWR, { mutate } from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, ImagePlus, Loader2, Plus, X } from "lucide-react";
 
@@ -52,6 +52,8 @@ type Initial = {
   id: number;
   amount: number;
   currency: string;
+  fxRate?: number | null;
+  fxQuote?: string | null;
   description: string | null;
   payers: Array<{ payerId: number; amount: number }>;
   spentAt: string;
@@ -120,6 +122,12 @@ function buildDefaults(props: Props): ExpenseFormValues {
   return {
     amount: initial ? initial.amount.toFixed(2) : "",
     currency: (initial?.currency ?? defaultCurrency) as ExpenseFormValues["currency"],
+    // Restore a pinned rate only while it still targets the group's current
+    // default currency; a dormant pin (default changed since) starts blank.
+    fxRate:
+      initial?.fxRate != null && initial.fxQuote === defaultCurrency
+        ? String(initial.fxRate)
+        : "",
     description: initial?.description ?? "",
     payers: initial?.payers.length
       ? initial.payers.map((p) => ({ userId: String(p.payerId), amount: p.amount.toFixed(2) }))
@@ -278,9 +286,20 @@ export function ExpenseForm(props: Props) {
 
   const amount = form.watch("amount");
   const currency = form.watch("currency");
+  const spentDate = form.watch("spentDate");
   const shareType = form.watch("shareType");
   const participants = form.watch("participants");
   const payers = form.watch("payers");
+
+  // Reference rate for the FX field (group custom rate if set, else market rate
+  // as of the spend date). Uses the surrounding SWRProvider's fetcher, so it
+  // works in both the Mini App and the Web App.
+  const isForeignCurrency = currency !== props.defaultCurrency;
+  const { data: effectiveRate } = useSWR<{ rate: number | null; source: string | null }>(
+    isForeignCurrency
+      ? `/api/groups/${groupId}/rates/effective?base=${currency}&date=${ymd(spentDate)}`
+      : null,
+  );
 
   // Single mode: keep the lone payer's amount equal to the total.
   useEffect(() => {
@@ -403,6 +422,10 @@ export function ExpenseForm(props: Props) {
     const body = {
       amount: parseFloat(values.amount),
       currency: values.currency,
+      fxRate:
+        values.currency !== props.defaultCurrency && values.fxRate !== ""
+          ? parseFloat(values.fxRate)
+          : null,
       description: values.description.trim() || null,
       payers: values.payers.map((p) => ({
         payerId: Number(p.userId),
@@ -570,6 +593,50 @@ export function ExpenseForm(props: Props) {
             )}
           />
         </div>
+
+        {/* Custom FX rate (foreign-currency expenses only) */}
+        {isForeignCurrency && (
+          <FormField
+            control={form.control}
+            name="fxRate"
+            render={({ field }) => {
+              const typed = parseFloat(field.value);
+              const usingCustom = field.value !== "" && Number.isFinite(typed) && typed > 0;
+              const rateInUse = usingCustom ? typed : (effectiveRate?.rate ?? null);
+              return (
+                <FormItem>
+                  <FormLabel>
+                    匯率（1 {currency} = ? {props.defaultCurrency}）
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="any"
+                      min="0"
+                      inputMode="decimal"
+                      className="num"
+                      placeholder={
+                        effectiveRate?.rate != null ? `${effectiveRate.rate}（自動）` : "自動"
+                      }
+                      {...field}
+                    />
+                  </FormControl>
+                  {rateInUse != null && totalAmount > 0 && (
+                    <p className="text-xs text-muted-foreground num">
+                      ≈ {(totalAmount * rateInUse).toFixed(2)} {props.defaultCurrency} ·{" "}
+                      {usingCustom
+                        ? "此筆自訂匯率"
+                        : effectiveRate?.source === "group"
+                          ? "群組自訂匯率"
+                          : "市場匯率"}
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
+          />
+        )}
 
         {/* Date */}
         <FormField

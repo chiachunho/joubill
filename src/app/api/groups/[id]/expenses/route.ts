@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { expenseReceipts, expensePayers, expenseSplits, expenses, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { resolveExpenseFx } from "@/lib/fx";
 import { n } from "@/lib/money";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
@@ -30,6 +31,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       description: expenses.description,
       spentAt: expenses.spentAt,
       legacyReceiptFileId: expenses.receiptFileId,
+      fxRate: expenses.fxRate,
+      fxQuote: expenses.fxQuote,
     })
     .from(expenses)
     .where(eq(expenses.groupId, groupId))
@@ -101,6 +104,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       currency: e.currency,
       description: e.description,
       spentAt: e.spentAt,
+      fxRate: e.fxRate != null ? n(e.fxRate) : null,
+      fxQuote: e.fxQuote,
       receiptFileIds: resolveReceiptFileIds(
         receiptsByExpense.get(e.id) ?? [],
         e.legacyReceiptFileId,
@@ -148,6 +153,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     );
   }
 
+  const fx = await resolveExpenseFx(groupId, input.currency, input.fxRate);
+
   const expense = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(expenses)
@@ -158,6 +165,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
         description: input.description,
         spentAt: new Date(input.spentAt),
         createdBy: auth.user.id,
+        fxRate: fx.fxRate,
+        fxQuote: fx.fxQuote,
       })
       .returning();
 

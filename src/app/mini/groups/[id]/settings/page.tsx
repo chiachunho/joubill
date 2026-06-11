@@ -7,6 +7,7 @@ import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { CustomRatesSection } from "@/components/mini/CustomRatesSection";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import {
@@ -195,6 +196,13 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
       </section>
+
+      {/* 自訂匯率 */}
+      <CustomRatesSection
+        groupId={id}
+        defaultCurrency={settings.defaultCurrency}
+        rawFetch={tmaRawFetch}
+      />
 
       {/* 成員 */}
       <section className="px-4">

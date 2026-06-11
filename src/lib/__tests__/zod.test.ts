@@ -183,6 +183,20 @@ describe("expenseInputSchema", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("accepts a positive fxRate", () => {
+    expect(expenseInputSchema.safeParse({ ...validExpense, fxRate: 0.22 }).success).toBe(true);
+  });
+
+  it("accepts null and missing fxRate (optional)", () => {
+    expect(expenseInputSchema.safeParse({ ...validExpense, fxRate: null }).success).toBe(true);
+    expect(expenseInputSchema.safeParse(validExpense).success).toBe(true);
+  });
+
+  it("rejects a non-positive fxRate", () => {
+    expect(expenseInputSchema.safeParse({ ...validExpense, fxRate: 0 }).success).toBe(false);
+    expect(expenseInputSchema.safeParse({ ...validExpense, fxRate: -1 }).success).toBe(false);
+  });
 });
 
 describe("settlementInputSchema", () => {

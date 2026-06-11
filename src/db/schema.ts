@@ -72,6 +72,12 @@ export const expenses = pgTable(
       .notNull()
       .references(() => users.id),
     receiptFileId: text("receipt_file_id"),
+    /** Optional pinned FX rate: 1 unit of `currency` = fxRate units of `fxQuote`.
+     *  Set when the user enters a custom rate for this expense (e.g. the card's
+     *  actual rate). Applied only while the group default currency === fxQuote;
+     *  takes precedence over group custom rates and the market rate cache. */
+    fxRate: numeric("fx_rate", { precision: 20, scale: 10 }),
+    fxQuote: varchar("fx_quote", { length: 3 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -186,6 +192,32 @@ export const addAwaiting = pgTable("add_awaiting", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Group-level custom FX rates: 1 `base` = `rate` × `quote`, agreed by the group.
+ * Overrides the market rate cache for ALL of the group's expenses in that
+ * currency (past and future) — a deliberate departure from the historical-rate
+ * principle, since trips usually settle on one fixed rate. Per-expense pinned
+ * rates (expenses.fx_rate) still win over these.
+ */
+export const groupExchangeRates = pgTable(
+  "group_exchange_rates",
+  {
+    id: serial("id").primaryKey(),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    base: varchar("base", { length: 3 }).notNull(),
+    quote: varchar("quote", { length: 3 }).notNull(),
+    rate: numeric("rate", { precision: 20, scale: 10 }).notNull(),
+    createdBy: integer("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("group_exchange_rates_group_pair").on(t.groupId, t.base, t.quote)],
+);
+
 /** FX rate cache. One row per (base, quote, as_of_date); fetched once per day. */
 export const exchangeRates = pgTable(
   "exchange_rates",
@@ -268,6 +300,8 @@ export type NewExpenseSplit = typeof expenseSplits.$inferInsert;
 export type Settlement = typeof settlements.$inferSelect;
 export type NewSettlement = typeof settlements.$inferInsert;
 export type ExchangeRate = typeof exchangeRates.$inferSelect;
+export type GroupExchangeRate = typeof groupExchangeRates.$inferSelect;
+export type NewGroupExchangeRate = typeof groupExchangeRates.$inferInsert;
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type NewAuthIdentity = typeof authIdentities.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
