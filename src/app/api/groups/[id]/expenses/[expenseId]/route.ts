@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenseReceipts, expensePayers, expenseSplits, expenses } from "@/db/schema";
+import { expenseReceipts, expensePayers, expenseSplits, expenses, groups } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { resolveExpenseFx } from "@/lib/fx";
+import { fxColumnsFor } from "@/lib/fx";
 import { n } from "@/lib/money";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
@@ -96,7 +96,7 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
   const input = parsed.data;
 
   const [existing] = await db
-    .select({ id: expenses.id })
+    .select({ id: expenses.id, currency: expenses.currency, fxQuote: expenses.fxQuote })
     .from(expenses)
     .where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
   if (!existing) return NextResponse.json({ error: "expense not found" }, { status: 404 });
@@ -112,7 +112,21 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
     );
   }
 
-  const fx = await resolveExpenseFx(ids.groupId, input.currency, input.fxRate);
+  const [group] = await db
+    .select({ defaultCurrency: groups.defaultCurrency })
+    .from(groups)
+    .where(eq(groups.id, ids.groupId));
+  if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
+
+  const fx = fxColumnsFor(group.defaultCurrency, input.currency, input.fxRate);
+  // A blank rate field means "automatic", which a dormant pin (stamped for a
+  // different default currency) doesn't interfere with — keep it so it can
+  // revive if the default reverts, instead of wiping it on unrelated edits.
+  const keepDormantPin =
+    input.fxRate == null &&
+    existing.fxQuote != null &&
+    existing.fxQuote !== group.defaultCurrency &&
+    input.currency === existing.currency;
 
   await db.transaction(async (tx) => {
     await tx
@@ -120,8 +134,7 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
       .set({
         amount: input.amount.toFixed(2),
         currency: input.currency,
-        fxRate: fx.fxRate,
-        fxQuote: fx.fxQuote,
+        ...(!keepDormantPin && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
         description: input.description,
         spentAt: new Date(input.spentAt),
         // When receipts are explicitly managed, also clear the legacy single-file column so

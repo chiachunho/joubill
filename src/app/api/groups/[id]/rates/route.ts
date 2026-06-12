@@ -21,6 +21,44 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
+/**
+ * Resolve the pins needed to freeze the records a (base, quote) rate change
+ * would re-convert, BEFORE the change is written: each affected record gets
+ * its current effective rate (existing group rate or per-day market rate).
+ * Network/cache lookups happen here, outside the write transaction. Returns
+ * `plan: null` when nothing needs locking (dormant pair), or an error
+ * response when the group is missing or a market rate can't be resolved.
+ */
+async function planLockForPair(
+  groupId: number,
+  base: string,
+  quote: string,
+): Promise<{ plan: RateLockPlan | null; error?: NextResponse }> {
+  const [group] = await db
+    .select({ defaultCurrency: groups.defaultCurrency })
+    .from(groups)
+    .where(eq(groups.id, groupId));
+  if (!group) {
+    return { plan: null, error: NextResponse.json({ error: "group not found" }, { status: 404 }) };
+  }
+
+  const lockCurrency = affectedCurrencyFor({ base, quote }, group.defaultCurrency);
+  if (!lockCurrency) return { plan: null };
+
+  try {
+    const overrides = await loadGroupRateOverrides(groupId);
+    return { plan: await planRateLock(groupId, lockCurrency, group.defaultCurrency, overrides) };
+  } catch {
+    return {
+      plan: null,
+      error: NextResponse.json(
+        { error: "無法取得既有紀錄的歷史匯率，請稍後再試" },
+        { status: 502 },
+      ),
+    };
+  }
+}
+
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const groupId = Number((await params).id);
@@ -78,34 +116,27 @@ export const PUT = withAuth(async (req: Request, { params }: Params) => {
   }
   const { base, quote, rate, lockExisting } = body.data;
 
-  // Resolve the pins BEFORE the new rate exists: each affected record gets its
-  // current effective rate (old group rate or market rate as of its date), so
-  // existing balances don't move. Network/cache lookups happen outside the
-  // transaction below.
   let plan: RateLockPlan | null = null;
   if (lockExisting) {
-    const [group] = await db
-      .select({ defaultCurrency: groups.defaultCurrency })
-      .from(groups)
-      .where(eq(groups.id, groupId));
-    if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
-
-    const lockCurrency = affectedCurrencyFor({ base, quote }, group.defaultCurrency);
-    if (lockCurrency) {
-      try {
-        const overrides = await loadGroupRateOverrides(groupId);
-        plan = await planRateLock(groupId, lockCurrency, group.defaultCurrency, overrides);
-      } catch {
-        return NextResponse.json(
-          { error: "無法取得既有紀錄的歷史匯率，請稍後再試" },
-          { status: 502 },
-        );
-      }
-    }
+    const result = await planLockForPair(groupId, base, quote);
+    if (result.error) return result.error;
+    plan = result.plan;
   }
 
   const row = await db.transaction(async (tx) => {
     if (plan) await applyRateLock(tx, plan);
+    // One agreed rate per currency pair: an explicit inverse row would shadow
+    // the derived inverse of the new rate and let the two directions drift
+    // apart, so replace it.
+    await tx
+      .delete(groupExchangeRates)
+      .where(
+        and(
+          eq(groupExchangeRates.groupId, groupId),
+          eq(groupExchangeRates.base, quote),
+          eq(groupExchangeRates.quote, base),
+        ),
+      );
     const [saved] = await tx
       .insert(groupExchangeRates)
       .values({
@@ -164,29 +195,13 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   const { base, quote } = parsed.data;
   const lock = url.searchParams.get("lock") === "1";
 
+  // Planning runs while the rate still exists, so locked records get frozen
+  // at the rate being deleted — that's the point.
   let plan: RateLockPlan | null = null;
   if (lock) {
-    const [group] = await db
-      .select({ defaultCurrency: groups.defaultCurrency })
-      .from(groups)
-      .where(eq(groups.id, groupId));
-    if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
-
-    // A dormant rate (pair doesn't touch the default currency) affects nothing.
-    const lockCurrency = affectedCurrencyFor({ base, quote }, group.defaultCurrency);
-    if (lockCurrency) {
-      try {
-        // Overrides still include the rate being deleted — that's the point:
-        // records get frozen at it.
-        const overrides = await loadGroupRateOverrides(groupId);
-        plan = await planRateLock(groupId, lockCurrency, group.defaultCurrency, overrides);
-      } catch {
-        return NextResponse.json(
-          { error: "無法取得既有紀錄的歷史匯率，請稍後再試" },
-          { status: 502 },
-        );
-      }
-    }
+    const result = await planLockForPair(groupId, base, quote);
+    if (result.error) return result.error;
+    plan = result.plan;
   }
 
   await db.transaction(async (tx) => {

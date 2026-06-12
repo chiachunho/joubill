@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { affectedCurrencyFor } from "@/lib/fx-shared";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 
 type RateRow = { id: number; base: string; quote: string; rate: number; updatedAt: string };
@@ -48,13 +49,6 @@ function fmtAffected(expenses: number, settlements: number): string {
   return settlements > 0 ? `${expenses} 筆支出、${settlements} 筆還款` : `${expenses} 筆支出`;
 }
 
-/** The non-default side of the pair — the currency whose records the rate converts. */
-function affectedCurrencyOf(row: RateRow, defaultCurrency: string): string | null {
-  if (row.quote === defaultCurrency) return row.base;
-  if (row.base === defaultCurrency) return row.quote;
-  return null;
-}
-
 /**
  * Group-wide custom FX rates. A rate set here overrides the market rate for
  * ALL expenses of the group in that currency (past and future). Shared by the
@@ -76,20 +70,26 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
   // Market reference + counts of existing records the new rate would re-convert.
-  const { data: reference } = useSWR<EffectiveResponse>(
+  // `isLoading` covers both the initial fetch and a key change rendered with
+  // keepPreviousData — saving must wait for the counts of the CURRENT currency,
+  // or the scope dialog could be skipped / show another currency's numbers.
+  const { data: reference, isLoading: referenceLoading } = useSWR<EffectiveResponse>(
     base && base !== defaultCurrency
-      ? `/api/groups/${groupId}/rates/effective?base=${base}`
+      ? `/api/groups/${groupId}/rates/effective?base=${base}&counts=1`
       : null,
   );
+  const countsReady = !referenceLoading && reference !== undefined;
   const affectedExpenses = reference?.affectedExpenses ?? 0;
   const affectedSettlements = reference?.affectedSettlements ?? 0;
   const affectedTotal = affectedExpenses + affectedSettlements;
 
   // Same counts for the rate being deleted (its records fall back to market rates).
-  const deleteCurrency = deleteTarget ? affectedCurrencyOf(deleteTarget, defaultCurrency) : null;
-  const { data: deleteCounts } = useSWR<EffectiveResponse>(
-    deleteCurrency ? `/api/groups/${groupId}/rates/effective?base=${deleteCurrency}` : null,
+  const deleteCurrency = deleteTarget ? affectedCurrencyFor(deleteTarget, defaultCurrency) : null;
+  const { data: deleteCounts, isLoading: deleteCountsLoading } = useSWR<EffectiveResponse>(
+    deleteCurrency ? `/api/groups/${groupId}/rates/effective?base=${deleteCurrency}&counts=1` : null,
   );
+  const deleteCountsReady =
+    !deleteCurrency || (!deleteCountsLoading && deleteCounts !== undefined);
   const deleteAffectedTotal = deleteCurrency
     ? (deleteCounts?.affectedExpenses ?? 0) + (deleteCounts?.affectedSettlements ?? 0)
     : 0;
@@ -102,7 +102,8 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
   }
 
   const parsedRate = parseFloat(rateInput);
-  const canSave = base !== "" && Number.isFinite(parsedRate) && parsedRate > 0 && !saving;
+  const canSave =
+    base !== "" && Number.isFinite(parsedRate) && parsedRate > 0 && !saving && countsReady;
 
   async function save(mode: "all" | "lock") {
     if (saving) return;
@@ -333,7 +334,9 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
           <DialogHeader>
             <DialogTitle>刪除自訂匯率</DialogTitle>
             <DialogDescription>
-              {deleteTarget && deleteCurrency && deleteAffectedTotal > 0 ? (
+              {!deleteCountsReady ? (
+                "正在確認受影響的紀錄…"
+              ) : deleteTarget && deleteCurrency && deleteAffectedTotal > 0 ? (
                 <>
                   帳本中有{" "}
                   {fmtAffected(
@@ -353,7 +356,7 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
           </DialogHeader>
           {errMsg && <p className="text-sm text-destructive">{errMsg}</p>}
           <DialogFooter className="flex-col gap-2">
-            {deleteCurrency && deleteAffectedTotal > 0 && (
+            {deleteCountsReady && deleteCurrency && deleteAffectedTotal > 0 && (
               <Button
                 className="w-full rounded-lg"
                 disabled={deleting}
@@ -369,10 +372,10 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
             <Button
               variant={deleteCurrency && deleteAffectedTotal > 0 ? "destructive" : "default"}
               className="w-full rounded-lg"
-              disabled={deleting}
+              disabled={deleting || !deleteCountsReady}
               onClick={() => void remove("plain")}
             >
-              {deleteMode === "plain" ? (
+              {deleteMode === "plain" || !deleteCountsReady ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : deleteCurrency && deleteAffectedTotal > 0 ? (
                 "直接刪除（改用市場匯率）"

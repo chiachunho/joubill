@@ -219,4 +219,14 @@ describe("settlementInputSchema", () => {
   it("rejects an invalid settledAt", () => {
     expect(settlementInputSchema.safeParse({ ...valid, settledAt: "nope" }).success).toBe(false);
   });
+
+  it("accepts a positive fxRate and null/missing fxRate (optional)", () => {
+    expect(settlementInputSchema.safeParse({ ...valid, fxRate: 0.22 }).success).toBe(true);
+    expect(settlementInputSchema.safeParse({ ...valid, fxRate: null }).success).toBe(true);
+    expect(settlementInputSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects a non-positive fxRate", () => {
+    expect(settlementInputSchema.safeParse({ ...valid, fxRate: 0 }).success).toBe(false);
+  });
 });

@@ -1,25 +1,25 @@
-import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, type AnyColumn, eq, inArray, isNull, ne, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expenses, settlements } from "@/db/schema";
 
 import { getRate, type RateOverrides } from "./fx";
 
+export { affectedCurrencyFor } from "./fx-shared";
+
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
- * Which currency's records a (base, quote) group rate actually affects:
- * conversion always targets the group default currency, so the affected side
- * is the non-default one. Returns null when the pair doesn't touch the
- * default currency at all (the rate is dormant — nothing to lock).
+ * SQL condition for "this record has no pin that applies against `quote`":
+ * no pin at all, or a dormant pin stamped for a different quote currency.
+ * Single source of truth for both the lock queries and the affected-record
+ * counts in the rates API — keep them counting the same set.
  */
-export function affectedCurrencyFor(
-  pair: { base: string; quote: string },
-  defaultCurrency: string,
-): string | null {
-  if (pair.quote === defaultCurrency) return pair.base;
-  if (pair.base === defaultCurrency) return pair.quote;
-  return null;
+export function noApplicablePin(
+  cols: { fxRate: AnyColumn; fxQuote: AnyColumn },
+  quote: string,
+) {
+  return or(isNull(cols.fxRate), isNull(cols.fxQuote), ne(cols.fxQuote, quote));
 }
 
 type IdsByRate = Array<{ ids: number[]; rate: string }>;
@@ -54,7 +54,7 @@ export async function planRateLock(
         and(
           eq(expenses.groupId, groupId),
           eq(expenses.currency, currency),
-          or(isNull(expenses.fxRate), isNull(expenses.fxQuote), ne(expenses.fxQuote, quote)),
+          noApplicablePin(expenses, quote),
         ),
       ),
     db
@@ -64,11 +64,7 @@ export async function planRateLock(
         and(
           eq(settlements.groupId, groupId),
           eq(settlements.currency, currency),
-          or(
-            isNull(settlements.fxRate),
-            isNull(settlements.fxQuote),
-            ne(settlements.fxQuote, quote),
-          ),
+          noApplicablePin(settlements, quote),
         ),
       ),
   ]);

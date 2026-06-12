@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { expenseReceipts, expensePayers, expenseSplits, expenses, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { resolveExpenseFx } from "@/lib/fx";
+import { resolveRecordFx } from "@/lib/fx";
 import { n } from "@/lib/money";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
@@ -153,7 +153,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     );
   }
 
-  const fx = await resolveExpenseFx(groupId, input.currency, input.fxRate);
+  const fx = await resolveRecordFx(groupId, input.currency, input.fxRate);
 
   const expense = await db.transaction(async (tx) => {
     const [row] = await tx

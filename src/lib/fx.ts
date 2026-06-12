@@ -99,12 +99,25 @@ export function pinnedRate(
 }
 
 /**
- * Resolve the fx columns to store on an expense from API input. A pinned rate
- * is only kept when the expense currency differs from the group's current
- * default currency (a pin against the same currency is meaningless); the quote
- * is stamped server-side so clients can't pin against an arbitrary currency.
+ * Pure form of the fx-column resolution: a pinned rate is only kept when the
+ * record currency differs from the group default (a pin against the same
+ * currency is meaningless); the quote is stamped from the group default so
+ * clients can't pin against an arbitrary currency.
  */
-export async function resolveExpenseFx(
+export function fxColumnsFor(
+  defaultCurrency: string,
+  currency: string,
+  fxRate: number | null | undefined,
+): { fxRate: string | null; fxQuote: string | null } {
+  if (fxRate == null || defaultCurrency === currency) return { fxRate: null, fxQuote: null };
+  return { fxRate: String(fxRate), fxQuote: defaultCurrency };
+}
+
+/**
+ * Resolve the fx columns to store on an expense or settlement from API input,
+ * looking up the group's current default currency.
+ */
+export async function resolveRecordFx(
   groupId: number,
   currency: string,
   fxRate: number | null | undefined,
@@ -114,8 +127,8 @@ export async function resolveExpenseFx(
     .select({ defaultCurrency: groups.defaultCurrency })
     .from(groups)
     .where(eq(groups.id, groupId));
-  if (!group || group.defaultCurrency === currency) return { fxRate: null, fxQuote: null };
-  return { fxRate: String(fxRate), fxQuote: group.defaultCurrency };
+  if (!group) return { fxRate: null, fxQuote: null };
+  return fxColumnsFor(group.defaultCurrency, currency, fxRate);
 }
 
 /**
@@ -180,4 +193,19 @@ export async function getRate(
     .onConflictDoNothing();
 
   return rate;
+}
+
+/**
+ * The full rate-resolution priority chain for one record (expense or
+ * settlement leg): per-record pinned rate > group custom rate (overrides) >
+ * cached market rate as of the record's own date. All balance/stats
+ * conversions must go through this so the priority order lives in one place.
+ */
+export async function resolveRate(
+  record: { currency: string; fxRate: string | number | null; fxQuote: string | null },
+  quote: string,
+  at: Date,
+  overrides?: RateOverrides,
+): Promise<number> {
+  return pinnedRate(record, quote) ?? getRate(record.currency, quote, at, overrides);
 }

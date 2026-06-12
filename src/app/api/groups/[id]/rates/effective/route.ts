@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, count, eq, isNull, ne, or } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -7,6 +7,7 @@ import { expenses, groups, settlements } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { getRate, loadGroupRateOverrides, overrideKey } from "@/lib/fx";
+import { noApplicablePin } from "@/lib/rate-lock";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -28,10 +29,11 @@ const querySchema = z.object({
  * `date` (default today). `marketRate` is always included as a reference
  * (null when the FX API is unreachable and the cache is empty).
  *
- * `affectedExpenses` / `affectedSettlements` count the group's existing
- * records in `base` that a group custom rate would re-convert — i.e. those
- * without an applicable pinned rate. Used by the settings page to warn
- * before saving or deleting a group rate.
+ * With `?counts=1`, the response also includes `affectedExpenses` /
+ * `affectedSettlements` — the group's existing records in `base` that a group
+ * custom rate would re-convert (those without an applicable pinned rate).
+ * Used by the settings page to warn before saving or deleting a group rate;
+ * the expense form omits it to skip the two COUNT queries.
  */
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
@@ -50,6 +52,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     return NextResponse.json({ error: "invalid base/date" }, { status: 400 });
   }
   const { base, date } = parsed.data;
+  const wantCounts = url.searchParams.get("counts") === "1";
 
   const [group] = await db
     .select({ defaultCurrency: groups.defaultCurrency })
@@ -65,39 +68,39 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       rate: 1,
       source: "same",
       marketRate: 1,
-      affectedExpenses: 0,
-      affectedSettlements: 0,
+      ...(wantCounts && { affectedExpenses: 0, affectedSettlements: 0 }),
     });
   }
 
-  // Pins only apply while fx_quote matches the current default currency, so a
-  // record counts as affected when it has no pin or the pin is dormant.
-  const [[affected], [affectedSettled]] = await Promise.all([
-    db
-      .select({ count: count() })
-      .from(expenses)
-      .where(
-        and(
-          eq(expenses.groupId, groupId),
-          eq(expenses.currency, base),
-          or(isNull(expenses.fxRate), isNull(expenses.fxQuote), ne(expenses.fxQuote, quote)),
-        ),
-      ),
-    db
-      .select({ count: count() })
-      .from(settlements)
-      .where(
-        and(
-          eq(settlements.groupId, groupId),
-          eq(settlements.currency, base),
-          or(
-            isNull(settlements.fxRate),
-            isNull(settlements.fxQuote),
-            ne(settlements.fxQuote, quote),
+  let counts: { affectedExpenses: number; affectedSettlements: number } | null = null;
+  if (wantCounts) {
+    const [[affected], [affectedSettled]] = await Promise.all([
+      db
+        .select({ count: count() })
+        .from(expenses)
+        .where(
+          and(
+            eq(expenses.groupId, groupId),
+            eq(expenses.currency, base),
+            noApplicablePin(expenses, quote),
           ),
         ),
-      ),
-  ]);
+      db
+        .select({ count: count() })
+        .from(settlements)
+        .where(
+          and(
+            eq(settlements.groupId, groupId),
+            eq(settlements.currency, base),
+            noApplicablePin(settlements, quote),
+          ),
+        ),
+    ]);
+    counts = {
+      affectedExpenses: affected.count,
+      affectedSettlements: affectedSettled.count,
+    };
+  }
 
   const overrides = await loadGroupRateOverrides(groupId);
   const override = overrides.get(overrideKey(base, quote)) ?? null;
@@ -116,7 +119,6 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     rate,
     source: override != null ? "group" : marketRate != null ? "market" : null,
     marketRate,
-    affectedExpenses: affected.count,
-    affectedSettlements: affectedSettled.count,
+    ...counts,
   });
 });

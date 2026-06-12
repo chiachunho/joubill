@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { settlements, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { resolveRecordFx } from "@/lib/fx";
 import { n } from "@/lib/money";
 import { settlementInputSchema } from "@/lib/zod";
 
@@ -38,6 +39,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       toUsername: toUser.username,
       amount: settlements.amount,
       currency: settlements.currency,
+      fxRate: settlements.fxRate,
+      fxQuote: settlements.fxQuote,
       settledAt: settlements.settledAt,
     })
     .from(settlements)
@@ -51,6 +54,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       id: r.id,
       amount: n(r.amount),
       currency: r.currency,
+      fxRate: r.fxRate != null ? n(r.fxRate) : null,
+      fxQuote: r.fxQuote,
       settledAt: r.settledAt,
       from: {
         userId: r.fromUserId,
@@ -94,6 +99,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     );
   }
 
+  const fx = await resolveRecordFx(groupId, input.currency, input.fxRate);
+
   const [row] = await db
     .insert(settlements)
     .values({
@@ -102,6 +109,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
       toUserId: input.toUserId,
       amount: input.amount.toFixed(2),
       currency: input.currency,
+      fxRate: fx.fxRate,
+      fxQuote: fx.fxQuote,
       settledAt: input.settledAt ? new Date(input.settledAt) : new Date(),
     })
     .returning({ id: settlements.id });

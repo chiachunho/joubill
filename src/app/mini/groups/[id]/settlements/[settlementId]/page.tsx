@@ -16,6 +16,8 @@ type SettlementDetail = {
   id: number;
   amount: number;
   currency: string;
+  fxRate: number | null;
+  fxQuote: string | null;
   settledAt: string;
   from: { userId: number };
   to: { userId: number };
