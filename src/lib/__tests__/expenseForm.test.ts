@@ -5,6 +5,7 @@ import { expenseFormSchema } from "../zod";
 const base = {
   amount: "300",
   currency: "TWD" as const,
+  fxRate: "",
   description: "dinner",
   payers: [{ userId: "1", amount: "300" }],
   spentDate: new Date("2026-05-27T12:00:00Z"),
@@ -24,6 +25,13 @@ describe("expenseFormSchema", () => {
     expect(expenseFormSchema.safeParse({ ...base, amount: "" }).success).toBe(false);
     expect(expenseFormSchema.safeParse({ ...base, amount: "0" }).success).toBe(false);
     expect(expenseFormSchema.safeParse({ ...base, amount: "abc" }).success).toBe(false);
+  });
+
+  it("accepts an empty or positive fxRate, rejects invalid values", () => {
+    expect(expenseFormSchema.safeParse({ ...base, fxRate: "" }).success).toBe(true);
+    expect(expenseFormSchema.safeParse({ ...base, fxRate: "0.22" }).success).toBe(true);
+    expect(expenseFormSchema.safeParse({ ...base, fxRate: "0" }).success).toBe(false);
+    expect(expenseFormSchema.safeParse({ ...base, fxRate: "abc" }).success).toBe(false);
   });
 
   it("requires at least one included participant", () => {

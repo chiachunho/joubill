@@ -183,6 +183,20 @@ describe("expenseInputSchema", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("accepts a positive fxRate", () => {
+    expect(expenseInputSchema.safeParse({ ...validExpense, fxRate: 0.22 }).success).toBe(true);
+  });
+
+  it("accepts null and missing fxRate (optional)", () => {
+    expect(expenseInputSchema.safeParse({ ...validExpense, fxRate: null }).success).toBe(true);
+    expect(expenseInputSchema.safeParse(validExpense).success).toBe(true);
+  });
+
+  it("rejects a non-positive fxRate", () => {
+    expect(expenseInputSchema.safeParse({ ...validExpense, fxRate: 0 }).success).toBe(false);
+    expect(expenseInputSchema.safeParse({ ...validExpense, fxRate: -1 }).success).toBe(false);
+  });
 });
 
 describe("settlementInputSchema", () => {
@@ -204,5 +218,15 @@ describe("settlementInputSchema", () => {
 
   it("rejects an invalid settledAt", () => {
     expect(settlementInputSchema.safeParse({ ...valid, settledAt: "nope" }).success).toBe(false);
+  });
+
+  it("accepts a positive fxRate and null/missing fxRate (optional)", () => {
+    expect(settlementInputSchema.safeParse({ ...valid, fxRate: 0.22 }).success).toBe(true);
+    expect(settlementInputSchema.safeParse({ ...valid, fxRate: null }).success).toBe(true);
+    expect(settlementInputSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects a non-positive fxRate", () => {
+    expect(settlementInputSchema.safeParse({ ...valid, fxRate: 0 }).success).toBe(false);
   });
 });

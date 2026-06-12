@@ -3,9 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { settlements, users } from "@/db/schema";
+import { groups, settlements, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { fxColumnsFor } from "@/lib/fx";
 import { n } from "@/lib/money";
 import { settlementInputSchema } from "@/lib/zod";
 
@@ -45,6 +46,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       toUsername: toUser.username,
       amount: settlements.amount,
       currency: settlements.currency,
+      fxRate: settlements.fxRate,
+      fxQuote: settlements.fxQuote,
       settledAt: settlements.settledAt,
     })
     .from(settlements)
@@ -58,6 +61,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     id: row.id,
     amount: n(row.amount),
     currency: row.currency,
+    fxRate: row.fxRate != null ? n(row.fxRate) : null,
+    fxQuote: row.fxQuote,
     settledAt: row.settledAt,
     from: {
       userId: row.fromUserId,
@@ -93,11 +98,30 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
   }
 
   const [existing] = await db
-    .select({ id: settlements.id })
+    .select({
+      id: settlements.id,
+      currency: settlements.currency,
+      fxQuote: settlements.fxQuote,
+    })
     .from(settlements)
     .where(and(eq(settlements.id, settlementId), eq(settlements.groupId, groupId)));
 
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  const [group] = await db
+    .select({ defaultCurrency: groups.defaultCurrency })
+    .from(groups)
+    .where(eq(groups.id, groupId));
+  if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
+
+  const fx = fxColumnsFor(group.defaultCurrency, input.currency, input.fxRate);
+  // Same dormant-pin preservation as the expense PATCH: a blank rate field
+  // must not wipe a pin stamped for a different default currency.
+  const keepDormantPin =
+    input.fxRate == null &&
+    existing.fxQuote != null &&
+    existing.fxQuote !== group.defaultCurrency &&
+    input.currency === existing.currency;
 
   await db
     .update(settlements)
@@ -106,6 +130,7 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
       toUserId: input.toUserId,
       amount: input.amount.toFixed(2),
       currency: input.currency,
+      ...(!keepDormantPin && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
       settledAt: input.settledAt ? new Date(input.settledAt) : undefined,
     })
     .where(eq(settlements.id, settlementId));

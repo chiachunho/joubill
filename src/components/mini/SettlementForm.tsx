@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { mutate } from "swr";
+import useSWR, { mutate } from "swr";
 import { ArrowLeft, Calendar as CalendarIcon } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -45,6 +45,8 @@ type Initial = {
   id: number;
   amount: number;
   currency: string;
+  fxRate?: number | null;
+  fxQuote?: string | null;
   settledAt: string;
   from: { userId: number };
   to: { userId: number };
@@ -87,9 +89,41 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
       toUserId: initial ? String(initial.to.userId) : "",
       amount: initial ? initial.amount.toFixed(2) : "",
       currency: (initial?.currency ?? defaultCurrency) as SettlementFormValues["currency"],
+      // Restore a pinned rate only while it still targets the group's current
+      // default currency; a dormant pin (default changed since) starts blank.
+      fxRate:
+        initial?.fxRate != null && initial.fxQuote === defaultCurrency
+          ? String(initial.fxRate)
+          : "",
       settledDate: initial ? new Date(initial.settledAt) : new Date(),
     },
   });
+
+  const amount = form.watch("amount");
+  const currency = form.watch("currency");
+  const settledDate = form.watch("settledDate");
+  const isForeignCurrency = currency !== defaultCurrency;
+
+  // A rate typed for one currency is meaningless for another — clear the field
+  // when the currency changes, restoring the saved pin when switching back to
+  // the record's stored currency.
+  useEffect(() => {
+    const restored =
+      initial?.fxRate != null && initial.fxQuote === defaultCurrency && currency === initial.currency
+        ? String(initial.fxRate)
+        : "";
+    if (form.getValues("fxRate") !== restored) {
+      form.setValue("fxRate", restored, { shouldValidate: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency]);
+
+  // Reference rate (group custom rate if set, else market rate as of the date).
+  const { data: effectiveRate } = useSWR<{ rate: number | null; source: string | null }>(
+    isForeignCurrency
+      ? `/api/groups/${groupId}/rates/effective?base=${currency}&date=${ymd(settledDate)}`
+      : null,
+  );
 
   async function onSubmit(values: SettlementFormValues) {
     const body = {
@@ -97,6 +131,10 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
       toUserId: Number(values.toUserId),
       amount: parseFloat(values.amount),
       currency: values.currency,
+      fxRate:
+        values.currency !== defaultCurrency && values.fxRate !== ""
+          ? parseFloat(values.fxRate)
+          : null,
       settledAt: dayToNoonUtcIso(values.settledDate),
     };
 
@@ -254,6 +292,51 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
             )}
           />
         </div>
+
+        {/* Custom FX rate (foreign-currency settlements only) */}
+        {isForeignCurrency && (
+          <FormField
+            control={form.control}
+            name="fxRate"
+            render={({ field }) => {
+              const typed = parseFloat(field.value);
+              const usingCustom = field.value !== "" && Number.isFinite(typed) && typed > 0;
+              const rateInUse = usingCustom ? typed : (effectiveRate?.rate ?? null);
+              const total = parseFloat(amount) || 0;
+              return (
+                <FormItem>
+                  <FormLabel>
+                    匯率（1 {currency} = ? {defaultCurrency}）
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="any"
+                      min="0"
+                      inputMode="decimal"
+                      className="num"
+                      placeholder={
+                        effectiveRate?.rate != null ? `${effectiveRate.rate}（自動）` : "自動"
+                      }
+                      {...field}
+                    />
+                  </FormControl>
+                  {rateInUse != null && total > 0 && (
+                    <p className="text-xs text-muted-foreground num">
+                      ≈ {(total * rateInUse).toFixed(2)} {defaultCurrency} ·{" "}
+                      {usingCustom
+                        ? "此筆自訂匯率"
+                        : effectiveRate?.source === "group"
+                          ? "群組自訂匯率"
+                          : "市場匯率"}
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
+          />
+        )}
 
         {/* Date */}
         <FormField

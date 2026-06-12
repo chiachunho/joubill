@@ -7,6 +7,7 @@ import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { CustomRatesSection } from "@/components/mini/CustomRatesSection";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import {
@@ -59,6 +60,7 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [currencyPending, setCurrencyPending] = useState(false);
+  const [pendingCurrency, setPendingCurrency] = useState<string | null>(null);
 
   async function toggleStatus(member: Member) {
     if (togglingId !== null) return;
@@ -179,7 +181,9 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
             <span className="flex-1 text-sm">預設貨幣</span>
             <Select
               value={settings.defaultCurrency}
-              onValueChange={updateCurrency}
+              onValueChange={(c) => {
+                if (c !== settings.defaultCurrency) setPendingCurrency(c);
+              }}
               disabled={currencyPending}
             >
               <SelectTrigger className="h-8 w-24 rounded-lg border-0 bg-background/60 text-sm">
@@ -196,6 +200,13 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
           </div>
         </div>
       </section>
+
+      {/* 自訂匯率 */}
+      <CustomRatesSection
+        groupId={id}
+        defaultCurrency={settings.defaultCurrency}
+        rawFetch={webRawFetch}
+      />
 
       {/* 成員 */}
       <section className="px-4">
@@ -274,6 +285,26 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
         selfUserId={selfUserId}
         rawFetch={webRawFetch}
         redirectPath="/app"
+      />
+
+      <ConfirmDialog
+        open={pendingCurrency !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingCurrency(null);
+        }}
+        title="變更預設貨幣"
+        description={
+          pendingCurrency
+            ? `整本帳會改以 ${pendingCurrency} 計算：餘額與統計將以市場匯率重新換算，現有的群組自訂匯率與單筆自訂匯率會暫停生效（改回原貨幣時恢復）。`
+            : undefined
+        }
+        confirmLabel="變更"
+        loading={currencyPending}
+        onConfirm={async () => {
+          if (!pendingCurrency) return;
+          await updateCurrency(pendingCurrency);
+          setPendingCurrency(null);
+        }}
       />
 
       <ConfirmDialog

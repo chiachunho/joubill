@@ -13,6 +13,8 @@ type ExpenseDetail = {
   id: number;
   amount: number;
   currency: string;
+  fxRate: number | null;
+  fxQuote: string | null;
   description: string | null;
   payers: Array<{ payerId: number; amount: number }>;
   spentAt: string;

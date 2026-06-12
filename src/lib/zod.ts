@@ -35,11 +35,15 @@ export const SHARE_TYPES = ["equal", "exact", "percent", "shares", "adjustment"]
  * percent-mode the client does the multiplication before posting. share_type is
  * stored as metadata only — the source of truth for balances is splits[].amount.
  * Payers must also sum to the expense total.
+ *
+ * fxRate is an optional pinned rate (1 unit of `currency` in the group's default
+ * currency); null/absent means "use the group custom rate or market rate".
  */
 export const expenseInputSchema = z
   .object({
     amount: z.number().positive().max(10_000_000),
     currency: z.enum(SUPPORTED_CURRENCIES),
+    fxRate: z.number().positive().max(1_000_000_000).nullable().optional(),
     description: z.string().max(500).nullable(),
     payers: z.array(payerItemSchema).min(1),
     spentAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
@@ -76,12 +80,16 @@ export type ExpenseInput = z.infer<typeof expenseInputSchema>;
 /**
  * Body schema for POST /api/groups/[id]/settlements — records that a debtor
  * actually paid a creditor in some currency, on some date.
+ *
+ * fxRate is an optional pinned rate (1 unit of `currency` in the group's
+ * default currency), same semantics as on expenses.
  */
 export const settlementInputSchema = z.object({
   fromUserId: z.number().int().positive(),
   toUserId: z.number().int().positive(),
   amount: z.number().positive().max(10_000_000),
   currency: z.enum(SUPPORTED_CURRENCIES),
+  fxRate: z.number().positive().max(1_000_000_000).nullable().optional(),
   settledAt: z
     .string()
     .refine((s) => !Number.isNaN(Date.parse(s)), { message: "settledAt must be a valid date string" })
@@ -102,6 +110,10 @@ export const expenseFormSchema = z
       .string()
       .refine((v) => Number.isFinite(parseFloat(v)) && parseFloat(v) > 0, "請輸入有效金額"),
     currency: z.enum(SUPPORTED_CURRENCIES),
+    /** Custom FX rate as typed; empty string = use the automatic rate. */
+    fxRate: z
+      .string()
+      .refine((v) => v === "" || (Number.isFinite(parseFloat(v)) && parseFloat(v) > 0), "請輸入有效匯率"),
     description: z.string().max(500),
     payers: z.array(
       z.object({
@@ -183,6 +195,10 @@ export const settlementFormSchema = z
       .string()
       .refine((v) => Number.isFinite(parseFloat(v)) && parseFloat(v) > 0, "請輸入有效金額"),
     currency: z.enum(SUPPORTED_CURRENCIES),
+    /** Custom FX rate as typed; empty string = use the automatic rate. */
+    fxRate: z
+      .string()
+      .refine((v) => v === "" || (Number.isFinite(parseFloat(v)) && parseFloat(v) > 0), "請輸入有效匯率"),
     settledDate: z.date(),
   })
   .refine((d) => d.fromUserId !== d.toUserId, {

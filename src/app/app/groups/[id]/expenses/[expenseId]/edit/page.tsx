@@ -12,7 +12,8 @@ type MeResponse = { userId: number; groups: Array<{ id: number; defaultCurrency:
 type MembersResponse = { members: Member[] };
 type AvatarsResponse = { userPhotos: Record<number, string | null> };
 type ExpenseDetail = {
-  id: number; amount: number; currency: string; description: string | null;
+  id: number; amount: number; currency: string; fxRate: number | null; fxQuote: string | null;
+  description: string | null;
   payers: Array<{ payerId: number; amount: number }>; spentAt: string; receiptFileIds?: string[];
   splits: Array<{ debtorId: number; amount: number; shareType: string }>;
 };
