@@ -290,7 +290,8 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
             </DialogDescription>
           </DialogHeader>
           {errMsg && <p className="text-sm text-destructive">{errMsg}</p>}
-          <DialogFooter className="flex-col gap-2">
+          {/* DialogFooter flips to flex-row at sm: — keep the stacked layout on all widths. */}
+          <DialogFooter className="flex-col gap-2 sm:flex-col sm:justify-start sm:space-x-0">
             <Button
               className="w-full rounded-lg"
               disabled={saving}
@@ -355,7 +356,8 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
             </DialogDescription>
           </DialogHeader>
           {errMsg && <p className="text-sm text-destructive">{errMsg}</p>}
-          <DialogFooter className="flex-col gap-2">
+          {/* DialogFooter flips to flex-row at sm: — keep the stacked layout on all widths. */}
+          <DialogFooter className="flex-col gap-2 sm:flex-col sm:justify-start sm:space-x-0">
             {deleteCountsReady && deleteCurrency && deleteAffectedTotal > 0 && (
               <Button
                 className="w-full rounded-lg"
