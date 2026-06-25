@@ -150,7 +150,8 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
     );
   }
 
-  if (!expensesData || !balance) return <GroupPageSkeleton />;
+  // Wait for `me` too: balance view and the "only mine" filter depend on selfUserId.
+  if (!expensesData || !balance || !me) return <GroupPageSkeleton />;
 
   const visibleExpenses =
     onlyMine && selfUserId !== undefined

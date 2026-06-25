@@ -199,7 +199,8 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
     );
   }
 
-  if (!expensesData || !balance) {
+  // Wait for `me` too: balance view and the "only mine" filter depend on selfUserId.
+  if (!expensesData || !balance || !me) {
     return <GroupPageSkeleton />;
   }
 
