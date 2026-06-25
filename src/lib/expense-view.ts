@@ -50,3 +50,27 @@ export function isRelatedToUser(e: ExpenseLike, userId: number | undefined): boo
 export function isSettlement(e: { type?: string }): boolean {
   return e.type === "settlement";
 }
+
+/** A from/to party for a settlement row, shaped for `labelUser` / `Avatar`. */
+export type SettlementParty = {
+  userId: number;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+};
+
+/**
+ * Derive a settlement's sender/receiver from its sole payer/split. Centralises
+ * the `split.debtorId → userId` remap so the two group-list pages stay in sync.
+ */
+export function settlementParties(e: {
+  payers: { userId: number; firstName: string | null; lastName: string | null; username: string | null }[];
+  splits: { debtorId: number; firstName: string | null; lastName: string | null; username: string | null }[];
+}): { from: SettlementParty | null; to: SettlementParty | null } {
+  const p = e.payers[0];
+  const s = e.splits[0];
+  return {
+    from: p ? { userId: p.userId, firstName: p.firstName, lastName: p.lastName, username: p.username } : null,
+    to: s ? { userId: s.debtorId, firstName: s.firstName, lastName: s.lastName, username: s.username } : null,
+  };
+}

@@ -14,6 +14,7 @@ import {
   expenseUserBalance,
   isRelatedToUser,
   isSettlement,
+  settlementParties,
   type ExpenseViewMode,
 } from "@/lib/expense-view";
 import { fmt, monthLabel } from "@/lib/format";
@@ -352,16 +353,7 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                     // Repayments render as a from → to row and link to the
                     // settlement form instead of the expense form.
                     if (isSettlement(e)) {
-                      const from = e.payers[0] ?? null;
-                      const toSplit = e.splits[0];
-                      const to = toSplit
-                        ? {
-                            userId: toSplit.debtorId,
-                            firstName: toSplit.firstName,
-                            lastName: toSplit.lastName,
-                            username: toSplit.username,
-                          }
-                        : null;
+                      const { from, to } = settlementParties(e);
                       const sbal = expenseUserBalance(e, selfUserId);
                       return (
                         <Link
