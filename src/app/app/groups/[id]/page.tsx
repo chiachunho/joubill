@@ -359,8 +359,18 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                           ? `${labelUser(e.payers[0], selfUserId)}、${labelUser(e.payers[1], selfUserId)}`
                           : `${labelUser(e.payers[0], selfUserId)} +${e.payers.length - 1}`;
                     const bal = expenseUserBalance(e, selfUserId);
+                    // Balance view: spell out 墊付 (what you fronted) and 我分 (your share)
+                    // so the net on the right reads as 付 − 分. Avatars already show who paid.
                     const payerLine =
-                      viewMode === "balance" ? `${payerLabel} 付 · 分 ${fmt(bal.owed)}` : `${payerLabel} 付`;
+                      viewMode !== "balance"
+                        ? `${payerLabel} 付`
+                        : bal.paid > 0 && bal.owed > 0
+                          ? `墊付 ${fmt(bal.paid)} · 我分 ${fmt(bal.owed)}`
+                          : bal.paid > 0
+                            ? `墊付 ${fmt(bal.paid)}`
+                            : bal.owed > 0
+                              ? `我分 ${fmt(bal.owed)}`
+                              : `${payerLabel} 付`;
                     return (
                       <Link
                         key={e.id}
