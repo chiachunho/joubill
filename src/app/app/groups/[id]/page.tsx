@@ -1,13 +1,20 @@
 "use client";
 
-import { startTransition, use, useMemo, useOptimistic, useState } from "react";
+import { startTransition, use, useEffect, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Check, ChevronLeft, History, Loader2, Plus, Settings, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Check, ChevronLeft, History, Loader2, Plus, Settings, User, Users } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
+import {
+  EXPENSE_ONLY_MINE_KEY,
+  EXPENSE_VIEW_MODE_KEY,
+  expenseUserBalance,
+  isRelatedToUser,
+  type ExpenseViewMode,
+} from "@/lib/expense-view";
 import { fmt, monthLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { minimizeTransfers } from "@/lib/settlement-core";
@@ -80,6 +87,26 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
   const [settleConfirm, setSettleConfirm] = useState<{ transfer: Transfer; idx: number } | null>(null);
   const [settleError, setSettleError] = useState<string | null>(null);
 
+  // Expense-list view preferences, persisted in localStorage (shared with the Mini App page).
+  // Initialise to defaults to avoid a hydration mismatch, then hydrate from storage on mount.
+  const [viewMode, setViewMode] = useState<ExpenseViewMode>("total");
+  const [onlyMine, setOnlyMine] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem(EXPENSE_VIEW_MODE_KEY) === "balance") setViewMode("balance");
+    if (localStorage.getItem(EXPENSE_ONLY_MINE_KEY) === "1") setOnlyMine(true);
+  }, []);
+  function changeViewMode(mode: ExpenseViewMode) {
+    setViewMode(mode);
+    localStorage.setItem(EXPENSE_VIEW_MODE_KEY, mode);
+  }
+  function toggleOnlyMine() {
+    setOnlyMine((prev) => {
+      const next = !prev;
+      localStorage.setItem(EXPENSE_ONLY_MINE_KEY, next ? "1" : "0");
+      return next;
+    });
+  }
+
   function getPhoto(userId: number): string | null {
     return avatars?.userPhotos[userId] ?? null;
   }
@@ -123,10 +150,15 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
     );
   }
 
-  if (!expensesData || !balance) return <GroupPageSkeleton />;
+  // Wait for `me` too: balance view and the "only mine" filter depend on selfUserId.
+  if (!expensesData || !balance || !me) return <GroupPageSkeleton />;
 
+  const visibleExpenses =
+    onlyMine && selfUserId !== undefined
+      ? expensesData.expenses.filter((e) => isRelatedToUser(e, selfUserId))
+      : expensesData.expenses;
   const expensesByMonth = new Map<string, typeof expensesData.expenses>();
-  for (const e of expensesData.expenses) {
+  for (const e of visibleExpenses) {
     const m = monthLabel(e.spentAt);
     if (!expensesByMonth.has(m)) expensesByMonth.set(m, []);
     expensesByMonth.get(m)!.push(e);
@@ -262,7 +294,7 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
 
       <section className="px-4">
         <div className="mb-2.5 flex items-center justify-between">
-          <p className="sect">Expenses ({expensesData.expenses.length})</p>
+          <p className="sect">Expenses ({visibleExpenses.length})</p>
           <Link
             href={`/app/groups/${id}/expenses/new`}
             className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
@@ -272,9 +304,44 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
           </Link>
         </div>
 
-        {expensesData.expenses.length === 0 ? (
+        {/* View controls: total/balance segmented toggle + "only mine" filter */}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="inline-flex rounded-lg bg-secondary/50 p-0.5">
+            {([
+              ["total", "總額"],
+              ["balance", "淨額"],
+            ] as const).map(([mode, label]) => (
+              <button
+                key={mode}
+                onClick={() => changeViewMode(mode)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                  viewMode === mode
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {selfUserId !== undefined && (
+            <button
+              onClick={toggleOnlyMine}
+              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                onlyMine ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <User className="size-3" />
+              只看我的
+            </button>
+          )}
+        </div>
+
+        {visibleExpenses.length === 0 ? (
           <div className="rounded-2xl bg-secondary/50 px-4 py-8 text-center">
-            <p className="text-sm text-muted-foreground">尚無支出記錄</p>
+            <p className="text-sm text-muted-foreground">
+              {onlyMine ? "沒有與你相關的支出" : "尚無支出記錄"}
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -291,6 +358,19 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                         : e.payers.length === 2
                           ? `${labelUser(e.payers[0], selfUserId)}、${labelUser(e.payers[1], selfUserId)}`
                           : `${labelUser(e.payers[0], selfUserId)} +${e.payers.length - 1}`;
+                    const bal = expenseUserBalance(e, selfUserId);
+                    // Balance view: spell out 墊付 (what you fronted) and 我分 (your share)
+                    // so the net on the right reads as 付 − 分. Avatars already show who paid.
+                    const payerLine =
+                      viewMode !== "balance"
+                        ? `${payerLabel} 付`
+                        : bal.paid > 0 && bal.owed > 0
+                          ? `墊付 ${fmt(bal.paid)} · 我分 ${fmt(bal.owed)}`
+                          : bal.paid > 0
+                            ? `墊付 ${fmt(bal.paid)}`
+                            : bal.owed > 0
+                              ? `我分 ${fmt(bal.owed)}`
+                              : `${payerLabel} 付`;
                     return (
                       <Link
                         key={e.id}
@@ -313,17 +393,33 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                           {e.description ? (
                             <>
                               <p className="truncate text-sm font-medium">{e.description}</p>
-                              <p className="truncate text-xs text-muted-foreground">{payerLabel} 付</p>
+                              <p className="truncate text-xs text-muted-foreground">{payerLine}</p>
                             </>
                           ) : (
-                            <p className="text-sm font-medium">{payerLabel} 付</p>
+                            <p className="truncate text-sm font-medium">{payerLine}</p>
                           )}
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="num text-sm font-semibold">
-                            {fmt(e.amount)}{" "}
-                            <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
-                          </p>
+                          {viewMode === "balance" ? (
+                            <p
+                              className={`num text-sm font-semibold ${
+                                bal.net > 0
+                                  ? "text-emerald-500"
+                                  : bal.net < 0
+                                    ? "text-rose-500"
+                                    : "text-muted-foreground"
+                              }`}
+                            >
+                              {bal.net > 0 ? "+" : ""}
+                              {fmt(bal.net)}{" "}
+                              <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                            </p>
+                          ) : (
+                            <p className="num text-sm font-semibold">
+                              {fmt(e.amount)}{" "}
+                              <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                            </p>
+                          )}
                           <p className="text-xs text-muted-foreground">{day} 日</p>
                         </div>
                       </Link>

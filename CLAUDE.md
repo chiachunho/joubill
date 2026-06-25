@@ -40,7 +40,7 @@ A single Next.js 15 (App Router) app serves four concerns simultaneously:
 3. **Web App frontend** — React pages at `/app/**` (standalone browser, Auth.js session-cookie auth) + `/login`
 4. **REST API** — Next.js route handlers at `/api/**` (shared by both frontends)
 
-The Mini App and Web App reuse the same page components; they differ only in how auth/context is supplied (see API Auth and Web Auth below).
+The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **They do NOT share the top-level page components**, though: each route under `/mini/**` has a hand-maintained near-duplicate under `/app/**` (e.g. `src/app/mini/groups/[id]/page.tsx` vs `src/app/app/groups/[id]/page.tsx`), differing only in fetcher (`tmaFetch` vs `webFetch`), link prefixes (`/mini` vs `/app`), and a few imports. **When you change list/detail UI or page behaviour, apply the same change to both copies.** Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
 
 ### Bot (`src/bot/`)
 
