@@ -16,6 +16,14 @@
  * (NOT EXISTS guards let a re-run finish a partial migration without
  * duplicating), and aborts loudly if the source table is already gone.
  *
+ * It also backfills the per-record FX columns (fx_rate/fx_quote) on BOTH the
+ * source `settlements` table and the target `expenses` table with
+ * `ADD COLUMN IF NOT EXISTS` before moving data. Production can be behind
+ * several features at once — the pinned-rate columns may never have been pushed
+ * to either table — and without them the SELECT from settlements and the INSERT
+ * into expenses below would fail. Existing rows get NULL (= "no pinned rate",
+ * the correct semantics).
+ *
  * A temporary `expenses.legacy_settlement_id` column correlates each new expense
  * back to its source settlement so the payer/split inserts are set-based. It is
  * left in place for `pnpm db:push` to drop (dropping it here would break re-runs).
@@ -49,9 +57,42 @@ async function main() {
     process.exit(1);
   }
 
+  // Guard: the multi-payer/split tables must already exist — the data move below
+  // INSERTs into both, so this script does NOT create them. On a prod still on the
+  // single-payer schema (expenses.payer_id present, expense_payers absent), run
+  // `pnpm tsx scripts/migrate-payers.ts` first; expense_splits predates this
+  // migration. Aborting here is clearer than a mid-transaction "relation does not
+  // exist".
+  const prereqTables = await sql`
+    SELECT table_name FROM information_schema.tables
+    WHERE table_name IN ('expense_payers', 'expense_splits')
+  `;
+  const present = new Set(prereqTables.map((r) => r.table_name as string));
+  const missing = ["expense_payers", "expense_splits"].filter((t) => !present.has(t));
+  if (missing.length > 0) {
+    console.error(`ERROR: required table(s) not found: ${missing.join(", ")}.`);
+    console.error("This script copies settlements into expense_payers + expense_splits but does");
+    console.error("not create them. If expenses.payer_id still exists, run");
+    console.error("`pnpm tsx scripts/migrate-payers.ts` first, then re-run this script.");
+    process.exit(1);
+  }
+
   // Add the discriminator + temp correlation column up front (db:push hasn't run).
   await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS type VARCHAR(16) NOT NULL DEFAULT 'expense'`;
   await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS legacy_settlement_id INTEGER`;
+
+  // Backfill the per-record FX columns on BOTH tables before moving data. On a
+  // production DB that never received the custom-FX / pinned-rate feature these
+  // columns are absent, which would break the SELECT (settlements.fx_rate/fx_quote)
+  // and the INSERT (expenses.fx_rate/fx_quote) below. Adding them here — NULL for
+  // existing rows, meaning "no pinned rate" — makes the migration run regardless of
+  // which FX features prod already received (the prereq tables above are the only
+  // remaining assumption). The expenses columns match the schema so the later
+  // db:push keeps them; the settlements columns are dropped with the table.
+  await sql`ALTER TABLE settlements ADD COLUMN IF NOT EXISTS fx_rate NUMERIC(20, 10)`;
+  await sql`ALTER TABLE settlements ADD COLUMN IF NOT EXISTS fx_quote VARCHAR(3)`;
+  await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS fx_rate NUMERIC(20, 10)`;
+  await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS fx_quote VARCHAR(3)`;
 
   // All three inserts run in ONE transaction so a mid-run failure can't leave a
   // settlement-expense without its payer/split legs. The NOT EXISTS guards still
