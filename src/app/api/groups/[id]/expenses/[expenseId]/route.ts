@@ -32,7 +32,13 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
   const [expense] = await db
     .select()
     .from(expenses)
-    .where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
+    .where(
+      and(
+        eq(expenses.id, ids.eid),
+        eq(expenses.groupId, ids.groupId),
+        eq(expenses.type, "expense"),
+      ),
+    );
   if (!expense) return NextResponse.json({ error: "expense not found" }, { status: 404 });
 
   const [payers, splits, receiptRows] = await Promise.all([
@@ -98,7 +104,13 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
   const [existing] = await db
     .select({ id: expenses.id, currency: expenses.currency, fxQuote: expenses.fxQuote })
     .from(expenses)
-    .where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
+    .where(
+      and(
+        eq(expenses.id, ids.eid),
+        eq(expenses.groupId, ids.groupId),
+        eq(expenses.type, "expense"),
+      ),
+    );
   if (!existing) return NextResponse.json({ error: "expense not found" }, { status: 404 });
 
   const userIds = Array.from(
@@ -195,7 +207,13 @@ export const DELETE = withAuth(async (req: Request, ctx: Params) => {
   const [expense] = await db
     .select({ id: expenses.id, createdBy: expenses.createdBy })
     .from(expenses)
-    .where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
+    .where(
+      and(
+        eq(expenses.id, ids.eid),
+        eq(expenses.groupId, ids.groupId),
+        eq(expenses.type, "expense"),
+      ),
+    );
   if (!expense) return NextResponse.json({ error: "expense not found" }, { status: 404 });
 
   if (expense.createdBy !== auth.user.id) {

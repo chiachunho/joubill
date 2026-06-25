@@ -25,8 +25,9 @@ pnpm bot:set-webhook    # tsx scripts/set-webhook.ts <https-domain>
 pnpm bot:set-commands   # tsx scripts/set-commands.ts (register the bot's slash-command menu)
 
 # One-time data migrations:
-pnpm tsx scripts/migrate-payers.ts  # (run BEFORE db:push) populate expense_payers from expenses.payer_id
-pnpm db:migrate-identities          # (run AFTER db:push) backfill auth_identities from users.telegramId
+pnpm tsx scripts/migrate-payers.ts       # (run BEFORE db:push) populate expense_payers from expenses.payer_id
+pnpm tsx scripts/migrate-settlements.ts  # (run BEFORE db:push) fold settlements into expenses(type='settlement'), then db:push drops the table
+pnpm db:migrate-identities               # (run AFTER db:push) backfill auth_identities from users.telegramId
 ```
 
 Package manager is **pnpm**. Do not use npm or yarn.
@@ -76,9 +77,11 @@ Fetchers: Mini App pages use `tmaFetch` (`src/lib/tma-fetch.ts`, attaches the `t
 ### Database (`src/db/`)
 
 Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
-`users` → `groups` → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `settlements` + `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests`.
+`users` → `groups` → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests`.
 
 **Multi-payer model**: An expense has one or more payers in `expense_payers` (who paid, how much each) and one or more debtors in `expense_splits` (who owes, how much each). Both tables reference `expenses.id` with `ON DELETE CASCADE`. `expense_payers` has a `UNIQUE(expense_id, payer_id)` constraint. Both sides must sum to `expenses.amount`.
+
+**Settlements are expenses**: A repayment ("A 還 B $X") is just a degenerate expense — A is the sole payer, B the sole debtor — with identical balance impact. It is stored in `expenses` with `type='settlement'` (vs `type='expense'`), one `expense_payers` row (= sender) and one `expense_splits` row (= receiver, `share_type='exact'`). There is **no** separate `settlements` table. The `type` column is the only discriminator: balance/FX/rate-lock treat both kinds the same (no branching), while the expense list/detail and stats filter `type='expense'` and the merged group list renders `type='settlement'` rows as `from → to`. The `/api/groups/[id]/settlements` routes still exist as a from/to-shaped façade over `type='settlement'` expenses (forms unchanged); only the list page was removed (settlements now appear inline in the main list).
 
 `receipt_awaiting` stores in-flight "waiting for receipt photo" state for the ForceReply bot flow (only triggered after text-only `/add`; not shown when photo is already attached via caption).
 
@@ -92,19 +95,19 @@ Split across two files deliberately:
 - `src/lib/settlement-core.ts` — pure greedy min-transfer algorithm, no DB, fully testable
 - `src/lib/settlement.ts` — DB queries that build `NetBalance[]`, then delegates to core
 
-`computeGroupBalances` joins through `expense_payers` (not `expenses`) to credit payers, and through `expense_splits` to debit debtors. Both sides are FX-normalised to the group's `defaultCurrency` using historical rates.
+`computeGroupBalances` joins through `expense_payers` (not `expenses`) to credit payers, and through `expense_splits` to debit debtors. Both sides are FX-normalised to the group's `defaultCurrency` using historical rates. Settlements need no special handling: stored as `type='settlement'` expenses, their sender/receiver flow through the same payer/split legs.
 
 ### FX (`src/lib/fx.ts`)
 
 Rate resolution priority, highest first:
 
-1. **Per-record pinned rate** — `fx_rate` + `fx_quote` on both `expenses` and `settlements` (set via the form's 匯率 field when the record currency differs from the group default, or written by the rate-lock flow). Applies only while `fx_quote` matches the group's current default currency; goes dormant (falls through) if the default changes later — and PATCH preserves dormant pins so they revive if the default reverts. `fx_quote` is stamped server-side by `resolveRecordFx` / `fxColumnsFor`. All balance/stats conversions go through `resolveRate` in `src/lib/fx.ts`, the single place that encodes this priority order.
+1. **Per-record pinned rate** — `fx_rate` + `fx_quote` on `expenses` (both `type='expense'` and `type='settlement'` rows; set via the form's 匯率 field when the record currency differs from the group default, or written by the rate-lock flow). Applies only while `fx_quote` matches the group's current default currency; goes dormant (falls through) if the default changes later — and PATCH preserves dormant pins so they revive if the default reverts. `fx_quote` is stamped server-side by `resolveRecordFx` / `fxColumnsFor`. All balance/stats conversions go through `resolveRate` in `src/lib/fx.ts`, the single place that encodes this priority order.
 2. **Group custom rate** — `group_exchange_rates` rows (managed in group settings via `GET/PUT/DELETE /api/groups/[id]/rates`). One agreed rate per `(group, base, quote)` that applies to **all** of the group's expenses in that currency, past and future — a deliberate departure from the historical-rate principle. Inverse pairs are derived automatically (`buildOverrideMap`); upserting a pair replaces any explicit inverse row so the two directions can't drift apart. Loaded once per request with `loadGroupRateOverrides` and passed to `getRate` as the optional `overrides` map.
 3. **Market rate** — cached per `(base, quote, date)` in the `exchange_rates` table (global, shared across groups; group overrides are never written into it). Historical expenses always use the rate as of `spent_at`, so balances don't silently shift when rates move.
 
-`GET /api/groups/[id]/rates/effective?base=X` returns the effective rate (group override or market) and the market reference; with `&counts=1` it also returns `affectedExpenses`/`affectedSettlements` (existing records in `base` without an applicable pin). The forms use it without counts for the rate prefill; the settings page uses it with counts and blocks save/delete until they load.
+`GET /api/groups/[id]/rates/effective?base=X` returns the effective rate (group override or market) and the market reference; with `&counts=1` it also returns `affectedExpenses`/`affectedSettlements` (existing records in `base` without an applicable pin, split by `type='expense'`/`'settlement'`). The forms use it without counts for the rate prefill; the settings page uses it with counts and blocks save/delete until they load.
 
-When existing records would be re-converted, the settings page asks for the scope before saving or deleting. `PUT /api/groups/[id]/rates` with `lockExisting: true` (and `DELETE …?lock=1`) first pins every affected expense **and settlement** at its **current** effective rate (old group rate or per-day market rate, resolved by `planRateLock` in `src/lib/rate-lock.ts` before the write transaction) so the change only applies to future records — this is how "each trip has its own agreed rate" is supported. Changing the group's default currency also pops a warning, since it re-converts everything at market rates and makes all custom rates/pins dormant.
+When existing records would be re-converted, the settings page asks for the scope before saving or deleting. `PUT /api/groups/[id]/rates` with `lockExisting: true` (and `DELETE …?lock=1`) first pins every affected expense **and settlement** at its **current** effective rate (old group rate or per-day market rate, resolved by `planRateLock` in `src/lib/rate-lock.ts` before the write transaction; both kinds are `expenses` rows, told apart by `type`) so the change only applies to future records — this is how "each trip has its own agreed rate" is supported. Changing the group's default currency also pops a warning, since it re-converts everything at market rates and makes all custom rates/pins dormant.
 
 ### Receipt photos (`src/app/api/tg-photo/` and `src/app/api/tg-upload/`)
 

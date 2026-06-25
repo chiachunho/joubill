@@ -40,3 +40,13 @@ export function isRelatedToUser(e: ExpenseLike, userId: number | undefined): boo
   const { paid, owed } = expenseUserBalance(e, userId);
   return paid !== 0 || owed !== 0;
 }
+
+/**
+ * Whether a record from the expenses list is a repayment (stored as a
+ * `type='settlement'` expense: sole payer = sender, sole debtor = receiver).
+ * Used by the merged list to render settlement rows differently and link them
+ * to the settlement form instead of the expense form.
+ */
+export function isSettlement(e: { type?: string }): boolean {
+  return e.type === "settlement";
+}

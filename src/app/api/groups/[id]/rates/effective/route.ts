@@ -3,7 +3,7 @@ import { and, count, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { expenses, groups, settlements } from "@/db/schema";
+import { expenses, groups } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { getRate, loadGroupRateOverrides, overrideKey } from "@/lib/fx";
@@ -81,18 +81,20 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
         .where(
           and(
             eq(expenses.groupId, groupId),
+            eq(expenses.type, "expense"),
             eq(expenses.currency, base),
             noApplicablePin(expenses, quote),
           ),
         ),
       db
         .select({ count: count() })
-        .from(settlements)
+        .from(expenses)
         .where(
           and(
-            eq(settlements.groupId, groupId),
-            eq(settlements.currency, base),
-            noApplicablePin(settlements, quote),
+            eq(expenses.groupId, groupId),
+            eq(expenses.type, "settlement"),
+            eq(expenses.currency, base),
+            noApplicablePin(expenses, quote),
           ),
         ),
     ]);

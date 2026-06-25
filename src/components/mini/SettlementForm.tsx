@@ -58,7 +58,8 @@ type Props = {
   members: Member[];
   photos?: Record<number, string | null>;
   initial?: Initial;
-  /** Where to navigate after save/delete. Defaults to /mini/groups/:groupId/settlements. */
+  /** Where to navigate after save/delete. Defaults to /mini/groups/:groupId
+   *  (the merged expense/settlement list). */
   returnPath?: string;
 };
 
@@ -74,7 +75,7 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
   const router = useRouter();
   const mode = useAuthMode();
   const isEdit = !!initial;
-  const back = returnPath ?? `/mini/groups/${groupId}/settlements`;
+  const back = returnPath ?? `/mini/groups/${groupId}`;
 
   const backToList = useCallback(() => {
     router.push(back);
@@ -164,6 +165,7 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
       return;
     }
     mutate(`/api/groups/${groupId}/settlements`);
+    mutate(`/api/groups/${groupId}/expenses`);
     mutate(`/api/groups/${groupId}/balance`);
     router.push(back);
   }
@@ -180,6 +182,7 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
     setDeletePending(false);
     if (!res.ok) { setDeleteError("刪除失敗，請再試一次"); return; }
     mutate(`/api/groups/${groupId}/settlements`);
+    mutate(`/api/groups/${groupId}/expenses`);
     mutate(`/api/groups/${groupId}/balance`);
     router.push(back);
   }

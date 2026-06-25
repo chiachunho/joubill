@@ -26,6 +26,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const expenseRows = await db
     .select({
       id: expenses.id,
+      type: expenses.type,
       amount: expenses.amount,
       currency: expenses.currency,
       description: expenses.description,
@@ -100,6 +101,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   return NextResponse.json({
     expenses: expenseRows.map((e) => ({
       id: e.id,
+      type: e.type,
       amount: n(e.amount),
       currency: e.currency,
       description: e.description,
@@ -160,6 +162,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
       .insert(expenses)
       .values({
         groupId,
+        type: "expense",
         amount: input.amount.toFixed(2),
         currency: input.currency,
         description: input.description,

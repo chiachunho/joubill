@@ -1,7 +1,7 @@
 import { and, type AnyColumn, eq, inArray, isNull, ne, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenses, settlements } from "@/db/schema";
+import { expenses } from "@/db/schema";
 
 import { getRate, type RateOverrides } from "./fx";
 
@@ -46,6 +46,8 @@ export async function planRateLock(
   quote: string,
   overrides: RateOverrides,
 ): Promise<RateLockPlan> {
+  // Both real expenses and repayments live in `expenses`; `type` tells them
+  // apart so the rates UI can keep reporting the two counts separately.
   const [expenseRows, settlementRows] = await Promise.all([
     db
       .select({ id: expenses.id, at: expenses.spentAt })
@@ -53,18 +55,20 @@ export async function planRateLock(
       .where(
         and(
           eq(expenses.groupId, groupId),
+          eq(expenses.type, "expense"),
           eq(expenses.currency, currency),
           noApplicablePin(expenses, quote),
         ),
       ),
     db
-      .select({ id: settlements.id, at: settlements.settledAt })
-      .from(settlements)
+      .select({ id: expenses.id, at: expenses.spentAt })
+      .from(expenses)
       .where(
         and(
-          eq(settlements.groupId, groupId),
-          eq(settlements.currency, currency),
-          noApplicablePin(settlements, quote),
+          eq(expenses.groupId, groupId),
+          eq(expenses.type, "settlement"),
+          eq(expenses.currency, currency),
+          noApplicablePin(expenses, quote),
         ),
       ),
   ]);
@@ -110,8 +114,8 @@ export async function applyRateLock(tx: DbTransaction, plan: RateLockPlan): Prom
   }
   for (const u of plan.settlementUpdates) {
     await tx
-      .update(settlements)
-      .set({ fxRate: u.rate, fxQuote: plan.quote })
-      .where(inArray(settlements.id, u.ids));
+      .update(expenses)
+      .set({ fxRate: u.rate, fxQuote: plan.quote, updatedAt: new Date() })
+      .where(inArray(expenses.id, u.ids));
   }
 }

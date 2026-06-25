@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expensePayers, expenses, groups, users } from "@/db/schema";
@@ -38,7 +38,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       fxQuote: expenses.fxQuote,
     })
     .from(expenses)
-    .where(eq(expenses.groupId, groupId));
+    .where(and(eq(expenses.groupId, groupId), eq(expenses.type, "expense")));
 
   // For by-payer totals: use expense_payers amounts (each payer's actual contribution)
   const payerRows = await db
@@ -56,7 +56,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     .from(expensePayers)
     .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
     .innerJoin(users, eq(users.id, expensePayers.payerId))
-    .where(eq(expenses.groupId, groupId));
+    .where(and(eq(expenses.groupId, groupId), eq(expenses.type, "expense")));
 
   // Build a 6-month window ending at the current month (zero-filled).
   const now = new Date();

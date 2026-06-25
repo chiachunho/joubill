@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expensePayers, expenseSplits, expenses, settlements } from "@/db/schema";
+import { expensePayers, expenseSplits, expenses } from "@/db/schema";
 
 import { loadGroupRateOverrides, resolveRate } from "./fx";
 import { n } from "./money";
@@ -15,14 +15,15 @@ const EPSILON = 0.005;
 /**
  * Compute net balances for every user in the group, normalised to `quoteCurrency`.
  *
- *   net(user) = sum(paid)
- *             - sum(owed)
- *             - sum(received via settlement)
- *             + sum(paid via settlement)
+ *   net(user) = sum(paid) - sum(owed)
+ *
+ * Repayments are stored as `type='settlement'` expenses (sole payer = sender,
+ * sole debtor = receiver), so they flow through the same payer/split legs below
+ * and need no separate handling.
  *
  * Each leg is multiplied by the FX rate from its own currency to `quoteCurrency`,
- * using the FX rate as of `spent_at` / `settled_at` (so historical expenses don't
- * silently rewrite history when rates move). Rate priority per expense leg:
+ * using the FX rate as of `spent_at` (so historical expenses don't silently
+ * rewrite history when rates move). Rate priority per leg:
  * pinned per-expense rate > group custom rate > cached market rate.
  */
 export async function computeGroupBalances(
@@ -65,24 +66,6 @@ export async function computeGroupBalances(
   for (const r of owedRows) {
     const rate = await resolveRate(r, quoteCurrency, r.spentAt, overrides);
     bump(r.debtorId, -n(r.amount) * rate);
-  }
-
-  const settled = await db
-    .select({
-      from: settlements.fromUserId,
-      to: settlements.toUserId,
-      amount: settlements.amount,
-      currency: settlements.currency,
-      settledAt: settlements.settledAt,
-      fxRate: settlements.fxRate,
-      fxQuote: settlements.fxQuote,
-    })
-    .from(settlements)
-    .where(eq(settlements.groupId, groupId));
-  for (const r of settled) {
-    const rate = await resolveRate(r, quoteCurrency, r.settledAt, overrides);
-    bump(r.from, n(r.amount) * rate);
-    bump(r.to, -n(r.amount) * rate);
   }
 
   return Array.from(balances.entries())

@@ -2,7 +2,7 @@
 
 import { startTransition, use, useEffect, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Check, History, Loader2, Plus, Settings, User, UserCircle, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Check, Loader2, Plus, Settings, User, UserCircle, Users } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
@@ -13,6 +13,7 @@ import {
   EXPENSE_VIEW_MODE_KEY,
   expenseUserBalance,
   isRelatedToUser,
+  isSettlement,
   type ExpenseViewMode,
 } from "@/lib/expense-view";
 import { labelUser } from "@/lib/label";
@@ -36,6 +37,7 @@ type ExpensePayer = { userId: number; firstName: string; lastName: string | null
 type ExpensesResponse = {
   expenses: Array<{
     id: number;
+    type: "expense" | "settlement";
     amount: number;
     currency: string;
     description: string | null;
@@ -255,13 +257,6 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
           <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">所有帳款已結清</p>
           <div className="mt-2 flex justify-center gap-4">
             <Link
-              href={`/mini/groups/${id}/settlements`}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <History className="size-3" />
-              還款記錄
-            </Link>
-            <Link
               href={`/mini/groups/${id}/stats`}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
@@ -309,15 +304,8 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
       {optimisticTransfers.length > 0 && (
         <section className="px-4">
-          <div className="mb-2.5 flex items-center justify-between">
+          <div className="mb-2.5">
             <p className="sect">To Settle</p>
-            <Link
-              href={`/mini/groups/${id}/settlements`}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              <History className="size-3" />
-              還款記錄
-            </Link>
           </div>
           <div className="space-y-2">
             {optimisticTransfers.map((t, i) => (
@@ -371,13 +359,22 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
       <section className="px-4">
         <div className="mb-2.5 flex items-center justify-between">
           <p className="sect">Expenses ({visibleExpenses.length})</p>
-          <Link
-            href={`/mini/groups/${id}/expenses/new`}
-            className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            <Plus className="size-3" />
-            新增
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <Link
+              href={`/mini/groups/${id}/settlements/new`}
+              className="inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary/70"
+            >
+              <Plus className="size-3" />
+              還款
+            </Link>
+            <Link
+              href={`/mini/groups/${id}/expenses/new`}
+              className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <Plus className="size-3" />
+              支出
+            </Link>
+          </div>
         </div>
 
         {/* View controls: total/balance segmented toggle + "only mine" filter */}
@@ -427,6 +424,62 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                 <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
                   {exps.map((e) => {
                     const day = new Date(e.spentAt).toISOString().slice(8, 10);
+
+                    // Repayments render as a from → to row and link to the
+                    // settlement form instead of the expense form.
+                    if (isSettlement(e)) {
+                      const from = e.payers[0] ?? null;
+                      const toSplit = e.splits[0];
+                      const to = toSplit
+                        ? {
+                            userId: toSplit.debtorId,
+                            firstName: toSplit.firstName,
+                            lastName: toSplit.lastName,
+                            username: toSplit.username,
+                          }
+                        : null;
+                      const sbal = expenseUserBalance(e, selfUserId);
+                      return (
+                        <Link
+                          key={e.id}
+                          href={`/mini/groups/${id}/settlements/${e.id}`}
+                          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+                        >
+                          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <Avatar src={getPhoto(from?.userId ?? 0)} name={labelUser(from)} userId={from?.userId ?? 0} size="sm" />
+                            <span className="max-w-[60px] truncate text-sm">{labelUser(from, selfUserId)}</span>
+                            <ArrowRight className="size-3 shrink-0 text-muted-foreground/50" />
+                            <Avatar src={getPhoto(to?.userId ?? 0)} name={labelUser(to)} userId={to?.userId ?? 0} size="sm" />
+                            <span className="max-w-[60px] truncate text-sm">{labelUser(to, selfUserId)}</span>
+                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">還款</span>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            {viewMode === "balance" ? (
+                              <p
+                                className={`num text-sm font-semibold ${
+                                  sbal.net > 0
+                                    ? "text-emerald-500"
+                                    : sbal.net < 0
+                                      ? "text-rose-500"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {sbal.net > 0 ? "+" : ""}
+                                {fmt(sbal.net)}{" "}
+                                <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                              </p>
+                            ) : (
+                              <p className="num text-sm font-semibold">
+                                {fmt(e.amount)}{" "}
+                                <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">{day} 日</p>
+                          </div>
+                        </Link>
+                      );
+                    }
+
                     const payerLabel = e.payers.length === 0
                       ? "?"
                       : e.payers.length === 1

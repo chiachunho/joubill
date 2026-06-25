@@ -64,6 +64,10 @@ export const expenses = pgTable(
     groupId: integer("group_id")
       .notNull()
       .references(() => groups.id, { onDelete: "cascade" }),
+    /** 'expense' = a real group cost; 'settlement' = a repayment transfer modelled
+     *  as a single-payer (from) / single-debtor (to) expense. The two share the
+     *  same balance/FX machinery; only listing and stats filter on this. */
+    type: varchar("type", { length: 16 }).notNull().default("expense"),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull(),
     description: text("description"),
@@ -126,34 +130,6 @@ export const expenseSplits = pgTable(
     index("expense_splits_debtor_idx").on(t.debtorId),
   ],
 );
-
-/** Confirmed settlement transfers. Written after /settle suggestions are acted on. */
-export const settlements = pgTable(
-  "settlements",
-  {
-    id: serial("id").primaryKey(),
-    groupId: integer("group_id")
-      .notNull()
-      .references(() => groups.id, { onDelete: "cascade" }),
-    fromUserId: integer("from_user_id")
-      .notNull()
-      .references(() => users.id),
-    toUserId: integer("to_user_id")
-      .notNull()
-      .references(() => users.id),
-    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
-    currency: varchar("currency", { length: 3 }).notNull(),
-    /** Optional pinned FX rate, same semantics as expenses.fx_rate/fx_quote.
-     *  Written by the rate-lock flow so old settlements keep their conversion
-     *  when the group rate changes. */
-    fxRate: numeric("fx_rate", { precision: 20, scale: 10 }),
-    fxQuote: varchar("fx_quote", { length: 3 }),
-    settledAt: timestamp("settled_at", { withTimezone: true }).notNull().defaultNow(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index("settlements_group_idx").on(t.groupId, t.settledAt)],
-);
-
 
 /** Up to 5 receipt photos per expense. Position determines display order. */
 export const expenseReceipts = pgTable(
@@ -302,8 +278,6 @@ export type ExpensePayer = typeof expensePayers.$inferSelect;
 export type NewExpensePayer = typeof expensePayers.$inferInsert;
 export type ExpenseSplit = typeof expenseSplits.$inferSelect;
 export type NewExpenseSplit = typeof expenseSplits.$inferInsert;
-export type Settlement = typeof settlements.$inferSelect;
-export type NewSettlement = typeof settlements.$inferInsert;
 export type ExchangeRate = typeof exchangeRates.$inferSelect;
 export type GroupExchangeRate = typeof groupExchangeRates.$inferSelect;
 export type NewGroupExchangeRate = typeof groupExchangeRates.$inferInsert;

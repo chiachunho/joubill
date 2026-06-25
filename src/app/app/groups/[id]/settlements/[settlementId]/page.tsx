@@ -60,7 +60,7 @@ export default function AppEditSettlementPage({
       members={ms.members}
       photos={avatars?.userPhotos}
       initial={settlement}
-      returnPath={`/app/groups/${groupId}/settlements`}
+      returnPath={`/app/groups/${groupId}`}
     />
   );
 }

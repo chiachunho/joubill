@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { settlements, users } from "@/db/schema";
+import { expensePayers, expenseSplits, expenses, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { resolveRecordFx } from "@/lib/fx";
@@ -15,6 +15,9 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
+// A settlement is stored as a `type='settlement'` expense: the sole payer is the
+// sender (from) and the sole debtor is the receiver (to). The from/to JSON shape
+// is reconstructed by joining through expense_payers / expense_splits.
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const groupId = Number((await params).id);
@@ -28,26 +31,28 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 
   const rows = await db
     .select({
-      id: settlements.id,
-      fromUserId: settlements.fromUserId,
+      id: expenses.id,
+      fromUserId: expensePayers.payerId,
       fromFirstName: fromUser.firstName,
       fromLastName: fromUser.lastName,
       fromUsername: fromUser.username,
-      toUserId: settlements.toUserId,
+      toUserId: expenseSplits.debtorId,
       toFirstName: toUser.firstName,
       toLastName: toUser.lastName,
       toUsername: toUser.username,
-      amount: settlements.amount,
-      currency: settlements.currency,
-      fxRate: settlements.fxRate,
-      fxQuote: settlements.fxQuote,
-      settledAt: settlements.settledAt,
+      amount: expenses.amount,
+      currency: expenses.currency,
+      fxRate: expenses.fxRate,
+      fxQuote: expenses.fxQuote,
+      settledAt: expenses.spentAt,
     })
-    .from(settlements)
-    .innerJoin(fromUser, eq(fromUser.id, settlements.fromUserId))
-    .innerJoin(toUser, eq(toUser.id, settlements.toUserId))
-    .where(eq(settlements.groupId, groupId))
-    .orderBy(desc(settlements.settledAt));
+    .from(expenses)
+    .innerJoin(expensePayers, eq(expensePayers.expenseId, expenses.id))
+    .innerJoin(expenseSplits, eq(expenseSplits.expenseId, expenses.id))
+    .innerJoin(fromUser, eq(fromUser.id, expensePayers.payerId))
+    .innerJoin(toUser, eq(toUser.id, expenseSplits.debtorId))
+    .where(and(eq(expenses.groupId, groupId), eq(expenses.type, "settlement")))
+    .orderBy(desc(expenses.spentAt));
 
   return NextResponse.json({
     settlements: rows.map((r) => ({
@@ -100,20 +105,41 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   }
 
   const fx = await resolveRecordFx(groupId, input.currency, input.fxRate);
+  const amount = input.amount.toFixed(2);
 
-  const [row] = await db
-    .insert(settlements)
-    .values({
-      groupId,
-      fromUserId: input.fromUserId,
-      toUserId: input.toUserId,
-      amount: input.amount.toFixed(2),
-      currency: input.currency,
-      fxRate: fx.fxRate,
-      fxQuote: fx.fxQuote,
-      settledAt: input.settledAt ? new Date(input.settledAt) : new Date(),
-    })
-    .returning({ id: settlements.id });
+  const id = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(expenses)
+      .values({
+        groupId,
+        type: "settlement",
+        amount,
+        currency: input.currency,
+        description: null,
+        spentAt: input.settledAt ? new Date(input.settledAt) : new Date(),
+        createdBy: auth.user.id,
+        fxRate: fx.fxRate,
+        fxQuote: fx.fxQuote,
+      })
+      .returning({ id: expenses.id });
 
-  return NextResponse.json({ id: row.id }, { status: 201 });
+    await Promise.all([
+      tx.insert(expensePayers).values({
+        expenseId: row.id,
+        payerId: input.fromUserId,
+        amount,
+      }),
+      tx.insert(expenseSplits).values({
+        expenseId: row.id,
+        debtorId: input.toUserId,
+        amount,
+        shareType: "exact",
+        splitValue: null,
+      }),
+    ]);
+
+    return row.id;
+  });
+
+  return NextResponse.json({ id }, { status: 201 });
 });
