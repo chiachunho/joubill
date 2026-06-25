@@ -53,43 +53,47 @@ async function main() {
   await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS type VARCHAR(16) NOT NULL DEFAULT 'expense'`;
   await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS legacy_settlement_id INTEGER`;
 
-  // 1. One expense per settlement (skip any already copied — re-run safe).
-  const expenseRows = await sql`
-    INSERT INTO expenses
-      (group_id, type, amount, currency, description, spent_at, created_by,
-       fx_rate, fx_quote, created_at, updated_at, legacy_settlement_id)
-    SELECT s.group_id, 'settlement', s.amount, s.currency, NULL, s.settled_at,
-           s.from_user_id, s.fx_rate, s.fx_quote, s.created_at, s.created_at, s.id
-    FROM   settlements s
-    WHERE  NOT EXISTS (
-             SELECT 1 FROM expenses e WHERE e.legacy_settlement_id = s.id
-           )
-    RETURNING id
-  `;
-
-  // 2. Sole payer = the sender (from_user_id).
-  await sql`
-    INSERT INTO expense_payers (expense_id, payer_id, amount)
-    SELECT e.id, s.from_user_id, s.amount
-    FROM   expenses e
-    JOIN   settlements s ON s.id = e.legacy_settlement_id
-    WHERE  e.type = 'settlement'
-      AND  NOT EXISTS (
-             SELECT 1 FROM expense_payers ep WHERE ep.expense_id = e.id
-           )
-  `;
-
-  // 3. Sole debtor = the receiver (to_user_id), as an exact split.
-  await sql`
-    INSERT INTO expense_splits (expense_id, debtor_id, amount, share_type, split_value)
-    SELECT e.id, s.to_user_id, s.amount, 'exact', NULL
-    FROM   expenses e
-    JOIN   settlements s ON s.id = e.legacy_settlement_id
-    WHERE  e.type = 'settlement'
-      AND  NOT EXISTS (
-             SELECT 1 FROM expense_splits es WHERE es.expense_id = e.id
-           )
-  `;
+  // All three inserts run in ONE transaction so a mid-run failure can't leave a
+  // settlement-expense without its payer/split legs. The NOT EXISTS guards still
+  // make a re-run safe (and the temp legacy_settlement_id column correlates the
+  // payer/split inserts back to the expense created in the same transaction).
+  const [expenseRows] = await sql.transaction([
+    // 1. One expense per settlement (skip any already copied — re-run safe).
+    sql`
+      INSERT INTO expenses
+        (group_id, type, amount, currency, description, spent_at, created_by,
+         fx_rate, fx_quote, created_at, updated_at, legacy_settlement_id)
+      SELECT s.group_id, 'settlement', s.amount, s.currency, NULL, s.settled_at,
+             s.from_user_id, s.fx_rate, s.fx_quote, s.created_at, s.created_at, s.id
+      FROM   settlements s
+      WHERE  NOT EXISTS (
+               SELECT 1 FROM expenses e WHERE e.legacy_settlement_id = s.id
+             )
+      RETURNING id
+    `,
+    // 2. Sole payer = the sender (from_user_id).
+    sql`
+      INSERT INTO expense_payers (expense_id, payer_id, amount)
+      SELECT e.id, s.from_user_id, s.amount
+      FROM   expenses e
+      JOIN   settlements s ON s.id = e.legacy_settlement_id
+      WHERE  e.type = 'settlement'
+        AND  NOT EXISTS (
+               SELECT 1 FROM expense_payers ep WHERE ep.expense_id = e.id
+             )
+    `,
+    // 3. Sole debtor = the receiver (to_user_id), as an exact split.
+    sql`
+      INSERT INTO expense_splits (expense_id, debtor_id, amount, share_type, split_value)
+      SELECT e.id, s.to_user_id, s.amount, 'exact', NULL
+      FROM   expenses e
+      JOIN   settlements s ON s.id = e.legacy_settlement_id
+      WHERE  e.type = 'settlement'
+        AND  NOT EXISTS (
+               SELECT 1 FROM expense_splits es WHERE es.expense_id = e.id
+             )
+    `,
+  ]);
 
   console.log(`Migrated ${expenseRows.length} settlements into expenses (type='settlement').`);
   console.log("Now run `pnpm db:push` to drop the settlements table and the temp column.");
