@@ -98,22 +98,6 @@ export function GroupsListSkeleton() {
   );
 }
 
-/** Settlements history list. */
-export function SettlementsSkeleton() {
-  return (
-    <div className="space-y-6 py-4">
-      <div className="flex items-center justify-between px-4">
-        <Skeleton className="h-6 w-24" />
-        <Skeleton className="h-6 w-14 rounded-lg" />
-      </div>
-      <div className="px-4">
-        <Skeleton className="mb-2 h-3 w-12" />
-        <Panel rows={4} />
-      </div>
-    </div>
-  );
-}
-
 /** Stats page: header + two chart panels. */
 export function StatsSkeleton() {
   return (

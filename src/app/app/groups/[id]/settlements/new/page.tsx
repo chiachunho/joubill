@@ -44,7 +44,7 @@ export default function AppNewSettlementPage({ params }: { params: Promise<{ id:
       defaultCurrency={group.defaultCurrency}
       members={ms.members}
       photos={avatars?.userPhotos}
-      returnPath={`/app/groups/${groupId}/settlements`}
+      returnPath={`/app/groups/${groupId}`}
     />
   );
 }

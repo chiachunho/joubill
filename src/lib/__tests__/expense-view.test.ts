@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { expenseUserBalance, isRelatedToUser, type ExpenseLike } from "../expense-view";
+import {
+  expenseUserBalance,
+  isRelatedToUser,
+  isSettlement,
+  type ExpenseLike,
+} from "../expense-view";
 
 // Alice (1) paid 300; split equally three ways (1, 2, 3) at 100 each.
 const expense: ExpenseLike = {
@@ -59,5 +64,23 @@ describe("isRelatedToUser", () => {
 
   it("is true (no filtering) when userId is undefined", () => {
     expect(isRelatedToUser(expense, undefined)).toBe(true);
+  });
+});
+
+describe("isSettlement", () => {
+  it("is true for a settlement-typed row", () => {
+    expect(isSettlement({ type: "settlement" })).toBe(true);
+  });
+
+  it("is false for a regular expense or when type is absent", () => {
+    expect(isSettlement({ type: "expense" })).toBe(false);
+    expect(isSettlement({})).toBe(false);
+  });
+
+  it("treats a settlement's from/to as a payer/debtor so balances still net", () => {
+    // Settlement A(1) → B(2) for 100: sole payer 1, sole debtor 2.
+    const s: ExpenseLike = { payers: [{ userId: 1, amount: 100 }], splits: [{ debtorId: 2, amount: 100 }] };
+    expect(expenseUserBalance(s, 1).net).toBe(100);
+    expect(expenseUserBalance(s, 2).net).toBe(-100);
   });
 });
