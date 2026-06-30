@@ -95,22 +95,23 @@ function expensePostings(
   const owedU = owed.get(currentUserId) ?? 0;
   const netU = round2(paidU - owedU);
 
+  const owedR = round2(owedU);
+  const paidR = round2(paidU);
   const postings: Posting[] = [];
-  if (round2(owedU) !== 0)
-    postings.push({ account: "Expenses:Uncategorized", amount: round2(owedU) });
-  if (round2(paidU) !== 0) postings.push({ account: "Assets:Cash", amount: round2(-paidU) });
+  if (owedR !== 0) postings.push({ account: "Expenses:Uncategorized", amount: owedR });
+  if (paidR !== 0) postings.push({ account: "Assets:Cash", amount: -paidR });
 
   // Allocate U's net across the opposite-sign counterparties, proportional to
   // their own net. In the common single-payer case this reduces to "each
   // debtor's share"; in multi-payer cases it keeps U's ledger self-consistent.
   if (netU !== 0) {
-    const wantPositiveOthers = netU < 0; // U owes → distribute over net creditors
+    const sign = netU > 0 ? 1 : -1; // U is a net creditor (+1) or net debtor (-1)
     const counterparties: { person: Profile; weight: number }[] = [];
     let totalWeight = 0;
     for (const uid of everyone) {
       if (uid === currentUserId) continue;
       const net = (paid.get(uid) ?? 0) - (owed.get(uid) ?? 0);
-      const weight = wantPositiveOthers ? net : -net; // pick opposite-sign people
+      const weight = -sign * net; // pick the opposite-sign counterparties
       if (weight > 0) {
         counterparties.push({ person: personFor(peopleById, uid), weight });
         totalWeight += weight;
@@ -118,7 +119,6 @@ function expensePostings(
     }
     if (totalWeight > 0) {
       // netU > 0 → receivables positive; netU < 0 → payables negative.
-      const sign = netU > 0 ? 1 : -1;
       for (const c of counterparties) {
         const share = round2((c.weight / totalWeight) * Math.abs(netU)) * sign;
         if (share !== 0) postings.push({ account: receivableAccount(c.person), amount: share });
