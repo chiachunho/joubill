@@ -98,6 +98,50 @@ describe("recordToBeancount — expense, personal perspective", () => {
     expect(sum(out)).toBe(0);
   });
 
+  it("U is unrelated to the expense: no legs, annotated with a comment", () => {
+    const out = recordToBeancount(
+      expense({
+        payers: [{ userId: BOB, amount: 300 }],
+        splits: [
+          { userId: BOB, amount: 150 },
+          { userId: CAROL, amount: 150 },
+        ],
+      }),
+      ALICE,
+      people,
+    );
+    expect(postings(out)).toHaveLength(0);
+    expect(out).toContain("; 你與這筆支出無關");
+  });
+
+  it("rounding residual lands on a receivable, leaving Cash exact", () => {
+    // Alice pays 10, Bob pays 5; 4-way equal split = 3.75 each. Alice's net
+    // (6.25) spreads over two net debtors → 3.13 + 3.13 = 6.26, a +0.01 residual.
+    const out = recordToBeancount(
+      expense({
+        amount: 15,
+        payers: [
+          { userId: ALICE, amount: 10 },
+          { userId: BOB, amount: 5 },
+        ],
+        splits: [
+          { userId: ALICE, amount: 3.75 },
+          { userId: BOB, amount: 3.75 },
+          { userId: CAROL, amount: 3.75 },
+          { userId: 4, amount: 3.75 },
+        ],
+      }),
+      ALICE,
+      new Map([...people, [4, { userId: 4, firstName: "Dave", lastName: null, username: "dave" }]]),
+    );
+    const ps = postings(out);
+    // Cash must stay exactly -10.00 (the real amount fronted); the cent residual
+    // is absorbed by a receivable leg, not the factual Cash/Expenses figures.
+    expect(ps).toContainEqual({ account: "Assets:Cash", amount: -10 });
+    expect(ps).toContainEqual({ account: "Expenses:Uncategorized", amount: 3.75 });
+    expect(sum(out)).toBe(0);
+  });
+
   it("rounding residual is folded back so postings sum to zero", () => {
     // 100 split 3 ways = 33.34/33.33/33.33; Alice sole payer.
     const out = recordToBeancount(

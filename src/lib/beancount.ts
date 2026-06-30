@@ -169,15 +169,28 @@ function settlementPostings(
   };
 }
 
-/** Fold any rounding residual into the largest-magnitude posting so the legs sum to 0. */
+/** Index of the largest-magnitude posting matching `pick`, or -1 if none match. */
+function largestBy(postings: Posting[], pick: (p: Posting) => boolean): number {
+  let idx = -1;
+  for (let i = 0; i < postings.length; i++) {
+    if (!pick(postings[i])) continue;
+    if (idx === -1 || Math.abs(postings[i].amount) > Math.abs(postings[idx].amount)) idx = i;
+  }
+  return idx;
+}
+
+/**
+ * Fold any rounding residual back so the legs sum to 0. The residual only comes
+ * from the proportional receivable allocation, so absorb it into the largest
+ * receivable leg — keeping the exact Cash/Expenses figures faithful — and fall
+ * back to the largest leg overall if there is no receivable.
+ */
 function balance(postings: Posting[]): Posting[] {
   if (postings.length === 0) return postings;
   const total = round2(postings.reduce((s, p) => s + p.amount, 0));
   if (total === 0) return postings;
-  let idx = 0;
-  for (let i = 1; i < postings.length; i++) {
-    if (Math.abs(postings[i].amount) > Math.abs(postings[idx].amount)) idx = i;
-  }
+  let idx = largestBy(postings, (p) => p.account.startsWith("Assets:Receivable:"));
+  if (idx === -1) idx = largestBy(postings, () => true);
   postings[idx] = { ...postings[idx], amount: round2(postings[idx].amount - total) };
   return postings;
 }
@@ -251,5 +264,9 @@ export function recordToBeancount(
     return render(record, postings, fx, comments);
   }
 
-  return render(record, expensePostings(record, currentUserId, peopleById), fx, comments);
+  const postings = expensePostings(record, currentUserId, peopleById);
+  // No legs means U neither paid for nor shares this expense; without a note the
+  // pasted transaction would be an empty (invalid) beancount entry.
+  if (postings.length === 0) comments.push("你與這筆支出無關");
+  return render(record, postings, fx, comments);
 }
