@@ -117,6 +117,15 @@ Upload flow (Mini App): `POST /api/tg-upload` (auth-protected) → `sendPhoto` t
 
 Upload flow (bot): photo sent as a caption `/add …` stores `file_id` directly. The "上傳收據" inline button after `/add` triggers a ForceReply prompt; the reply photo is matched via `receipt_awaiting`.
 
+### Beancount 匯出 (`src/lib/beancount.ts`)
+
+A single record (expense or settlement) can be copied as a beancount transaction via the **`Bean` icon button** in the top-right of the expense/settlement edit form header (`CopyBeancountButton`, edit mode only). The output is from the **personal-ledger perspective** of the current user (U):
+- `Expenses:Uncategorized` — U's own share (the schema has no category, so this is a fixed account on purpose; the user re-categorises after pasting).
+- `Assets:Cash` — cash U fronted (negative).
+- `Assets:Receivable:<X>` — net position with each other person X (positive = X owes U, negative = U owes X). U's net is allocated proportionally across the opposite-sign counterparties, so multi-payer records stay balanced and only reflect U's own legs. Settlements skip the Expenses leg and just move cash ↔ receivable.
+
+`recordToBeancount` in `src/lib/beancount.ts` is **pure** (no DB/fetch) and unit-tested in `src/lib/__tests__/beancount.test.ts`. FX is resolved by the caller (`CopyBeancountButton`) following the same pin→group→market priority as `src/lib/fx.ts` — using the per-record pin when present, else `GET /api/groups/[id]/rates/effective` — and passed in as `fx`; the function appends `@ <rate> <quote>` to every posting so the transaction balances in both the record currency and the group default. The button lives in the **shared** `ExpenseForm`/`SettlementForm`, so it appears in both `/mini` and `/app` from one place.
+
 ### Environment variables
 
 Validated at runtime (not build time) via `serverEnv()` in `src/lib/env.ts`:

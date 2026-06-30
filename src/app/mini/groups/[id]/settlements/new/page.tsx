@@ -63,6 +63,7 @@ export default function NewSettlementPage({ params }: { params: Promise<{ id: st
     <SettlementForm
       groupId={groupId}
       defaultCurrency={group.defaultCurrency}
+      currentUserId={me.userId}
       members={ms.members}
       photos={photos}
     />

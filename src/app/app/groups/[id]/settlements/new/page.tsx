@@ -42,6 +42,7 @@ export default function AppNewSettlementPage({ params }: { params: Promise<{ id:
     <SettlementForm
       groupId={groupId}
       defaultCurrency={group.defaultCurrency}
+      currentUserId={me.userId}
       members={ms.members}
       photos={avatars?.userPhotos}
       returnPath={`/app/groups/${groupId}`}
