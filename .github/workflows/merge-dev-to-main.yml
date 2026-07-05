@@ -32,7 +32,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump version on dev
+      - name: Prepare release (all local — nothing is pushed yet)
         id: version
         run: |
           git checkout -B dev origin/dev
@@ -45,23 +45,30 @@ jobs:
             TAG=$(npm version "${{ inputs.bump }}" --no-git-tag-version)
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          # Only commit when the bump actually changed package.json.
+
+          # Abort before any push if the tag already exists. Nothing has been
+          # pushed at this point, so dev/main are left untouched.
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "::error::Tag ${TAG} already exists — pick a different bump level."
+            exit 1
+          fi
+
+          # Commit the bump on dev (only when package.json actually changed).
           if ! git diff --quiet -- package.json; then
             git add package.json
             git commit -m "chore: release ${TAG}"
-            git push origin dev
           fi
 
-      - name: Fast-forward merge dev into main
-        run: |
+          # Fast-forward main to dev and create the tag — still all local.
           git checkout -B main origin/main
           git merge --ff-only dev
-          git push origin main
+          git tag "${TAG}"
 
-      - name: Create and push tag
+      - name: Push dev, main and tag atomically
         run: |
-          git tag "${{ steps.version.outputs.tag }}"
-          git push origin "${{ steps.version.outputs.tag }}"
+          # --atomic makes all three refs land together or not at all, so a
+          # failure can never leave a bumped branch without its tag.
+          git push --atomic origin dev main "refs/tags/${{ steps.version.outputs.tag }}"
 
       - name: Summary
         run: echo "### Released \`${{ steps.version.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
