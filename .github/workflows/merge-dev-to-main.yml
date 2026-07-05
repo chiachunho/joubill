@@ -2,6 +2,16 @@ name: Merge dev → main & tag
 
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver bump level"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+        required: true
 
 jobs:
   merge-and-tag:
@@ -21,26 +31,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Compute next tag
-        id: tag
+      - name: Bump version on dev
+        id: version
         run: |
-          DATE=$(TZ='Asia/Taipei' date +'%Y%m%d')
-          # Find the highest sequence number used today
-          LAST=$(git tag --list "${DATE}.*" | sort -t. -k2 -n | tail -1)
-          if [ -z "$LAST" ]; then
-            SEQ=1
-          else
-            SEQ=$(echo "$LAST" | awk -F. '{print $2 + 1}')
-          fi
-          echo "name=${DATE}.${SEQ}" >> "$GITHUB_OUTPUT"
-
-      - name: Stamp version into package.json on dev
-        run: |
-          TAG="${{ steps.tag.outputs.name }}"
           git checkout -B dev origin/dev
-          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.appVersion=process.argv[1];fs.writeFileSync('package.json', JSON.stringify(p,null,2)+'\n');" "$TAG"
+          # npm version edits package.json and echoes the new version as v<semver>,
+          # which is exactly our tag name. --no-git-tag-version leaves git to us.
+          TAG=$(npm version "${{ inputs.bump }}" --no-git-tag-version)
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           git add package.json
-          git commit -m "chore: release $TAG"
+          git commit -m "chore: release ${TAG}"
           git push origin dev
 
       - name: Fast-forward merge dev into main
@@ -51,8 +51,8 @@ jobs:
 
       - name: Create and push tag
         run: |
-          git tag "${{ steps.tag.outputs.name }}"
-          git push origin "${{ steps.tag.outputs.name }}"
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Summary
-        run: echo "### Released \`${{ steps.tag.outputs.name }}\`" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "### Released \`${{ steps.version.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
