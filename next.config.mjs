@@ -1,30 +1,25 @@
 import { execSync } from "child_process";
+import { readFileSync } from "fs";
 
+// Released builds carry the release tag in package.json `appVersion`, written by
+// the dev→main release workflow (.github/workflows/merge-dev-to-main.yml). We
+// read it from the file rather than from git tags because Vercel's build has no
+// git credentials to fetch tags, and the deployed commit predates its own tag.
 let appVersion = "dev";
 try {
-  // Vercel does a shallow clone without tags, so `git describe --tags` finds
-  // none and falls through to the SHA. Pull tags in first (best-effort), and
-  // deepen the history (--unshallow) so describe can reach a tag that precedes
-  // HEAD — not just one sitting exactly on it. timeout bounds a stalled fetch.
-  try {
-    execSync("git fetch --tags --unshallow", { stdio: "ignore", timeout: 15000 });
-  } catch {
-    // already a complete clone (--unshallow errors), offline, or no remote —
-    // fall back to a plain tag fetch; describe still works if tags are present.
-    try {
-      execSync("git fetch --tags", { stdio: "ignore", timeout: 15000 });
-    } catch {
-      // offline / no remote — proceed with whatever tags are already local.
-    }
-  }
-  // --always guarantees a SHA fallback when truly no tag is reachable.
-  appVersion = execSync("git describe --tags --always", { encoding: "utf8" }).trim();
+  const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
+  if (pkg.appVersion) appVersion = pkg.appVersion;
 } catch {
-  // not a git repo — fall back to short commit SHA
+  // package.json unreadable — leave the "dev" default.
+}
+
+// Local/unreleased builds have appVersion "dev"; fall back to git so developers
+// still see a meaningful version. (No-op on Vercel, where appVersion is set.)
+if (appVersion === "dev") {
   try {
-    appVersion = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+    appVersion = execSync("git describe --tags --always", { encoding: "utf8" }).trim();
   } catch {
-    // not a git repo
+    // not a git repo — keep "dev".
   }
 }
 
