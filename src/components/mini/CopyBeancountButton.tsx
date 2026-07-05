@@ -15,14 +15,9 @@ import {
 } from "@/lib/beancount";
 import type { Profile } from "@/lib/label";
 import { tmaRawFetch, webRawFetch } from "@/lib/web-fetch";
+import type { BeancountConfigInput } from "@/lib/zod";
 
-type Config = {
-  expensesAccount: string;
-  cashAccount: string;
-  receivablePrefix: string;
-  personAccounts: Record<string, string>;
-};
-type ConfigResponse = { config: Config | null };
+type ConfigResponse = { config: BeancountConfigInput | null };
 
 type Member = {
   id: number;

@@ -353,7 +353,10 @@ export const userBeancountConfigs = pgTable(
     expensesAccount: text("expenses_account").notNull(),
     cashAccount: text("cash_account").notNull(),
     receivablePrefix: text("receivable_prefix").notNull(),
-    personAccounts: jsonb("person_accounts").$type<Record<string, string>>().notNull().default({}),
+    personAccounts: jsonb("person_accounts")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -7,7 +7,7 @@ import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { beancountAccountName, DEFAULT_BEANCOUNT_ACCOUNTS } from "@/lib/beancount";
-import { BEANCOUNT_ACCOUNT_RE, BEANCOUNT_LEAF_RE } from "@/lib/zod";
+import { BEANCOUNT_ACCOUNT_RE, BEANCOUNT_LEAF_RE, type BeancountConfigInput } from "@/lib/zod";
 
 type Member = {
   id: number;
@@ -16,12 +16,7 @@ type Member = {
   username: string | null;
 };
 
-type Config = {
-  expensesAccount: string;
-  cashAccount: string;
-  receivablePrefix: string;
-  personAccounts: Record<string, string>;
-};
+type Config = BeancountConfigInput;
 
 type ConfigResponse = { config: Config | null };
 

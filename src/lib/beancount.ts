@@ -2,11 +2,12 @@
  * Render a single splitbill record (expense or settlement) as a beancount
  * transaction, from the **personal-ledger perspective** of the current user (U).
  *
- * Accounts (fixed prefixes for now — see CLAUDE.md):
- * - `Expenses:Uncategorized` — U's own share of consumption.
- * - `Assets:Cash`            — cash U actually fronted (negative).
- * - `Assets:Receivable:<X>`  — net position between U and each other person X
- *                              (positive = X owes U, negative = U owes X).
+ * Accounts default to {@link DEFAULT_BEANCOUNT_ACCOUNTS} but are configurable
+ * per (user, group) via the `accounts` argument (see CLAUDE.md):
+ * - expenses (`Expenses:Uncategorized`)  — U's own share of consumption.
+ * - cash (`Assets:Cash`)                 — cash U actually fronted (negative).
+ * - receivablePrefix (`Assets:Receivable`) + person leaf — net position between
+ *   U and each other person X (positive = X owes U, negative = U owes X).
  *
  * The transaction always balances in the record's own currency. When `fx` is
  * supplied, every posting also carries an `@ <rate> <quote>` price so it

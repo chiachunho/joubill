@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { userBeancountConfigs } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { beancountConfigInputSchema } from "@/lib/zod";
+import { beancountConfigInputSchema, type BeancountConfigInput } from "@/lib/zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,19 +20,8 @@ async function resolve(req: Request, ctx: Params) {
   return { userId: auth.user.id, groupId };
 }
 
-type ConfigJson = {
-  expensesAccount: string;
-  cashAccount: string;
-  receivablePrefix: string;
-  personAccounts: Record<string, string>;
-};
-
-function toJson(row: {
-  expensesAccount: string;
-  cashAccount: string;
-  receivablePrefix: string;
-  personAccounts: Record<string, string>;
-}): ConfigJson {
+/** Project a config row down to the wire shape (drops id/userId/groupId/timestamps). */
+function toJson(row: BeancountConfigInput): BeancountConfigInput {
   return {
     expensesAccount: row.expensesAccount,
     cashAccount: row.cashAccount,
