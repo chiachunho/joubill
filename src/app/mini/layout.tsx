@@ -4,6 +4,7 @@ import Script from "next/script";
 import { AuthProvider } from "@/components/AuthProvider";
 import { SWRProvider } from "@/components/mini/SWRProvider";
 import { TelegramApp } from "@/components/mini/TelegramApp";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const metadata: Metadata = {
   title: "揪帳",
@@ -19,9 +20,11 @@ export default function MiniLayout({ children }: { children: React.ReactNode }) 
       <AuthProvider mode="tma">
         <TelegramApp>
           <SWRProvider>
-            <main className="mx-auto min-h-screen max-w-xl pb-10">
-              {children}
-            </main>
+            <TooltipProvider delayDuration={200}>
+              <main className="mx-auto min-h-screen max-w-xl pb-10">
+                {children}
+              </main>
+            </TooltipProvider>
           </SWRProvider>
         </TelegramApp>
       </AuthProvider>

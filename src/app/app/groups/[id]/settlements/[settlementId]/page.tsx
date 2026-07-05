@@ -57,6 +57,7 @@ export default function AppEditSettlementPage({
     <SettlementForm
       groupId={groupId}
       defaultCurrency={group.defaultCurrency}
+      currentUserId={me.userId}
       members={ms.members}
       photos={avatars?.userPhotos}
       initial={settlement}

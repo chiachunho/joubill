@@ -8,6 +8,7 @@ import useSWR, { mutate } from "swr";
 import { ArrowLeft, Calendar as CalendarIcon } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { CopyBeancountButton } from "@/components/mini/CopyBeancountButton";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -55,6 +56,7 @@ type Initial = {
 type Props = {
   groupId: number;
   defaultCurrency: string;
+  currentUserId: number;
   members: Member[];
   photos?: Record<number, string | null>;
   initial?: Initial;
@@ -71,7 +73,7 @@ function dayToNoonUtcIso(d: Date): string {
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)).toISOString();
 }
 
-export function SettlementForm({ groupId, defaultCurrency, members, photos, initial, returnPath }: Props) {
+export function SettlementForm({ groupId, defaultCurrency, currentUserId, members, photos, initial, returnPath }: Props) {
   const router = useRouter();
   const mode = useAuthMode();
   const isEdit = !!initial;
@@ -191,24 +193,45 @@ export function SettlementForm({ groupId, defaultCurrency, members, photos, init
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 py-4">
         {/* Header */}
-        <div className="flex items-center gap-2">
-          {mode === "web" && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="shrink-0 rounded-lg"
-              onClick={backToList}
-            >
-              <ArrowLeft className="size-4" />
-            </Button>
-          )}
-          <div>
-            <h1 className="text-lg font-semibold">{isEdit ? "編輯還款記錄" : "新增還款記錄"}</h1>
-            {isEdit && (
-              <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            {mode === "web" && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0 rounded-lg"
+                onClick={backToList}
+              >
+                <ArrowLeft className="size-4" />
+              </Button>
             )}
+            <div>
+              <h1 className="text-lg font-semibold">{isEdit ? "編輯還款記錄" : "新增還款記錄"}</h1>
+              {isEdit && (
+                <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>
+              )}
+            </div>
           </div>
+          {isEdit && initial && (
+            <CopyBeancountButton
+              record={{
+                type: "settlement",
+                amount: initial.amount,
+                currency: initial.currency,
+                description: null,
+                spentAt: initial.settledAt,
+                payers: [{ userId: initial.from.userId, amount: initial.amount }],
+                splits: [{ userId: initial.to.userId, amount: initial.amount }],
+              }}
+              fxRate={initial.fxRate ?? null}
+              fxQuote={initial.fxQuote ?? null}
+              currentUserId={currentUserId}
+              members={members}
+              groupId={groupId}
+              defaultCurrency={defaultCurrency}
+            />
+          )}
         </div>
 
         {/* From */}

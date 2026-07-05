@@ -9,6 +9,7 @@ import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronLeft, ChevronRight, 
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { CopyBeancountButton } from "@/components/mini/CopyBeancountButton";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -548,19 +549,40 @@ export function ExpenseForm(props: Props) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 py-4">
         {/* Header */}
-        <div className="flex items-center gap-2">
-          {mode === "web" && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="shrink-0 rounded-lg"
-              onClick={backToGroup}
-            >
-              <ArrowLeft className="size-4" />
-            </Button>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            {mode === "web" && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0 rounded-lg"
+                onClick={backToGroup}
+              >
+                <ArrowLeft className="size-4" />
+              </Button>
+            )}
+            <h1 className="text-lg font-semibold">{isEdit ? "編輯支出" : "新增支出"}</h1>
+          </div>
+          {isEdit && initial && (
+            <CopyBeancountButton
+              record={{
+                type: "expense",
+                amount: initial.amount,
+                currency: initial.currency,
+                description: initial.description,
+                spentAt: initial.spentAt,
+                payers: initial.payers.map((p) => ({ userId: p.payerId, amount: p.amount })),
+                splits: initial.splits.map((s) => ({ userId: s.debtorId, amount: s.amount })),
+              }}
+              fxRate={initial.fxRate ?? null}
+              fxQuote={initial.fxQuote ?? null}
+              currentUserId={props.currentUserId}
+              members={members}
+              groupId={groupId}
+              defaultCurrency={props.defaultCurrency}
+            />
           )}
-          <h1 className="text-lg font-semibold">{isEdit ? "編輯支出" : "新增支出"}</h1>
         </div>
 
         {/* Amount + currency row */}

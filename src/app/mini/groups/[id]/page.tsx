@@ -7,6 +7,7 @@ import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
 import {
   EXPENSE_ONLY_MINE_KEY,
@@ -443,9 +444,14 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                             <ArrowRight className="size-3 shrink-0 text-muted-foreground/50" />
                             <Avatar src={getPhoto(to?.userId ?? 0)} name={labelUser(to)} userId={to?.userId ?? 0} size="sm" />
                             <span className="max-w-[60px] truncate text-sm">{labelUser(to, selfUserId)}</span>
-                            <span className="inline-flex shrink-0 items-center rounded-lg bg-muted p-1 text-muted-foreground" title="還款">
-                              <HandCoins className="size-3" />
-                            </span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex shrink-0 items-center rounded-lg bg-muted p-1 text-muted-foreground">
+                                  <HandCoins className="size-3" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>還款</TooltipContent>
+                            </Tooltip>
                           </div>
                           <div className="shrink-0 text-right">
                             {viewMode === "balance" ? (
