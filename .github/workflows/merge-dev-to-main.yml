@@ -2,6 +2,17 @@ name: Merge dev → main & tag
 
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver bump level (none = release current version as-is)"
+        type: choice
+        options:
+          - none
+          - patch
+          - minor
+          - major
+        default: patch
+        required: true
 
 jobs:
   merge-and-tag:
@@ -21,31 +32,43 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Fast-forward merge dev into main
+      - name: Prepare release (all local — nothing is pushed yet)
+        id: version
         run: |
-          git checkout main
-          git merge --ff-only origin/dev
-
-      - name: Compute next tag
-        id: tag
-        run: |
-          DATE=$(TZ='Asia/Taipei' date +'%Y%m%d')
-          # Find the highest sequence number used today
-          LAST=$(git tag --list "${DATE}.*" | sort -t. -k2 -n | tail -1)
-          if [ -z "$LAST" ]; then
-            SEQ=1
+          git checkout -B dev origin/dev
+          if [ "${{ inputs.bump }}" = "none" ]; then
+            # Release the current package.json version as-is (e.g. the first v1.0.0).
+            TAG="v$(node -p "require('./package.json').version")"
           else
-            SEQ=$(echo "$LAST" | awk -F. '{print $2 + 1}')
+            # npm version edits package.json and echoes the new version as v<semver>,
+            # which is exactly our tag name. --no-git-tag-version leaves git to us.
+            TAG=$(npm version "${{ inputs.bump }}" --no-git-tag-version)
           fi
-          echo "name=${DATE}.${SEQ}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Push main
-        run: git push origin main
+          # Abort before any push if the tag already exists. Nothing has been
+          # pushed at this point, so dev/main are left untouched.
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "::error::Tag ${TAG} already exists — pick a different bump level."
+            exit 1
+          fi
 
-      - name: Create and push tag
+          # Commit the bump on dev (only when package.json actually changed).
+          if ! git diff --quiet -- package.json; then
+            git add package.json
+            git commit -m "chore: release ${TAG}"
+          fi
+
+          # Fast-forward main to dev and create the tag — still all local.
+          git checkout -B main origin/main
+          git merge --ff-only dev
+          git tag "${TAG}"
+
+      - name: Push dev, main and tag atomically
         run: |
-          git tag "${{ steps.tag.outputs.name }}"
-          git push origin "${{ steps.tag.outputs.name }}"
+          # --atomic makes all three refs land together or not at all, so a
+          # failure can never leave a bumped branch without its tag.
+          git push --atomic origin dev main "refs/tags/${{ steps.version.outputs.tag }}"
 
       - name: Summary
-        run: echo "### Released \`${{ steps.tag.outputs.name }}\`" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "### Released \`${{ steps.version.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
