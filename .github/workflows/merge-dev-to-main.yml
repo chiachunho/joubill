@@ -4,9 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "Semver bump level"
+        description: "Semver bump level (none = release current version as-is)"
         type: choice
         options:
+          - none
           - patch
           - minor
           - major
@@ -35,13 +36,21 @@ jobs:
         id: version
         run: |
           git checkout -B dev origin/dev
-          # npm version edits package.json and echoes the new version as v<semver>,
-          # which is exactly our tag name. --no-git-tag-version leaves git to us.
-          TAG=$(npm version "${{ inputs.bump }}" --no-git-tag-version)
+          if [ "${{ inputs.bump }}" = "none" ]; then
+            # Release the current package.json version as-is (e.g. the first v1.0.0).
+            TAG="v$(node -p "require('./package.json').version")"
+          else
+            # npm version edits package.json and echoes the new version as v<semver>,
+            # which is exactly our tag name. --no-git-tag-version leaves git to us.
+            TAG=$(npm version "${{ inputs.bump }}" --no-git-tag-version)
+          fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          git add package.json
-          git commit -m "chore: release ${TAG}"
-          git push origin dev
+          # Only commit when the bump actually changed package.json.
+          if ! git diff --quiet -- package.json; then
+            git add package.json
+            git commit -m "chore: release ${TAG}"
+            git push origin dev
+          fi
 
       - name: Fast-forward merge dev into main
         run: |
