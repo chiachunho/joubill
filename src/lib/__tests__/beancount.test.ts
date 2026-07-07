@@ -254,6 +254,16 @@ describe("recordToBeancount — custom accounts", () => {
     expect(sum(out)).toBe(0);
   });
 
+  it("a blank configured leaf falls back to the auto name (no trailing colon)", () => {
+    const out = recordToBeancount(expense({}), ALICE, people, undefined, {
+      ...accounts,
+      personAccounts: { [String(BOB)]: "" },
+    });
+    const ps = postings(out);
+    expect(ps).toContainEqual({ account: "Assets:Owed:Bob", amount: 100 });
+    expect(out).not.toContain("Assets:Owed: ");
+  });
+
   it("residual still lands on a receivable leg under a custom prefix, keeping Cash exact", () => {
     const out = recordToBeancount(
       expense({

@@ -85,8 +85,9 @@ export function beancountAccountName(person: Profile): string {
 }
 
 function receivableAccount(person: Profile, accounts: BeancountAccounts): string {
-  const leaf =
-    accounts.personAccounts?.[String(person.userId ?? -1)] ?? beancountAccountName(person);
+  // `||` (not `??`) so a blank configured leaf falls back to the auto name
+  // instead of producing an invalid `<prefix>:` with a trailing colon.
+  const leaf = accounts.personAccounts?.[String(person.userId ?? -1)] || beancountAccountName(person);
   return `${accounts.receivablePrefix}:${leaf}`;
 }
 
