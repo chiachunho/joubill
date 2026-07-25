@@ -207,7 +207,14 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
   };
 }
 
-/** The eight currency codes offered in the 💱 picker for this group. */
+/**
+ * Currency shortcuts in the 💱 picker: what this expense is set to, the group
+ * default, then whatever the group actually uses most. Only three — a wall of
+ * codes is slower to read than the 「其他…」 prompt is to type, and a group's
+ * real vocabulary is one or two currencies plus the trip they're on.
+ */
+const CURRENCY_CHOICES = 3;
+
 async function currencyChoices(groupId: number, current: string, fallback: string): Promise<string[]> {
   const used = await db
     .select({ currency: expenses.currency, uses: sql<number>`count(*)::int` })
@@ -215,13 +222,13 @@ async function currencyChoices(groupId: number, current: string, fallback: strin
     .where(eq(expenses.groupId, groupId))
     .groupBy(expenses.currency)
     .orderBy(desc(sql`count(*)`))
-    .limit(8);
+    .limit(CURRENCY_CHOICES);
 
   const out: string[] = [];
-  for (const code of [current, fallback, ...used.map((u) => u.currency), "TWD", "JPY", "USD", "KRW", "EUR"]) {
+  for (const code of [current, fallback, ...used.map((u) => u.currency), "TWD", "JPY", "USD"]) {
     if (code && !out.includes(code)) out.push(code);
   }
-  return out.slice(0, 8);
+  return out.slice(0, CURRENCY_CHOICES);
 }
 
 function splitLine(card: CardData): string {
@@ -338,12 +345,10 @@ async function cardKeyboard(
     card.expense.currency,
     card.defaultCurrency,
   );
-  codes.forEach((code, i) => {
+  for (const code of codes) {
     kb.text(code === card.expense.currency ? `✅ ${code}` : code, `exp:curs:${id}:${code}`);
-    if (i % 3 === 2) kb.row();
-  });
-  if (codes.length % 3 !== 0) kb.row();
-  return kb.text("其他…", `exp:curo:${id}`).row().text("← 返回", `exp:adj:${id}`);
+  }
+  return kb.row().text("其他…", `exp:curo:${id}`).text("← 返回", `exp:adj:${id}`);
 }
 
 /** Build the full card (text + keyboard) for an expense, or null if it's gone. */
