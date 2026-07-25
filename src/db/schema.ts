@@ -162,14 +162,22 @@ export const receiptAwaiting = pgTable("receipt_awaiting", {
 });
 
 /**
- * Tracks in-flight "waiting for /add details" states in group chats.
- * Created when a user sends /add with no arguments; deleted once the user
- * replies with expense text (or the row expires after 24 h).
+ * Tracks in-flight ForceReply prompts in group chats: either "waiting for /add
+ * details" (bare /add) or "waiting for a new value" for one field of an
+ * existing expense (the ✏️ 金額 / 💱 其他幣別 buttons on the expense card).
+ * Deleted once the user replies (or the row expires after 24 h).
  */
 export const addAwaiting = pgTable("add_awaiting", {
   id: serial("id").primaryKey(),
   chatId: bigint("chat_id", { mode: "number" }).notNull(),
+  /** Message id of the ForceReply prompt the user is expected to reply to. */
   messageId: integer("message_id").notNull(),
+  /** NULL for a fresh /add; set when the reply edits an existing expense. */
+  expenseId: integer("expense_id").references(() => expenses.id, { onDelete: "cascade" }),
+  /** Which field the reply fills in: 'amount' | 'currency'. NULL for a fresh /add. */
+  field: varchar("field", { length: 16 }),
+  /** Message id of the expense card to refresh after the reply. */
+  panelMessageId: integer("panel_message_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

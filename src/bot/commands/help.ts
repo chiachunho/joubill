@@ -2,20 +2,29 @@ import { Composer } from "grammy";
 
 import type { BotContext } from "../context";
 
+/**
+ * Deliberately short. `/add 金額 說明` is the only syntax worth memorising —
+ * everything else (who splits, per-person shares, the currency) lives on the
+ * ⚙️ 調整 buttons attached to each expense, where it's discoverable.
+ */
 const HELP_TEXT = [
-  "*指令*",
+  "*記一筆*",
+  "`/add 500 晚餐`",
   "",
-  "`/add 300 午餐` — 全群均分",
-  "`/add 300 午餐 @alice @bob` — 指定分擔",
-  "`/add 300 午餐` — 不等額（換行指定每人金額）",
-  "`@alice 200`",
-  "`@bob 100`",
+  "金額怎麼寫都行：`1,200` · `300元` · `3k` · `150+200`",
+  "別的幣別：`/add 3000 JPY 拉麵`",
+  "只給某些人分：`/add 500 晚餐 @alice @bob`",
   "",
+  "記完點訊息下方的 *⚙️ 調整*：",
+  "👥 誰分 · ⚖️ 份數 · 💱 幣別 · ✏️ 金額",
+  "",
+  "*其他指令*",
   "`/list` — 最近支出",
   "`/balance` — 各人餘額",
   "`/settle` — 還款建議",
+  "`/app` — 開啟 Mini App",
   "",
-  "講過話的人自動加入，也可以從 @ 清單選取沒有 username 的人。",
+  "講過話的人會自動加入群組成員。",
 ].join("\n");
 
 export const helpCommand = new Composer<BotContext>();
