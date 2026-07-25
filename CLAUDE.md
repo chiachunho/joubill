@@ -45,11 +45,27 @@ The Mini App and Web App share the same **lower-level building blocks** — `src
 
 ### Bot (`src/bot/`)
 
-`src/bot/index.ts` exports a lazy singleton `getBot()` — the bot instance is not created until the first webhook hit, so `TELEGRAM_BOT_TOKEN` doesn't need to exist at build time. Middleware runs in registration order: `registerUser` → `trackMembership` → commands.
+`src/bot/index.ts` exports a lazy singleton `getBot()` — the bot instance is not created until the first webhook hit, so `TELEGRAM_BOT_TOKEN` doesn't need to exist at build time. Middleware runs in registration order: `chatMigration` → `registerUser` → `trackMembership` → commands.
 
 Two middleware layers auto-populate the DB:
 - `registerUser` — upserts the `users` row for any message sender
 - `trackMembership` — upserts the `group_members` row
+
+#### Membership tracking is event-sourced, and cannot be backfilled
+
+The Bot API has **no "list chat members" endpoint** (only `getChatMemberCount`, `getChatAdministrators`, and `getChatMember` for an id you already have), so `group_members` is assembled from whatever events happen to arrive. Four sources, in the order a person is most likely to hit them:
+
+1. `registerUser` — the sender of any group message.
+2. `trackMembership` on `new_chat_members` — the service message for someone added after the bot joined.
+3. `trackMembership` on `chat_member` — every member status change, including invite-link joins. **Not delivered by default**: requires `chat_member` in `setWebhook`'s `allowed_updates` (`scripts/set-webhook.ts`) *and* the bot being a group administrator.
+4. `/join @a @b` (`src/bot/commands/join.ts`) and `forwardJoin` — manual, for people none of the above caught.
+
+Two limits worth knowing before trying to "just add everyone":
+
+- **Group creation emits no roster.** MTProto's `messageActionChatCreate` carries the initial participant list, but the Bot API flattens it to `Message.group_chat_created = true` and drops the users. Adding the bot while creating the group registers only the creator.
+- **`@handle` mentions are unresolvable.** The two mention entity kinds are not equivalent: `text_mention` (users *without* a username, picked from the @ list) carries the full `User` object, while `mention` is the bare text `@handle` and there is no username → id lookup. `src/lib/parseMentions.ts` splits them; `/join` registers the first kind directly and can only match the second against users already in the DB, falling back to the welcome-button prompt. `/add` does the same via `src/lib/parseAdd.ts`.
+
+`src/bot/handlers/chatMigration.ts` follows the chat-id rewrite when a basic group is upgraded to a supergroup (`migrate_to_chat_id` / `migrate_from_chat_id`), repointing `groups.telegramChatId` so the existing members and expenses aren't orphaned under the dead id. It **must stay registered before `registerUser`**, which would otherwise upsert an empty duplicate group row under the new id first. If both ids already hold expenses it logs and bails rather than merging two ledgers.
 
 ### Mini App (`src/app/mini/`)
 
