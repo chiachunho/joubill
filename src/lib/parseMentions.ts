@@ -1,4 +1,4 @@
-import type { MessageEntity, User as TelegramUser } from "grammy/types";
+import type { Message, MessageEntity, User as TelegramUser } from "grammy/types";
 
 /**
  * The two ways Telegram encodes an @-mention, and why they are not
@@ -57,4 +57,26 @@ export function parseMentions(
   }
 
   return { users: [...byId.values()], usernames: [...handles] };
+}
+
+/**
+ * The author of the message a command was sent as a reply to, when that author
+ * is a real person we can register.
+ *
+ * This is the one identification path that works regardless of whether the
+ * target has a username: `reply_to_message.from` is a full `User` object, so it
+ * carries the numeric id that a bare `@handle` never can. It costs a round trip
+ * of UI per person, but it is exact.
+ *
+ * A reply to a *forwarded* message deliberately still resolves — `from` is the
+ * group member who posted it here, not the original author, and that member is
+ * exactly who belongs in the ledger.
+ */
+export function replyTargetUser(reply: Message | undefined): TelegramUser | null {
+  if (!reply) return null;
+  // Posted on behalf of a channel or as an anonymous admin: there is no personal
+  // account behind it (`from` is absent or the GroupAnonymousBot placeholder).
+  if (reply.sender_chat) return null;
+  if (!reply.from || reply.from.is_bot) return null;
+  return reply.from;
 }

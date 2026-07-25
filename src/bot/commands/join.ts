@@ -7,7 +7,7 @@ import type { User as DbUser } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { escapeHtml, mention } from "../format";
 import { labelUser } from "@/lib/label";
-import { parseMentions } from "@/lib/parseMentions";
+import { parseMentions, replyTargetUser } from "@/lib/parseMentions";
 
 import type { BotContext } from "../context";
 import { groupMiniAppLink } from "./start";
@@ -18,6 +18,7 @@ const USAGE = [
   "用法：<code>/join @alice @bob</code>",
   "",
   "把群組裡的人一次加進揪帳。沒有 @username 的人，從輸入框打 @ 的清單裡挑他的名字就可以。",
+  "也可以直接<b>回覆</b>對方的任何一則訊息再打 <code>/join</code> —— 這種方式最準，不管對方有沒有 @username 都認得出來。",
 ].join("\n");
 
 /** One person's outcome, bucketed for the summary reply. */
@@ -57,13 +58,26 @@ joinCommand.command("join", async (ctx) => {
     return;
   }
 
-  const { users: mentionedUsers, usernames } = parseMentions(
+  const { users: mentionedUsers, usernames: mentionedHandles } = parseMentions(
     ctx.message?.text ?? "",
     ctx.message?.entities ?? [],
     ctx.me.username,
   );
 
-  if (mentionedUsers.length === 0 && usernames.length === 0) {
+  // Replying to someone identifies them exactly, username or not — treat the
+  // reply target as one more fully-identified mention.
+  const replyTarget = replyTargetUser(ctx.message?.reply_to_message);
+  const identified = replyTarget ? [replyTarget, ...mentionedUsers] : mentionedUsers;
+
+  // Drop handles that name someone we already identified, so replying to Alice
+  // while also typing @alice can't report her as added *and* unknown. (parseMentions
+  // does this for its own entities; the reply target arrives after it runs.)
+  const identifiedHandles = new Set(
+    identified.map((u) => u.username?.toLowerCase()).filter(Boolean),
+  );
+  const usernames = mentionedHandles.filter((h) => !identifiedHandles.has(h));
+
+  if (identified.length === 0 && usernames.length === 0) {
     await ctx.reply(USAGE, { parse_mode: "HTML" });
     return;
   }
@@ -100,7 +114,7 @@ joinCommand.command("join", async (ctx) => {
     candidates.push(u);
   };
 
-  for (const tgUser of mentionedUsers) addCandidate(await upsertTelegramUser(tgUser));
+  for (const tgUser of identified) addCandidate(await upsertTelegramUser(tgUser));
   for (const handle of usernames) {
     const matches = byHandle.get(handle);
     if (matches?.length === 1) addCandidate(matches[0]);

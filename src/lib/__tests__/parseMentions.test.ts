@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { MessageEntity } from "grammy/types";
+import type { Message, MessageEntity } from "grammy/types";
 
-import { parseMentions } from "../parseMentions";
+import { parseMentions, replyTargetUser } from "../parseMentions";
+
+/** Minimal Message stand-in — replyTargetUser only reads `from` / `sender_chat`. */
+function replied(fields: Partial<Message>): Message {
+  return fields as Message;
+}
 
 /** Build a `mention` entity covering the @handle at its position in `text`. */
 function mention(text: string, handle: string): MessageEntity {
@@ -93,5 +98,48 @@ describe("parseMentions", () => {
       mention(text, "alice"),
     ];
     expect(parseMentions(text, entities).usernames).toEqual(["alice"]);
+  });
+});
+
+describe("replyTargetUser", () => {
+  const alice = { id: 42, is_bot: false, first_name: "Alice" };
+
+  it("returns null when the command isn't a reply", () => {
+    expect(replyTargetUser(undefined)).toBeNull();
+  });
+
+  it("returns the replied-to author", () => {
+    expect(replyTargetUser(replied({ from: alice }))).toEqual(alice);
+  });
+
+  it("identifies users who have a username just as well", () => {
+    const withHandle = { ...alice, username: "alice" };
+    expect(replyTargetUser(replied({ from: withHandle }))).toEqual(withHandle);
+  });
+
+  it("returns null for a reply to a bot's message", () => {
+    expect(replyTargetUser(replied({ from: { ...alice, is_bot: true } }))).toBeNull();
+  });
+
+  it("returns null for a message posted on behalf of a chat", () => {
+    // Anonymous admin / channel post: `from` is the GroupAnonymousBot placeholder,
+    // and there's no personal account to seat.
+    const anon = replied({
+      from: { id: 1087968824, is_bot: true, first_name: "Group" },
+      sender_chat: { id: -100123, type: "supergroup", title: "G" } as Message["sender_chat"],
+    });
+    expect(replyTargetUser(anon)).toBeNull();
+  });
+
+  it("resolves a reply to a forwarded message to the member who posted it here", () => {
+    const forwarded = replied({
+      from: alice,
+      forward_origin: {
+        type: "user",
+        date: 0,
+        sender_user: { id: 999, is_bot: false, first_name: "Someone else" },
+      },
+    });
+    expect(replyTargetUser(forwarded)).toEqual(alice);
   });
 });

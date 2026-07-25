@@ -15,6 +15,7 @@ const HELP_TEXT = [
   "`/balance` — 各人餘額",
   "`/settle` — 還款建議",
   "`/join @alice @bob` — 把人加進揪帳",
+  "回覆某人的訊息再打 `/join` — 最準的加人方式",
   "",
   "講過話的人自動加入，也可以從 @ 清單選取沒有 username 的人。",
   "Telegram 不給 bot 群組成員名單，所以沒講過話的人要用 /join 或點歡迎訊息的按鈕。",

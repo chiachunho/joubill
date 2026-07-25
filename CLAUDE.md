@@ -58,7 +58,7 @@ The Bot API has **no "list chat members" endpoint** (only `getChatMemberCount`, 
 1. `registerUser` — the sender of any group message or callback query. Explicitly **not** `chat_member` updates: there `ctx.from` is whoever caused a status change, so seating them would add a lurker the moment they leave, or an admin for kicking someone. A spurious `group_members` row silently enlarges every equal split.
 2. `trackMembership` on `new_chat_members` — the service message for someone added after the bot joined.
 3. `trackMembership` on `chat_member` — every member status change, including invite-link joins; registers the *target*, and only on an absent → present transition. **Not delivered by default**: requires `chat_member` in `setWebhook`'s `allowed_updates` (`scripts/set-webhook.ts`) *and* the bot being a group administrator.
-4. `/join @a @b` (`src/bot/commands/join.ts`) and `forwardJoin` — manual, for people none of the above caught.
+4. `/join` (`src/bot/commands/join.ts`) and `forwardJoin` — manual, for people none of the above caught. `/join` takes mentions (`/join @a @b`) and, sent as a **reply**, the replied-to author: `reply_to_message.from` is a full `User`, so it identifies people **with** a username too, which is the one thing mentions can't do. One person per reply, and privacy mode means it must be the `/join` command carrying the reply — a bare reply to another user never reaches the bot.
 
 Two limits worth knowing before trying to "just add everyone":
 
