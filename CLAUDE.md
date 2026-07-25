@@ -55,9 +55,9 @@ Two middleware layers auto-populate the DB:
 
 The Bot API has **no "list chat members" endpoint** (only `getChatMemberCount`, `getChatAdministrators`, and `getChatMember` for an id you already have), so `group_members` is assembled from whatever events happen to arrive. Four sources, in the order a person is most likely to hit them:
 
-1. `registerUser` — the sender of any group message.
+1. `registerUser` — the sender of any group message or callback query. Explicitly **not** `chat_member` updates: there `ctx.from` is whoever caused a status change, so seating them would add a lurker the moment they leave, or an admin for kicking someone. A spurious `group_members` row silently enlarges every equal split.
 2. `trackMembership` on `new_chat_members` — the service message for someone added after the bot joined.
-3. `trackMembership` on `chat_member` — every member status change, including invite-link joins. **Not delivered by default**: requires `chat_member` in `setWebhook`'s `allowed_updates` (`scripts/set-webhook.ts`) *and* the bot being a group administrator.
+3. `trackMembership` on `chat_member` — every member status change, including invite-link joins; registers the *target*, and only on an absent → present transition. **Not delivered by default**: requires `chat_member` in `setWebhook`'s `allowed_updates` (`scripts/set-webhook.ts`) *and* the bot being a group administrator.
 4. `/join @a @b` (`src/bot/commands/join.ts`) and `forwardJoin` — manual, for people none of the above caught.
 
 Two limits worth knowing before trying to "just add everyone":
@@ -65,7 +65,9 @@ Two limits worth knowing before trying to "just add everyone":
 - **Group creation emits no roster.** MTProto's `messageActionChatCreate` carries the initial participant list, but the Bot API flattens it to `Message.group_chat_created = true` and drops the users. Adding the bot while creating the group registers only the creator.
 - **`@handle` mentions are unresolvable.** The two mention entity kinds are not equivalent: `text_mention` (users *without* a username, picked from the @ list) carries the full `User` object, while `mention` is the bare text `@handle` and there is no username → id lookup. `src/lib/parseMentions.ts` splits them; `/join` registers the first kind directly and can only match the second against users already in the DB, falling back to the welcome-button prompt. `/add` does the same via `src/lib/parseAdd.ts`.
 
-`src/bot/handlers/chatMigration.ts` follows the chat-id rewrite when a basic group is upgraded to a supergroup (`migrate_to_chat_id` / `migrate_from_chat_id`), repointing `groups.telegramChatId` so the existing members and expenses aren't orphaned under the dead id. It **must stay registered before `registerUser`**, which would otherwise upsert an empty duplicate group row under the new id first. If both ids already hold expenses it logs and bails rather than merging two ledgers.
+Note that `users.username` is neither unique nor live — it refreshes only when its owner next touches the bot — so a handle can match several rows once it has changed hands. `/join` refuses to guess in that case and asks for a `text_mention` instead; anything resolved to a Telegram id is additionally checked with `getChatMember` before being seated, so a mention can't put a non-member into balances.
+
+`src/bot/handlers/chatMigration.ts` follows the chat-id rewrite when a basic group is upgraded to a supergroup (`migrate_to_chat_id` / `migrate_from_chat_id`), repointing `groups.telegramChatId` so the existing members and expenses aren't orphaned under the dead id. It **must stay registered before `registerUser`**, which would otherwise upsert an empty duplicate group row under the new id first. When a duplicate does exist, whichever side has no expenses is folded into the other (`absorbGroup` carries over members and rates rather than letting the cascade drop them); if both hold expenses it logs and bails, since merging two real ledgers can't be done safely without a human.
 
 ### Mini App (`src/app/mini/`)
 

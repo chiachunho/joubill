@@ -2,7 +2,7 @@ import { Composer } from "grammy";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenses, groups } from "@/db/schema";
+import { expenses, groupExchangeRates, groupMembers, groups } from "@/db/schema";
 
 import type { BotContext } from "../context";
 
@@ -23,6 +23,61 @@ import type { BotContext } from "../context";
  */
 export const chatMigration = new Composer<BotContext>();
 
+async function hasRecords(groupId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: expenses.id })
+    .from(expenses)
+    .where(eq(expenses.groupId, groupId))
+    .limit(1);
+  return row !== undefined;
+}
+
+/**
+ * Fold `fromId` into `intoId` and drop it. Only ever called for a group with no
+ * expenses, so there are no balances to reconcile — but it may still have
+ * collected members and rates, which a plain cascade delete would throw away.
+ */
+async function absorbGroup(fromId: number, intoId: number) {
+  const members = await db
+    .select({ userId: groupMembers.userId })
+    .from(groupMembers)
+    .where(eq(groupMembers.groupId, fromId));
+
+  if (members.length > 0) {
+    await db
+      .insert(groupMembers)
+      .values(members.map((m) => ({ groupId: intoId, userId: m.userId })))
+      .onConflictDoNothing();
+  }
+
+  const rates = await db
+    .select()
+    .from(groupExchangeRates)
+    .where(eq(groupExchangeRates.groupId, fromId));
+
+  if (rates.length > 0) {
+    // onConflictDoNothing keeps the surviving group's own rate for a pair it
+    // already defines: its existing expenses were converted at that rate, and
+    // overwriting it would silently restate settled balances.
+    await db
+      .insert(groupExchangeRates)
+      .values(
+        rates.map((r) => ({
+          groupId: intoId,
+          base: r.base,
+          quote: r.quote,
+          rate: r.rate,
+          createdBy: r.createdBy,
+        })),
+      )
+      .onConflictDoNothing();
+  }
+
+  // group_delete_requests is deliberately not carried over — a pending deletion
+  // vote against a chat id that no longer exists shouldn't outlive the merge.
+  await db.delete(groups).where(eq(groups.id, fromId));
+}
+
 async function migrateGroupChatId(oldChatId: number, newChatId: number) {
   if (oldChatId === newChatId) return;
 
@@ -37,18 +92,18 @@ async function migrateGroupChatId(oldChatId: number, newChatId: number) {
   });
 
   if (newGroup && newGroup.id !== oldGroup.id) {
-    // A row already exists under the new id. Normally it's an empty one created
-    // by registerUser after a missed migration update, so absorb it — but only
-    // when it holds no records. Two populated ledgers would need a real merge
-    // (balances, FX pins, receipts), and silently picking one loses money data,
-    // so leave both intact and make the operator decide.
-    const [record] = await db
-      .select({ id: expenses.id })
-      .from(expenses)
-      .where(eq(expenses.groupId, newGroup.id))
-      .limit(1);
+    // A row already exists under the new id — usually one registerUser created
+    // from a message that beat the migration service message. Whichever side has
+    // no expenses is the disposable one; fold it into the other so the members
+    // and rates it collected survive.
+    const [oldHasRecords, newHasRecords] = await Promise.all([
+      hasRecords(oldGroup.id),
+      hasRecords(newGroup.id),
+    ]);
 
-    if (record) {
+    if (oldHasRecords && newHasRecords) {
+      // Two populated ledgers need a real merge (balances, FX pins, receipts).
+      // Picking one silently loses money data, so leave both and let a human decide.
       console.error(
         `[chatMigration] ${oldChatId} → ${newChatId}: groups #${oldGroup.id} and ` +
           `#${newGroup.id} both hold records; skipping migration (needs a manual merge).`,
@@ -56,8 +111,18 @@ async function migrateGroupChatId(oldChatId: number, newChatId: number) {
       return;
     }
 
-    // Members / rates / pending requests all cascade off groups.id.
-    await db.delete(groups).where(eq(groups.id, newGroup.id));
+    if (!oldHasRecords) {
+      // The new row is the real ledger and already carries the correct chat id,
+      // so there is nothing left to rename once the old one is folded in.
+      await absorbGroup(oldGroup.id, newGroup.id);
+      console.info(
+        `[chatMigration] ${oldChatId} → ${newChatId}: merged empty group ` +
+          `#${oldGroup.id} into #${newGroup.id}`,
+      );
+      return;
+    }
+
+    await absorbGroup(newGroup.id, oldGroup.id);
   }
 
   await db

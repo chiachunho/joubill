@@ -72,8 +72,21 @@ joinCommand.command("join", async (ctx) => {
   const known = usernames.length
     ? await db.select().from(users).where(inArray(users.username, usernames))
     : [];
-  const knownByHandle = new Map(known.map((u) => [u.username?.toLowerCase() ?? "", u]));
-  const unknownHandles = usernames.filter((h) => !knownByHandle.has(h));
+
+  // `users.username` is neither unique nor kept live — it only refreshes when
+  // someone next touches the bot. So a handle can match several rows once it has
+  // been given up and claimed by someone else, and both accounts may well still
+  // be in the chat, which makes verifyInChat no help at all. Guessing here would
+  // put the wrong person on the hook for money, so refuse and say so.
+  const byHandle = new Map<string, DbUser[]>();
+  for (const u of known) {
+    const handle = u.username?.toLowerCase();
+    if (!handle) continue;
+    byHandle.set(handle, [...(byHandle.get(handle) ?? []), u]);
+  }
+
+  const unknownHandles = usernames.filter((h) => (byHandle.get(h)?.length ?? 0) === 0);
+  const ambiguousHandles = usernames.filter((h) => (byHandle.get(h)?.length ?? 0) > 1);
 
   // Resolve everyone to a users row. text_mention people are upserted so a
   // rename lands even when they turn out to be an existing member; the same
@@ -89,8 +102,8 @@ joinCommand.command("join", async (ctx) => {
 
   for (const tgUser of mentionedUsers) addCandidate(await upsertTelegramUser(tgUser));
   for (const handle of usernames) {
-    const u = knownByHandle.get(handle);
-    if (u) addCandidate(u);
+    const matches = byHandle.get(handle);
+    if (matches?.length === 1) addCandidate(matches[0]);
   }
 
   // One round trip each, in parallel — a /join naming the whole group shouldn't
@@ -138,6 +151,12 @@ joinCommand.command("join", async (ctx) => {
     lines.push(`⚠️ 不在這個 Telegram 群組，沒有加入：${notInChat.map(nameOf).join("、")}`);
   if (unverifiable.length)
     lines.push(`⚠️ 無法確認是否在群組裡，沒有加入：${unverifiable.map(nameOf).join("、")}`);
+  if (ambiguousHandles.length) {
+    lines.push(
+      `⚠️ 這些 @ 對應到不只一個人，沒有加入：${ambiguousHandles.map((h) => "@" + escapeHtml(h)).join("、")}`,
+      "（username 可能換過手）請改從輸入框打 @ 的清單裡挑本人。",
+    );
+  }
   if (unknownHandles.length) {
     lines.push(
       `❓ 還不認識：${unknownHandles.map((h) => "@" + escapeHtml(h)).join("、")}`,
@@ -145,8 +164,9 @@ joinCommand.command("join", async (ctx) => {
     );
   }
 
-  // The button is what actually unblocks the unresolvable handles, so only offer
-  // it when there's something for it to fix.
+  // The button is what actually unblocks unresolvable handles, so only offer it
+  // when there's something for it to fix. Ambiguous ones don't qualify: those
+  // people are already known, they just can't be told apart by handle.
   const keyboard = unknownHandles.length
     ? new InlineKeyboard().url("開啟揪帳 →", groupMiniAppLink(ctx.me.username, ctx.chat.id))
     : undefined;
