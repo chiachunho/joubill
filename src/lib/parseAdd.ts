@@ -1,6 +1,8 @@
 import type { MessageEntity } from "grammy/types";
 import { z } from "zod";
 
+import { SUPPORTED_CURRENCIES } from "./zod";
+
 /**
  * `/add` input parsing.
  *
@@ -41,7 +43,10 @@ const WIDTH_MAP: Record<string, string> = {
   "＊": "*", "×": "*", "✕": "*",
   "／": "/", "÷": "/",
   "（": "(", "）": ")",
-  "％": "%", "＄": "$", "＠": "@", "　": " ",
+  "％": "%", "＄": "$", "＠": "@",
+  // Every flavour of space becomes a plain one — a pasted NBSP or a tab after
+  // the amount must not make the whole command unreadable.
+  "　": " ", " ": " ", "\t": " ", " ": " ", " ": " ", " ": " ",
 };
 
 /** Map full-width/typographic characters to ASCII, preserving string length. */
@@ -54,17 +59,21 @@ export function normalizeWidth(s: string): string {
 /* ── currencies ───────────────────────────────────────────────────────── */
 
 /**
- * Currency codes recognised in `/add` text. Curated rather than the full ISO
- * 4217 list on purpose: codes like ALL, CUP and TOP are ordinary words that
- * would swallow the description. The group's own default currency is always
- * added on top by the caller.
+ * Currency codes recognised in `/add` text — exactly the set the rest of the
+ * app supports. It has to be this list and nothing wider: a bot-created expense
+ * in an unsupported currency can't be rendered or saved by the Mini App form
+ * (`expenseInputSchema.currency` is a `z.enum` over the same constant), and an
+ * unknown code makes `getRate` fail, which breaks `/balance` for the whole group.
+ *
+ * A curated list also stops ordinary words that happen to be ISO 4217 codes
+ * (ALL, CUP, TOP) from being read as a currency instead of the description.
  */
-export const COMMON_CURRENCIES = [
-  "TWD", "USD", "JPY", "EUR", "GBP", "CNY", "HKD", "KRW", "SGD", "THB",
-  "MYR", "VND", "PHP", "IDR", "AUD", "CAD", "NZD", "CHF", "SEK", "NOK",
-  "DKK", "INR", "RUB", "TRY", "BRL", "MXN", "ZAR", "AED", "CZK", "PLN",
-  "HUF", "ILS", "MOP", "MNT", "KHR",
-] as const;
+const KNOWN_CURRENCIES: ReadonlySet<string> = new Set(SUPPORTED_CURRENCIES);
+
+/** True if `code` is a currency the whole app can handle. */
+export function isSupportedCurrency(code: string): boolean {
+  return KNOWN_CURRENCIES.has(code.toUpperCase());
+}
 
 /** Currency symbols written before the number. `null` = decoration only (use the group default). */
 const PREFIX_SYMBOLS: Array<[string, string | null]> = [
@@ -75,10 +84,6 @@ const PREFIX_SYMBOLS: Array<[string, string | null]> = [
   ["€", "EUR"],
   ["£", "GBP"],
   ["₩", "KRW"],
-  ["฿", "THB"],
-  ["₫", "VND"],
-  ["₹", "INR"],
-  ["₱", "PHP"],
   ["$", null],
 ];
 
@@ -236,11 +241,7 @@ const skipSpaces = (s: string, i: number) => {
  * end-of-string, so `3杯咖啡` is *not* read as 3 — a stray number glued to a
  * word is a typo, not an amount.
  */
-export function scanAmount(
-  norm: string,
-  start: number,
-  known: ReadonlySet<string>,
-): AmountScan | null {
+export function scanAmount(norm: string, start: number): AmountScan | null {
   let i = skipSpaces(norm, start);
   let currency: string | null = null;
   let sawSymbol = false;
@@ -300,7 +301,10 @@ export function scanAmount(
         i = j;
         continue;
       }
-      if (last === "n" && "+-*/".includes(nc)) {
+      // A *spaced* operator continues the expression — except for "-", which is
+      // far more often a dash before the description ("/add 1000 - 2 樓餐廳"
+      // means 1000 at 2樓餐廳, not 998). Unspaced "1000-2" is still subtraction.
+      if (last === "n" && "+*/".includes(nc)) {
         const k = skipSpaces(norm, j + 1);
         if (/[\d(]/.test(norm[k] ?? "")) {
           i = j;
@@ -318,7 +322,7 @@ export function scanAmount(
   if (!sawSymbol) {
     // Attached ISO code: `300usd`
     const attached = /^[A-Za-z]{3}(?![A-Za-z])/.exec(norm.slice(i));
-    if (attached && known.has(attached[0].toUpperCase())) {
+    if (attached && KNOWN_CURRENCIES.has(attached[0].toUpperCase())) {
       currency = attached[0].toUpperCase();
       i += 3;
     } else {
@@ -329,7 +333,7 @@ export function scanAmount(
       } else {
         // Separate ISO code: `300 USD`
         const spaced = /^\s+([A-Za-z]{3})(?![A-Za-z])/.exec(norm.slice(i));
-        if (spaced && known.has(spaced[1].toUpperCase())) {
+        if (spaced && KNOWN_CURRENCIES.has(spaced[1].toUpperCase())) {
           currency = spaced[1].toUpperCase();
           i += spaced[0].length;
         }
@@ -357,15 +361,9 @@ export const parsedAddSchema = z.object({
 
 export type ParsedAdd = z.infer<typeof parsedAddSchema>;
 
-export type ParseAddOptions = {
-  /** Extra currency codes to recognise — normally the group's default. */
-  currencies?: Iterable<string>;
-};
-
 export function parseAddMessage(
   text: string,
   entities: readonly MessageEntity[] = [],
-  opts: ParseAddOptions = {},
 ): ParsedAdd {
   const norm = normalizeWidth(text);
   const lines = norm.split("\n");
@@ -381,13 +379,10 @@ export function parseAddMessage(
   const cmdMatch = firstLine.match(/^\/add(@\w+)?\s*/i);
   if (!cmdMatch) throw new Error(ADD_USAGE);
 
-  const known = new Set<string>(COMMON_CURRENCIES);
-  for (const c of opts.currencies ?? []) known.add(c.toUpperCase());
-
   const bodyStart = cmdMatch[0].length;
   if (!firstLine.slice(bodyStart).trim()) throw new Error(ADD_USAGE);
 
-  const scan = scanAmount(firstLine, bodyStart, known);
+  const scan = scanAmount(firstLine, bodyStart);
   if (!scan) {
     const token = firstLine.slice(bodyStart).split(/\s+/)[0];
     throw new Error(`看不懂金額「${token}」。\n第一個字要是金額，例如：/add 500 晚餐`);

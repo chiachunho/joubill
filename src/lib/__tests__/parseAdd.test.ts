@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { MessageEntity } from "grammy/types";
 
-import { evalAmountExpr, normalizeWidth, parseAddMessage, scanAmount } from "../parseAdd";
+import { evalAmountExpr, isSupportedCurrency, normalizeWidth, parseAddMessage, scanAmount } from "../parseAdd";
+import { SUPPORTED_CURRENCIES } from "../zod";
 
 /** Build a `mention` entity covering the @handle at `offset`. */
 function mention(text: string, handle: string): MessageEntity {
   const offset = text.indexOf("@" + handle);
   return { type: "mention", offset, length: handle.length + 1 };
 }
-
-const KNOWN = new Set(["TWD", "USD", "JPY", "EUR", "KRW", "THB"]);
 
 describe("normalizeWidth", () => {
   it("maps full-width characters to ASCII", () => {
@@ -64,7 +63,7 @@ describe("evalAmountExpr", () => {
 });
 
 describe("scanAmount", () => {
-  const scan = (s: string) => scanAmount(s, 0, KNOWN);
+  const scan = (s: string) => scanAmount(s, 0);
 
   it("stops at the first space", () => {
     expect(scan("300 午餐")).toMatchObject({ value: 300, currency: null, end: 3 });
@@ -77,6 +76,7 @@ describe("scanAmount", () => {
 
   it("reads currency symbols before the number", () => {
     expect(scan("€50 dinner")).toMatchObject({ value: 50, currency: "EUR" });
+    expect(scan("₩9000")).toMatchObject({ value: 9000, currency: "KRW" });
     expect(scan("NT$500")).toMatchObject({ value: 500, currency: "TWD" });
     // $ and 元 are decoration in this bot's context — they mean "group default"
     expect(scan("$300")).toMatchObject({ value: 300, currency: null });
@@ -134,9 +134,17 @@ describe("parseAddMessage", () => {
     expect(result).toMatchObject({ amount: 3000, currency: "JPY", description: "拉麵" });
   });
 
-  it("recognises the group's own default currency", () => {
-    const result = parseAddMessage("/add 500 MOP 早餐", [], { currencies: ["MOP"] });
-    expect(result).toMatchObject({ amount: 500, currency: "MOP", description: "早餐" });
+  it("only accepts currencies the rest of the app supports", () => {
+    // THB is a real ISO code but not in SUPPORTED_CURRENCIES — the Mini App
+    // form could neither render nor save it, so it stays part of the description.
+    expect(isSupportedCurrency("THB")).toBe(false);
+    expect(parseAddMessage("/add 3000 THB 拉麵")).toMatchObject({
+      currency: null,
+      description: "THB 拉麵",
+    });
+    for (const code of SUPPORTED_CURRENCIES) {
+      expect(parseAddMessage(`/add 100 ${code} x`).currency).toBe(code);
+    }
   });
 
   it("collects @mentions and strips them from the description", () => {
@@ -185,5 +193,34 @@ describe("parseAddMessage", () => {
 
   it("ignores trailing blank lines", () => {
     expect(parseAddMessage("/add 300\n\n").amount).toBe(300);
+  });
+});
+
+describe("parseAddMessage — regressions", () => {
+  it("treats a spaced dash as a separator, not subtraction", () => {
+    // "/add 1000 - 2 樓餐廳" means 1000 spent at 2樓餐廳, not 998.
+    const result = parseAddMessage("/add 1000 - 2 樓餐廳");
+    expect(result.amount).toBe(1000);
+    expect(result.description).toBe("- 2 樓餐廳");
+  });
+
+  it("still subtracts when the operator is written without spaces", () => {
+    expect(parseAddMessage("/add 1000-200 退款後").amount).toBe(800);
+  });
+
+  it("keeps spaced +, * and / as arithmetic", () => {
+    expect(parseAddMessage("/add 150 + 200 晚餐").amount).toBe(350);
+    expect(parseAddMessage("/add 3 * 250 咖啡").amount).toBe(750);
+  });
+
+  it("tolerates any flavour of whitespace after the amount", () => {
+    // Pasted text routinely carries these instead of U+0020; treating them as
+    // "not a space" made scanAmount reject the whole command.
+    for (const sp of ["\u00A0", "\t", "\u2007", "\u2009", "\u202F", "\u3000"]) {
+      expect(parseAddMessage(`/add 500${sp}晚餐`)).toMatchObject({
+        amount: 500,
+        description: "晚餐",
+      });
+    }
   });
 });

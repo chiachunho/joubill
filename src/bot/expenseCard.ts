@@ -43,34 +43,39 @@ export async function loadGroupMembers(groupId: number): Promise<DbUser[]> {
 export type SplitEntry = { userId: number; weight: number };
 
 /**
- * Replace an expense's splits. `weight` is the person's share count; when every
- * weight is 1 the split is stored as a plain `equal` split (so the Mini App
- * form opens in 均分 mode), otherwise as `shares` with the weight kept in
- * `split_value` so the original input round-trips.
+ * Build the `expense_splits` rows for a set of share weights. When every weight
+ * is 1 the split is stored as a plain `equal` split (so the Mini App form opens
+ * in 均分 mode), otherwise as `shares` with the weight kept in `split_value` so
+ * the original input round-trips.
  */
+export function splitRowsFor(expenseId: number, total: number, entries: SplitEntry[]) {
+  const asShares = entries.some((e) => e.weight !== 1);
+  if (!asShares) {
+    return splitEqual(total, entries.length).map((amount, i) => ({
+      expenseId,
+      debtorId: entries[i].userId,
+      amount: amount.toFixed(2),
+      shareType: "equal",
+      splitValue: null as string | null,
+    }));
+  }
+  return computeSplits(
+    total,
+    "shares",
+    entries.map((e) => ({ userId: e.userId, value: String(e.weight) })),
+  ).map((s, i) => ({
+    expenseId,
+    debtorId: s.debtorId,
+    amount: s.amount.toFixed(2),
+    shareType: "shares",
+    splitValue: String(entries[i].weight) as string | null,
+  }));
+}
+
+/** Replace an expense's splits with ones derived from `entries`. */
 export async function writeSplits(expenseId: number, total: number, entries: SplitEntry[]) {
   if (entries.length === 0) return;
-  const asShares = entries.some((e) => e.weight !== 1);
-
-  const rows = asShares
-    ? computeSplits(
-        total,
-        "shares",
-        entries.map((e) => ({ userId: e.userId, value: String(e.weight) })),
-      ).map((s, i) => ({
-        expenseId,
-        debtorId: s.debtorId,
-        amount: s.amount.toFixed(2),
-        shareType: "shares",
-        splitValue: String(entries[i].weight),
-      }))
-    : splitEqual(total, entries.length).map((amount, i) => ({
-        expenseId,
-        debtorId: entries[i].userId,
-        amount: amount.toFixed(2),
-        shareType: "equal",
-        splitValue: null,
-      }));
+  const rows = splitRowsFor(expenseId, total, entries);
 
   await db.transaction(async (tx) => {
     await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, expenseId));
@@ -79,11 +84,26 @@ export async function writeSplits(expenseId: number, total: number, entries: Spl
   });
 }
 
+/**
+ * Share types the button panel can express. Anything else — `exact`, `percent`,
+ * `adjustment`, all of which only the Mini App form can produce — carries
+ * per-person intent that recomputing from weights would silently destroy, so
+ * the panel hides its split controls instead of flattening them.
+ */
+const PANEL_SHARE_TYPES = new Set(["equal", "shares"]);
+
+export type SplitState = {
+  entries: SplitEntry[];
+  /** False when the split came from the Mini App and only it should edit it. */
+  panelEditable: boolean;
+};
+
 /** Current split entries (debtor + share weight) for an expense, in display order. */
-export async function loadSplitEntries(expenseId: number): Promise<SplitEntry[]> {
+export async function loadSplitState(expenseId: number): Promise<SplitState> {
   const rows = await db
     .select({
       debtorId: expenseSplits.debtorId,
+      amount: expenseSplits.amount,
       shareType: expenseSplits.shareType,
       splitValue: expenseSplits.splitValue,
     })
@@ -91,15 +111,20 @@ export async function loadSplitEntries(expenseId: number): Promise<SplitEntry[]>
     .where(eq(expenseSplits.expenseId, expenseId))
     .orderBy(expenseSplits.id);
 
-  return rows.map((r) => ({
-    userId: r.debtorId,
-    weight: r.shareType === "shares" && r.splitValue != null ? n(r.splitValue) : 1,
-  }));
+  return {
+    entries: rows.map((r) => ({
+      userId: r.debtorId,
+      weight: r.shareType === "shares" && r.splitValue != null ? n(r.splitValue) : 1,
+    })),
+    panelEditable: rows.length > 0 && rows.every((r) => PANEL_SHARE_TYPES.has(r.shareType)),
+  };
 }
 
 /**
- * Change an expense's total: payer contributions are rescaled proportionally and
- * the splits are recomputed from the existing share weights.
+ * Change an expense's total. Payer contributions are always rescaled
+ * proportionally. Splits are recomputed from the share weights when the panel
+ * owns them; otherwise each person's amount is scaled by the same factor, which
+ * keeps a Mini-App-entered exact or percent split intact.
  */
 export async function setExpenseAmount(expenseId: number, total: number) {
   const payers = await db
@@ -107,16 +132,31 @@ export async function setExpenseAmount(expenseId: number, total: number) {
     .from(expensePayers)
     .where(eq(expensePayers.expenseId, expenseId));
 
-  const oldTotal = payers.reduce((s, p) => s + n(p.amount), 0);
-  const shares =
-    payers.length <= 1 || oldTotal <= 0
-      ? payers.map(() => total)
-      : (() => {
-          const raw = payers.map((p) => Math.round((n(p.amount) / oldTotal) * total * 100) / 100);
-          const drift = Math.round((total - raw.reduce((s, x) => s + x, 0)) * 100) / 100;
-          raw[0] = Math.round((raw[0] + drift) * 100) / 100;
-          return raw;
-        })();
+  const payerAmounts = rescale(payers.map((p) => n(p.amount)), total);
+  const { entries, panelEditable } = await loadSplitState(expenseId);
+
+  const splitRows = panelEditable
+    ? splitRowsFor(expenseId, total, entries)
+    : await (async () => {
+        const rows = await db
+          .select({
+            debtorId: expenseSplits.debtorId,
+            amount: expenseSplits.amount,
+            shareType: expenseSplits.shareType,
+            splitValue: expenseSplits.splitValue,
+          })
+          .from(expenseSplits)
+          .where(eq(expenseSplits.expenseId, expenseId))
+          .orderBy(expenseSplits.id);
+        const scaled = rescale(rows.map((r) => n(r.amount)), total);
+        return rows.map((r, i) => ({
+          expenseId,
+          debtorId: r.debtorId,
+          amount: scaled[i].toFixed(2),
+          shareType: r.shareType,
+          splitValue: r.splitValue,
+        }));
+      })();
 
   await db.transaction(async (tx) => {
     await tx
@@ -126,12 +166,24 @@ export async function setExpenseAmount(expenseId: number, total: number) {
     for (const [i, p] of payers.entries()) {
       await tx
         .update(expensePayers)
-        .set({ amount: shares[i].toFixed(2) })
+        .set({ amount: payerAmounts[i].toFixed(2) })
         .where(eq(expensePayers.id, p.id));
     }
+    await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, expenseId));
+    if (splitRows.length > 0) await tx.insert(expenseSplits).values(splitRows);
   });
+}
 
-  await writeSplits(expenseId, total, await loadSplitEntries(expenseId));
+/** Scale `amounts` so they sum to exactly `total`, putting any rounding drift on the first. */
+function rescale(amounts: number[], total: number): number[] {
+  if (amounts.length === 0) return [];
+  if (amounts.length === 1) return [total];
+  const old = amounts.reduce((s, x) => s + x, 0);
+  if (old <= 0) return splitEqual(total, amounts.length);
+  const raw = amounts.map((a) => Math.round((a / old) * total * 100) / 100);
+  const drift = Math.round((total - raw.reduce((s, x) => s + x, 0)) * 100) / 100;
+  raw[0] = Math.round((raw[0] + drift) * 100) / 100;
+  return raw;
 }
 
 /* ── card rendering ───────────────────────────────────────────────────── */
@@ -152,6 +204,8 @@ type CardData = {
   defaultCurrency: string;
   payers: DbUser[];
   splits: Array<{ user: DbUser; amount: number; weight: number }>;
+  /** False for Mini-App-entered exact/percent/adjustment splits — see PANEL_SHARE_TYPES. */
+  panelEditable: boolean;
 };
 
 export async function loadCard(expenseId: number): Promise<CardData | null> {
@@ -204,6 +258,7 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
       amount: n(r.splitAmount),
       weight: r.shareType === "shares" && r.splitValue != null ? n(r.splitValue) : 1,
     })),
+    panelEditable: splitRows.length > 0 && splitRows.every((r) => PANEL_SHARE_TYPES.has(r.shareType)),
   };
 }
 
@@ -277,7 +332,10 @@ async function cardText(card: CardData, mode: CardMode): Promise<string> {
 
   lines.push(splitLine(card));
 
-  const hint = MODE_HINT[mode];
+  const hint =
+    mode === "adjust" && !card.panelEditable
+      ? "這筆的分帳是在 App 裡自訂的，要改分帳請用 🔗 App 編輯"
+      : MODE_HINT[mode];
   if (hint) lines.push("", hint);
   return lines.join("\n");
 }
@@ -302,9 +360,12 @@ async function cardKeyboard(
   }
 
   if (mode === "adjust") {
+    // 誰分 / 份數 recompute every share from weights, so they're only offered
+    // when the panel owns the split — otherwise they'd flatten a custom one.
+    if (card.panelEditable) {
+      kb.text("👥 誰分", `exp:who:${id}`).text("⚖️ 份數", `exp:shr:${id}`);
+    }
     return kb
-      .text("👥 誰分", `exp:who:${id}`)
-      .text("⚖️ 份數", `exp:shr:${id}`)
       .text("💱 幣別", `exp:cur:${id}`)
       .row()
       .text("✏️ 金額", `exp:amt:${id}`)

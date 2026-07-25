@@ -72,9 +72,7 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
 
   let parsed;
   try {
-    parsed = parseAddMessage(caption, captionEntities, {
-      currencies: [ctx.dbGroup.defaultCurrency],
-    });
+    parsed = parseAddMessage(caption, captionEntities);
   } catch (err) {
     // No ForceReply retry offered here — replying with text would lose the photo.
     await ctx.reply(err instanceof Error ? err.message : ADD_USAGE);

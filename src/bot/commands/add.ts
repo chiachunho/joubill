@@ -2,18 +2,35 @@ import { Composer, InlineKeyboard } from "grammy";
 import { and, eq, inArray, lt, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { addAwaiting, expensePayers, expenses, groupMembers, receiptAwaiting, users } from "@/db/schema";
+import {
+  addAwaiting,
+  expensePayers,
+  expenseSplits,
+  expenses,
+  groupMembers,
+  receiptAwaiting,
+  users,
+} from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { clientEnv } from "@/lib/env";
-import { ADD_USAGE, evalAmountExpr, parseAddMessage, type ParsedAdd } from "@/lib/parseAdd";
+import { labelUser } from "@/lib/label";
+import {
+  ADD_USAGE,
+  evalAmountExpr,
+  isSupportedCurrency,
+  parseAddMessage,
+  type ParsedAdd,
+} from "@/lib/parseAdd";
+import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 
 import {
   loadGroupMembers,
   renderCard,
   setExpenseAmount,
-  writeSplits,
+  splitRowsFor,
   type DbUser,
 } from "../expenseCard";
+import { escapeHtml, mention } from "../format";
 import type { BotContext } from "../context";
 
 export const addCommand = new Composer<BotContext>();
@@ -27,14 +44,23 @@ const STALE_MS = 24 * 60 * 60 * 1000;
  * Send a ForceReply prompt and remember it, so the user's reply lands back in
  * the right place. `expenseId`/`field` are set when the reply edits an existing
  * expense instead of creating a new one.
+ *
+ * `selective` only opens the reply box for people Telegram considers targeted:
+ * users @mentioned in the text, or the sender of the message being replied to.
+ * A prompt hanging off the bot's own card targets *nobody*, so when there's no
+ * user message to reply to we address the requester in the text instead.
  */
 async function prompt(
   ctx: BotContext,
   text: string,
   extra: { expenseId?: number; field?: string; panelMessageId?: number } = {},
 ) {
-  const sent = await ctx.reply(text, {
-    reply_to_message_id: ctx.message?.message_id ?? ctx.callbackQuery?.message?.message_id,
+  const replyTo = ctx.message?.message_id;
+  const body = replyTo ? text : `${mentionRequester(ctx)} ${escapeHtml(text)}`;
+
+  const sent = await ctx.reply(body, {
+    parse_mode: replyTo ? undefined : "HTML",
+    reply_to_message_id: replyTo,
     reply_markup: { force_reply: true, selective: true },
   });
   await db.insert(addAwaiting).values({
@@ -44,6 +70,15 @@ async function prompt(
     field: extra.field ?? null,
     panelMessageId: extra.panelMessageId ?? null,
   });
+}
+
+/** A mention entity for the person who pressed the button, so `selective` targets them. */
+function mentionRequester(ctx: BotContext): string {
+  const from = ctx.from;
+  if (!from) return "";
+  return from.username
+    ? "@" + from.username
+    : mention(labelUser({ firstName: from.first_name, lastName: from.last_name ?? null, username: null }), from.id);
 }
 
 /** Report a parse failure and immediately offer a one-tap retry. */
@@ -60,7 +95,7 @@ export async function promptForExpenseField(
   const text =
     field === "amount"
       ? "輸入新的金額（例如 500、1,200、3k、150+200）"
-      : "輸入幣別代碼（三個英文字母，例如 JPY）";
+      : `輸入幣別代碼：${SUPPORTED_CURRENCIES.join(" / ")}`;
   await prompt(ctx, text, { expenseId, field, panelMessageId });
 }
 
@@ -148,26 +183,34 @@ export async function handleAddParsed(
     return;
   }
 
-  const [expense] = await db
-    .insert(expenses)
-    .values({
-      groupId: group.id,
-      amount: parsed.amount.toFixed(2),
-      currency: parsed.currency ?? group.defaultCurrency,
-      description: parsed.description,
-      createdBy: payer.id,
-      ...(opts.receiptFileId ? { receiptFileId: opts.receiptFileId } : {}),
-    })
-    .returning();
-
-  await db
-    .insert(expensePayers)
-    .values({ expenseId: expense.id, payerId: payer.id, amount: parsed.amount.toFixed(2) });
-  await writeSplits(
-    expense.id,
-    parsed.amount,
-    resolved.participants.map((p) => ({ userId: p.id, weight: 1 })),
-  );
+  // One transaction: a half-written expense (payer credited, nobody debited)
+  // would permanently skew computeGroupBalances.
+  const expense = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(expenses)
+      .values({
+        groupId: group.id,
+        amount: parsed.amount.toFixed(2),
+        currency: parsed.currency ?? group.defaultCurrency,
+        description: parsed.description,
+        createdBy: payer.id,
+        ...(opts.receiptFileId ? { receiptFileId: opts.receiptFileId } : {}),
+      })
+      .returning();
+    await Promise.all([
+      tx
+        .insert(expensePayers)
+        .values({ expenseId: row.id, payerId: payer.id, amount: parsed.amount.toFixed(2) }),
+      tx.insert(expenseSplits).values(
+        splitRowsFor(
+          row.id,
+          parsed.amount,
+          resolved.participants.map((p) => ({ userId: p.id, weight: 1 })),
+        ),
+      ),
+    ]);
+    return row;
+  });
 
   const card = await renderCard(ctx, expense.id, "default");
   if (card) await ctx.reply(card.text, { parse_mode: "HTML", reply_markup: card.reply_markup });
@@ -194,9 +237,7 @@ addCommand.command("add", async (ctx) => {
 
   let parsed;
   try {
-    parsed = parseAddMessage(ctx.message?.text ?? "", ctx.message?.entities ?? [], {
-      currencies: [ctx.dbGroup.defaultCurrency],
-    });
+    parsed = parseAddMessage(ctx.message?.text ?? "", ctx.message?.entities ?? []);
   } catch (err) {
     await replyAddError(ctx, err instanceof Error ? err.message : ADD_USAGE);
     return;
@@ -231,8 +272,10 @@ addCommand.callbackQuery(/^upload_receipt:(\d+)$/, async (ctx) => {
     return;
   }
 
-  const sent = await ctx.reply("請直接傳送收據照片 📷", {
-    reply_to_message_id: ctx.callbackQuery.message?.message_id,
+  // Mention the requester so `selective` actually targets them — replying to
+  // the bot's own card would target nobody. See prompt() above.
+  const sent = await ctx.reply(`${mentionRequester(ctx)} 請直接傳送收據照片 📷`, {
+    parse_mode: "HTML",
     reply_markup: { force_reply: true, selective: true },
   });
 
@@ -275,9 +318,7 @@ addCommand.on("message:text", async (ctx, next) => {
 
   let parsed;
   try {
-    parsed = parseAddMessage(syntheticText, syntheticEntities, {
-      currencies: [ctx.dbGroup.defaultCurrency],
-    });
+    parsed = parseAddMessage(syntheticText, syntheticEntities);
   } catch (err) {
     await replyAddError(ctx, err instanceof Error ? err.message : ADD_USAGE);
     return;
@@ -299,6 +340,21 @@ async function applyFieldReply(
 ) {
   const raw = ctx.message.text.trim();
 
+  // `force_reply.selective` is a client-side hint only — anyone can reply to the
+  // prompt, so the same ownership rule the panel buttons enforce applies here.
+  const [owner] = await db
+    .select({ createdBy: expenses.createdBy })
+    .from(expenses)
+    .where(eq(expenses.id, expenseId));
+  if (!owner) {
+    await ctx.reply("找不到這筆支出（可能已刪除）。");
+    return;
+  }
+  if (owner.createdBy !== ctx.dbUser?.id) {
+    await ctx.reply("只有記帳的人可以調整這筆。");
+    return;
+  }
+
   if (field === "amount") {
     const value = evalAmountExpr(raw);
     if (value === null || value <= 0) {
@@ -308,8 +364,12 @@ async function applyFieldReply(
     await setExpenseAmount(expenseId, value);
   } else if (field === "currency") {
     const code = raw.toUpperCase();
-    if (!/^[A-Z]{3}$/.test(code)) {
-      await ctx.reply(`「${raw}」不是幣別代碼，要三個英文字母（例如 JPY），幣別沒有改。`);
+    // Must be a currency the whole app supports: an unknown code makes getRate
+    // fail, which takes down /balance and /settle for the entire group.
+    if (!isSupportedCurrency(code)) {
+      await ctx.reply(
+        `「${raw}」不是支援的幣別，幣別沒有改。\n目前支援：${SUPPORTED_CURRENCIES.join(" / ")}`,
+      );
       return;
     }
     // A pinned rate belongs to the old currency — drop it rather than let it

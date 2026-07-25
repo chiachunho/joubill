@@ -7,7 +7,7 @@ import { expenses } from "@/db/schema";
 import {
   loadCard,
   loadGroupMembers,
-  loadSplitEntries,
+  loadSplitState,
   renderCard,
   writeSplits,
   type CardMode,
@@ -85,7 +85,7 @@ expensePanel.callbackQuery(/^exp:whot:(\d+):(\d+)$/, async (ctx) => {
   const card = await guard(ctx, expenseId);
   if (!card) return;
 
-  const entries = await loadSplitEntries(expenseId);
+  const { entries } = await loadSplitState(expenseId);
   const next = entries.some((e) => e.userId === userId)
     ? entries.filter((e) => e.userId !== userId)
     : [...entries, { userId, weight: 1 }];
@@ -110,7 +110,7 @@ expensePanel.callbackQuery(/^exp:whoall:(\d+)$/, async (ctx) => {
     return;
   }
   // Keep existing weights so 全選 adds people without discarding a shares setup.
-  const weights = new Map((await loadSplitEntries(expenseId)).map((e) => [e.userId, e.weight]));
+  const weights = new Map((await loadSplitState(expenseId)).entries.map((e) => [e.userId, e.weight]));
   await writeSplits(
     expenseId,
     card.expense.amount,
@@ -138,7 +138,7 @@ expensePanel.callbackQuery(/^exp:shrc:(\d+):(\d+)$/, async (ctx) => {
   const card = await guard(ctx, expenseId);
   if (!card) return;
 
-  const entries = (await loadSplitEntries(expenseId)).map((e) =>
+  const entries = (await loadSplitState(expenseId)).entries.map((e) =>
     e.userId === userId ? { ...e, weight: (Math.round(e.weight) % MAX_WEIGHT) + 1 } : e,
   );
   await writeSplits(expenseId, card.expense.amount, entries);
@@ -150,7 +150,7 @@ expensePanel.callbackQuery(/^exp:shrr:(\d+)$/, async (ctx) => {
   const card = await guard(ctx, expenseId);
   if (!card) return;
 
-  const entries = (await loadSplitEntries(expenseId)).map((e) => ({ ...e, weight: 1 }));
+  const entries = (await loadSplitState(expenseId)).entries.map((e) => ({ ...e, weight: 1 }));
   await writeSplits(expenseId, card.expense.amount, entries);
   await show(ctx, expenseId, "shares");
 });
