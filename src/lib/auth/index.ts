@@ -15,6 +15,8 @@ export type Auth = {
   groupFromParam?: Group;
   /** Internal expense ID from start_param "group_<chatId>_exp_<expenseId>". */
   expenseFromParam?: number;
+  /** Internal settlement ID from start_param "group_<chatId>_stl_<settlementId>". */
+  settlementFromParam?: number;
 };
 
 export const SESSION_COOKIE = "session";
@@ -69,11 +71,14 @@ export async function getAuth(req: Request): Promise<Auth> {
 
     let groupFromParam: Group | undefined;
     let expenseFromParam: number | undefined;
+    let settlementFromParam: number | undefined;
     if (verified.startParam?.startsWith("group_")) {
-      // Formats: "group_<chatId>" or "group_<chatId>_exp_<expenseId>"
-      const withExp = verified.startParam.match(/^group_(-?\d+)_exp_(\d+)$/);
-      const telegramChatId = withExp
-        ? Number(withExp[1])
+      // Formats: "group_<chatId>", "group_<chatId>_exp_<expenseId>" (deep link
+      // from an expense notice), "group_<chatId>_stl_<settlementId>" (ditto for
+      // a settlement notice).
+      const withRecord = verified.startParam.match(/^group_(-?\d+)_(exp|stl)_(\d+)$/);
+      const telegramChatId = withRecord
+        ? Number(withRecord[1])
         : Number(verified.startParam.slice("group_".length));
       if (Number.isFinite(telegramChatId)) {
         const [g] = await db
@@ -82,7 +87,11 @@ export async function getAuth(req: Request): Promise<Auth> {
           .where(eq(groups.telegramChatId, telegramChatId));
         if (g) {
           groupFromParam = g;
-          if (withExp) expenseFromParam = Number(withExp[2]);
+          if (withRecord) {
+            const recordId = Number(withRecord[3]);
+            if (withRecord[2] === "exp") expenseFromParam = recordId;
+            else settlementFromParam = recordId;
+          }
           // Auto-join when the user opens the Mini App via a group link.
           // We only call getChatMember (slow) when the row is genuinely absent —
           // subsequent requests hit onConflictDoNothing instantly.
@@ -109,7 +118,7 @@ export async function getAuth(req: Request): Promise<Auth> {
         }
       }
     }
-    return { user, groupFromParam, expenseFromParam };
+    return { user, groupFromParam, expenseFromParam, settlementFromParam };
   }
 
   // Path 2: web session cookie

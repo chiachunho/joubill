@@ -27,5 +27,6 @@ export const GET = withAuth(async (req: Request) => {
     groups: rows,
     activeGroupId: auth.groupFromParam?.id ?? null,
     activeExpenseId: auth.expenseFromParam ?? null,
+    activeSettlementId: auth.settlementFromParam ?? null,
   });
 });

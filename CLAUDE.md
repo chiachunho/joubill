@@ -136,6 +136,8 @@ Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
 
 **Settlements are expenses**: A repayment ("A 還 B $X") is just a degenerate expense — A is the sole payer, B the sole debtor — with identical balance impact. It is stored in `expenses` with `type='settlement'` (vs `type='expense'`), one `expense_payers` row (= sender) and one `expense_splits` row (= receiver, `share_type='exact'`). There is **no** separate `settlements` table. The `type` column is the only discriminator: balance/FX/rate-lock treat both kinds the same (no branching), while the expense list/detail and stats filter `type='expense'` and the merged group list renders `type='settlement'` rows as `from → to`. The `/api/groups/[id]/settlements` routes still exist as a from/to-shaped façade over `type='settlement'` expenses (forms unchanged); only the list page was removed (settlements now appear inline in the main list).
 
+`expenses.notice_message_id` holds the `message_id` of that record's message in the group chat — the expense card for an expense, the notice for a settlement (see Group notifications below). `NULL` for records predating the feature or when the send failed.
+
 `receipt_awaiting` stores in-flight "waiting for receipt photo" state for the ForceReply bot flow (only triggered after text-only `/add`; not shown when photo is already attached via caption). `add_awaiting` stores in-flight ForceReply prompts: with `expense_id`/`field` NULL it's a bare `/add` waiting for expense text, otherwise the reply sets one field (`amount` / `currency`) of an existing expense and `panel_message_id` says which card to refresh.
 
 Schema is pushed directly with `db:push` (no migration workflow). `numeric` columns come back as strings from Drizzle; use `n()` from `src/lib/money.ts` to parse them to numbers.
@@ -169,6 +171,25 @@ Receipts are stored on Telegram's servers — only the permanent `file_id` is pe
 Upload flow (Mini App): `POST /api/tg-upload` (auth-protected) → `sendPhoto` to the private storage channel → returns `file_id` → saved with the expense.
 
 Upload flow (bot): photo sent as a caption `/add …` stores `file_id` directly — the caption path goes through the same `handleAddParsed` as a text `/add`, so mentions and the ⚙️ 調整 panel work identically (only multi-photo albums are refused). The "🧾 收據" inline button on the card triggers a ForceReply prompt; the reply photo is matched via `receipt_awaiting`.
+
+### Group notifications (`src/lib/record-notice.ts` + `src/lib/notify.ts`)
+
+Every record — **expense and settlement alike** — owns exactly **one** message in the Telegram group chat, tracked by `expenses.notice_message_id`:
+
+- **created** → send it, remember the `message_id`
+- **edited** → `editMessageText` that same message in place (never a second message)
+- **deleted** → the message is **kept** and edited into a struck-through `<s>…</s>` + `🗑️ 已刪除` version, with its inline keyboard dropped
+
+A record created by the bot's `/add` **reuses the reply `/add` already posts** as its notice message (`rememberNoticeMessage` after `ctx.reply`), so a bot-created expense never gets a duplicate. Everything created from the Mini App / Web App is sent by the API route handler.
+
+`formatRecordNotice` (`src/lib/record-notice.ts`) is **pure** and unit-tested; both the bot and the API routes render through it, which is what guarantees the text after an edit matches the text on creation. `src/lib/notify.ts` does the delivery: `loadNoticeRecord` / `sendRecordNotice` / `updateRecordNotice` / `markNoticeDeleted`, all of which swallow their errors — a kicked bot or a manually deleted message must never fail the API request. An edit falls back to posting a fresh message (and re-remembering it) when there is nothing editable; Telegram's `message is not modified` rejection is treated as success, not a reason to re-post.
+
+Two things to keep in mind when touching this:
+
+- **Deletes must snapshot first.** Call `loadNoticeRecord` *before* deleting the row — the record and its `notice_message_id` are gone afterwards.
+- **Silence is inherited.** Notifications are silent because the bot's api middleware (`src/bot/index.ts`) stamps `disable_notification: true` on every `send*` call. Nothing in `notify.ts` sets it explicitly, so removing that middleware would un-silence every notification.
+
+Notices carry an inline keyboard: **編輯** deep-links into the Mini App form (`?startapp=group_<chatId>_exp_<id>` for expenses, `_stl_` for settlements — parsed in `src/lib/auth/index.ts`, surfaced as `activeExpenseId`/`activeSettlementId` by `/api/me/groups`, redirected in `src/app/mini/page.tsx`), and **刪除** reuses the bot's `del_exp:<id>` callback, which stays creator-only for both kinds.
 
 ### Beancount 匯出 (`src/lib/beancount.ts`)
 

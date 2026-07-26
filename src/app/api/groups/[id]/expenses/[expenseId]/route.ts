@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 
+import { getBot } from "@/bot";
 import { db } from "@/db";
 import { expenseReceipts, expensePayers, expenseSplits, expenses, groups } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { fxColumnsFor } from "@/lib/fx";
 import { n } from "@/lib/money";
+import { loadNoticeRecord, markNoticeDeleted, updateRecordNotice } from "@/lib/notify";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
 
@@ -199,6 +201,8 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
     }
   });
 
+  await updateRecordNotice(getBot().api, ids.eid);
+
   return NextResponse.json({ ok: true });
 });
 
@@ -223,7 +227,13 @@ export const DELETE = withAuth(async (req: Request, ctx: Params) => {
     );
   if (!expense) return NextResponse.json({ error: "expense not found" }, { status: 404 });
 
+  // Snapshot the notice before the row (and its message id) disappear.
+  const notice = await loadNoticeRecord(ids.eid);
+
   await db.delete(expenses).where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
   // expense_payers and expense_splits cascade-deleted via FK.
+
+  await markNoticeDeleted(getBot().api, notice);
+
   return NextResponse.json({ ok: true });
 });
