@@ -15,16 +15,24 @@ import { SUPPORTED_CURRENCIES } from "./zod";
  */
 
 /**
- * User-facing usage text. Kept as plain text (no HTML) so the bot can echo it
- * alongside whatever the user typed without any escaping dance.
+ * User-facing usage text, shown whenever someone types `/add` without telling
+ * us anything — a bare `/add` in a group is the moment they most need it, so it
+ * carries the same content as `/help`'s 記一筆 section rather than an abridged
+ * version. Keep the two in step (`src/bot/commands/help.ts`).
+ *
+ * Plain text, no HTML or Markdown: the bot sends it through the same paths that
+ * echo whatever the user typed, so there is no escaping dance.
  */
 export const ADD_USAGE = [
   "記一筆花費：/add 金額 說明",
   "例如：/add 500 晚餐",
   "",
   "金額怎麼寫都行：1,200 · 300元 · 3k · 150+200",
-  "要別的幣別就寫：/add 3000 JPY 拉麵",
-  "誰分、份數記完再用訊息下方的「⚙️ 調整」按鈕改。",
+  "別的幣別：/add 3000 JPY 拉麵",
+  "只給某些人分：/add 500 晚餐 @alice @bob",
+  "",
+  "記完點訊息下方的「⚙️ 調整」：",
+  "👥 誰分 · ⚖️ 份數 · 💱 幣別 · ✏️ 金額",
 ].join("\n");
 
 /* ── input normalisation ──────────────────────────────────────────────── */

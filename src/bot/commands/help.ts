@@ -6,6 +6,10 @@ import type { BotContext } from "../context";
  * Deliberately short. `/add 金額 說明` is the only syntax worth memorising —
  * everything else (who splits, per-person shares, the currency) lives on the
  * ⚙️ 調整 buttons attached to each expense, where it's discoverable.
+ *
+ * The 記一筆 section mirrors `ADD_USAGE` (`src/lib/parseAdd.ts`), which a bare
+ * `/add` shows; keep the two in step. They stay separate strings because this
+ * one is Markdown and that one has to be plain text.
  */
 const HELP_TEXT = [
   "*記一筆*",
