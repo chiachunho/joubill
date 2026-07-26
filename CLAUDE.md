@@ -165,6 +165,16 @@ The web-auth (Auth.js) vars are **not** in `serverEnv()` — Auth.js reads them 
 
 All route handlers must set `export const runtime = "nodejs"` and `export const dynamic = "force-dynamic"` because they use the Neon serverless driver.
 
+### Git conventions
+
+Commit subjects and PR titles follow **Conventional Commits**: `type(scope): imperative description`, lowercase after the colon, no trailing period, subject ≤72 chars.
+
+- Types in use: `feat`, `fix`, `chore`, `ci`, `docs`, `refactor`.
+- Scope is optional and names an area rather than a file — `bot`, `mini`, `deps`.
+- The body carries the *why*. Explanations that a user can't act on belong here, not in the bot's replies (see `src/bot/commands/help.ts`).
+
+The prefix is for humans only: the release workflow's semver bump is a manual `workflow_dispatch` input (`.github/workflows/merge-dev-to-main.yml`), **not** parsed from commit types, so a wrong prefix can't mis-release anything.
+
 ### Deployment
 
 Production runs on **Vercel** (frontend + bot webhook + API in one deploy), served from a **custom domain** (not the default `*.vercel.app`), backed by **Neon Postgres**, with the Mini App registered in **BotFather**. The repo is `chiachunho/splitbill-telegram-bot` (private); `origin` is HTTPS. The **default branch is `dev`** — open all PRs against `dev`, not `main`. Pushing to the default branch triggers Vercel auto-deploy. Full step-by-step in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
