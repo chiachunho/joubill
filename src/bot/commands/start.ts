@@ -26,8 +26,11 @@ export async function sendGroupWelcome(
     "開啟揪帳 →",
     groupMiniAppLink(ctx.me.username, ctx.chat.id),
   );
+  // Tapping the button is what actually seats someone (opening the Mini App
+  // through a group link auto-joins), so the message has to say so — otherwise
+  // the group's members never get into group_members and every split is short.
   await ctx.reply(
-    "嗨！我是揪帳機器人 👋\n/add 記第一筆，/help 看指令。\n就這樣，記帳分帳就是這麼簡單🫲🫱",
+    "嗨！我是揪帳機器人 👋\n每個人點一下下面的「開啟揪帳」就會加入分帳 👇\n/add 記第一筆，/help 看指令。\n就這樣，記帳分帳就是這麼簡單🫲🫱",
     { reply_markup: keyboard },
   );
 }

@@ -13,11 +13,7 @@ import { groupMiniAppLink } from "./start";
 
 export const joinCommand = new Composer<BotContext>();
 
-const USAGE = [
-  "<b>回覆</b>對方的任何一則訊息，再打 <code>/join</code>，就會把他加進揪帳。",
-  "",
-  "直接打 <code>@他的帳號</code> 沒有用 —— Telegram 不讓 bot 從帳號名稱查出是誰。",
-].join("\n");
+const USAGE = "<b>回覆</b>對方的任何一則訊息，再打 <code>/join</code>，就會把他加進揪帳。";
 
 /**
  * A typed-out `@handle` is deliberately never resolved. The Bot API has no

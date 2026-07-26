@@ -18,8 +18,6 @@ const HELP_TEXT = [
   "*把人加進揪帳*",
   "回覆對方的訊息，再打 `/join`。",
   "用過 bot 的人會自動加入。",
-  "",
-  "Telegram 不給 bot 群組成員名單，也不讓 bot 從 `@帳號` 查出是誰，所以沒用過 bot 的人只能用上面這招，或點歡迎訊息的按鈕。",
 ].join("\n");
 
 export const helpCommand = new Composer<BotContext>();
