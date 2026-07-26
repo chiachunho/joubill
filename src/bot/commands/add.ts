@@ -31,6 +31,7 @@ import {
   type DbUser,
 } from "../expenseCard";
 import { escapeHtml, mention } from "../format";
+import { verifyInChat } from "../membership";
 import type { BotContext } from "../context";
 
 export const addCommand = new Composer<BotContext>();
@@ -109,6 +110,8 @@ export async function promptForExpenseField(
 async function resolveParticipants(
   groupId: number,
   parsed: ParsedAdd,
+  /** Display names for text_mention targets, so a miss can name who it missed. */
+  namesByTelegramId: Map<number, string> = new Map(),
 ): Promise<{ participants: DbUser[] } | { error: string }> {
   if (parsed.mentionUsernames.length === 0 && parsed.mentionTelegramIds.length === 0) {
     return { participants: await loadGroupMembers(groupId) };
@@ -136,14 +139,18 @@ async function resolveParticipants(
   const foundTelegramIds = new Set(found.map((u) => u.telegramId));
   const missing = [
     ...parsed.mentionUsernames.filter((u) => !foundUsernames.has(u)).map((u) => "@" + u),
-    ...parsed.mentionTelegramIds.filter((id) => !foundTelegramIds.has(id)).map(() => "（某位成員）"),
+    ...parsed.mentionTelegramIds
+      .filter((id) => !foundTelegramIds.has(id))
+      .map((id) => namesByTelegramId.get(id) ?? "（某位成員）"),
   ];
 
   if (missing.length > 0) {
     return {
+      // Under privacy mode "just talk in the group" does NOT reach the bot, so
+      // point at the paths that actually seat someone (see /join's docs).
       error:
-        `找不到群組裡的 ${missing.join("、")}。\n` +
-        `Telegram 不讓我用 @username 反查使用者，對方要先在這個群組講過一句話。\n` +
+        `找不到揪帳裡的 ${missing.join("、")}。\n` +
+        `要先把人加進來：回覆對方的訊息再打 /join，或請他點群組裡「開啟揪帳」的按鈕。\n` +
         `或者先「/add 500 晚餐」記起來，再用「⚙️ 調整 → 👥 誰分」挑人。`,
     };
   }
@@ -166,14 +173,28 @@ export async function handleAddParsed(
   const group = ctx.dbGroup;
   const payer = ctx.dbUser;
 
-  // Auto-register people picked from the @ list who have no public username.
+  // Auto-register people picked from the @ list who have no public username —
+  // but only after confirming they're really in the chat. A text_mention entity
+  // survives copy/paste and forwarding, so it can name someone who was never
+  // here, and a spurious group_members row silently enlarges every equal split.
+  // Same bar as /join (see src/bot/membership.ts).
+  const namesByTelegramId = new Map<number, string>();
   for (const entity of entities) {
     if (entity.type !== "text_mention" || !entity.user || entity.user.is_bot) continue;
+    namesByTelegramId.set(
+      entity.user.id,
+      labelUser({
+        firstName: entity.user.first_name,
+        lastName: entity.user.last_name ?? null,
+        username: entity.user.username ?? null,
+      }),
+    );
+    if (ctx.chat && (await verifyInChat(ctx.api, ctx.chat.id, entity.user.id)) !== "in") continue;
     const u = await upsertTelegramUser(entity.user);
     await db.insert(groupMembers).values({ groupId: group.id, userId: u.id }).onConflictDoNothing();
   }
 
-  const resolved = await resolveParticipants(group.id, parsed);
+  const resolved = await resolveParticipants(group.id, parsed, namesByTelegramId);
   if ("error" in resolved) {
     await ctx.reply(resolved.error);
     return;
