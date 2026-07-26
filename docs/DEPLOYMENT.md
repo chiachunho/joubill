@@ -169,6 +169,15 @@ narrower `new_chat_members` service message; nothing breaks, some joins just go
 unrecorded. **Changing the `allowed_updates` list requires re-running this step**
 — it is stored server-side by Telegram, not read from the deploy.
 
+Admin rights are optional but buy one more thing: `getChatMember` is only
+guaranteed to answer correctly about *other* people while the bot is an
+administrator, and a non-admin bot can report `left` for someone who really is a
+member. `/join` and `/add` therefore only enforce their "is this person actually
+in the chat" check when the bot is an admin (`canVerifyMembership` in
+`src/bot/membership.ts`); otherwise they trust the sender. Promoting the bot
+makes that check real, so a mistyped or forwarded mention can't seat an outsider
+in the ledger.
+
 ## 9. 🧑 Update the Mini App URL in BotFather
 
 Opening the Mini App inside a group uses the BotFather-registered direct-link

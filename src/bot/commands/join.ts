@@ -8,7 +8,7 @@ import { escapeHtml, mention } from "../format";
 import { labelUser } from "@/lib/label";
 import { parseMentions, replyTargetUser } from "@/lib/parseMentions";
 
-import { verifyInChat } from "../membership";
+import { canVerifyMembership, verifyInChat, type Presence } from "../membership";
 import type { BotContext } from "../context";
 import { groupMiniAppLink } from "./start";
 
@@ -83,11 +83,21 @@ joinCommand.command("join", async (ctx) => {
     candidates.push(u);
   }
 
+  // getChatMember is only trustworthy about other people while the bot is an
+  // administrator (see canVerifyMembership). When it isn't, it can answer `left`
+  // for someone who really is a member — and acting on that would make /join
+  // refuse the very people it exists to add, in exactly the setup deployment
+  // calls optional. So fall back to the sender's intent: deliberately replying
+  // to someone and typing /join is a stronger signal than an answer we know we
+  // can't rely on.
+  const canVerify =
+    candidates.length > 0 && (await canVerifyMembership(ctx.api, ctx.chat.id, ctx.me.id));
+
   // One round trip each, in parallel — a /join naming several people shouldn't
   // serialise its API calls into the function's timeout.
-  const presence = await Promise.all(
-    candidates.map((u) => verifyInChat(ctx.api, ctx.chat.id, u.telegramId)),
-  );
+  const presence: Presence[] = canVerify
+    ? await Promise.all(candidates.map((u) => verifyInChat(ctx.api, ctx.chat.id, u.telegramId)))
+    : candidates.map(() => "in");
 
   const results = new Map<Outcome, DbUser[]>();
   const push = (outcome: Outcome, u: DbUser) => {
