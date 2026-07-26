@@ -9,6 +9,32 @@ import type { BotContext } from "./context";
  */
 export type Presence = "in" | "out" | "unknown";
 
+/**
+ * Whether `getChatMember`'s answer about *other* people can be trusted here.
+ *
+ * The Bot API only guarantees `getChatMember` "for other users if the bot is an
+ * administrator in the chat" — and a non-admin bot doesn't fail loudly, it can
+ * report `left` for someone who is really a member. That's a confident wrong
+ * answer, not an error, so it can't be told apart at the call site. Callers that
+ * would *refuse* an action on a negative result must gate on this first;
+ * otherwise a non-admin bot silently rejects legitimate group members.
+ *
+ * Deployment treats admin rights as optional (see docs/DEPLOYMENT.md), so this
+ * is the normal case, not an edge case.
+ */
+export async function canVerifyMembership(
+  api: BotContext["api"],
+  chatId: number,
+  botId: number,
+): Promise<boolean> {
+  try {
+    const me = await api.getChatMember(chatId, botId);
+    return me.status === "administrator" || me.status === "creator";
+  } catch {
+    return false;
+  }
+}
+
 export async function verifyInChat(
   api: BotContext["api"],
   chatId: number,

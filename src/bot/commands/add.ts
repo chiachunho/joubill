@@ -31,7 +31,7 @@ import {
   type DbUser,
 } from "../expenseCard";
 import { escapeHtml, mention } from "../format";
-import { verifyInChat } from "../membership";
+import { canVerifyMembership, verifyInChat } from "../membership";
 import type { BotContext } from "../context";
 
 export const addCommand = new Composer<BotContext>();
@@ -173,12 +173,18 @@ export async function handleAddParsed(
   const group = ctx.dbGroup;
   const payer = ctx.dbUser;
 
-  // Auto-register people picked from the @ list who have no public username —
-  // but only after confirming they're really in the chat. A text_mention entity
-  // survives copy/paste and forwarding, so it can name someone who was never
-  // here, and a spurious group_members row silently enlarges every equal split.
-  // Same bar as /join (see src/bot/membership.ts).
+  // Auto-register people picked from the @ list who have no public username.
+  //
+  // A text_mention entity survives copy/paste and forwarding, so it can name
+  // someone who was never in this chat, and a spurious group_members row
+  // silently enlarges every equal split — hence the same getChatMember bar
+  // /join uses. But it is only applied when the bot is an admin: a non-admin
+  // bot can report `left` for a real member (see canVerifyMembership), and
+  // refusing on that would break /add for every group that hasn't promoted the
+  // bot — which deployment treats as the normal case. Unverifiable beats
+  // wrongly-rejected here: /add's job is to record the expense.
   const namesByTelegramId = new Map<number, string>();
+  let enforceMembership: boolean | null = null;
   for (const entity of entities) {
     if (entity.type !== "text_mention" || !entity.user || entity.user.is_bot) continue;
     namesByTelegramId.set(
@@ -189,7 +195,21 @@ export async function handleAddParsed(
         username: entity.user.username ?? null,
       }),
     );
-    if (ctx.chat && (await verifyInChat(ctx.api, ctx.chat.id, entity.user.id)) !== "in") continue;
+
+    // Resolved lazily and once — the overwhelmingly common /add has no
+    // text_mention at all and must not pay for an extra API round trip.
+    if (enforceMembership === null) {
+      enforceMembership = ctx.chat
+        ? await canVerifyMembership(ctx.api, ctx.chat.id, ctx.me.id)
+        : false;
+    }
+    if (
+      enforceMembership &&
+      (await verifyInChat(ctx.api, ctx.chat!.id, entity.user.id)) !== "in"
+    ) {
+      continue;
+    }
+
     const u = await upsertTelegramUser(entity.user);
     await db.insert(groupMembers).values({ groupId: group.id, userId: u.id }).onConflictDoNothing();
   }
