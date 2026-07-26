@@ -31,7 +31,11 @@ const res = await fetch(`https://api.telegram.org/bot${TOKEN}/setWebhook`, {
   body: JSON.stringify({
     url: webhookUrl,
     secret_token: SECRET,
-    allowed_updates: ["message", "callback_query", "my_chat_member"],
+    // `chat_member` is NOT part of Telegram's default update set — it only
+    // arrives when listed here explicitly, and only while the bot is a group
+    // administrator. It reports every member status change in the chat, which is
+    // how joins via invite link get tracked.
+    allowed_updates: ["message", "callback_query", "my_chat_member", "chat_member"],
     drop_pending_updates: true,
   }),
 });

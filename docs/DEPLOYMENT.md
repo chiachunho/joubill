@@ -157,8 +157,17 @@ deployed `/api/telegram` validates this header and rejects mismatches):
 pnpm bot:set-webhook https://splitbill.example.com
 ```
 
-The script appends `/api/telegram`, sets `secret_token` and
-`drop_pending_updates`, and prints `getWebhookInfo` to confirm.
+The script appends `/api/telegram`, sets `secret_token`,
+`drop_pending_updates` and `allowed_updates`, and prints `getWebhookInfo` to
+confirm.
+
+`allowed_updates` includes **`chat_member`**, which is not in Telegram's default
+update set — it only arrives because it is listed explicitly, and only while the
+bot is a **group administrator**. It is what tracks members who join via invite
+link. Without it (or without admin rights) the bot silently falls back to the
+narrower `new_chat_members` service message; nothing breaks, some joins just go
+unrecorded. **Changing the `allowed_updates` list requires re-running this step**
+— it is stored server-side by Telegram, not read from the deploy.
 
 ## 9. 🧑 Update the Mini App URL in BotFather
 
@@ -193,7 +202,7 @@ Opening the Mini App inside a group uses the BotFather-registered direct-link
 
 Push to the default branch on GitHub → Vercel auto-redeploys.
 **If the domain hasn't changed you don't need to re-set the webhook** — only
-re-run step 8 when the domain or the secret changes.
+re-run step 8 when the domain, the secret, or the `allowed_updates` list changes.
 
 ## Troubleshooting
 

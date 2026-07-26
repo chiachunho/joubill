@@ -15,7 +15,9 @@ const HELP_TEXT = [
   "`/balance` — 各人餘額",
   "`/settle` — 還款建議",
   "",
-  "講過話的人自動加入，也可以從 @ 清單選取沒有 username 的人。",
+  "*把人加進揪帳*",
+  "回覆對方的訊息，再打 `/join`。",
+  "用過 bot 的人會自動加入。",
 ].join("\n");
 
 export const helpCommand = new Composer<BotContext>();
