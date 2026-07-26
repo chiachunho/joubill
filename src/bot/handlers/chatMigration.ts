@@ -38,6 +38,24 @@ async function hasRecords(groupId: number): Promise<boolean> {
  * collected members and rates, which a plain cascade delete would throw away.
  */
 async function absorbGroup(fromId: number, intoId: number) {
+  // Carry the configured default currency across. The surviving row is usually
+  // one registerUser auto-created seconds ago, so it still holds the TWD default
+  // while the absorbed row is the one someone actually set up — without this, a
+  // JPY group silently reverts on upgrade and every custom rate just copied over
+  // goes dormant. Only when the survivor has no records of its own: otherwise
+  // its currency is what existing balances were converted against, and
+  // overwriting it would restate them.
+  const [from] = await db
+    .select({ defaultCurrency: groups.defaultCurrency })
+    .from(groups)
+    .where(eq(groups.id, fromId));
+  if (from && !(await hasRecords(intoId))) {
+    await db
+      .update(groups)
+      .set({ defaultCurrency: from.defaultCurrency, updatedAt: new Date() })
+      .where(eq(groups.id, intoId));
+  }
+
   const members = await db
     .select({ userId: groupMembers.userId })
     .from(groupMembers)

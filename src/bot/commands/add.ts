@@ -302,7 +302,8 @@ addCommand.callbackQuery(/^upload_receipt:(\d+)$/, async (ctx) => {
   }
 
   const [expense] = await db.select().from(expenses).where(eq(expenses.id, expenseId));
-  if (!expense) {
+  // Scoped to the group the callback came from — see deleteExpense.ts.
+  if (!expense || !ctx.dbGroup || expense.groupId !== ctx.dbGroup.id) {
     await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
     return;
   }
@@ -381,13 +382,13 @@ async function applyFieldReply(
 ) {
   const raw = ctx.message.text.trim();
 
-  // Existence only — no ownership check, matching the panel buttons this prompt
-  // was raised from (see expensePanel.ts's guard).
+  // No ownership check, matching the panel buttons this prompt was raised from —
+  // but the same group scoping they apply (see expensePanel.ts's guard).
   const [target] = await db
-    .select({ id: expenses.id })
+    .select({ id: expenses.id, groupId: expenses.groupId, currency: expenses.currency })
     .from(expenses)
     .where(eq(expenses.id, expenseId));
-  if (!target) {
+  if (!target || !ctx.dbGroup || target.groupId !== ctx.dbGroup.id) {
     await ctx.reply("找不到這筆支出（可能已刪除）。");
     return;
   }
@@ -409,12 +410,15 @@ async function applyFieldReply(
       );
       return;
     }
-    // A pinned rate belongs to the old currency — drop it rather than let it
-    // silently apply to the new one.
-    await db
-      .update(expenses)
-      .set({ currency: code, fxRate: null, fxQuote: null, updatedAt: new Date() })
-      .where(eq(expenses.id, expenseId));
+    // Only when it actually changes: a pinned rate belongs to the old currency,
+    // but re-typing the current code must not discard one. Same guard as the
+    // 💱 buttons in expensePanel.ts.
+    if (target.currency !== code) {
+      await db
+        .update(expenses)
+        .set({ currency: code, fxRate: null, fxQuote: null, updatedAt: new Date() })
+        .where(eq(expenses.id, expenseId));
+    }
   }
 
   const card = await renderCard(ctx, expenseId, "adjust");

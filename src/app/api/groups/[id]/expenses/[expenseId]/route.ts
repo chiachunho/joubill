@@ -72,6 +72,10 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
 
   return NextResponse.json({
     id: expense.id,
+    // Who entered this. The edit form shows it beside the destructive actions —
+    // attribution is what replaces the removed owner lock, so dropping it here
+    // silently disables the feature (the form's type keeps this honest).
+    createdBy: expense.createdBy,
     amount: n(expense.amount),
     currency: expense.currency,
     fxRate: expense.fxRate != null ? n(expense.fxRate) : null,

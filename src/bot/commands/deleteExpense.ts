@@ -22,7 +22,10 @@ deleteExpenseCallback.callbackQuery(/^del_exp:(\d+)$/, async (ctx) => {
 
   const [expense] = await db.select().from(expenses).where(eq(expenses.id, expenseId));
 
-  if (!expense) {
+  // Callback data is attacker-controlled, so the id alone proves nothing: without
+  // this the button would delete an expense belonging to any other group. The
+  // bot-side equivalent of the REST layer's assertGroupMember.
+  if (!expense || !ctx.dbGroup || expense.groupId !== ctx.dbGroup.id) {
     await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
     return;
   }

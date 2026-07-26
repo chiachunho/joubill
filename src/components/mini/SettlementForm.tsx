@@ -46,7 +46,9 @@ type Member = {
 
 type Initial = {
   id: number;
-  createdBy?: number | null;
+  /** Required, not optional: an omitted field here is exactly how the
+   *  attribution silently stopped rendering once before. */
+  createdBy: number | null;
   amount: number;
   currency: string;
   fxRate?: number | null;

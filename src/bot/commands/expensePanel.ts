@@ -50,14 +50,19 @@ async function show(ctx: BotContext, expenseId: number, mode: CardMode) {
  * panel while the card's own 🔗 App 編輯 button opens an unrestricted form would
  * be a guarantee in name only. Attribution replaces the lock: the card shows who
  * recorded the expense (see CLAUDE.md).
+ *
+ * It IS a group check. Callback data is attacker-controlled — it arrives as a
+ * plain string and nothing ties it to the button we sent — so an id alone would
+ * let a member of one group edit or delete another group's expense. This is the
+ * bot-side equivalent of the REST layer's `assertGroupMember`.
  */
 async function guard(ctx: BotContext, expenseId: number) {
-  if (!ctx.dbUser) {
+  if (!ctx.dbUser || !ctx.dbGroup) {
     await ctx.answerCallbackQuery({ text: "無法識別使用者", show_alert: true });
     return null;
   }
   const card = await loadCard(expenseId);
-  if (!card) {
+  if (!card || card.expense.groupId !== ctx.dbGroup.id) {
     await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
     return null;
   }
@@ -76,7 +81,9 @@ expensePanel.callbackQuery(/^exp:(adj|who|shr|cur):(\d+)$/, async (ctx) => {
 });
 
 expensePanel.callbackQuery(/^exp:done:(\d+)$/, async (ctx) => {
-  await show(ctx, Number(ctx.match[1]), "default");
+  const expenseId = Number(ctx.match[1]);
+  if (!(await guard(ctx, expenseId))) return;
+  await show(ctx, expenseId, "default");
 });
 
 /* ── 👥 誰分 ──────────────────────────────────────────────────────────── */
@@ -107,17 +114,22 @@ expensePanel.callbackQuery(/^exp:whoall:(\d+)$/, async (ctx) => {
   if (!card) return;
 
   const members = await loadGroupMembers(card.expense.groupId);
-  if (members.length === 0) {
+  const { entries } = await loadSplitState(expenseId);
+
+  // Union, not replacement: loadGroupMembers filters out inactive members, so
+  // rebuilding from it alone would drop someone who already has a share and
+  // silently redistribute their debt. Existing weights are kept too, so 全選
+  // adds people without discarding a 份數 setup — same set the 👥 keyboard lists.
+  const next = [...entries];
+  const seated = new Set(entries.map((e) => e.userId));
+  for (const m of members) {
+    if (!seated.has(m.id)) next.push({ userId: m.id, weight: 1 });
+  }
+  if (next.length === 0) {
     await ctx.answerCallbackQuery({ text: "這個群組沒有可分帳的人", show_alert: true });
     return;
   }
-  // Keep existing weights so 全選 adds people without discarding a shares setup.
-  const weights = new Map((await loadSplitState(expenseId)).entries.map((e) => [e.userId, e.weight]));
-  await writeSplits(
-    expenseId,
-    card.expense.amount,
-    members.map((m) => ({ userId: m.id, weight: weights.get(m.id) ?? 1 })),
-  );
+  await writeSplits(expenseId, card.expense.amount, next);
   await show(ctx, expenseId, "who");
 });
 
