@@ -36,7 +36,7 @@ const groupCommands = [
   { command: "list", description: "最近 10 筆支出" },
   { command: "balance", description: "各人淨額" },
   { command: "settle", description: "最少還款建議" },
-  { command: "join", description: "把人加進揪帳（/join @alice @bob）" },
+  { command: "join", description: "把人加進揪帳（回覆對方訊息再打 /join）" },
   { command: "app", description: "開啟揪帳 Mini App" },
   { command: "help", description: "指令說明" },
 ];

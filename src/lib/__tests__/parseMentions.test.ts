@@ -32,9 +32,11 @@ describe("parseMentions", () => {
     expect(parseMentions("/join")).toEqual({ users: [], usernames: [] });
   });
 
-  it("collects @handles lowercased and without the @", () => {
+  it("reports @handles separately from identified users, never as users", () => {
     const text = "/join @Alice @bob";
     const result = parseMentions(text, [mention(text, "Alice"), mention(text, "bob")]);
+    // Callers surface these as "couldn't identify"; they are never resolved to a
+    // person, since the Bot API has no username -> id lookup.
     expect(result.usernames).toEqual(["alice", "bob"]);
     expect(result.users).toEqual([]);
   });

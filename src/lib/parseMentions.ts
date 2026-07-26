@@ -11,13 +11,20 @@ import type { Message, MessageEntity, User as TelegramUser } from "grammy/types"
  *   literal text `@handle`. The Bot API has no username → user id lookup, so a
  *   handle we have never seen before cannot be resolved to a person at all.
  *
- * The counter-intuitive result is that mentioning is reliable for users without
- * a username and best-effort for users with one.
+ * The counter-intuitive result is that mentioning identifies exactly the users
+ * who *don't* have a username. For everyone else, replying is the way in (see
+ * `replyTargetUser`).
  */
 export interface ParsedMentions {
   /** Fully identified users — safe to upsert directly. */
   users: TelegramUser[];
-  /** Bare handles, lowercased, `@` stripped. Only resolvable against users we already know. */
+  /**
+   * Bare handles, lowercased, `@` stripped. Returned so callers can tell the
+   * sender these did nothing — **not** to be resolved. Matching them against
+   * `users.username` is a guess: that column is neither unique nor refreshed
+   * until its owner next touches the bot, so a handle that has changed hands
+   * would seat the wrong person.
+   */
   usernames: string[];
 }
 

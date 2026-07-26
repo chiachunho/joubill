@@ -1,8 +1,7 @@
 import { Composer, InlineKeyboard } from "grammy";
-import { inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { groupMembers, users } from "@/db/schema";
+import { groupMembers } from "@/db/schema";
 import type { User as DbUser } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { escapeHtml, mention } from "../format";
@@ -15,11 +14,24 @@ import { groupMiniAppLink } from "./start";
 export const joinCommand = new Composer<BotContext>();
 
 const USAGE = [
-  "用法：<code>/join @alice @bob</code>",
+  "把人加進揪帳，兩種方式：",
   "",
-  "把群組裡的人一次加進揪帳。沒有 @username 的人，從輸入框打 @ 的清單裡挑他的名字就可以。",
-  "也可以直接<b>回覆</b>對方的任何一則訊息再打 <code>/join</code> —— 這種方式最準，不管對方有沒有 @username 都認得出來。",
+  "1. <b>回覆</b>對方的任何一則訊息，再打 <code>/join</code>",
+  "2. 從輸入框打 <code>@</code> 的清單裡挑他的名字，再打 <code>/join</code>",
+  "",
+  "直接打 <code>@他的帳號</code> 沒有用 —— Telegram 不讓 bot 從帳號名稱查出是誰。",
 ].join("\n");
+
+/**
+ * A typed-out `@handle` is deliberately never resolved. The Bot API has no
+ * username → id lookup, so the only thing we could do is guess against
+ * `users.username`, which is neither unique nor refreshed until its owner next
+ * touches the bot. A handle that has changed hands would then quietly seat the
+ * wrong person in the ledger — and `verifyInChat` can't catch it, because the
+ * stale account is usually still in the chat. Better to do nothing and say why.
+ */
+const HANDLE_HINT =
+  "改成<b>回覆</b>他的訊息再打 <code>/join</code>，或從輸入框打 <code>@</code> 的清單裡挑他的名字。";
 
 /** One person's outcome, bucketed for the summary reply. */
 type Outcome = "added" | "already" | "notInChat" | "unverifiable";
@@ -30,9 +42,8 @@ function nameOf(u: DbUser): string {
 
 /**
  * Confirm the target is actually in this Telegram chat before granting them a
- * seat at the ledger. Mentioning someone doesn't put them in the group — the
- * handle may belong to anyone, and an outsider in `group_members` would show up
- * in balances and split calculations.
+ * seat at the ledger. Being named in a message doesn't put someone in the group,
+ * and an outsider in `group_members` would show up in balances and splits.
  */
 async function verifyInChat(
   api: BotContext["api"],
@@ -64,64 +75,38 @@ joinCommand.command("join", async (ctx) => {
     ctx.me.username,
   );
 
-  // Replying to someone identifies them exactly, username or not — treat the
-  // reply target as one more fully-identified mention.
+  // The two inputs that yield a real user id: someone picked from the @ list
+  // (text_mention), and the author of the message this command replies to.
   const replyTarget = replyTargetUser(ctx.message?.reply_to_message);
   const identified = replyTarget ? [replyTarget, ...mentionedUsers] : mentionedUsers;
 
-  // Drop handles that name someone we already identified, so replying to Alice
-  // while also typing @alice can't report her as added *and* unknown. (parseMentions
-  // does this for its own entities; the reply target arrives after it runs.)
+  // Drop handles naming someone we already identified, so replying to Alice while
+  // also typing @alice doesn't nag about @alice. (parseMentions does this for its
+  // own entities; the reply target arrives after it runs.)
   const identifiedHandles = new Set(
     identified.map((u) => u.username?.toLowerCase()).filter(Boolean),
   );
-  const usernames = mentionedHandles.filter((h) => !identifiedHandles.has(h));
+  const staleHandles = mentionedHandles.filter((h) => !identifiedHandles.has(h));
 
-  if (identified.length === 0 && usernames.length === 0) {
+  if (identified.length === 0 && staleHandles.length === 0) {
     await ctx.reply(USAGE, { parse_mode: "HTML" });
     return;
   }
 
-  // Bare @handles only resolve if we've already recorded that username.
-  const known = usernames.length
-    ? await db.select().from(users).where(inArray(users.username, usernames))
-    : [];
-
-  // `users.username` is neither unique nor kept live — it only refreshes when
-  // someone next touches the bot. So a handle can match several rows once it has
-  // been given up and claimed by someone else, and both accounts may well still
-  // be in the chat, which makes verifyInChat no help at all. Guessing here would
-  // put the wrong person on the hook for money, so refuse and say so.
-  const byHandle = new Map<string, DbUser[]>();
-  for (const u of known) {
-    const handle = u.username?.toLowerCase();
-    if (!handle) continue;
-    byHandle.set(handle, [...(byHandle.get(handle) ?? []), u]);
-  }
-
-  const unknownHandles = usernames.filter((h) => (byHandle.get(h)?.length ?? 0) === 0);
-  const ambiguousHandles = usernames.filter((h) => (byHandle.get(h)?.length ?? 0) > 1);
-
-  // Resolve everyone to a users row. text_mention people are upserted so a
-  // rename lands even when they turn out to be an existing member; the same
-  // person can arrive twice (once as an entity, once as a handle), so dedupe on
-  // the db id before spending an API call on them.
+  // Dedupe on the db id before spending an API call — the same person can arrive
+  // as both a text_mention and the reply target. Upserting also lets a rename
+  // land even when they turn out to be an existing member.
   const candidates: DbUser[] = [];
   const seen = new Set<number>();
-  const addCandidate = (u: DbUser) => {
-    if (seen.has(u.id)) return;
+  for (const tgUser of identified) {
+    const u = await upsertTelegramUser(tgUser);
+    if (seen.has(u.id)) continue;
     seen.add(u.id);
     candidates.push(u);
-  };
-
-  for (const tgUser of identified) addCandidate(await upsertTelegramUser(tgUser));
-  for (const handle of usernames) {
-    const matches = byHandle.get(handle);
-    if (matches?.length === 1) addCandidate(matches[0]);
   }
 
-  // One round trip each, in parallel — a /join naming the whole group shouldn't
-  // serialise a dozen API calls into the function's timeout.
+  // One round trip each, in parallel — a /join naming several people shouldn't
+  // serialise its API calls into the function's timeout.
   const presence = await Promise.all(
     candidates.map((u) => verifyInChat(ctx.api, ctx.chat.id, u.telegramId)),
   );
@@ -165,23 +150,16 @@ joinCommand.command("join", async (ctx) => {
     lines.push(`⚠️ 不在這個 Telegram 群組，沒有加入：${notInChat.map(nameOf).join("、")}`);
   if (unverifiable.length)
     lines.push(`⚠️ 無法確認是否在群組裡，沒有加入：${unverifiable.map(nameOf).join("、")}`);
-  if (ambiguousHandles.length) {
+  if (staleHandles.length) {
     lines.push(
-      `⚠️ 這些 @ 對應到不只一個人，沒有加入：${ambiguousHandles.map((h) => "@" + escapeHtml(h)).join("、")}`,
-      "（username 可能換過手）請改從輸入框打 @ 的清單裡挑本人。",
-    );
-  }
-  if (unknownHandles.length) {
-    lines.push(
-      `❓ 還不認識：${unknownHandles.map((h) => "@" + escapeHtml(h)).join("、")}`,
-      "請他們點下面的按鈕，或在群組裡講一句話就會自動加入。",
+      `⚠️ 認不出這樣打的 @：${staleHandles.map((h) => "@" + escapeHtml(h)).join("、")}`,
+      HANDLE_HINT,
     );
   }
 
-  // The button is what actually unblocks unresolvable handles, so only offer it
-  // when there's something for it to fix. Ambiguous ones don't qualify: those
-  // people are already known, they just can't be told apart by handle.
-  const keyboard = unknownHandles.length
+  // The button lets people seat themselves (opening the Mini App through a group
+  // link auto-joins), so it's only worth offering when someone was left out.
+  const keyboard = staleHandles.length
     ? new InlineKeyboard().url("開啟揪帳 →", groupMiniAppLink(ctx.me.username, ctx.chat.id))
     : undefined;
 
