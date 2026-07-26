@@ -11,9 +11,11 @@ import type { Message, MessageEntity, User as TelegramUser } from "grammy/types"
  *   literal text `@handle`. The Bot API has no username → user id lookup, so a
  *   handle we have never seen before cannot be resolved to a person at all.
  *
- * The counter-intuitive result is that mentioning identifies exactly the users
- * who *don't* have a username. For everyone else, replying is the way in (see
- * `replyTargetUser`).
+ * Mentioning therefore identifies exactly the users who *don't* have a username,
+ * and Telegram now rewrites an @-list pick into a plain `@username` for every
+ * account that has one — so `text_mention` fires for almost nobody in practice.
+ * Replying is the path worth telling users about (see `replyTargetUser`); this
+ * function's `users` output is a free bonus for the remaining handle-less few.
  */
 export interface ParsedMentions {
   /** Fully identified users — safe to upsert directly. */

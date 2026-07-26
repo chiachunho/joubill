@@ -14,10 +14,7 @@ import { groupMiniAppLink } from "./start";
 export const joinCommand = new Composer<BotContext>();
 
 const USAGE = [
-  "把人加進揪帳，兩種方式：",
-  "",
-  "1. <b>回覆</b>對方的任何一則訊息，再打 <code>/join</code>",
-  "2. 從輸入框打 <code>@</code> 的清單裡挑他的名字，再打 <code>/join</code>",
+  "<b>回覆</b>對方的任何一則訊息，再打 <code>/join</code>，就會把他加進揪帳。",
   "",
   "直接打 <code>@他的帳號</code> 沒有用 —— Telegram 不讓 bot 從帳號名稱查出是誰。",
 ].join("\n");
@@ -29,9 +26,13 @@ const USAGE = [
  * touches the bot. A handle that has changed hands would then quietly seat the
  * wrong person in the ledger — and `verifyInChat` can't catch it, because the
  * stale account is usually still in the chat. Better to do nothing and say why.
+ *
+ * Only the reply form is suggested. `text_mention` still works and is still
+ * accepted below, but Telegram now rewrites an @-list pick into a plain
+ * `@username` for any account that has one, so it fires for so few people that
+ * offering it as an instruction mostly sends users down a path that won't work.
  */
-const HANDLE_HINT =
-  "改成<b>回覆</b>他的訊息再打 <code>/join</code>，或從輸入框打 <code>@</code> 的清單裡挑他的名字。";
+const HANDLE_HINT = "改成<b>回覆</b>他的訊息再打 <code>/join</code>。";
 
 /** One person's outcome, bucketed for the summary reply. */
 type Outcome = "added" | "already" | "notInChat" | "unverifiable";
@@ -75,8 +76,10 @@ joinCommand.command("join", async (ctx) => {
     ctx.me.username,
   );
 
-  // The two inputs that yield a real user id: someone picked from the @ list
-  // (text_mention), and the author of the message this command replies to.
+  // The two inputs that yield a real user id. Replying is the one we document;
+  // text_mention is kept because it costs nothing and still identifies the few
+  // accounts with no username, which are the only ones Telegram still lets you
+  // pick from the @ list as a name rather than rewriting to a plain @handle.
   const replyTarget = replyTargetUser(ctx.message?.reply_to_message);
   const identified = replyTarget ? [replyTarget, ...mentionedUsers] : mentionedUsers;
 
