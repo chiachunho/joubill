@@ -11,6 +11,14 @@ import type { BotContext } from "../context";
  *  1. Upsert the sender into users + auth_identities.
  *  2. If the chat is a group / supergroup, upsert groups and add the sender to group_members.
  *  3. Attach the resulting rows to ctx.dbUser / ctx.dbGroup for downstream handlers.
+ *
+ * Step 2 treats "the sender did something in this group" as proof of membership,
+ * which holds for messages and callback queries but NOT for `chat_member`: there
+ * `ctx.from` is whoever *caused* a status change, so a lurker who never spoke
+ * would be seated the moment they leave, and an admin would be seated for
+ * kicking a spammer. Neither is participation, and a spurious `group_members`
+ * row silently enlarges every equal split. trackMembership's `chat_member`
+ * handler registers the right person (the target, and only on a join).
  */
 export const registerUser = new Composer<BotContext>();
 
@@ -39,10 +47,14 @@ registerUser.use(async (ctx, next) => {
 
     ctx.dbGroup = group;
 
-    await db
-      .insert(groupMembers)
-      .values({ groupId: group.id, userId: user.id })
-      .onConflictDoNothing();
+    // The groups row is still upserted above regardless — trackMembership's
+    // chat_member handler needs ctx.dbGroup set to do its own work.
+    if (ctx.update.chat_member === undefined) {
+      await db
+        .insert(groupMembers)
+        .values({ groupId: group.id, userId: user.id })
+        .onConflictDoNothing();
+    }
   }
 
   await next();

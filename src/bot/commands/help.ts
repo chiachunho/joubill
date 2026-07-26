@@ -24,7 +24,9 @@ const HELP_TEXT = [
   "`/settle` — 還款建議",
   "`/app` — 開啟 Mini App",
   "",
-  "講過話的人會自動加入群組成員。",
+  "*把人加進揪帳*",
+  "回覆對方的訊息，再打 `/join`。",
+  "用過 bot 的人會自動加入。",
 ].join("\n");
 
 export const helpCommand = new Composer<BotContext>();

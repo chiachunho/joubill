@@ -9,10 +9,12 @@ import { deleteExpenseCallback } from "./commands/deleteExpense";
 import { deleteGroupCallback } from "./commands/deleteGroupCallback";
 import { expensePanel } from "./commands/expensePanel";
 import { helpCommand } from "./commands/help";
+import { joinCommand } from "./commands/join";
 import { listCommand } from "./commands/list";
 import { receiptUploadHandler } from "./commands/receiptUpload";
 import { settleCommand } from "./commands/settle";
 import { startCommand } from "./commands/start";
+import { chatMigration } from "./handlers/chatMigration";
 import { forwardJoin } from "./handlers/forwardJoin";
 import type { BotContext } from "./context";
 import { registerUser } from "./middleware/registerUser";
@@ -38,6 +40,9 @@ export function getBot(): Bot<BotContext> {
     return prev(method, payload, signal);
   });
 
+  // Must precede registerUser: it upserts a groups row for the incoming chat id,
+  // which would create an empty duplicate under the post-upgrade supergroup id.
+  bot.use(chatMigration);
   bot.use(registerUser);
   bot.use(trackMembership);
   bot.use(forwardJoin);
@@ -47,6 +52,7 @@ export function getBot(): Bot<BotContext> {
   bot.use(receiptUploadHandler);
   bot.use(startCommand);
   bot.use(helpCommand);
+  bot.use(joinCommand);
   bot.use(addCommand);
   bot.use(appCommand);
   bot.use(listCommand);

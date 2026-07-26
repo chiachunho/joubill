@@ -45,11 +45,33 @@ The Mini App and Web App share the same **lower-level building blocks** — `src
 
 ### Bot (`src/bot/`)
 
-`src/bot/index.ts` exports a lazy singleton `getBot()` — the bot instance is not created until the first webhook hit, so `TELEGRAM_BOT_TOKEN` doesn't need to exist at build time. Middleware runs in registration order: `registerUser` → `trackMembership` → commands.
+`src/bot/index.ts` exports a lazy singleton `getBot()` — the bot instance is not created until the first webhook hit, so `TELEGRAM_BOT_TOKEN` doesn't need to exist at build time. Middleware runs in registration order: `chatMigration` → `registerUser` → `trackMembership` → commands.
 
 Two middleware layers auto-populate the DB:
 - `registerUser` — upserts the `users` row for any message sender
 - `trackMembership` — upserts the `group_members` row
+
+#### Membership tracking is event-sourced, and cannot be backfilled
+
+The Bot API has **no "list chat members" endpoint** (only `getChatMemberCount`, `getChatAdministrators`, and `getChatMember` for an id you already have), so `group_members` is assembled from whatever events happen to arrive. Four sources, in the order a person is most likely to hit them:
+
+1. `registerUser` — the sender of any group message or callback query the bot actually receives, which under **privacy mode** (BotFather's default) is only slash commands, @mentions of the bot, and replies to the bot's own messages. So this is "anyone who has used the bot", *not* "anyone who has talked in the group" — turning privacy mode off widens it to every message at the cost of the bot reading all group chat. Explicitly **not** `chat_member` updates: there `ctx.from` is whoever caused a status change, so seating them would add a lurker the moment they leave, or an admin for kicking someone. A spurious `group_members` row silently enlarges every equal split.
+2. `trackMembership` on `new_chat_members` — the service message for someone added after the bot joined.
+3. `trackMembership` on `chat_member` — every member status change, including invite-link joins; registers the *target*, and only on an absent → present transition. **Not delivered by default**: requires `chat_member` in `setWebhook`'s `allowed_updates` (`scripts/set-webhook.ts`) *and* the bot being a group administrator.
+4. `/join` (`src/bot/commands/join.ts`) and `forwardJoin` — manual, for people none of the above caught. **`/join` means "reply to their message, then type `/join`"** — that is the only form the help text, the usage message and the command menu mention. One person per reply, and privacy mode means it must be the `/join` command carrying the reply; a bare reply to another user never reaches the bot.
+
+Two limits worth knowing before trying to "just add everyone":
+
+- **Group creation emits no roster.** MTProto's `messageActionChatCreate` carries the initial participant list, but the Bot API flattens it to `Message.group_chat_created = true` and drops the users. Adding the bot while creating the group registers only the creator.
+- **Mentioning can't identify anyone who has a username.** The two mention entity kinds are not equivalent: `text_mention` carries the full `User` object, while `mention` is the bare text `@handle` and there is no username → id lookup. Which one you get is not your choice — Telegram rewrites an @-list pick into a plain `@username` for any account that has one, leaving `text_mention` for the handle-less few. `src/lib/parseMentions.ts` splits them; `/join` still accepts `text_mention` because it costs nothing, but **does not advertise it**, since instructing users to "pick from the @ list" mostly sends them down a path that silently produces the unusable kind.
+
+**`/join` deliberately does not resolve a typed-out `@handle` at all.** The only available guess is a match against `users.username`, which is neither unique nor live — it refreshes only when its owner next touches the bot — so a handle that has changed hands quietly seats the wrong person, and `getChatMember` can't catch it because the stale account is usually still in the chat. `parseMentions` still returns the handles, but purely so `/join` can tell the sender they did nothing and point at the reply form. Everything `/join` *does* resolve goes through `getChatMember` before being seated, so it can't put a non-member into balances.
+
+`/add` is a separate case and still accepts `@handle` (`src/lib/parseAdd.ts` → `resolveParticipants` in `src/bot/commands/add.ts`): its lookup is scoped to the group's **existing members** rather than all users, and a miss is a visible error rather than a silent wrong-person insert.
+
+The reply form is the escape hatch from both limits, and its guards live in `replyTargetUser` (`src/lib/parseMentions.ts`): messages posted on behalf of a chat (anonymous admin, channel) have no personal account behind them and resolve to nothing, while a reply to a forwarded message resolves to the member who posted it here, not the original author.
+
+`src/bot/handlers/chatMigration.ts` follows the chat-id rewrite when a basic group is upgraded to a supergroup (`migrate_to_chat_id` / `migrate_from_chat_id`), repointing `groups.telegramChatId` so the existing members and expenses aren't orphaned under the dead id. It **must stay registered before `registerUser`**, which would otherwise upsert an empty duplicate group row under the new id first. When a duplicate does exist, whichever side has no expenses is folded into the other (`absorbGroup` carries over members and rates rather than letting the cascade drop them); if both hold expenses it logs and bails, since merging two real ledgers can't be done safely without a human.
 
 #### `/add` and the expense card
 
@@ -154,6 +176,16 @@ The web-auth (Auth.js) vars are **not** in `serverEnv()` — Auth.js reads them 
 
 All route handlers must set `export const runtime = "nodejs"` and `export const dynamic = "force-dynamic"` because they use the Neon serverless driver.
 
+### Git conventions
+
+Commit subjects and PR titles follow **Conventional Commits**: `type(scope): imperative description`, lowercase after the colon, no trailing period, subject ≤72 chars.
+
+- Types in use: `feat`, `fix`, `chore`, `ci`, `docs`, `refactor`.
+- Scope is optional and names an area rather than a file — `bot`, `mini`, `deps`.
+- The body carries the *why*. Explanations that a user can't act on belong here, not in the bot's replies (see `src/bot/commands/help.ts`).
+
+The prefix is for humans only: the release workflow's semver bump is a manual `workflow_dispatch` input (`.github/workflows/merge-dev-to-main.yml`), **not** parsed from commit types, so a wrong prefix can't mis-release anything.
+
 ### Deployment
 
 Production runs on **Vercel** (frontend + bot webhook + API in one deploy), served from a **custom domain** (not the default `*.vercel.app`), backed by **Neon Postgres**, with the Mini App registered in **BotFather**. The repo is `chiachunho/splitbill-telegram-bot` (private); `origin` is HTTPS. The **default branch is `dev`** — open all PRs against `dev`, not `main`. Pushing to the default branch triggers Vercel auto-deploy. Full step-by-step in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
@@ -161,7 +193,8 @@ Production runs on **Vercel** (frontend + bot webhook + API in one deploy), serv
 Things that bite, in priority order:
 - `TELEGRAM_WEBHOOK_SECRET` must be **identical** in Vercel and in local `.env.local` — `/api/telegram` rejects mismatched `X-Telegram-Bot-Api-Secret-Token` headers.
 - `NEXT_PUBLIC_MINI_APP_URL` is baked at **build time**; changing it requires a redeploy.
-- The Telegram webhook only needs re-setting (`pnpm bot:set-webhook https://<domain>`) when the **domain changes** — not on every deploy.
+- The Telegram webhook only needs re-setting (`pnpm bot:set-webhook https://<domain>`) when the **domain, the secret, or the `allowed_updates` list changes** — not on every deploy. `allowed_updates` lives on Telegram's side, not in the deploy, so editing the array in `scripts/set-webhook.ts` does nothing until the script is re-run; the update types it drops just silently stop arriving.
+- `chat_member` additionally requires the bot to be a **group administrator**. Without that it's simply never delivered — membership tracking quietly falls back to the narrower `new_chat_members` and invite-link joins go unrecorded.
 - Both `NEXT_PUBLIC_MINI_APP_URL` (private-chat button) and the BotFather-registered Web App URL (group direct-link) must point at the production `/mini`.
 - Schema reaches Neon via `pnpm db:push` (run from a machine whose `DATABASE_URL` points at the prod DB); there is no migration step in CI.
 - **When a schema change requires a data migration**, run `pnpm tsx scripts/<migration>.ts` BEFORE `pnpm db:push`. The scripts are idempotent and abort loudly if prerequisites are missing. Running `db:push` first drops source columns and makes the migration impossible without a restore.
