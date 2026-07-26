@@ -45,6 +45,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       fxRate: expenses.fxRate,
       fxQuote: expenses.fxQuote,
       settledAt: expenses.spentAt,
+      createdBy: expenses.createdBy,
     })
     .from(expenses)
     .innerJoin(expensePayers, eq(expensePayers.expenseId, expenses.id))
@@ -62,6 +63,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       fxRate: r.fxRate != null ? n(r.fxRate) : null,
       fxQuote: r.fxQuote,
       settledAt: r.settledAt,
+      createdBy: r.createdBy,
       from: {
         userId: r.fromUserId,
         firstName: r.fromFirstName,

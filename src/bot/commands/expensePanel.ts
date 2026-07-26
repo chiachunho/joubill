@@ -42,8 +42,14 @@ async function show(ctx: BotContext, expenseId: number, mode: CardMode) {
 }
 
 /**
- * Guard shared by every panel button: the expense must exist and the presser
- * must be the person who created it (same rule as 🗑 刪除).
+ * Guard shared by every panel button: we must know who's pressing, and the
+ * expense must still exist.
+ *
+ * Deliberately *not* an ownership check. The ledger is shared, so anyone in the
+ * group can fix a mistake without waiting for whoever typed it — and gating the
+ * panel while the card's own 🔗 App 編輯 button opens an unrestricted form would
+ * be a guarantee in name only. Attribution replaces the lock: the card shows who
+ * recorded the expense (see CLAUDE.md).
  */
 async function guard(ctx: BotContext, expenseId: number) {
   if (!ctx.dbUser) {
@@ -53,10 +59,6 @@ async function guard(ctx: BotContext, expenseId: number) {
   const card = await loadCard(expenseId);
   if (!card) {
     await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
-    return null;
-  }
-  if (card.expense.createdBy !== ctx.dbUser.id) {
-    await ctx.answerCallbackQuery({ text: "只有記帳的人可以調整這筆", show_alert: true });
     return null;
   }
   return card;

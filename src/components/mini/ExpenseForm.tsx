@@ -33,7 +33,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { labelMember } from "@/lib/label";
+import { deleteErrorMessage } from "@/lib/api-error";
+import { labelMember, labelUser } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
 import { n, splitEqual } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,7 @@ type MultiPayerEntry = { userId: number; included: boolean; amount: string };
 
 type Initial = {
   id: number;
+  createdBy?: number | null;
   amount: number;
   currency: string;
   fxRate?: number | null;
@@ -153,6 +155,16 @@ export function ExpenseForm(props: Props) {
   const mode = useAuthMode();
   const isEdit = !!initial;
   const back = returnPath ?? `/mini/groups/${groupId}`;
+
+  // Anyone in the group may edit or delete any record, so who entered it is
+  // shown rather than enforced — attribution in place of a lock (see CLAUDE.md).
+  const recordedBy = useMemo(() => {
+    if (initial?.createdBy == null) return null;
+    const m = members.find((x) => x.id === initial.createdBy);
+    return m ? labelUser({ ...m, userId: m.id }, props.currentUserId) : null;
+  }, [initial?.createdBy, members, props.currentUserId]);
+  const recordedBySomeoneElse =
+    initial?.createdBy != null && initial.createdBy !== props.currentUserId;
 
   const backToGroup = useCallback(() => {
     router.push(back);
@@ -539,7 +551,10 @@ export function ExpenseForm(props: Props) {
     const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
     const res = await fetchFn(`/api/groups/${groupId}/expenses/${initial.id}`, { method: "DELETE" });
     setDeletePending(false);
-    if (!res.ok) { setDeleteError("刪除失敗，請再試一次"); return; }
+    if (!res.ok) {
+      setDeleteError(deleteErrorMessage(res, "這筆支出"));
+      return;
+    }
     revalidateGroup();
     router.push(back);
   }
@@ -1152,6 +1167,9 @@ export function ExpenseForm(props: Props) {
         )}
 
         {/* Actions */}
+        {isEdit && recordedBy && (
+          <p className="text-xs text-muted-foreground">由 {recordedBy} 記錄</p>
+        )}
         <div className="flex gap-2 pt-1">
           <Button
             type="submit"
@@ -1183,7 +1201,11 @@ export function ExpenseForm(props: Props) {
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
         title="確認刪除"
-        description="這筆支出將被永久刪除。"
+        description={
+          recordedBySomeoneElse && recordedBy
+            ? `這筆是 ${recordedBy} 記錄的，刪除後無法復原。`
+            : "這筆支出將被永久刪除。"
+        }
         confirmLabel="刪除"
         variant="destructive"
         loading={deletePending}

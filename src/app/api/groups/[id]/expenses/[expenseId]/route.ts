@@ -204,8 +204,11 @@ export const DELETE = withAuth(async (req: Request, ctx: Params) => {
   if (!ids) return NextResponse.json({ error: "invalid id" }, { status: 400 });
   await assertGroupMember(auth.user.id, ids.groupId);
 
+  // Group membership is the only gate: the ledger is shared, so anyone in it can
+  // fix a mistake without waiting for whoever typed it. `createdBy` is surfaced
+  // in the UI instead, so a change is attributable rather than blocked.
   const [expense] = await db
-    .select({ id: expenses.id, createdBy: expenses.createdBy })
+    .select({ id: expenses.id })
     .from(expenses)
     .where(
       and(
@@ -215,10 +218,6 @@ export const DELETE = withAuth(async (req: Request, ctx: Params) => {
       ),
     );
   if (!expense) return NextResponse.json({ error: "expense not found" }, { status: 404 });
-
-  if (expense.createdBy !== auth.user.id) {
-    return NextResponse.json({ error: "只有建立者可以刪除這筆支出" }, { status: 403 });
-  }
 
   await db.delete(expenses).where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
   // expense_payers and expense_splits cascade-deleted via FK.

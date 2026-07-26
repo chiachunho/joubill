@@ -88,6 +88,22 @@ The reply form is the escape hatch from both limits, and its guards live in `rep
 - 👥 誰分 / ⚖️ 份數 recompute every share from weights, so they are only offered when `panelEditable` — i.e. every split is `equal` or `shares`. A Mini-App `exact`/`percent`/`adjustment` split carries per-person intent the panel can't express, so the buttons are hidden and ✏️ 金額 rescales those amounts proportionally rather than flattening them.
 - `src/bot/commands/add.ts` — the command, expense creation (`handleAddParsed`, also used by the photo-caption path in `receiptUpload.ts`) and the ForceReply replies. Parse failures reply *with* a ForceReply prompt so a mistake is one tap from a retry.
 
+#### Who may edit or delete a record
+
+**Group membership is the only gate — there is no per-record owner lock, and adding one back is a decision to re-open, not a cleanup.** Any member can edit or delete any expense or settlement in a group they belong to; `assertGroupMember` is the whole check.
+
+The case that decides it is "A recorded 800 as 300 and B is standing right there": with an owner lock B can only ask A to fix it, and A may be asleep, driving, or already out of the group. [Splitwise has taken the same position for over a decade](https://kb.splitwise.com/groups/can-i-prevent-group-members-from-changing-expenses-or-set-permissions) — *anyone involved should be able to correct mistakes and fix errors* — against steady requests for permissions.
+
+What replaces the lock is **attribution**:
+- `expenses.createdBy` is returned by the expense and settlement list endpoints, and the shared `ExpenseForm` / `SettlementForm` render 由 X 記錄 next to the destructive actions.
+- Deleting someone else's record names them in the confirm dialog; the bot's 🗑 刪除 leaves a message saying what went, who recorded it and who removed it, so the chat itself is the audit trail.
+
+A **group-level** role (Settle Up's read-only vs edit) is the sane way to add restriction later if it's ever wanted — permission belonging to a person's standing in the group, not to who typed a given row. Don't reintroduce `createdBy` gating for it.
+
+`group_members.status` (`active` / `inactive`) is unrelated: that controls *who is counted in a split*, not who may change records.
+
+**404 on delete is now an ordinary outcome**, not an anomaly — two people can have the same record open. `deleteErrorMessage` (`src/lib/api-error.ts`) maps a status to a message and must never tell the user to retry something that cannot succeed.
+
 ### Mini App (`src/app/mini/`)
 
 Telegram Mini App accessed via the bot's `web_app` button. All pages are client components that call the REST API using `tmaFetch` (`src/lib/tma-fetch.ts`), which attaches `Authorization: tma <initData>`. Data fetching uses SWR (`src/components/mini/SWRProvider.tsx`).

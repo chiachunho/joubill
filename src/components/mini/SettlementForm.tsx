@@ -30,6 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuthMode } from "@/components/AuthProvider";
+import { deleteErrorMessage } from "@/lib/api-error";
+import { labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 import { tmaRawFetch, webRawFetch } from "@/lib/web-fetch";
@@ -44,6 +46,7 @@ type Member = {
 
 type Initial = {
   id: number;
+  createdBy?: number | null;
   amount: number;
   currency: string;
   fxRate?: number | null;
@@ -77,6 +80,15 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
   const router = useRouter();
   const mode = useAuthMode();
   const isEdit = !!initial;
+
+  // Anyone in the group may edit or delete any record, so who entered it is
+  // shown rather than enforced — attribution in place of a lock (see CLAUDE.md).
+  const recorder = initial?.createdBy != null
+    ? members.find((m) => m.id === initial.createdBy)
+    : undefined;
+  const recordedBy = recorder ? labelUser({ ...recorder, userId: recorder.id }, currentUserId) : null;
+  const recordedBySomeoneElse =
+    initial?.createdBy != null && initial.createdBy !== currentUserId;
   const back = returnPath ?? `/mini/groups/${groupId}`;
 
   const backToList = useCallback(() => {
@@ -182,7 +194,10 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
     const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
     const res = await fetchFn(`/api/groups/${groupId}/settlements/${initial.id}`, { method: "DELETE" });
     setDeletePending(false);
-    if (!res.ok) { setDeleteError("刪除失敗，請再試一次"); return; }
+    if (!res.ok) {
+      setDeleteError(deleteErrorMessage(res, "這筆還款記錄"));
+      return;
+    }
     mutate(`/api/groups/${groupId}/settlements`);
     mutate(`/api/groups/${groupId}/expenses`);
     mutate(`/api/groups/${groupId}/balance`);
@@ -402,6 +417,9 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
         )}
 
         {/* Actions */}
+        {isEdit && recordedBy && (
+          <p className="text-xs text-muted-foreground">由 {recordedBy} 記錄</p>
+        )}
         <div className="flex gap-2 pt-1">
           <Button
             type="submit"
@@ -433,7 +451,11 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
         title="確認刪除"
-        description="這筆還款記錄將被永久刪除。"
+        description={
+          recordedBySomeoneElse && recordedBy
+            ? `這筆是 ${recordedBy} 記錄的，刪除後無法復原。`
+            : "這筆還款記錄將被永久刪除。"
+        }
         confirmLabel="刪除"
         variant="destructive"
         loading={deletePending}

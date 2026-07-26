@@ -381,18 +381,14 @@ async function applyFieldReply(
 ) {
   const raw = ctx.message.text.trim();
 
-  // `force_reply.selective` is a client-side hint only — anyone can reply to the
-  // prompt, so the same ownership rule the panel buttons enforce applies here.
-  const [owner] = await db
-    .select({ createdBy: expenses.createdBy })
+  // Existence only — no ownership check, matching the panel buttons this prompt
+  // was raised from (see expensePanel.ts's guard).
+  const [target] = await db
+    .select({ id: expenses.id })
     .from(expenses)
     .where(eq(expenses.id, expenseId));
-  if (!owner) {
+  if (!target) {
     await ctx.reply("找不到這筆支出（可能已刪除）。");
-    return;
-  }
-  if (owner.createdBy !== ctx.dbUser?.id) {
-    await ctx.reply("只有記帳的人可以調整這筆。");
     return;
   }
 
