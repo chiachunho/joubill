@@ -172,24 +172,29 @@ Upload flow (Mini App): `POST /api/tg-upload` (auth-protected) → `sendPhoto` t
 
 Upload flow (bot): photo sent as a caption `/add …` stores `file_id` directly — the caption path goes through the same `handleAddParsed` as a text `/add`, so mentions and the ⚙️ 調整 panel work identically (only multi-photo albums are refused). The "🧾 收據" inline button on the card triggers a ForceReply prompt; the reply photo is matched via `receipt_awaiting`.
 
-### Group notifications (`src/lib/record-notice.ts` + `src/lib/notify.ts`)
+### Group messages for records (`src/lib/notify.ts` + `src/lib/record-notice.ts`)
 
-Every record — **expense and settlement alike** — owns exactly **one** message in the Telegram group chat, tracked by `expenses.notice_message_id`:
+Every record — **expense and settlement alike** — owns exactly **one** message in the Telegram group chat for its whole life, tracked by `expenses.notice_message_id`:
 
 - **created** → send it, remember the `message_id`
 - **edited** → `editMessageText` that same message in place (never a second message)
-- **deleted** → the message is **kept** and edited into a struck-through `<s>…</s>` + `🗑️ 已刪除` version, with its inline keyboard dropped
+- **deleted** → the message is **kept** and edited into the `🗑 已刪除 …` line, with its inline keyboard dropped
 
-A record created by the bot's `/add` **reuses the reply `/add` already posts** as its notice message (`rememberNoticeMessage` after `ctx.reply`), so a bot-created expense never gets a duplicate. Everything created from the Mini App / Web App is sent by the API route handler.
+This is what connects the two front ends to the chat: editing an expense in the Mini App refreshes the **same card** `/add` posted, and deleting it from either side leaves the same tombstone.
 
-`formatRecordNotice` (`src/lib/record-notice.ts`) is **pure** and unit-tested; both the bot and the API routes render through it, which is what guarantees the text after an edit matches the text on creation. `src/lib/notify.ts` does the delivery: `loadNoticeRecord` / `sendRecordNotice` / `updateRecordNotice` / `markNoticeDeleted`, all of which swallow their errors — a kicked bot or a manually deleted message must never fail the API request. An edit falls back to posting a fresh message (and re-remembering it) when there is nothing editable; Telegram's `message is not modified` rejection is treated as success, not a reason to re-post.
+**There is exactly one renderer per message, and that matters more than it looks.** An expense renders as the expense card (`renderCard`, `src/bot/expenseCard.ts`) — the same text and buttons `/add` posts. A second, simpler renderer for "the notification" would silently downgrade a card into a plain line (losing ⚙️ 調整, the `≈` conversion line and the `×n` weights) the first time someone edited from the app. So `renderCard` takes a `CardOrigin` (`{ botUsername, chatId }`) rather than a `BotContext`, which is what lets an API route handler render the identical card without an update to hang off. `src/lib/record-notice.ts` holds only what the card doesn't cover: `formatSettlementNotice` (settlements have no card) and `formatDeletedNotice` (shared by both kinds); both are pure and unit-tested.
 
-Two things to keep in mind when touching this:
+`/add` binds its own card with `rememberNoticeMessage` right after `ctx.reply`, so a bot-created expense never gets a duplicate — and since `receiptUpload.ts`'s photo-caption path delegates to `handleAddParsed`, that one call site covers every bot-created expense. Everything created from the Mini App / Web App is sent by the API route handler.
 
-- **Deletes must snapshot first.** Call `loadNoticeRecord` *before* deleting the row — the record and its `notice_message_id` are gone afterwards.
-- **Silence is inherited.** Notifications are silent because the bot's api middleware (`src/bot/index.ts`) stamps `disable_notification: true` on every `send*` call. Nothing in `notify.ts` sets it explicitly, so removing that middleware would un-silence every notification.
+`src/lib/notify.ts` does the delivery: `loadNoticeRecord` / `sendRecordNotice` / `updateRecordNotice` / `markNoticeDeleted`, all of which swallow their errors — a kicked bot or a manually deleted message must never fail the API request. An edit falls back to posting a fresh message (and re-remembering it) when there is nothing editable; Telegram's `message is not modified` rejection is treated as success, not a reason to re-post. An edited card re-renders in `default` mode, so a card left open on the ⚙️ panel collapses back to the summary — the panel mode is UI state, not part of the record.
 
-Notices carry an inline keyboard: **編輯** deep-links into the Mini App form (`?startapp=group_<chatId>_exp_<id>` for expenses, `_stl_` for settlements — parsed in `src/lib/auth/index.ts`, surfaced as `activeExpenseId`/`activeSettlementId` by `/api/me/groups`, redirected in `src/app/mini/page.tsx`), and **刪除** reuses the bot's `del_exp:<id>` callback, which stays creator-only for both kinds.
+Three things to keep in mind when touching this:
+
+- **Deletes must snapshot first.** Call `loadNoticeRecord` *before* deleting the row — the record, its creator and its `notice_message_id` are gone afterwards. Both the bot's `del_exp` callback and the API's `DELETE` do this.
+- **The tombstone's attribution is load-bearing.** `formatDeletedNotice` names what went, who recorded it and who removed it. That is what stands in for the per-record owner lock this app deliberately doesn't have (see "Who may edit or delete a record") — don't quietly reduce it to "已刪除".
+- **Silence is inherited.** Messages are silent because the bot's api middleware (`src/bot/index.ts`) stamps `disable_notification: true` on every `send*` call. Nothing in `notify.ts` sets it explicitly, so removing that middleware would un-silence every one of them.
+
+Deep links: the card's 🔗 App 編輯 uses `?startapp=group_<chatId>_exp_<id>`, a settlement notice `_stl_<id>` — both parsed in `src/lib/auth/index.ts`, surfaced as `activeExpenseId` / `activeSettlementId` by `/api/me/groups`, and redirected in `src/app/mini/page.tsx`. The 🗑 刪除 button on both is the same `del_exp:<id>` callback, group-scoped and (per the policy above) not owner-gated.
 
 ### Beancount 匯出 (`src/lib/beancount.ts`)
 

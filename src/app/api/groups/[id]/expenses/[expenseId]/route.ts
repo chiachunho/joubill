@@ -8,7 +8,7 @@ import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { fxColumnsFor } from "@/lib/fx";
 import { n } from "@/lib/money";
-import { loadNoticeRecord, markNoticeDeleted, updateRecordNotice } from "@/lib/notify";
+import { deleterOf, loadNoticeRecord, markNoticeDeleted, updateRecordNotice } from "@/lib/notify";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
 
@@ -233,7 +233,7 @@ export const DELETE = withAuth(async (req: Request, ctx: Params) => {
   await db.delete(expenses).where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
   // expense_payers and expense_splits cascade-deleted via FK.
 
-  await markNoticeDeleted(getBot().api, notice);
+  await markNoticeDeleted(getBot().api, notice, deleterOf(auth.user));
 
   return NextResponse.json({ ok: true });
 });

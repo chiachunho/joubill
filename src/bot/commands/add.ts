@@ -14,6 +14,7 @@ import {
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { clientEnv } from "@/lib/env";
 import { labelUser } from "@/lib/label";
+import { rememberNoticeMessage } from "@/lib/notify";
 import {
   ADD_USAGE,
   evalAmountExpr,
@@ -25,6 +26,7 @@ import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 
 import {
   loadGroupMembers,
+  originOf,
   renderCard,
   setExpenseAmount,
   splitRowsFor,
@@ -79,7 +81,10 @@ function mentionRequester(ctx: BotContext): string {
   if (!from) return "";
   return from.username
     ? "@" + from.username
-    : mention(labelUser({ firstName: from.first_name, lastName: from.last_name ?? null, username: null }), from.id);
+    : mention(
+        labelUser({ firstName: from.first_name, lastName: from.last_name ?? null, username: null }),
+        from.id,
+      );
 }
 
 /** Report a parse failure and immediately offer a one-tap retry. */
@@ -203,10 +208,7 @@ export async function handleAddParsed(
         ? await canVerifyMembership(ctx.api, ctx.chat.id, ctx.me.id)
         : false;
     }
-    if (
-      enforceMembership &&
-      (await verifyInChat(ctx.api, ctx.chat!.id, entity.user.id)) !== "in"
-    ) {
+    if (enforceMembership && (await verifyInChat(ctx.api, ctx.chat!.id, entity.user.id)) !== "in") {
       continue;
     }
 
@@ -253,8 +255,16 @@ export async function handleAddParsed(
     return row;
   });
 
-  const card = await renderCard(ctx, expense.id, "default");
-  if (card) await ctx.reply(card.text, { parse_mode: "HTML", reply_markup: card.reply_markup });
+  const card = await renderCard(originOf(ctx), expense.id, "default");
+  if (card) {
+    const sent = await ctx.reply(card.text, {
+      parse_mode: "HTML",
+      reply_markup: card.reply_markup,
+    });
+    // Bind the card to the expense so an edit made in the Mini App refreshes
+    // *this* message instead of posting a second one (src/lib/notify.ts).
+    await rememberNoticeMessage(expense.id, sent.message_id);
+  }
 }
 
 /* ── /add ─────────────────────────────────────────────────────────────── */
@@ -421,7 +431,7 @@ async function applyFieldReply(
     }
   }
 
-  const card = await renderCard(ctx, expenseId, "adjust");
+  const card = await renderCard(originOf(ctx), expenseId, "adjust");
   if (!card || !panelMessageId) return;
   await ctx.api
     .editMessageText(ctx.chat.id, panelMessageId, card.text, {

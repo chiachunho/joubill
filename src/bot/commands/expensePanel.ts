@@ -8,6 +8,7 @@ import {
   loadCard,
   loadGroupMembers,
   loadSplitState,
+  originOf,
   renderCard,
   writeSplits,
   type CardMode,
@@ -28,7 +29,7 @@ export const expensePanel = new Composer<BotContext>();
 
 /** Swap the card that the pressed button belongs to into another mode. */
 async function show(ctx: BotContext, expenseId: number, mode: CardMode) {
-  const card = await renderCard(ctx, expenseId, mode);
+  const card = await renderCard(originOf(ctx), expenseId, mode);
   if (!card) {
     await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
     return;

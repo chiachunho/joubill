@@ -1,23 +1,34 @@
 import { InlineKeyboard, type Api } from "grammy";
 import { eq } from "drizzle-orm";
 
+import { renderCard } from "@/bot/expenseCard";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
 import { serverEnv } from "@/lib/env";
 import { n } from "@/lib/money";
-import { formatRecordNotice, type NoticeLeg, type NoticeRecord } from "@/lib/record-notice";
+import {
+  formatDeletedNotice,
+  formatSettlementNotice,
+  type NoticeLeg,
+  type NoticePerson,
+  type NoticeRecord,
+} from "@/lib/record-notice";
 
 /**
- * Group-chat notifications for records (expenses and settlements).
+ * Group-chat messages for records (expenses and settlements).
  *
  * Every record owns exactly one message in the group chat, tracked by
  * `expenses.notice_message_id`:
  *   created → send it and remember the message_id
  *   edited  → edit that same message in place
- *   deleted → edit it into a struck-through "已刪除" version, never remove it
+ *   deleted → edit it into a "🗑 已刪除 …" line, never remove it
  *
- * A record created by the bot's `/add` reuses the reply `/add` already posts as
- * its notice message, so there is never a duplicate.
+ * An expense renders as the **expense card** (`src/bot/expenseCard.ts`) — the
+ * same text and buttons `/add` posts, so an edit made in the Mini App refreshes
+ * the card rather than replacing it with something poorer. `/add` binds its own
+ * card via `rememberNoticeMessage`, so a bot-created expense never gets a
+ * duplicate. Settlements have no card and render through
+ * `formatSettlementNotice`.
  *
  * Notifications are silent: the bot's api middleware (src/bot/index.ts) stamps
  * `disable_notification: true` on every `send*` call, and nothing here overrides
@@ -32,6 +43,8 @@ export type LoadedNotice = {
   groupId: number;
   chatId: number;
   noticeMessageId: number | null;
+  /** Who recorded it, for the deleted-record line. */
+  creator: (NoticePerson & { userId: number }) | null;
   record: NoticeRecord;
 };
 
@@ -50,12 +63,14 @@ async function botUsername(api: Api): Promise<string | null> {
 }
 
 /**
- * Loads everything `formatRecordNotice` needs for one record.
+ * Loads everything needed to render one record's message.
  *
  * Callers handling a deletion must call this *before* deleting the row — the
  * record (and its message id) are gone afterwards.
  */
 export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice | null> {
+  const creatorUser = users;
+
   const [row] = await db
     .select({
       id: expenses.id,
@@ -66,9 +81,15 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
       description: expenses.description,
       noticeMessageId: expenses.noticeMessageId,
       chatId: groups.telegramChatId,
+      creatorId: creatorUser.id,
+      creatorFirstName: creatorUser.firstName,
+      creatorLastName: creatorUser.lastName,
+      creatorUsername: creatorUser.username,
+      creatorTelegramId: creatorUser.telegramId,
     })
     .from(expenses)
     .innerJoin(groups, eq(groups.id, expenses.groupId))
+    .leftJoin(creatorUser, eq(creatorUser.id, expenses.createdBy))
     .where(eq(expenses.id, recordId));
 
   if (!row) return null;
@@ -115,6 +136,16 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
     groupId: row.groupId,
     chatId: row.chatId,
     noticeMessageId: row.noticeMessageId,
+    creator:
+      row.creatorId != null
+        ? {
+            userId: row.creatorId,
+            firstName: row.creatorFirstName!,
+            lastName: row.creatorLastName,
+            username: row.creatorUsername,
+            telegramId: row.creatorTelegramId,
+          }
+        : null,
     record: {
       type: row.type === "settlement" ? "settlement" : "expense",
       amount: n(row.amount),
@@ -123,6 +154,23 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
       payers: payerRows.map(toLeg),
       splits: splitRows.map(toLeg),
     },
+  };
+}
+
+/** Shapes a `users` row as the person performing a deletion. */
+export function deleterOf(u: {
+  id: number;
+  firstName: string;
+  lastName: string | null;
+  username: string | null;
+  telegramId: number | null;
+}): NoticePerson & { userId: number } {
+  return {
+    userId: u.id,
+    firstName: u.firstName,
+    lastName: u.lastName,
+    username: u.username,
+    telegramId: u.telegramId,
   };
 }
 
@@ -135,22 +183,37 @@ export async function rememberNoticeMessage(recordId: number, messageId: number)
     .catch(() => undefined);
 }
 
-/**
- * "編輯" deep-links into the Mini App record form; "刪除" reuses the bot's
- * existing `del_exp` callback (which enforces creator-only deletion).
- */
-export async function buildNoticeKeyboard(
-  api: Api,
-  loaded: LoadedNotice,
-): Promise<InlineKeyboard | undefined> {
-  const username = await botUsername(api);
-  if (!username) return undefined;
-
+/** The 編輯 / 刪除 buttons on a settlement notice (expenses get the card's own). */
+function settlementKeyboard(username: string, loaded: LoadedNotice): InlineKeyboard {
   const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
-  const slug = loaded.record.type === "settlement" ? "stl" : "exp";
-  const url = `https://t.me/${username}/${appName}?startapp=group_${loaded.chatId}_${slug}_${loaded.recordId}`;
+  const url = `https://t.me/${username}/${appName}?startapp=group_${loaded.chatId}_stl_${loaded.recordId}`;
+  return new InlineKeyboard().url("🔗 App 編輯", url).text("🗑 刪除", `del_exp:${loaded.recordId}`);
+}
 
-  return new InlineKeyboard().url("編輯", url).text("刪除", `del_exp:${loaded.recordId}`);
+type Rendered = { text: string; reply_markup: InlineKeyboard | undefined };
+
+/**
+ * Expenses render as the card `/add` posts, settlements as their own notice.
+ * Returns null when the bot's username can't be resolved (both kinds need it
+ * for the Mini App deep link).
+ */
+async function render(api: Api, loaded: LoadedNotice): Promise<Rendered | null> {
+  const username = await botUsername(api);
+  if (!username) return null;
+
+  if (loaded.record.type === "settlement") {
+    return {
+      text: formatSettlementNotice(loaded.record),
+      reply_markup: settlementKeyboard(username, loaded),
+    };
+  }
+
+  const card = await renderCard(
+    { botUsername: username, chatId: loaded.chatId },
+    loaded.recordId,
+    "default",
+  );
+  return card ? { text: card.text, reply_markup: card.reply_markup } : null;
 }
 
 /** Telegram's "nothing changed" rejection — an edit no-op, not a failure. */
@@ -158,15 +221,17 @@ function isNotModified(err: unknown): boolean {
   return err instanceof Error && err.message.includes("message is not modified");
 }
 
-/** Posts the notice for a freshly created record and remembers its message id. */
+/** Posts the message for a freshly created record and remembers its message id. */
 export async function sendRecordNotice(api: Api, recordId: number): Promise<void> {
   try {
     const loaded = await loadNoticeRecord(recordId);
     if (!loaded) return;
+    const rendered = await render(api, loaded);
+    if (!rendered) return;
 
-    const sent = await api.sendMessage(loaded.chatId, formatRecordNotice(loaded.record), {
+    const sent = await api.sendMessage(loaded.chatId, rendered.text, {
       parse_mode: "HTML",
-      reply_markup: await buildNoticeKeyboard(api, loaded),
+      reply_markup: rendered.reply_markup,
     });
     await rememberNoticeMessage(recordId, sent.message_id);
   } catch (err) {
@@ -175,24 +240,27 @@ export async function sendRecordNotice(api: Api, recordId: number): Promise<void
 }
 
 /**
- * Rewrites the record's existing notice in place. Falls back to posting a fresh
- * one when there is nothing to edit — records predating this feature, a message
- * someone deleted, or one Telegram refuses to edit.
+ * Rewrites the record's existing message in place. Falls back to posting a
+ * fresh one when there is nothing to edit — records predating this feature, a
+ * message someone deleted, or one Telegram refuses to edit.
+ *
+ * An expense card is re-rendered in `default` mode, so a card someone had left
+ * open on the ⚙️ panel collapses back to the summary view. That is intended:
+ * the panel's state is a UI mode, not part of the record.
  */
 export async function updateRecordNotice(api: Api, recordId: number): Promise<void> {
   try {
     const loaded = await loadNoticeRecord(recordId);
     if (!loaded) return;
-
-    const text = formatRecordNotice(loaded.record);
-    // editMessageText drops the keyboard unless it is passed again.
-    const reply_markup = await buildNoticeKeyboard(api, loaded);
+    const rendered = await render(api, loaded);
+    if (!rendered) return;
 
     if (loaded.noticeMessageId != null) {
       try {
-        await api.editMessageText(loaded.chatId, loaded.noticeMessageId, text, {
+        // editMessageText drops the keyboard unless it is passed again.
+        await api.editMessageText(loaded.chatId, loaded.noticeMessageId, rendered.text, {
           parse_mode: "HTML",
-          reply_markup,
+          reply_markup: rendered.reply_markup,
         });
         return;
       } catch (err) {
@@ -201,9 +269,9 @@ export async function updateRecordNotice(api: Api, recordId: number): Promise<vo
       }
     }
 
-    const sent = await api.sendMessage(loaded.chatId, text, {
+    const sent = await api.sendMessage(loaded.chatId, rendered.text, {
       parse_mode: "HTML",
-      reply_markup,
+      reply_markup: rendered.reply_markup,
     });
     await rememberNoticeMessage(recordId, sent.message_id);
   } catch (err) {
@@ -212,17 +280,21 @@ export async function updateRecordNotice(api: Api, recordId: number): Promise<vo
 }
 
 /**
- * Marks a deleted record's notice as deleted, keeping the message in the chat.
- * Takes a snapshot loaded *before* the row was removed.
+ * Replaces a deleted record's message with the tombstone line, keeping the
+ * message itself. Takes a snapshot loaded *before* the row was removed.
  */
-export async function markNoticeDeleted(api: Api, snapshot: LoadedNotice | null): Promise<void> {
+export async function markNoticeDeleted(
+  api: Api,
+  snapshot: LoadedNotice | null,
+  deleter: NoticePerson & { userId: number },
+): Promise<void> {
   if (!snapshot?.noticeMessageId) return;
   try {
     // No reply_markup: the buttons point at a record that no longer exists.
     await api.editMessageText(
       snapshot.chatId,
       snapshot.noticeMessageId,
-      formatRecordNotice(snapshot.record, { deleted: true }),
+      formatDeletedNotice({ record: snapshot.record, creator: snapshot.creator, deleter }),
       { parse_mode: "HTML" },
     );
   } catch (err) {

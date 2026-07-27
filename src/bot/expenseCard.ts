@@ -132,7 +132,10 @@ export async function setExpenseAmount(expenseId: number, total: number) {
     .from(expensePayers)
     .where(eq(expensePayers.expenseId, expenseId));
 
-  const payerAmounts = rescale(payers.map((p) => n(p.amount)), total);
+  const payerAmounts = rescale(
+    payers.map((p) => n(p.amount)),
+    total,
+  );
   const { entries, panelEditable } = await loadSplitState(expenseId);
 
   const splitRows = panelEditable
@@ -148,7 +151,10 @@ export async function setExpenseAmount(expenseId: number, total: number) {
           .from(expenseSplits)
           .where(eq(expenseSplits.expenseId, expenseId))
           .orderBy(expenseSplits.id);
-        const scaled = rescale(rows.map((r) => n(r.amount)), total);
+        const scaled = rescale(
+          rows.map((r) => n(r.amount)),
+          total,
+        );
         return rows.map((r, i) => ({
           expenseId,
           debtorId: r.debtorId,
@@ -254,11 +260,18 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
     defaultCurrency: expense.defaultCurrency,
     payers: payerRows,
     splits: splitRows.map((r) => ({
-      user: { id: r.id, username: r.username, firstName: r.firstName, lastName: r.lastName, telegramId: r.telegramId },
+      user: {
+        id: r.id,
+        username: r.username,
+        firstName: r.firstName,
+        lastName: r.lastName,
+        telegramId: r.telegramId,
+      },
       amount: n(r.splitAmount),
       weight: r.shareType === "shares" && r.splitValue != null ? n(r.splitValue) : 1,
     })),
-    panelEditable: splitRows.length > 0 && splitRows.every((r) => PANEL_SHARE_TYPES.has(r.shareType)),
+    panelEditable:
+      splitRows.length > 0 && splitRows.every((r) => PANEL_SHARE_TYPES.has(r.shareType)),
   };
 }
 
@@ -270,7 +283,11 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
  */
 const CURRENCY_CHOICES = 3;
 
-async function currencyChoices(groupId: number, current: string, fallback: string): Promise<string[]> {
+async function currencyChoices(
+  groupId: number,
+  current: string,
+  fallback: string,
+): Promise<string[]> {
   const used = await db
     .select({ currency: expenses.currency, uses: sql<number>`count(*)::int` })
     .from(expenses)
@@ -291,8 +308,11 @@ function splitLine(card: CardData): string {
   if (splits.length === 0) return "（沒有人分帳）";
 
   const name = (u: DbUser) => mention(labelUser(u), u.telegramId);
-  const allSame = splits.every((s) => s.amount === splits[0].amount && s.weight === splits[0].weight);
-  if (allSame) return `${splits.map((s) => name(s.user)).join("、")} 各 ${fmtGrouped(splits[0].amount)}`;
+  const allSame = splits.every(
+    (s) => s.amount === splits[0].amount && s.weight === splits[0].weight,
+  );
+  if (allSame)
+    return `${splits.map((s) => name(s.user)).join("、")} 各 ${fmtGrouped(splits[0].amount)}`;
 
   return splits
     .map((s) => {
@@ -310,21 +330,20 @@ const MODE_HINT: Partial<Record<CardMode, string>> = {
 
 async function cardText(card: CardData, mode: CardMode): Promise<string> {
   const { expense, defaultCurrency, payers } = card;
-  const who = payers.length > 0
-    ? payers.map((p) => mention(labelUser(p), p.telegramId)).join("、")
-    : "?";
+  const who =
+    payers.length > 0 ? payers.map((p) => mention(labelUser(p), p.telegramId)).join("、") : "?";
   const descPart = expense.description ? `（${escapeHtml(expense.description)}）` : "";
 
-  const lines = [
-    `${who} 付了 <b>${fmtGrouped(expense.amount)} ${expense.currency}</b>${descPart}`,
-  ];
+  const lines = [`${who} 付了 <b>${fmtGrouped(expense.amount)} ${expense.currency}</b>${descPart}`];
 
   if (expense.currency !== defaultCurrency) {
     // Best-effort only: a failed FX lookup must never block showing the expense.
     try {
       const overrides = await loadGroupRateOverrides(expense.groupId);
       const rate = await getRate(expense.currency, defaultCurrency, expense.spentAt, overrides);
-      lines.push(`≈ ${fmtGrouped(Math.round(expense.amount * rate * 100) / 100)} ${defaultCurrency}`);
+      lines.push(
+        `≈ ${fmtGrouped(Math.round(expense.amount * rate * 100) / 100)} ${defaultCurrency}`,
+      );
     } catch {
       /* no conversion line */
     }
@@ -340,13 +359,25 @@ async function cardText(card: CardData, mode: CardMode): Promise<string> {
   return lines.join("\n");
 }
 
-function miniAppUrl(ctx: BotContext, expenseId: number): string {
+/**
+ * What rendering a card needs from its surroundings, so the card is not tied to
+ * a bot update. The API route handlers re-render the same card when a record is
+ * edited in the Mini App (see src/lib/notify.ts), and they have no `ctx`.
+ */
+export type CardOrigin = { botUsername: string; chatId: number };
+
+/** The origin of a card being rendered in response to a group message/callback. */
+export function originOf(ctx: BotContext): CardOrigin {
+  return { botUsername: ctx.me.username, chatId: ctx.chat?.id ?? 0 };
+}
+
+function miniAppUrl(origin: CardOrigin, expenseId: number): string {
   const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
-  return `https://t.me/${ctx.me.username}/${appName}?startapp=group_${ctx.chat?.id}_exp_${expenseId}`;
+  return `https://t.me/${origin.botUsername}/${appName}?startapp=group_${origin.chatId}_exp_${expenseId}`;
 }
 
 async function cardKeyboard(
-  ctx: BotContext,
+  origin: CardOrigin,
   card: CardData,
   mode: CardMode,
 ): Promise<InlineKeyboard> {
@@ -369,7 +400,7 @@ async function cardKeyboard(
       .text("💱 幣別", `exp:cur:${id}`)
       .row()
       .text("✏️ 金額", `exp:amt:${id}`)
-      .url("🔗 App 編輯", miniAppUrl(ctx, id))
+      .url("🔗 App 編輯", miniAppUrl(origin, id))
       .row()
       .text("← 完成", `exp:done:${id}`);
   }
@@ -378,7 +409,10 @@ async function cardKeyboard(
     const members = await loadGroupMembers(card.expense.groupId);
     const included = new Set(card.splits.map((s) => s.user.id));
     // Anyone already on the expense stays listed even if they've since left.
-    const listed = [...members, ...card.splits.map((s) => s.user).filter((u) => !members.some((m) => m.id === u.id))];
+    const listed = [
+      ...members,
+      ...card.splits.map((s) => s.user).filter((u) => !members.some((m) => m.id === u.id)),
+    ];
     listed.forEach((m, i) => {
       kb.text(`${included.has(m.id) ? "✅" : "⬜"} ${labelUser(m)}`, `exp:whot:${id}:${m.id}`);
       if (i % 2 === 1) kb.row();
@@ -413,12 +447,12 @@ async function cardKeyboard(
 }
 
 /** Build the full card (text + keyboard) for an expense, or null if it's gone. */
-export async function renderCard(ctx: BotContext, expenseId: number, mode: CardMode) {
+export async function renderCard(origin: CardOrigin, expenseId: number, mode: CardMode) {
   const card = await loadCard(expenseId);
   if (!card) return null;
   return {
     text: await cardText(card, mode),
-    reply_markup: await cardKeyboard(ctx, card, mode),
+    reply_markup: await cardKeyboard(origin, card, mode),
     card,
   };
 }

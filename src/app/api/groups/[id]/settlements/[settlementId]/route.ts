@@ -9,7 +9,7 @@ import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { fxColumnsFor } from "@/lib/fx";
 import { n } from "@/lib/money";
-import { loadNoticeRecord, markNoticeDeleted, updateRecordNotice } from "@/lib/notify";
+import { deleterOf, loadNoticeRecord, markNoticeDeleted, updateRecordNotice } from "@/lib/notify";
 import { settlementInputSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -217,7 +217,7 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   await db.delete(expenses).where(eq(expenses.id, settlementId));
   // expense_payers and expense_splits cascade-deleted via FK.
 
-  await markNoticeDeleted(getBot().api, notice);
+  await markNoticeDeleted(getBot().api, notice, deleterOf(auth.user));
 
   return NextResponse.json({ ok: true });
 });
