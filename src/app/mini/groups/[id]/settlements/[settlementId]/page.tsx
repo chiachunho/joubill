@@ -14,6 +14,7 @@ type AvatarsResponse = { userPhotos: Record<number, string | null> };
 
 type SettlementDetail = {
   id: number;
+  createdBy: number | null;
   amount: number;
   currency: string;
   fxRate: number | null;

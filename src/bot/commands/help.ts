@@ -2,18 +2,31 @@ import { Composer } from "grammy";
 
 import type { BotContext } from "../context";
 
+/**
+ * Deliberately short. `/add 金額 說明` is the only syntax worth memorising —
+ * everything else (who splits, per-person shares, the currency) lives on the
+ * ⚙️ 調整 buttons attached to each expense, where it's discoverable.
+ *
+ * The 記一筆 section mirrors `ADD_USAGE` (`src/lib/parseAdd.ts`), which a bare
+ * `/add` shows; keep the two in step. They stay separate strings because this
+ * one is Markdown and that one has to be plain text.
+ */
 const HELP_TEXT = [
-  "*指令*",
+  "*記一筆*",
+  "`/add 500 晚餐`",
   "",
-  "`/add 300 午餐` — 全群均分",
-  "`/add 300 午餐 @alice @bob` — 指定分擔",
-  "`/add 300 午餐` — 不等額（換行指定每人金額）",
-  "`@alice 200`",
-  "`@bob 100`",
+  "金額怎麼寫都行：`1,200` · `300元` · `3k` · `150+200`",
+  "別的幣別：`/add 3000 JPY 拉麵`",
+  "只給某些人分：`/add 500 晚餐 @alice @bob`",
   "",
+  "記完點訊息下方的 *⚙️ 調整*：",
+  "👥 誰分 · ⚖️ 份數 · 💱 幣別 · ✏️ 金額",
+  "",
+  "*其他指令*",
   "`/list` — 最近支出",
   "`/balance` — 各人餘額",
   "`/settle` — 還款建議",
+  "`/app` — 開啟 Mini App",
   "",
   "*把人加進揪帳*",
   "回覆對方的訊息，再打 `/join`。",

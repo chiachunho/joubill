@@ -2,13 +2,10 @@ import { Composer } from "grammy";
 import { and, eq, lt } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenses, groupMembers, receiptAwaiting, users } from "@/db/schema";
-import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
-import { labelUser } from "@/lib/label";
-import { fmtGrouped } from "@/lib/money";
-import { parseAddMessage } from "@/lib/parseAdd";
-import { escapeHtml, mention } from "../format";
-import { buildKeyboard, insertEqualSplitExpense } from "./add";
+import { expenses, receiptAwaiting } from "@/db/schema";
+import { ADD_USAGE, parseAddMessage } from "@/lib/parseAdd";
+
+import { handleAddParsed } from "./add";
 import type { BotContext } from "../context";
 
 export const receiptUploadHandler = new Composer<BotContext>();
@@ -57,7 +54,7 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
       .where(lt(receiptAwaiting.createdAt, new Date(Date.now() - STALE_MS)));
   }
 
-  // ── Path B: photo sent with /add caption (receipt already attached) ───────
+  // ── Path B: photo sent with an /add caption (receipt already attached) ────
   const caption = ctx.message.caption ?? "";
   const captionEntities = ctx.message.caption_entities ?? [];
 
@@ -73,75 +70,21 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
     return;
   }
 
-  const group = ctx.dbGroup;
-  const payer = ctx.dbUser;
-
   let parsed;
   try {
     parsed = parseAddMessage(caption, captionEntities);
   } catch (err) {
-    await ctx.reply(err instanceof Error ? err.message : "輸入格式錯誤");
+    // No ForceReply retry offered here — replying with text would lose the photo.
+    await ctx.reply(err instanceof Error ? err.message : ADD_USAGE);
     return;
   }
 
-  if (parsed.shareLines.length > 0) {
-    await ctx.reply("Caption 模式不支援多行分帳，請改用文字 /add 指令。");
-    return;
-  }
-
-  const hasMentions =
-    parsed.mentionUsernames.length > 0 || parsed.mentionTelegramIds.length > 0;
-  if (hasMentions) {
-    await ctx.reply("Caption 模式不支援 @mention 指定分帳對象，請改用文字 /add 指令。");
-    return;
-  }
-
-  for (const entity of captionEntities) {
-    if (entity.type !== "text_mention" || !entity.user || entity.user.is_bot) continue;
-    const u = await upsertTelegramUser(entity.user);
-    await db.insert(groupMembers).values({ groupId: group.id, userId: u.id }).onConflictDoNothing();
-  }
-
-  const currency = group.defaultCurrency;
-  const amount = parsed.amount!;
-
-  const allMembers = await db
-    .select({
-      id: users.id,
-      username: users.username,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      telegramId: users.telegramId,
-    })
-    .from(users)
-    .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
-    .where(eq(groupMembers.groupId, group.id));
-
-  if (allMembers.length === 0) {
-    await ctx.reply("這個群組沒有可分帳的人。");
-    return;
-  }
-
-  const { expense, shares } = await insertEqualSplitExpense({
-    groupId: group.id,
-    payerId: payer.id,
-    createdBy: payer.id,
-    amount,
-    currency,
-    description: parsed.description,
-    participants: allMembers,
-    receiptFileId: fileId,
-  });
-
-  const descPart = parsed.description ? `（${escapeHtml(parsed.description)}）` : "";
-  const allSame = shares.every((s) => s === shares[0]);
-  const splitLine = allSame
-    ? `${allMembers.map((p) => mention(labelUser(p), p.telegramId)).join("、")} 各 ${fmtGrouped(shares[0])}`
-    : allMembers.map((p, i) => `${mention(labelUser(p), p.telegramId)} ${fmtGrouped(shares[i])}`).join("、");
-
-  // Receipt already attached — no upload button needed.
-  await ctx.reply(
-    `${mention(labelUser(payer), payer.telegramId)} 付了 <b>${fmtGrouped(amount)} ${currency}</b>${descPart}\n${splitLine}`,
-    { parse_mode: "HTML", reply_markup: buildKeyboard(ctx, expense.id) },
+  // Same path as a text /add — mentions and the ⚙️ 調整 panel work identically,
+  // the only difference is that the receipt is already attached.
+  await handleAddParsed(
+    ctx as Parameters<typeof handleAddParsed>[0],
+    parsed,
+    captionEntities,
+    { receiptFileId: fileId },
   );
 });

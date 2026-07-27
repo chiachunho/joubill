@@ -67,11 +67,42 @@ Two limits worth knowing before trying to "just add everyone":
 
 **`/join` deliberately does not resolve a typed-out `@handle` at all.** The only available guess is a match against `users.username`, which is neither unique nor live — it refreshes only when its owner next touches the bot — so a handle that has changed hands quietly seats the wrong person, and `getChatMember` can't catch it because the stale account is usually still in the chat. `parseMentions` still returns the handles, but purely so `/join` can tell the sender they did nothing and point at the reply form. Everything `/join` *does* resolve goes through `getChatMember` before being seated, so it can't put a non-member into balances.
 
-`/add` is a separate case and still accepts `@handle` (`src/lib/parseAdd.ts` → `resolveSharePerson`): its lookup is scoped to the group's **existing members** rather than all users, and a miss is a visible error rather than a silent wrong-person insert.
+`/add` is a separate case and still accepts `@handle` (`src/lib/parseAdd.ts` → `resolveParticipants` in `src/bot/commands/add.ts`): its lookup is scoped to the group's **existing members** rather than all users, and a miss is a visible error rather than a silent wrong-person insert.
+
+**Anything that seats someone in `group_members` from message content goes through `verifyInChat` (`src/bot/membership.ts`) first** — that's `/join`, and `/add`'s `text_mention` auto-registration. A `text_mention` entity survives copy/paste and forwarding, so it can name a person who was never in the chat, and only `getChatMember` can tell. Presence is three-valued: a transient API failure is indistinguishable from "never a member", so `unknown` does **not** seat.
+
+**`getChatMember` is only trustworthy about other people when the bot is an administrator.** The Bot API guarantees it "for other users if the bot is an administrator in the chat"; a non-admin bot doesn't fail loudly, it can answer `left` for someone who really is a member — a confident wrong answer the call site can't detect. Since admin rights are optional for this bot (see `docs/DEPLOYMENT.md`), **any code that would refuse an action on a negative result must gate on `canVerifyMembership` first**. Both callers do, and both resolve the same way when the answer is untrustworthy: seat the person and rely on the user's intent. `/join`'s sender deliberately replied to someone and typed the command, and `/add`'s job is to record the expense — either signal beats an answer known to be unreliable. The spurious-member risk this guards against needs a copy-pasted or forwarded `text_mention`, which is far rarer than a group that never promoted the bot.
 
 The reply form is the escape hatch from both limits, and its guards live in `replyTargetUser` (`src/lib/parseMentions.ts`): messages posted on behalf of a chat (anonymous admin, channel) have no personal account behind them and resolve to nothing, while a reply to a forwarded message resolves to the member who posted it here, not the original author.
 
 `src/bot/handlers/chatMigration.ts` follows the chat-id rewrite when a basic group is upgraded to a supergroup (`migrate_to_chat_id` / `migrate_from_chat_id`), repointing `groups.telegramChatId` so the existing members and expenses aren't orphaned under the dead id. It **must stay registered before `registerUser`**, which would otherwise upsert an empty duplicate group row under the new id first. When a duplicate does exist, whichever side has no expenses is folded into the other (`absorbGroup` carries over members and rates rather than letting the cascade drop them); if both hold expenses it logs and bails, since merging two real ledgers can't be done safely without a human.
+
+#### `/add` and the expense card
+
+**The text grammar is one line and that's on purpose: `/add <金額> [幣別] [說明] [@人 …]`.** Anything that would need memorising — who splits, per-person shares, changing the currency — is a *button* on the expense card, not syntax. Don't grow the grammar; add a button.
+
+- `src/lib/parseAdd.ts` — pure, unit-tested. Its job is **forgiveness**, not expressiveness: full-width characters, thousands separators (`1,200`), currency decorations (`$300`, `300元`, `€50`), `k`/`千`/`萬` multipliers and arithmetic (`150+200`, `(300+150)/3`) all parse. The arithmetic evaluator is a hand-written recursive-descent parser — **never `eval`**. Currency codes match `SUPPORTED_CURRENCIES` from `src/lib/zod.ts` and **nothing wider** — the bot must not create a record the Mini App form can't render or save (its `currency` is a `z.enum` over that same constant), and an unknown code makes `getRate` throw, which takes `/balance` and `/settle` down for the whole group. Amounts must end on whitespace, so `3杯咖啡` is rejected rather than read as 3. Error strings are plain text (no HTML) so the bot can echo user input without escaping.
+- `src/bot/expenseCard.ts` — renders the card (text + keyboard) for any `CardMode` (`default` / `adjust` / `who` / `shares` / `currency`) and owns split writing. `writeSplits` stores `share_type='equal'` when every weight is 1 and `share_type='shares'` + `split_value` otherwise, so the Mini App form round-trips the same input.
+- `src/bot/commands/expensePanel.ts` — the ⚙️ 調整 callbacks. **The panel keeps no state of its own** — every tap re-reads the expense from the DB and re-renders, so old cards keep working and concurrent taps converge. **Every callback that names an expense id must check it belongs to `ctx.dbGroup`** (`guard()`, plus `del_exp`, `upload_receipt` and the ForceReply replies): callback data is just a string the client sends, so an id on its own would reach across groups. That check is the bot-side counterpart of the REST layer's `assertGroupMember` — it is *not* an ownership check, see below. `editMessageText` is `.catch()`-ed because re-selecting the current value renders identical output, which Telegram rejects.
+- **`selective` targets nobody on a prompt that replies to the bot's own message** (Telegram only targets @mentioned users and the sender of the replied-to message), so every prompt raised from a callback mentions the requester in its text instead of setting `reply_to_message_id`.
+- 👥 誰分 / ⚖️ 份數 recompute every share from weights, so they are only offered when `panelEditable` — i.e. every split is `equal` or `shares`. A Mini-App `exact`/`percent`/`adjustment` split carries per-person intent the panel can't express, so the buttons are hidden and ✏️ 金額 rescales those amounts proportionally rather than flattening them.
+- `src/bot/commands/add.ts` — the command, expense creation (`handleAddParsed`, also used by the photo-caption path in `receiptUpload.ts`) and the ForceReply replies. Parse failures reply *with* a ForceReply prompt so a mistake is one tap from a retry.
+
+#### Who may edit or delete a record
+
+**Group membership is the only gate — there is no per-record owner lock, and adding one back is a decision to re-open, not a cleanup.** Any member can edit or delete any expense or settlement in a group they belong to; `assertGroupMember` is the whole check.
+
+The case that decides it is "A recorded 800 as 300 and B is standing right there": with an owner lock B can only ask A to fix it, and A may be asleep, driving, or already out of the group. [Splitwise has taken the same position for over a decade](https://kb.splitwise.com/groups/can-i-prevent-group-members-from-changing-expenses-or-set-permissions) — *anyone involved should be able to correct mistakes and fix errors* — against steady requests for permissions.
+
+What replaces the lock is **attribution**:
+- `expenses.createdBy` is returned by the expense and settlement endpoints — **including the `[expenseId]` / `[settlementId]` detail ones, which is where the edit forms actually read it from** — and the shared `ExpenseForm` / `SettlementForm` render 由 X 記錄 next to the destructive actions. `Initial.createdBy` is deliberately required rather than optional: it shipped optional once and the whole feature silently rendered nothing because only the list endpoints had been updated.
+- Deleting someone else's record names them in the confirm dialog; the bot's 🗑 刪除 leaves a message saying what went, who recorded it and who removed it, so the chat itself is the audit trail.
+
+A **group-level** role (Settle Up's read-only vs edit) is the sane way to add restriction later if it's ever wanted — permission belonging to a person's standing in the group, not to who typed a given row. Don't reintroduce `createdBy` gating for it.
+
+`group_members.status` (`active` / `inactive`) is unrelated: that controls *who is counted in a split*, not who may change records.
+
+**404 on delete is now an ordinary outcome**, not an anomaly — two people can have the same record open. `deleteErrorMessage` (`src/lib/api-error.ts`) maps a status to a message and must never tell the user to retry something that cannot succeed.
 
 ### Mini App (`src/app/mini/`)
 
@@ -105,7 +136,7 @@ Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
 
 **Settlements are expenses**: A repayment ("A 還 B $X") is just a degenerate expense — A is the sole payer, B the sole debtor — with identical balance impact. It is stored in `expenses` with `type='settlement'` (vs `type='expense'`), one `expense_payers` row (= sender) and one `expense_splits` row (= receiver, `share_type='exact'`). There is **no** separate `settlements` table. The `type` column is the only discriminator: balance/FX/rate-lock treat both kinds the same (no branching), while the expense list/detail and stats filter `type='expense'` and the merged group list renders `type='settlement'` rows as `from → to`. The `/api/groups/[id]/settlements` routes still exist as a from/to-shaped façade over `type='settlement'` expenses (forms unchanged); only the list page was removed (settlements now appear inline in the main list).
 
-`receipt_awaiting` stores in-flight "waiting for receipt photo" state for the ForceReply bot flow (only triggered after text-only `/add`; not shown when photo is already attached via caption).
+`receipt_awaiting` stores in-flight "waiting for receipt photo" state for the ForceReply bot flow (only triggered after text-only `/add`; not shown when photo is already attached via caption). `add_awaiting` stores in-flight ForceReply prompts: with `expense_id`/`field` NULL it's a bare `/add` waiting for expense text, otherwise the reply sets one field (`amount` / `currency`) of an existing expense and `panel_message_id` says which card to refresh.
 
 Schema is pushed directly with `db:push` (no migration workflow). `numeric` columns come back as strings from Drizzle; use `n()` from `src/lib/money.ts` to parse them to numbers.
 
@@ -137,7 +168,7 @@ Receipts are stored on Telegram's servers — only the permanent `file_id` is pe
 
 Upload flow (Mini App): `POST /api/tg-upload` (auth-protected) → `sendPhoto` to the private storage channel → returns `file_id` → saved with the expense.
 
-Upload flow (bot): photo sent as a caption `/add …` stores `file_id` directly. The "上傳收據" inline button after `/add` triggers a ForceReply prompt; the reply photo is matched via `receipt_awaiting`.
+Upload flow (bot): photo sent as a caption `/add …` stores `file_id` directly — the caption path goes through the same `handleAddParsed` as a text `/add`, so mentions and the ⚙️ 調整 panel work identically (only multi-photo albums are refused). The "🧾 收據" inline button on the card triggers a ForceReply prompt; the reply photo is matched via `receipt_awaiting`.
 
 ### Beancount 匯出 (`src/lib/beancount.ts`)
 

@@ -31,6 +31,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       currency: expenses.currency,
       description: expenses.description,
       spentAt: expenses.spentAt,
+      createdBy: expenses.createdBy,
       legacyReceiptFileId: expenses.receiptFileId,
       fxRate: expenses.fxRate,
       fxQuote: expenses.fxQuote,

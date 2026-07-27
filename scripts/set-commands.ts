@@ -32,7 +32,7 @@ async function setCommands(
 
 // Commands available in group chats
 const groupCommands = [
-  { command: "add", description: "新增支出（/add 300 午餐）" },
+  { command: "add", description: "記一筆（/add 500 晚餐）" },
   { command: "list", description: "最近 10 筆支出" },
   { command: "balance", description: "各人淨額" },
   { command: "settle", description: "最少還款建議" },

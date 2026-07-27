@@ -8,6 +8,7 @@ import { escapeHtml, mention } from "../format";
 import { labelUser } from "@/lib/label";
 import { parseMentions, replyTargetUser } from "@/lib/parseMentions";
 
+import { canVerifyMembership, verifyInChat, type Presence } from "../membership";
 import type { BotContext } from "../context";
 import { groupMiniAppLink } from "./start";
 
@@ -35,28 +36,6 @@ type Outcome = "added" | "already" | "notInChat" | "unverifiable";
 
 function nameOf(u: DbUser): string {
   return mention(labelUser(u), u.telegramId);
-}
-
-/**
- * Confirm the target is actually in this Telegram chat before granting them a
- * seat at the ledger. Being named in a message doesn't put someone in the group,
- * and an outsider in `group_members` would show up in balances and splits.
- */
-async function verifyInChat(
-  api: BotContext["api"],
-  chatId: number,
-  telegramId: number | null,
-): Promise<"in" | "out" | "unknown"> {
-  // A user with no Telegram id (web-only OAuth account) can't be checked at all.
-  if (telegramId === null) return "unknown";
-  try {
-    const member = await api.getChatMember(chatId, telegramId);
-    return member.status === "left" || member.status === "kicked" ? "out" : "in";
-  } catch {
-    // Most often "user not found" for someone who was never in the chat, but a
-    // transient API failure looks identical — don't claim to know which.
-    return "unknown";
-  }
 }
 
 joinCommand.command("join", async (ctx) => {
@@ -104,11 +83,21 @@ joinCommand.command("join", async (ctx) => {
     candidates.push(u);
   }
 
+  // getChatMember is only trustworthy about other people while the bot is an
+  // administrator (see canVerifyMembership). When it isn't, it can answer `left`
+  // for someone who really is a member — and acting on that would make /join
+  // refuse the very people it exists to add, in exactly the setup deployment
+  // calls optional. So fall back to the sender's intent: deliberately replying
+  // to someone and typing /join is a stronger signal than an answer we know we
+  // can't rely on.
+  const canVerify =
+    candidates.length > 0 && (await canVerifyMembership(ctx.api, ctx.chat.id, ctx.me.id));
+
   // One round trip each, in parallel — a /join naming several people shouldn't
   // serialise its API calls into the function's timeout.
-  const presence = await Promise.all(
-    candidates.map((u) => verifyInChat(ctx.api, ctx.chat.id, u.telegramId)),
-  );
+  const presence: Presence[] = canVerify
+    ? await Promise.all(candidates.map((u) => verifyInChat(ctx.api, ctx.chat.id, u.telegramId)))
+    : candidates.map(() => "in");
 
   const results = new Map<Outcome, DbUser[]>();
   const push = (outcome: Outcome, u: DbUser) => {
