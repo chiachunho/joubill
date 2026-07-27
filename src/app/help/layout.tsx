@@ -15,6 +15,7 @@ const sections = [
   { slug: "multi-currency", label: "多幣別" },
   { slug: "group-management", label: "群組與成員" },
   { slug: "stats", label: "統計" },
+  { slug: "web-app", label: "網頁版" },
   { slug: "troubleshooting", label: "常見問題" },
 ];
 
