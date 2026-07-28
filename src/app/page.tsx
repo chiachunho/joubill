@@ -20,7 +20,7 @@ export default function Home() {
           <CardTitle>開始使用</CardTitle>
           <CardDescription>把 Bot 加進群組，輸入 /start，就這樣。</CardDescription>
         </CardHeader>
-        <CardContent className="flex gap-3">
+        <CardContent className="flex flex-wrap gap-3">
           <Button asChild>
             <a href="https://t.me/" target="_blank" rel="noreferrer">
               開啟 Telegram
@@ -28,6 +28,9 @@ export default function Home() {
           </Button>
           <Button variant="secondary" asChild>
             <a href="/app">開啟 Web App</a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href="/help">使用說明</a>
           </Button>
         </CardContent>
       </Card>

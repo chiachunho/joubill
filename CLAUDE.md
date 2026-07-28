@@ -34,12 +34,13 @@ Package manager is **pnpm**. Do not use npm or yarn.
 
 ## Architecture
 
-A single Next.js 15 (App Router) app serves four concerns simultaneously:
+A single Next.js 15 (App Router) app serves five concerns simultaneously:
 
 1. **Telegram Bot** — grammY webhook at `POST /api/telegram`
 2. **Mini App frontend** — React pages at `/mini/**` (Telegram-embedded, `initData` auth)
 3. **Web App frontend** — React pages at `/app/**` (standalone browser, Auth.js session-cookie auth) + `/login`
 4. **REST API** — Next.js route handlers at `/api/**` (shared by both frontends)
+5. **Help site** — public MDX pages at `/help/**` (no auth)
 
 The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **They do NOT share the top-level page components**, though: each route under `/mini/**` has a hand-maintained near-duplicate under `/app/**` (e.g. `src/app/mini/groups/[id]/page.tsx` vs `src/app/app/groups/[id]/page.tsx`), differing only in fetcher (`tmaFetch` vs `webFetch`), link prefixes (`/mini` vs `/app`), and a few imports. **When you change list/detail UI or page behaviour, apply the same change to both copies.** Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
 
@@ -146,6 +147,33 @@ The inventory for the bot side of "What to share, and what to leave duplicated" 
 Telegram Mini App accessed via the bot's `web_app` button. All pages are client components that call the REST API using `tmaFetch` (`src/lib/tma-fetch.ts`), which attaches `Authorization: tma <initData>`. Data fetching uses SWR (`src/components/mini/SWRProvider.tsx`).
 
 **Before changing any Mini App UI, read [`docs/design-system.md`](docs/design-system.md).** It defines the design tokens and patterns — most importantly: radius has only two tiers (`rounded-2xl` containers / `rounded-lg` controls, both driven by `--radius`; never `rounded-xl` or arbitrary `rounded-[Npx]`), colors must go through the shadcn CSS vars (Telegram themes override them at runtime), financial figures use the `.num` utility, section headers use `.sect`, and loading states use the page-shaped skeletons in `components/mini/skeletons.tsx` (not spinners).
+
+### Help site (`src/app/help/`)
+
+Public Traditional-Chinese documentation, rendered from `.mdx` page files via
+`@next/mdx` (`pageExtensions` + `withMDX` in `next.config.mjs`; `remark-gfm` for
+tables, `rehype-slug` for heading anchors). Every MDX element is mapped to a
+design-system-styled React component in the **root-level** `mdx-components.tsx`
+— which is why `tailwind.config.ts`'s `content` array must list
+`./mdx-components.tsx` explicitly, or Tailwind purges every class the docs rely
+on and the pages ship unstyled in production.
+
+`src/app/help/layout.tsx` holds the section list. **Adding a page means adding
+both `src/app/help/<slug>/page.mdx` and an entry in that `sections` array** —
+the array drives the sidebar, so a page without one is unreachable.
+
+Entry points into the site are deliberately spread across every surface, since
+documentation nobody can find is worthless: the bot's `/help` reply and both
+`/start` welcomes carry a URL button, and 個人設定 → 關於 has a 使用說明 row in
+the Mini App and Web App. All of them resolve the URL through
+`src/lib/help-url.ts`, which derives it from `NEXT_PUBLIC_MINI_APP_URL`'s origin
+rather than adding a second env var the two could disagree about. The Mini App
+row calls `WebApp.openLink` instead of using an `<a>`, because navigating the
+Mini App's own webview to `/help` would replace the app and strip its back button.
+
+**The docs describe user-visible behaviour, so they go stale silently.** When a
+change alters bot copy, a button label, a form field, or who is allowed to do
+something, update `src/app/help/**` in the same commit.
 
 ### API Auth (`src/lib/auth/`)
 

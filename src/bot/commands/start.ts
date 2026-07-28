@@ -3,6 +3,7 @@ import { Composer, InlineKeyboard } from "grammy";
 import { BTN } from "@/lib/buttons";
 import { groupLink } from "@/lib/deep-link";
 import { clientEnv } from "@/lib/env";
+import { HELP_URL } from "@/lib/help-url";
 
 import type { BotContext } from "../context";
 
@@ -12,10 +13,12 @@ export const startCommand = new Composer<BotContext>();
 export async function sendGroupWelcome(
   ctx: BotContext & { chat: { id: number }; me: { username: string } },
 ) {
-  const keyboard = new InlineKeyboard().url(
-    BTN.openAppArrow,
-    groupLink(ctx.me.username, ctx.chat.id),
-  );
+  // Help sits on its own row: the first button is the one that seats people, so
+  // a secondary link beside it would compete with the action that matters.
+  const keyboard = new InlineKeyboard()
+    .url(BTN.openAppArrow, groupLink(ctx.me.username, ctx.chat.id))
+    .row()
+    .url(BTN.help, HELP_URL);
   // Tapping the button is what actually seats someone (opening the Mini App
   // through a group link auto-joins), so the message has to say so — otherwise
   // the group's members never get into group_members and every split is short.
@@ -36,6 +39,9 @@ startCommand.command("start", async (ctx) => {
   // Private chat: the web_app button can launch the Mini App directly.
   const name = ctx.from?.first_name ?? "";
   const greeting = `嗨 ${name}！把我加進群組就能開始分帳。\n就這樣，就是這麼簡單🫲🫱`;
-  const keyboard = new InlineKeyboard().webApp(BTN.openApp, clientEnv.NEXT_PUBLIC_MINI_APP_URL);
+  const keyboard = new InlineKeyboard()
+    .webApp(BTN.openApp, clientEnv.NEXT_PUBLIC_MINI_APP_URL)
+    .row()
+    .url(BTN.help, HELP_URL);
   await ctx.reply(greeting, { reply_markup: keyboard });
 });

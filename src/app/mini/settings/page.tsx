@@ -2,10 +2,11 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { User } from "lucide-react";
+import { BookOpen, ChevronRight, User } from "lucide-react";
 import useSWR from "swr";
 
 import { PersonalSettingsSkeleton } from "@/components/mini/skeletons";
+import { HELP_URL } from "@/lib/help-url";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
 type ProfileResponse = {
@@ -19,6 +20,14 @@ export default function PersonalSettingsPage() {
   const router = useRouter();
   const back = useCallback(() => router.push("/mini"), [router]);
   useTelegramBackButton(back);
+
+  // Open in Telegram's in-app browser rather than navigating the Mini App's own
+  // webview — a plain <a> would replace the Mini App and lose the back button.
+  const openHelp = useCallback(() => {
+    import("@twa-dev/sdk")
+      .then(({ default: WebApp }) => WebApp.openLink(HELP_URL))
+      .catch(() => window.open(HELP_URL, "_blank", "noopener"));
+  }, []);
 
   const { data: profile, error } = useSWR<ProfileResponse>("/api/me/profile");
 
@@ -66,6 +75,16 @@ export default function PersonalSettingsPage() {
       <section className="px-4">
         <p className="sect mb-2.5">關於</p>
         <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          <button
+            onClick={openHelp}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
+          >
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <BookOpen className="size-3.5 text-primary" />
+            </div>
+            <span className="flex-1 text-sm">使用說明</span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
+          </button>
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm">版本</span>
             <span className="num text-sm text-muted-foreground">

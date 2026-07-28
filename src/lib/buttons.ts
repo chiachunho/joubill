@@ -43,6 +43,11 @@ export const BTN = {
   /** `/join`'s variant: it trails a sentence, so the arrow reads as "go here". */
   openAppArrow: "開啟揪帳 →",
 
+  /* help site (src/app/help/**) */
+  help: "📖 使用說明",
+  /** `/help`'s variant: the reply already *is* help, so the button offers the rest. */
+  helpFull: "📖 完整使用說明",
+
   /* group deletion approval */
   approveDeleteGroup: "✓ 同意刪除",
   rejectDeleteGroup: "✗ 拒絕",

@@ -1,4 +1,7 @@
 import { readFileSync } from "fs";
+import createMDX from "@next/mdx";
+import remarkGfm from "remark-gfm";
+import rehypeSlug from "rehype-slug";
 
 // The app version shown in Settings is the semver from package.json, bumped and
 // tagged (v<version>) by the dev→main release workflow
@@ -18,6 +21,7 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
   },
+  pageExtensions: ["js", "jsx", "ts", "tsx", "md", "mdx"],
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",
@@ -25,4 +29,11 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+const withMDX = createMDX({
+  options: {
+    remarkPlugins: [remarkGfm],
+    rehypePlugins: [rehypeSlug],
+  },
+});
+
+export default withMDX(nextConfig);
