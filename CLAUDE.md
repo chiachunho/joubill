@@ -43,6 +43,24 @@ A single Next.js 15 (App Router) app serves four concerns simultaneously:
 
 The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **They do NOT share the top-level page components**, though: each route under `/mini/**` has a hand-maintained near-duplicate under `/app/**` (e.g. `src/app/mini/groups/[id]/page.tsx` vs `src/app/app/groups/[id]/page.tsx`), differing only in fetcher (`tmaFetch` vs `webFetch`), link prefixes (`/mini` vs `/app`), and a few imports. **When you change list/detail UI or page behaviour, apply the same change to both copies.** Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
 
+### What to share, and what to leave duplicated
+
+**The test is not "is this written twice" — it is "when the copies drift, does anything fail loudly?"** Duplication that breaks a build or a test can wait; duplication that quietly produces a wrong result is what earns a shared module. Everything currently shared was collapsed for that reason, and each case names its own silent failure:
+
+- **Both ends of a wire contract belong in the same file.** `src/lib/deep-link.ts` builds *and* parses the `startapp` payload. When it was six builders and one parser, a mismatch didn't throw — the deep link just landed on the group list and nobody noticed for weeks. Anything with a producer and a consumer that must agree (a URL payload, a `callback_data` shape, a stored format) goes in one module, round-trip tested against itself rather than against hand-written strings.
+- **A query shape whose omission degrades output instead of erroring.** `USER_COLUMNS` (`src/bot/profiles.ts`) exists because a select that forgets `telegramId` still succeeds — it just renders every mention as plain text.
+- **One thing rendered by two renderers.** An expense card and a settlement notice draw the same 🔗 App 編輯 / 🗑 刪除 buttons, so `BTN` (`src/lib/buttons.ts`) owns the wording. Prose that *names* a button interpolates the same constant, so `/help` can't start describing a button that was renamed.
+
+**Leave it duplicated when sharing would cost more than the drift.** Three standing examples:
+
+- The `/mini` and `/app` page pairs are deliberately hand-maintained copies (see above) — they diverge on purpose and a shared abstraction would fight both.
+- A callback toast with a **single** caller stays inline next to the condition it describes. `TOAST` in `src/lib/buttons.ts` only holds the ones with two or more callers; a message you have to open another file to read is worse than a repeated one.
+- Not every repeated block is the same idea. Two functions that happen to look alike today, for unrelated reasons, will need to diverge tomorrow — and un-sharing is harder than sharing.
+
+**Where it goes:** `src/lib/**` when the bot *and* the API or a frontend both need it (that also keeps it pure and unit-testable — see `src/lib/expense-view.ts`, `src/lib/record-notice.ts`); `src/bot/**` when only the bot does. `src/lib` may import a leaf module from `src/bot` (`notify.ts` renders the expense card), but keep those leaves dependency-free so it never becomes a cycle.
+
+**Still duplicated, and known:** the `Number.isFinite` id-parsing preamble repeated in ~15 `/api/**` route handlers. Worth collapsing; just hasn't been.
+
 ### Bot (`src/bot/`)
 
 `src/bot/index.ts` exports a lazy singleton `getBot()` — the bot instance is not created until the first webhook hit, so `TELEGRAM_BOT_TOKEN` doesn't need to exist at build time. Middleware runs in registration order: `chatMigration` → `registerUser` → `trackMembership` → commands.
@@ -106,8 +124,7 @@ A **group-level** role (Settle Up's read-only vs edit) is the sane way to add re
 
 #### Shared bot pieces
 
-Things rendered or parsed in more than one place live in one module, because the
-duplicates are the kind that fail silently rather than loudly:
+The inventory for the bot side of "What to share, and what to leave duplicated" above — each of these was collapsed because its duplicate failed silently, not loudly:
 
 - `src/lib/deep-link.ts` — the `startapp` payload, **built and parsed here**.
   `groupLink` / `expenseLink` / `settlementLink` produce `group_<chatId>`,
