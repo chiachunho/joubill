@@ -29,7 +29,7 @@ export default function Home() {
           <Button variant="secondary" asChild>
             <a href="/app">開啟 Web App</a>
           </Button>
-          <Button variant="ghost" asChild>
+          <Button variant="outline" asChild>
             <a href="/help">使用說明</a>
           </Button>
         </CardContent>
