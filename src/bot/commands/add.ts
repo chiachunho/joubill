@@ -15,7 +15,6 @@ import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { clientEnv } from "@/lib/env";
 import { BTN, TOAST } from "@/lib/buttons";
 import { labelUser } from "@/lib/label";
-import { rememberNoticeMessage } from "@/lib/notify";
 import {
   ADD_USAGE,
   evalAmountExpr,
@@ -23,16 +22,18 @@ import {
   parseAddMessage,
   type ParsedAdd,
 } from "@/lib/parseAdd";
+import { logCreated } from "@/lib/record-mutation";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 
 import {
   loadGroupMembers,
   originOf,
   renderCard,
-  setExpenseAmount,
   splitRowsFor,
   type DbUser,
 } from "../expenseCard";
+import { setExpenseAmount, setExpenseCurrency } from "../expenseEdits";
+import { actorOf } from "../actor";
 import { escapeHtml, mention } from "../format";
 import { staleAwaitingBefore } from "../awaiting";
 import { USER_COLUMNS } from "../profiles";
@@ -250,15 +251,13 @@ export async function handleAddParsed(
   });
 
   const card = await renderCard(originOf(ctx), expense.id, "default");
-  if (card) {
-    const sent = await ctx.reply(card.text, {
-      parse_mode: "HTML",
-      reply_markup: card.reply_markup,
-    });
-    // Bind the card to the expense so an edit made in the Mini App refreshes
-    // *this* message instead of posting a second one (src/lib/notify.ts).
-    await rememberNoticeMessage(expense.id, sent.message_id);
-  }
+  const sent = card
+    ? await ctx.reply(card.text, { parse_mode: "HTML", reply_markup: card.reply_markup })
+    : undefined;
+
+  // `null` api: the card above *is* this record's group message, so binding its
+  // id is all the notify side needs — sending another would duplicate it.
+  await logCreated(null, expense.id, actorOf(ctx), { messageId: sent?.message_id });
 }
 
 /* ── /add ─────────────────────────────────────────────────────────────── */
@@ -403,7 +402,7 @@ async function applyFieldReply(
       await ctx.reply(`看不懂金額「${raw}」，金額沒有改。`);
       return;
     }
-    await setExpenseAmount(expenseId, value);
+    await setExpenseAmount(expenseId, value, actorOf(ctx));
   } else if (field === "currency") {
     const code = raw.toUpperCase();
     // Must be a currency the whole app supports: an unknown code makes getRate
@@ -414,15 +413,9 @@ async function applyFieldReply(
       );
       return;
     }
-    // Only when it actually changes: a pinned rate belongs to the old currency,
-    // but re-typing the current code must not discard one. Same guard as the
-    // 💱 buttons in expensePanel.ts.
-    if (target.currency !== code) {
-      await db
-        .update(expenses)
-        .set({ currency: code, fxRate: null, fxQuote: null, updatedAt: new Date() })
-        .where(eq(expenses.id, expenseId));
-    }
+    // Shared with the 💱 buttons: re-typing the current code must not discard a
+    // pinned rate, and a real change must always drop it.
+    await setExpenseCurrency(expenseId, code, actorOf(ctx));
   }
 
   const card = await renderCard(originOf(ctx), expenseId, "adjust");

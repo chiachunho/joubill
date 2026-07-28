@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, Coins, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Coins, History, Trash2 } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
@@ -207,6 +207,26 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
         defaultCurrency={settings.defaultCurrency}
         rawFetch={webRawFetch}
       />
+
+
+      {/* 動態紀錄 — the way into the audit log. The group page header has no
+          free slot (personal settings left, group settings right) and the
+          Expenses row is taken by 還款/支出, so the entry lives here; the
+          record forms' "最後由 X 修改" line is the shortcut from a record. */}
+      <section className="px-4">
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <Link
+            href="/app/groups/${id}/activity"
+            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <History className="size-3.5" />
+            </span>
+            <p className="min-w-0 flex-1 text-sm">動態紀錄</p>
+            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+          </Link>
+        </div>
+      </section>
 
       {/* 成員 */}
       <section className="px-4">

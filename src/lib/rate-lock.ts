@@ -25,12 +25,25 @@ export function noApplicablePin(
 type IdsByRate = Array<{ ids: number[]; rate: string }>;
 
 export type RateLockPlan = {
+  /** The currency whose records are being pinned. */
+  base: string;
   quote: string;
   expenseUpdates: IdsByRate;
   settlementUpdates: IdsByRate;
   lockedExpenses: number;
   lockedSettlements: number;
 };
+
+/** Every record id a plan will rewrite, split by kind — for the audit log. */
+export function lockedIds(plan: RateLockPlan): {
+  expenseIds: number[];
+  settlementIds: number[];
+} {
+  return {
+    expenseIds: plan.expenseUpdates.flatMap((u) => u.ids),
+    settlementIds: plan.settlementUpdates.flatMap((u) => u.ids),
+  };
+}
 
 /**
  * Resolve the pins needed to freeze every record (expense + settlement) in
@@ -96,6 +109,7 @@ export async function planRateLock(
   }
 
   return {
+    base: currency,
     quote,
     expenseUpdates: await groupByRate(expenseRows),
     settlementUpdates: await groupByRate(settlementRows),

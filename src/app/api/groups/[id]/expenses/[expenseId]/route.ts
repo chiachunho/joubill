@@ -8,7 +8,8 @@ import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { fxColumnsFor } from "@/lib/fx";
 import { n } from "@/lib/money";
-import { deleterOf, loadNoticeRecord, markNoticeDeleted, updateRecordNotice } from "@/lib/notify";
+import { loadLastActivity } from "@/lib/record-history";
+import { logDeleted, logUpdated } from "@/lib/record-mutation";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
 
@@ -72,12 +73,23 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     expense.receiptFileId,
   );
 
+  const lastActivity = await loadLastActivity(ids.eid);
+
   return NextResponse.json({
     id: expense.id,
     // Who entered this. The edit form shows it beside the destructive actions —
     // attribution is what replaces the removed owner lock, so dropping it here
     // silently disables the feature (the form's type keeps this honest).
     createdBy: expense.createdBy,
+    // When they entered it. Distinct from spentAt, which is the date of the
+    // expense itself and is already an editable field on the form.
+    createdAt: expense.createdAt,
+    // Null until someone edits it: createdBy already speaks for an untouched
+    // record, and repeating it as "last modified" would be noise.
+    lastActivity: lastActivity && {
+      actorId: lastActivity.actor?.userId ?? null,
+      at: lastActivity.at,
+    },
     amount: n(expense.amount),
     currency: expense.currency,
     fxRate: expense.fxRate != null ? n(expense.fxRate) : null,
@@ -146,62 +158,64 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
     existing.fxQuote !== group.defaultCurrency &&
     input.currency === existing.currency;
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(expenses)
-      .set({
-        amount: input.amount.toFixed(2),
-        currency: input.currency,
-        ...(!keepDormantPin && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
-        description: input.description,
-        spentAt: new Date(input.spentAt),
-        // When receipts are explicitly managed, also clear the legacy single-file column so
-        // the GET fallback cannot resurrect a "cleared" bot-uploaded receipt.
-        ...(input.receiptFileIds !== undefined && { receiptFileId: null }),
-        updatedAt: new Date(),
-      })
-      .where(eq(expenses.id, ids.eid));
+  // logUpdated snapshots the record either side of the write, logs the diff and
+  // refreshes the group message. Anything that edits a record goes through it.
+  await logUpdated(getBot().api, ids.eid, { userId: auth.user.id, source: "app" }, () =>
+    db.transaction(async (tx) => {
+      await tx
+        .update(expenses)
+        .set({
+          amount: input.amount.toFixed(2),
+          currency: input.currency,
+          ...(!keepDormantPin && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
+          description: input.description,
+          spentAt: new Date(input.spentAt),
+          // When receipts are explicitly managed, also clear the legacy single-file column so
+          // the GET fallback cannot resurrect a "cleared" bot-uploaded receipt.
+          ...(input.receiptFileIds !== undefined && { receiptFileId: null }),
+          updatedAt: new Date(),
+        })
+        .where(eq(expenses.id, ids.eid));
 
-    // Replace payers and splits wholesale.
-    await Promise.all([
-      tx.delete(expensePayers).where(eq(expensePayers.expenseId, ids.eid)),
-      tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, ids.eid)),
-    ]);
-    await Promise.all([
-      tx.insert(expensePayers).values(
-        input.payers.map((p) => ({
-          expenseId: ids.eid,
-          payerId: p.payerId,
-          amount: p.amount.toFixed(2),
-        })),
-      ),
-      tx.insert(expenseSplits).values(
-        input.splits.map((s) => ({
-          expenseId: ids.eid,
-          debtorId: s.debtorId,
-          amount: s.amount.toFixed(2),
-          shareType: input.shareType,
-          splitValue: s.splitValue != null ? String(s.splitValue) : null,
-        })),
-      ),
-    ]);
-
-    // Replace receipts when client explicitly sends the field ([] = clear all).
-    if (input.receiptFileIds !== undefined) {
-      await tx.delete(expenseReceipts).where(eq(expenseReceipts.expenseId, ids.eid));
-      if (input.receiptFileIds.length > 0) {
-        await tx.insert(expenseReceipts).values(
-          input.receiptFileIds.map((fileId, i) => ({
+      // Replace payers and splits wholesale.
+      await Promise.all([
+        tx.delete(expensePayers).where(eq(expensePayers.expenseId, ids.eid)),
+        tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, ids.eid)),
+      ]);
+      await Promise.all([
+        tx.insert(expensePayers).values(
+          input.payers.map((p) => ({
             expenseId: ids.eid,
-            fileId,
-            position: i,
+            payerId: p.payerId,
+            amount: p.amount.toFixed(2),
           })),
-        );
-      }
-    }
-  });
+        ),
+        tx.insert(expenseSplits).values(
+          input.splits.map((s) => ({
+            expenseId: ids.eid,
+            debtorId: s.debtorId,
+            amount: s.amount.toFixed(2),
+            shareType: input.shareType,
+            splitValue: s.splitValue != null ? String(s.splitValue) : null,
+          })),
+        ),
+      ]);
 
-  await updateRecordNotice(getBot().api, ids.eid);
+      // Replace receipts when client explicitly sends the field ([] = clear all).
+      if (input.receiptFileIds !== undefined) {
+        await tx.delete(expenseReceipts).where(eq(expenseReceipts.expenseId, ids.eid));
+        if (input.receiptFileIds.length > 0) {
+          await tx.insert(expenseReceipts).values(
+            input.receiptFileIds.map((fileId, i) => ({
+              expenseId: ids.eid,
+              fileId,
+              position: i,
+            })),
+          );
+        }
+      }
+    }),
+  );
 
   return NextResponse.json({ ok: true });
 });
@@ -227,13 +241,20 @@ export const DELETE = withAuth(async (req: Request, ctx: Params) => {
     );
   if (!expense) return NextResponse.json({ error: "expense not found" }, { status: 404 });
 
-  // Snapshot the notice before the row (and its message id) disappear.
-  const notice = await loadNoticeRecord(ids.eid);
-
-  await db.delete(expenses).where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
-  // expense_payers and expense_splits cascade-deleted via FK.
-
-  await markNoticeDeleted(getBot().api, notice, deleterOf(auth.user));
+  // logDeleted snapshots before the row (and its message id) disappear, writes
+  // the log entry and edits the group message into its tombstone.
+  await logDeleted(
+    getBot().api,
+    ids.eid,
+    { userId: auth.user.id, source: "app" },
+    auth.user,
+    async () => {
+      await db
+        .delete(expenses)
+        .where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
+      // expense_payers and expense_splits cascade-deleted via FK.
+    },
+  );
 
   return NextResponse.json({ ok: true });
 });

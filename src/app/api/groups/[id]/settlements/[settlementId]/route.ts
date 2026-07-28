@@ -9,7 +9,8 @@ import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { fxColumnsFor } from "@/lib/fx";
 import { n } from "@/lib/money";
-import { deleterOf, loadNoticeRecord, markNoticeDeleted, updateRecordNotice } from "@/lib/notify";
+import { loadLastActivity } from "@/lib/record-history";
+import { logDeleted, logUpdated } from "@/lib/record-mutation";
 import { settlementInputSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -52,6 +53,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       fxQuote: expenses.fxQuote,
       settledAt: expenses.spentAt,
       createdBy: expenses.createdBy,
+      createdAt: expenses.createdAt,
     })
     .from(expenses)
     .innerJoin(expensePayers, eq(expensePayers.expenseId, expenses.id))
@@ -68,9 +70,18 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 
   if (!row) return NextResponse.json({ error: "not found" }, { status: 404 });
 
+  const lastActivity = await loadLastActivity(settlementId);
+
   return NextResponse.json({
     id: row.id,
     createdBy: row.createdBy,
+    // Same pair as the expense endpoint: when it was entered, and the most
+    // recent edit if there has been one. Both feed the form's attribution lines.
+    createdAt: row.createdAt,
+    lastActivity: lastActivity && {
+      actorId: lastActivity.actor?.userId ?? null,
+      at: lastActivity.at,
+    },
     amount: n(row.amount),
     currency: row.currency,
     fxRate: row.fxRate != null ? n(row.fxRate) : null,
@@ -151,40 +162,40 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
 
   const amount = input.amount.toFixed(2);
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(expenses)
-      .set({
-        amount,
-        currency: input.currency,
-        ...(!keepDormantPin && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
-        spentAt: input.settledAt ? new Date(input.settledAt) : undefined,
-        updatedAt: new Date(),
-      })
-      .where(eq(expenses.id, settlementId));
+  await logUpdated(getBot().api, settlementId, { userId: auth.user.id, source: "app" }, () =>
+    db.transaction(async (tx) => {
+      await tx
+        .update(expenses)
+        .set({
+          amount,
+          currency: input.currency,
+          ...(!keepDormantPin && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
+          spentAt: input.settledAt ? new Date(input.settledAt) : undefined,
+          updatedAt: new Date(),
+        })
+        .where(eq(expenses.id, settlementId));
 
-    // Replace the sole payer/split (from/to may have changed).
-    await Promise.all([
-      tx.delete(expensePayers).where(eq(expensePayers.expenseId, settlementId)),
-      tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, settlementId)),
-    ]);
-    await Promise.all([
-      tx.insert(expensePayers).values({
-        expenseId: settlementId,
-        payerId: input.fromUserId,
-        amount,
-      }),
-      tx.insert(expenseSplits).values({
-        expenseId: settlementId,
-        debtorId: input.toUserId,
-        amount,
-        shareType: "exact",
-        splitValue: null,
-      }),
-    ]);
-  });
-
-  await updateRecordNotice(getBot().api, settlementId);
+      // Replace the sole payer/split (from/to may have changed).
+      await Promise.all([
+        tx.delete(expensePayers).where(eq(expensePayers.expenseId, settlementId)),
+        tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, settlementId)),
+      ]);
+      await Promise.all([
+        tx.insert(expensePayers).values({
+          expenseId: settlementId,
+          payerId: input.fromUserId,
+          amount,
+        }),
+        tx.insert(expenseSplits).values({
+          expenseId: settlementId,
+          debtorId: input.toUserId,
+          amount,
+          shareType: "exact",
+          splitValue: null,
+        }),
+      ]);
+    }),
+  );
 
   return NextResponse.json({ ok: true });
 });
@@ -210,14 +221,17 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
 
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  // Snapshot the notice before the row (and its message id) disappear.
-  const notice = await loadNoticeRecord(settlementId);
-
   // Any group member can delete a settlement (unchanged from the old behaviour).
-  await db.delete(expenses).where(eq(expenses.id, settlementId));
-  // expense_payers and expense_splits cascade-deleted via FK.
-
-  await markNoticeDeleted(getBot().api, notice, deleterOf(auth.user));
+  await logDeleted(
+    getBot().api,
+    settlementId,
+    { userId: auth.user.id, source: "app" },
+    auth.user,
+    async () => {
+      await db.delete(expenses).where(eq(expenses.id, settlementId));
+      // expense_payers and expense_splits cascade-deleted via FK.
+    },
+  );
 
   return NextResponse.json({ ok: true });
 });

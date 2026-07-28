@@ -117,6 +117,8 @@ What replaces the lock is **attribution**:
 - `expenses.createdBy` is returned by the expense and settlement endpoints — **including the `[expenseId]` / `[settlementId]` detail ones, which is where the edit forms actually read it from** — and the shared `ExpenseForm` / `SettlementForm` render 由 X 記錄 next to the destructive actions. `Initial.createdBy` is deliberately required rather than optional: it shipped optional once and the whole feature silently rendered nothing because only the list endpoints had been updated.
 - Deleting someone else's record names them in the confirm dialog; the bot's 🗑 刪除 leaves a message saying what went, who recorded it and who removed it, so the chat itself is the audit trail.
 
+- **Every change is logged** (`record_audit_log`), which is what makes "anyone may edit" answerable after the fact rather than just permissive. See "Audit log" below.
+
 A **group-level** role (Settle Up's read-only vs edit) is the sane way to add restriction later if it's ever wanted — permission belonging to a person's standing in the group, not to who typed a given row. Don't reintroduce `createdBy` gating for it.
 
 `group_members.status` (`active` / `inactive`) is unrelated: that controls *who is counted in a split*, not who may change records.
@@ -195,7 +197,7 @@ Fetchers: Mini App pages use `tmaFetch` (`src/lib/tma-fetch.ts`, attaches the `t
 ### Database (`src/db/`)
 
 Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
-`users` → `groups` → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests`.
+`users` → `groups` → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests` + `record_audit_log`.
 
 **Multi-payer model**: An expense has one or more payers in `expense_payers` (who paid, how much each) and one or more debtors in `expense_splits` (who owes, how much each). Both tables reference `expenses.id` with `ON DELETE CASCADE`. `expense_payers` has a `UNIQUE(expense_id, payer_id)` constraint. Both sides must sum to `expenses.amount`.
 
@@ -260,6 +262,56 @@ Three things to keep in mind when touching this:
 - **Silence is inherited.** Messages are silent because the bot's api middleware (`src/bot/index.ts`) stamps `disable_notification: true` on every `send*` call. Nothing in `notify.ts` sets it explicitly, so removing that middleware would un-silence every one of them.
 
 Deep links: the card's 🔗 App 編輯 uses `?startapp=group_<chatId>_exp_<id>`, a settlement notice `_stl_<id>` — both parsed in `src/lib/auth/index.ts`, surfaced as `activeExpenseId` / `activeSettlementId` by `/api/me/groups`, and redirected in `src/app/mini/page.tsx`. The 🗑 刪除 button on both is the same `del_exp:<id>` callback, group-scoped and (per the policy above) not owner-gated.
+
+### Audit log (`src/lib/record-mutation.ts` + `record-audit.ts` + `record-history.ts`)
+
+Every create, edit and delete of a record is logged to `record_audit_log` with
+who did it, from which surface, and a full before/after snapshot. This is the
+accounting half of "any member may edit anything" — without it, relaxing the
+owner lock would mean changes are both unrestricted *and* untraceable.
+
+**Audit and the group message are one layer, on purpose. Do not split them.**
+`logCreated` / `logUpdated` / `logDeleted` write the log *and* drive
+`src/lib/notify.ts`. The fifteen mutation sites are spread across six route
+handlers and seven bot callbacks; a standalone `logAudit()` next to each would
+eventually be forgotten somewhere, and a missing audit row is invisible.
+Fusing it to the one thing those sites already cannot skip — keeping the
+Telegram message in sync — means forgetting shows up the same day, as a message
+that stops matching the record. `actor` is a required argument for the same
+reason: the compiler asks "who did this?" at every call site.
+
+Passing `api: null` says the caller owns the group message and will render it
+itself (the bot's panel buttons, which re-render the card in a mode this layer
+must not flatten; and `/add`, which posts the card it just built). **The log is
+written either way** — there is no call shape that logs nothing.
+
+Other things to know:
+
+- **`record_id` has no foreign key, deliberately.** `ON DELETE CASCADE` would
+  erase "who deleted this" at the exact moment that row becomes the only
+  evidence. `group_id` *does* cascade — deleting the group should take its log.
+- **`src/bot/expenseEdits.ts` exists because of an import cycle.** `notify.ts`
+  imports `expenseCard.ts` to render a card from a route handler, so that module
+  has to stay a dependency-free leaf. Every bot write to an existing expense
+  therefore lives in `expenseEdits.ts`, which may import `record-mutation.ts`.
+- **A rate lock is logged once for the group, not once per rewritten record**
+  (`recordType: 'group'`, `record_id: NULL`) — fanning fifty rows out would bury
+  the day's real edits. The affected ids ride in the JSONB payload so a single
+  record's history can still explain why its converted amount moved;
+  `loadRecordHistory` matches them with a `@>` containment check.
+- **An empty diff writes no row.** The expense PATCH replaces payers and splits
+  wholesale on every save, so `diffRecords` (pure, unit-tested) decides whether
+  anything a reader cares about actually moved.
+- Snapshots reuse `NoticeRecord` plus a few columns, so the log can't drift into
+  describing records differently from the chat message. Names are captured as
+  they were then — that is the point of a log.
+- Retention is unbounded. At this app's scale that's fine; if it ever isn't, null
+  out `before`/`after` on old rows rather than deleting them, since the row
+  itself is the evidence.
+
+Surfaces: both record forms show 由 X 於 T 記錄 and, once edited, a tappable
+最後由 Y 於 T 修改; `/{mini,app}/groups/[id]/activity` is the group feed, and the
+same page with `?record=<id>` is one record's history.
 
 ### Beancount 匯出 (`src/lib/beancount.ts`)
 

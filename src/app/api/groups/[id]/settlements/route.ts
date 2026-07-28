@@ -9,7 +9,7 @@ import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { resolveRecordFx } from "@/lib/fx";
 import { n } from "@/lib/money";
-import { sendRecordNotice } from "@/lib/notify";
+import { logCreated } from "@/lib/record-mutation";
 import { settlementInputSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -145,7 +145,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     return row.id;
   });
 
-  await sendRecordNotice(getBot().api, id);
+  await logCreated(getBot().api, id, { userId: auth.user.id, source: "app" });
 
   return NextResponse.json({ id }, { status: 201 });
 });

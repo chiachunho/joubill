@@ -1,9 +1,6 @@
 import { Composer } from "grammy";
-import { eq } from "drizzle-orm";
 
 import { TOAST } from "@/lib/buttons";
-import { db } from "@/db";
-import { expenses } from "@/db/schema";
 
 import {
   loadCard,
@@ -11,9 +8,10 @@ import {
   loadSplitState,
   originOf,
   renderCard,
-  writeSplits,
   type CardMode,
 } from "../expenseCard";
+import { setExpenseCurrency, writeSplits } from "../expenseEdits";
+import { actorOf } from "../actor";
 import { promptForExpenseField } from "./add";
 import type { BotContext } from "../context";
 
@@ -106,7 +104,7 @@ expensePanel.callbackQuery(/^exp:whot:(\d+):(\d+)$/, async (ctx) => {
     return;
   }
 
-  await writeSplits(expenseId, card.expense.amount, next);
+  await writeSplits(expenseId, card.expense.amount, next, actorOf(ctx));
   await show(ctx, expenseId, "who");
 });
 
@@ -131,7 +129,7 @@ expensePanel.callbackQuery(/^exp:whoall:(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery({ text: "這個群組沒有可分帳的人", show_alert: true });
     return;
   }
-  await writeSplits(expenseId, card.expense.amount, next);
+  await writeSplits(expenseId, card.expense.amount, next, actorOf(ctx));
   await show(ctx, expenseId, "who");
 });
 
@@ -140,7 +138,12 @@ expensePanel.callbackQuery(/^exp:whome:(\d+)$/, async (ctx) => {
   const card = await guard(ctx, expenseId);
   if (!card) return;
 
-  await writeSplits(expenseId, card.expense.amount, [{ userId: ctx.dbUser!.id, weight: 1 }]);
+  await writeSplits(
+    expenseId,
+    card.expense.amount,
+    [{ userId: ctx.dbUser!.id, weight: 1 }],
+    actorOf(ctx),
+  );
   await show(ctx, expenseId, "who");
 });
 
@@ -157,7 +160,7 @@ expensePanel.callbackQuery(/^exp:shrc:(\d+):(\d+)$/, async (ctx) => {
   const entries = (await loadSplitState(expenseId)).entries.map((e) =>
     e.userId === userId ? { ...e, weight: (Math.round(e.weight) % MAX_WEIGHT) + 1 } : e,
   );
-  await writeSplits(expenseId, card.expense.amount, entries);
+  await writeSplits(expenseId, card.expense.amount, entries, actorOf(ctx));
   await show(ctx, expenseId, "shares");
 });
 
@@ -167,7 +170,7 @@ expensePanel.callbackQuery(/^exp:shrr:(\d+)$/, async (ctx) => {
   if (!card) return;
 
   const entries = (await loadSplitState(expenseId)).entries.map((e) => ({ ...e, weight: 1 }));
-  await writeSplits(expenseId, card.expense.amount, entries);
+  await writeSplits(expenseId, card.expense.amount, entries, actorOf(ctx));
   await show(ctx, expenseId, "shares");
 });
 
@@ -179,13 +182,7 @@ expensePanel.callbackQuery(/^exp:curs:(\d+):([A-Z]{3})$/, async (ctx) => {
   const card = await guard(ctx, expenseId);
   if (!card) return;
 
-  if (card.expense.currency !== code) {
-    // The pinned rate (if any) was quoted against the old currency.
-    await db
-      .update(expenses)
-      .set({ currency: code, fxRate: null, fxQuote: null, updatedAt: new Date() })
-      .where(eq(expenses.id, expenseId));
-  }
+  await setExpenseCurrency(expenseId, code, actorOf(ctx));
   await show(ctx, expenseId, "currency");
 });
 

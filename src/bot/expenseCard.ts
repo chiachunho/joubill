@@ -67,18 +67,6 @@ export function splitRowsFor(expenseId: number, total: number, entries: SplitEnt
   }));
 }
 
-/** Replace an expense's splits with ones derived from `entries`. */
-export async function writeSplits(expenseId: number, total: number, entries: SplitEntry[]) {
-  if (entries.length === 0) return;
-  const rows = splitRowsFor(expenseId, total, entries);
-
-  await db.transaction(async (tx) => {
-    await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, expenseId));
-    await tx.insert(expenseSplits).values(rows);
-    await tx.update(expenses).set({ updatedAt: new Date() }).where(eq(expenses.id, expenseId));
-  });
-}
-
 /**
  * Share types the button panel can express. Anything else — `exact`, `percent`,
  * `adjustment`, all of which only the Mini App form can produce — carries
@@ -113,78 +101,6 @@ export async function loadSplitState(expenseId: number): Promise<SplitState> {
     })),
     panelEditable: rows.length > 0 && rows.every((r) => PANEL_SHARE_TYPES.has(r.shareType)),
   };
-}
-
-/**
- * Change an expense's total. Payer contributions are always rescaled
- * proportionally. Splits are recomputed from the share weights when the panel
- * owns them; otherwise each person's amount is scaled by the same factor, which
- * keeps a Mini-App-entered exact or percent split intact.
- */
-export async function setExpenseAmount(expenseId: number, total: number) {
-  const payers = await db
-    .select({ id: expensePayers.id, amount: expensePayers.amount })
-    .from(expensePayers)
-    .where(eq(expensePayers.expenseId, expenseId));
-
-  const payerAmounts = rescale(
-    payers.map((p) => n(p.amount)),
-    total,
-  );
-  const { entries, panelEditable } = await loadSplitState(expenseId);
-
-  const splitRows = panelEditable
-    ? splitRowsFor(expenseId, total, entries)
-    : await (async () => {
-        const rows = await db
-          .select({
-            debtorId: expenseSplits.debtorId,
-            amount: expenseSplits.amount,
-            shareType: expenseSplits.shareType,
-            splitValue: expenseSplits.splitValue,
-          })
-          .from(expenseSplits)
-          .where(eq(expenseSplits.expenseId, expenseId))
-          .orderBy(expenseSplits.id);
-        const scaled = rescale(
-          rows.map((r) => n(r.amount)),
-          total,
-        );
-        return rows.map((r, i) => ({
-          expenseId,
-          debtorId: r.debtorId,
-          amount: scaled[i].toFixed(2),
-          shareType: r.shareType,
-          splitValue: r.splitValue,
-        }));
-      })();
-
-  await db.transaction(async (tx) => {
-    await tx
-      .update(expenses)
-      .set({ amount: total.toFixed(2), updatedAt: new Date() })
-      .where(eq(expenses.id, expenseId));
-    for (const [i, p] of payers.entries()) {
-      await tx
-        .update(expensePayers)
-        .set({ amount: payerAmounts[i].toFixed(2) })
-        .where(eq(expensePayers.id, p.id));
-    }
-    await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, expenseId));
-    if (splitRows.length > 0) await tx.insert(expenseSplits).values(splitRows);
-  });
-}
-
-/** Scale `amounts` so they sum to exactly `total`, putting any rounding drift on the first. */
-function rescale(amounts: number[], total: number): number[] {
-  if (amounts.length === 0) return [];
-  if (amounts.length === 1) return [total];
-  const old = amounts.reduce((s, x) => s + x, 0);
-  if (old <= 0) return splitEqual(total, amounts.length);
-  const raw = amounts.map((a) => Math.round((a / old) * total * 100) / 100);
-  const drift = Math.round((total - raw.reduce((s, x) => s + x, 0)) * 100) / 100;
-  raw[0] = Math.round((raw[0] + drift) * 100) / 100;
-  return raw;
 }
 
 /* ── card rendering ───────────────────────────────────────────────────── */

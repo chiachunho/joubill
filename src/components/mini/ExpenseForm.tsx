@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import useSWR, { mutate } from "swr";
@@ -34,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { deleteErrorMessage } from "@/lib/api-error";
+import { stampLabel } from "@/lib/format";
 import { labelMember, labelUser } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
 import { n, splitEqual } from "@/lib/money";
@@ -55,6 +57,13 @@ type Initial = {
   /** Required, not optional: an omitted field here is exactly how the
    *  attribution silently stopped rendering once before. */
   createdBy: number | null;
+  /** When it was entered — distinct from spentAt, which is the date of the
+   *  expense itself and is an editable field. Required for the same reason
+   *  createdBy is: an optional attribution field silently rendered nothing
+   *  once already. */
+  createdAt: string | null;
+  /** The most recent edit, or null when nobody has touched it since. */
+  lastActivity: { actorId: number | null; at: string } | null;
   amount: number;
   currency: string;
   fxRate?: number | null;
@@ -155,6 +164,8 @@ export function ExpenseForm(props: Props) {
   const { groupId, members, photos, initial, returnPath } = props;
   const router = useRouter();
   const mode = useAuthMode();
+  // "tma" → /mini, "web" → /app. Same split the fetchers make below.
+  const appBase = mode === "web" ? "/app" : "/mini";
   const isEdit = !!initial;
   const back = returnPath ?? `/mini/groups/${groupId}`;
 
@@ -167,6 +178,15 @@ export function ExpenseForm(props: Props) {
   }, [initial?.createdBy, members, props.currentUserId]);
   const recordedBySomeoneElse =
     initial?.createdBy != null && initial.createdBy !== props.currentUserId;
+
+  // Only rendered once someone has actually edited the record: until then
+  // "由 X 記錄" above already says everything there is to know.
+  const lastEdit = useMemo(() => {
+    const activity = initial?.lastActivity;
+    if (!activity) return null;
+    const m = members.find((x) => x.id === activity.actorId);
+    return { by: m ? labelUser({ ...m, userId: m.id }, props.currentUserId) : "?", at: activity.at };
+  }, [initial?.lastActivity, members, props.currentUserId]);
 
   const backToGroup = useCallback(() => {
     router.push(back);
@@ -1170,7 +1190,22 @@ export function ExpenseForm(props: Props) {
 
         {/* Actions */}
         {isEdit && recordedBy && (
-          <p className="text-xs text-muted-foreground">由 {recordedBy} 記錄</p>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">
+              由 {recordedBy} {initial?.createdAt ? `於 ${stampLabel(initial.createdAt)} ` : ""}記錄
+            </p>
+            {lastEdit && (
+              <Link
+                href={`${appBase}/groups/${groupId}/activity?record=${initial!.id}`}
+                className="-mx-2 flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary"
+              >
+                <span>
+                  最後由 {lastEdit.by} 於 {stampLabel(lastEdit.at)} 修改
+                </span>
+                <ChevronRight className="size-3.5 shrink-0" />
+              </Link>
+            )}
+          </div>
         )}
         <div className="flex gap-2 pt-1">
           <Button
