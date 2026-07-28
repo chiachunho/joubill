@@ -216,7 +216,7 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
       <section className="px-4">
         <div className="overflow-hidden rounded-2xl bg-secondary/50">
           <Link
-            href="/mini/groups/${id}/activity"
+            href={`/mini/groups/${id}/activity`}
             className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
           >
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">

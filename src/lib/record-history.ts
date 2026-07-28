@@ -172,8 +172,13 @@ export async function loadRecordHistory(
           eq(recordAuditLog.recordId, recordId),
           and(
             eq(recordAuditLog.action, "rate_locked"),
-            sql`${recordAuditLog.after}->'expenseIds' @> ${JSON.stringify(recordId)}::jsonb
-                 OR ${recordAuditLog.after}->'settlementIds' @> ${JSON.stringify(recordId)}::jsonb`,
+            // Two separate fragments joined by drizzle's `or`, which parenthesises
+            // them. A single fragment containing a raw `OR` would bind looser than
+            // the surrounding `AND` and quietly widen the match.
+            or(
+              sql`${recordAuditLog.after}->'expenseIds' @> ${JSON.stringify(recordId)}::jsonb`,
+              sql`${recordAuditLog.after}->'settlementIds' @> ${JSON.stringify(recordId)}::jsonb`,
+            ),
           ),
         ),
       ),

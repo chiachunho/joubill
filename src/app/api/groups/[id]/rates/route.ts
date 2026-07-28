@@ -164,7 +164,16 @@ export const PUT = withAuth(async (req: Request, { params }: Params) => {
     await logRateLock(
       groupId,
       { userId: auth.user.id, source: "app" },
-      { kind: "rateLock", base: plan.base, quote: plan.quote, rate, ...lockedIds(plan) },
+      {
+        kind: "rateLock",
+        base: plan.base,
+        quote: plan.quote,
+        // The plan is always stated as affected-currency → group default, while
+        // the request may name the pair the other way round. Logging the
+        // request's number under the plan's pair would print an inverted rate.
+        rate: base === plan.base ? rate : 1 / rate,
+        ...lockedIds(plan),
+      },
     );
   }
 

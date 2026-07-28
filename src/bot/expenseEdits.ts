@@ -1,3 +1,4 @@
+import { type Api } from "grammy";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -17,10 +18,11 @@ import { loadSplitState, splitRowsFor, type SplitEntry } from "./expenseCard";
  * renderer would close that loop into an import cycle.
  *
  * All four take an `Actor` and route through `logUpdated`, so a panel button
- * cannot change a record without saying who pressed it. They pass `null` for
- * the api because the caller is already re-rendering the card the button sits
- * on, in whichever panel mode the user is in — this layer must not flatten that
- * back to the summary view mid-interaction.
+ * cannot change a record without saying who pressed it. The three driven by
+ * card buttons pass `null` for the api, because the caller is already
+ * re-rendering the card the button sits on, in whichever panel mode the user is
+ * in — this layer must not flatten that back to the summary view
+ * mid-interaction. `setExpenseReceipt` is the exception and explains itself.
  */
 
 /** Replace an expense's splits with ones derived from `entries`. */
@@ -33,13 +35,11 @@ export async function writeSplits(
   if (entries.length === 0) return;
   const rows = splitRowsFor(expenseId, total, entries);
 
-  await logUpdated(null, expenseId, actor, () =>
-    db.transaction(async (tx) => {
-      await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, expenseId));
-      await tx.insert(expenseSplits).values(rows);
-      await tx.update(expenses).set({ updatedAt: new Date() }).where(eq(expenses.id, expenseId));
-    }),
-  );
+  await logUpdated(null, expenseId, actor, async (tx) => {
+    await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, expenseId));
+    await tx.insert(expenseSplits).values(rows);
+    await tx.update(expenses).set({ updatedAt: new Date() }).where(eq(expenses.id, expenseId));
+  });
 }
 
 /**
@@ -86,22 +86,20 @@ export async function setExpenseAmount(expenseId: number, total: number, actor: 
         }));
       })();
 
-  await logUpdated(null, expenseId, actor, () =>
-    db.transaction(async (tx) => {
+  await logUpdated(null, expenseId, actor, async (tx) => {
+    await tx
+      .update(expenses)
+      .set({ amount: total.toFixed(2), updatedAt: new Date() })
+      .where(eq(expenses.id, expenseId));
+    for (const [i, p] of payers.entries()) {
       await tx
-        .update(expenses)
-        .set({ amount: total.toFixed(2), updatedAt: new Date() })
-        .where(eq(expenses.id, expenseId));
-      for (const [i, p] of payers.entries()) {
-        await tx
-          .update(expensePayers)
-          .set({ amount: payerAmounts[i].toFixed(2) })
-          .where(eq(expensePayers.id, p.id));
-      }
-      await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, expenseId));
-      if (splitRows.length > 0) await tx.insert(expenseSplits).values(splitRows);
-    }),
-  );
+        .update(expensePayers)
+        .set({ amount: payerAmounts[i].toFixed(2) })
+        .where(eq(expensePayers.id, p.id));
+    }
+    await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, expenseId));
+    if (splitRows.length > 0) await tx.insert(expenseSplits).values(splitRows);
+  });
 }
 
 /**
@@ -123,18 +121,25 @@ export async function setExpenseCurrency(expenseId: number, code: string, actor:
     .where(eq(expenses.id, expenseId));
   if (!current || current.currency === code) return;
 
-  await logUpdated(null, expenseId, actor, () =>
-    db
+  await logUpdated(null, expenseId, actor, (tx) =>
+    tx
       .update(expenses)
       .set({ currency: code, fxRate: null, fxQuote: null, updatedAt: new Date() })
       .where(eq(expenses.id, expenseId)),
   );
 }
 
-/** Attach a receipt photo uploaded through the bot's ForceReply prompt. */
-export async function setExpenseReceipt(expenseId: number, fileId: string, actor: Actor) {
-  await logUpdated(null, expenseId, actor, () =>
-    db
+/**
+ * Attach a receipt photo uploaded through the bot's ForceReply prompt.
+ *
+ * The odd one out: it takes an `api` where the others pass `null`. The reply
+ * that carries the photo is not a card button, so nobody is re-rendering the
+ * card — without this the expense keeps offering 🧾 收據 for a receipt it
+ * already has.
+ */
+export async function setExpenseReceipt(expenseId: number, fileId: string, actor: Actor, api: Api) {
+  await logUpdated(api, expenseId, actor, (tx) =>
+    tx
       .update(expenses)
       .set({ receiptFileId: fileId, updatedAt: new Date() })
       .where(eq(expenses.id, expenseId)),

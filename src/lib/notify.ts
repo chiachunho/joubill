@@ -47,6 +47,13 @@ import { resolveReceiptFileIds } from "@/lib/receipts";
  * message someone deleted, must never fail the API request that triggered it.
  */
 
+/**
+ * Anything that can run a select: the pooled `db`, or an open transaction.
+ * Callers that need a snapshot to line up exactly with a write pass their
+ * transaction, so a concurrent edit can't slip in between the two.
+ */
+export type Executor = Pick<typeof db, "select">;
+
 export type LoadedNotice = {
   recordId: number;
   groupId: number;
@@ -83,10 +90,13 @@ async function botUsername(api: Api): Promise<string | null> {
  * Callers handling a deletion must call this *before* deleting the row — the
  * record (and its message id) are gone afterwards.
  */
-export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice | null> {
+export async function loadNoticeRecord(
+  recordId: number,
+  exec: Executor = db,
+): Promise<LoadedNotice | null> {
   const creatorUser = users;
 
-  const [row] = await db
+  const [row] = await exec
     .select({
       id: expenses.id,
       groupId: expenses.groupId,
@@ -114,7 +124,7 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
   if (!row) return null;
 
   const [payerRows, splitRows, receiptRows] = await Promise.all([
-    db
+    exec
       .select({
         amount: expensePayers.amount,
         userId: users.id,
@@ -127,7 +137,7 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
       .innerJoin(users, eq(users.id, expensePayers.payerId))
       .where(eq(expensePayers.expenseId, recordId))
       .orderBy(expensePayers.id),
-    db
+    exec
       .select({
         amount: expenseSplits.amount,
         userId: users.id,
@@ -140,7 +150,7 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
       .innerJoin(users, eq(users.id, expenseSplits.debtorId))
       .where(eq(expenseSplits.expenseId, recordId))
       .orderBy(expenseSplits.id),
-    db
+    exec
       .select({ fileId: expenseReceipts.fileId })
       .from(expenseReceipts)
       .where(eq(expenseReceipts.expenseId, recordId)),

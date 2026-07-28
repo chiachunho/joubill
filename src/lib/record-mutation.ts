@@ -56,6 +56,9 @@ export type Actor = { userId: number; source: AuditSource };
  */
 type MaybeApi = Api | null;
 
+/** The open transaction handed to a mutation callback. */
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 async function writeLog(entry: {
   groupId: number;
   recordId: number | null;
@@ -129,12 +132,21 @@ export async function logUpdated<T>(
   api: MaybeApi,
   recordId: number,
   actor: Actor,
-  mutate: () => Promise<T>,
+  mutate: (tx: Tx) => Promise<T>,
 ): Promise<T> {
-  const before = await loadNoticeRecord(recordId);
-  const result = await mutate();
-  const after = await loadNoticeRecord(recordId);
+  // Both snapshots and the write share one transaction. Read outside it and two
+  // people saving the same record at once can each pick up the other's values
+  // as their own "after" — an audit log that misattributes changes is worse
+  // than no audit log, since it reads as authoritative.
+  const { result, before, after } = await db.transaction(async (tx) => {
+    const before = await loadNoticeRecord(recordId, tx);
+    const result = await mutate(tx);
+    const after = await loadNoticeRecord(recordId, tx);
+    return { result, before, after };
+  });
 
+  // Written after the commit, deliberately: an insert that fails inside the
+  // transaction would poison it and roll back the user's save.
   if (before && after && diffRecords(before.record, after.record).length > 0) {
     await writeLog({
       groupId: after.groupId,
@@ -163,10 +175,16 @@ export async function logDeleted(
   recordId: number,
   actor: Actor,
   deleter: Parameters<typeof deleterOf>[0],
-  del: () => Promise<void>,
+  del: (tx: Tx) => Promise<void>,
 ): Promise<LoadedNotice | null> {
-  const before = await loadNoticeRecord(recordId);
-  await del();
+  // Snapshot and delete in one transaction: the record is gone afterwards, so
+  // a concurrent edit landing between the two would be recorded as what was
+  // deleted, which is the one thing this row exists to get right.
+  const before = await db.transaction(async (tx) => {
+    const snapshot = await loadNoticeRecord(recordId, tx);
+    await del(tx);
+    return snapshot;
+  });
 
   if (before) {
     await writeLog({

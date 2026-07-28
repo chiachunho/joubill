@@ -42,8 +42,8 @@ deleteExpenseCallback.callbackQuery(/^del_exp:(\d+)$/, async (ctx) => {
   // `null` api because the message to rewrite is the card this button sits on,
   // edited below. logDeleted hands back the snapshot it took before the row
   // (and its payers/splits, cascade-deleted by FK) disappeared.
-  const notice = await logDeleted(null, recordId, actorOf(ctx), user, async () => {
-    await db.delete(expenses).where(eq(expenses.id, recordId));
+  const notice = await logDeleted(null, recordId, actorOf(ctx), user, async (tx) => {
+    await tx.delete(expenses).where(eq(expenses.id, recordId));
   });
 
   await ctx.answerCallbackQuery({ text: "已刪除" });

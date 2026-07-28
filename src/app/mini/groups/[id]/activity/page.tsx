@@ -4,6 +4,7 @@ import { use, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { History } from "lucide-react";
 import useSWR from "swr";
+import useSWRInfinite from "swr/infinite";
 
 import { ActivityList } from "@/components/mini/ActivityList";
 import { ActivitySkeleton } from "@/components/mini/skeletons";
@@ -31,9 +32,26 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   }, [router, id, recordId]);
   useTelegramBackButton(back);
 
-  const { data, error } = useSWR<ActivityResponse>(
-    `/api/groups/${id}/activity${recordId ? `?record=${recordId}` : ""}`,
-  );
+  // Infinite rather than a single fetch: the feed is capped per page, so
+  // without this everything older than the first page is unreachable. A single
+  // record's history is short and always comes back whole (nextCursor null).
+  const {
+    data: pages,
+    error,
+    size,
+    setSize,
+    isValidating,
+  } = useSWRInfinite<ActivityResponse>((index, previous) => {
+    if (previous && previous.nextCursor == null) return null;
+    const cursor = index === 0 ? "" : `cursor=${previous!.nextCursor}`;
+    const record = recordId ? `record=${recordId}` : "";
+    const query = [record, cursor].filter(Boolean).join("&");
+    return `/api/groups/${id}/activity${query ? `?${query}` : ""}`;
+  });
+
+  const entries = pages?.flatMap((p) => p.entries) ?? [];
+  const hasMore = pages != null && pages[pages.length - 1]?.nextCursor != null;
+  const loadingMore = isValidating && pages != null && size > pages.length;
   const { data: avatars } = useSWR<AvatarsResponse>(`/api/groups/${id}/avatars`);
   const { data: me } = useSWR<MeResponse>("/api/me/groups");
 
@@ -46,7 +64,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     );
   }
 
-  if (!data) return <ActivitySkeleton />;
+  if (!pages) return <ActivitySkeleton />;
 
   return (
     <div className="space-y-6 py-4">
@@ -54,7 +72,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         <h1 className="text-lg font-semibold">{recordId ? "變更紀錄" : "動態紀錄"}</h1>
       </div>
 
-      {data.entries.length === 0 ? (
+      {entries.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
           <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
             <History className="size-6" />
@@ -65,7 +83,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         </div>
       ) : (
         <ActivityList
-          entries={data.entries}
+          entries={entries}
           photos={avatars?.userPhotos}
           currentUserId={me?.userId}
           appBase="/mini"
@@ -73,6 +91,19 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           showRecordLabel={!recordId}
           groupByDay={!recordId}
         />
+      )}
+
+      {hasMore && (
+        <div className="px-4">
+          <button
+            type="button"
+            onClick={() => setSize(size + 1)}
+            disabled={loadingMore}
+            className="w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-60"
+          >
+            {loadingMore ? "載入中…" : "載入更多"}
+          </button>
+        </div>
       )}
     </div>
   );

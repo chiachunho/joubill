@@ -162,8 +162,11 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
 
   const amount = input.amount.toFixed(2);
 
-  await logUpdated(getBot().api, settlementId, { userId: auth.user.id, source: "app" }, () =>
-    db.transaction(async (tx) => {
+  await logUpdated(
+    getBot().api,
+    settlementId,
+    { userId: auth.user.id, source: "app" },
+    async (tx) => {
       await tx
         .update(expenses)
         .set({
@@ -194,7 +197,7 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
           splitValue: null,
         }),
       ]);
-    }),
+    },
   );
 
   return NextResponse.json({ ok: true });
@@ -227,8 +230,8 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     settlementId,
     { userId: auth.user.id, source: "app" },
     auth.user,
-    async () => {
-      await db.delete(expenses).where(eq(expenses.id, settlementId));
+    async (tx) => {
+      await tx.delete(expenses).where(eq(expenses.id, settlementId));
       // expense_payers and expense_splits cascade-deleted via FK.
     },
   );

@@ -37,9 +37,9 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
         return;
       }
       await Promise.all([
-        // Also refreshes the expense's card, which previously kept offering
-        // 🧾 收據 for a receipt that had already been attached.
-        setExpenseReceipt(pending.expenseId, fileId, actorOf(ctx)),
+        // Passing the api refreshes the expense's card, which otherwise keeps
+        // offering 🧾 收據 for a receipt that has already been attached.
+        setExpenseReceipt(pending.expenseId, fileId, actorOf(ctx), ctx.api),
         db.delete(receiptAwaiting).where(eq(receiptAwaiting.id, pending.id)),
         ctx.api.deleteMessage(ctx.chat.id, replyToId).catch(() => undefined),
       ]);
