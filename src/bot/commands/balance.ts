@@ -6,6 +6,7 @@ import { users } from "@/db/schema";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { computeGroupBalances } from "@/lib/settlement";
+import { BTN } from "@/lib/buttons";
 import { serverEnv } from "@/lib/env";
 
 import { escapeHtml, mention } from "../format";
@@ -56,6 +57,6 @@ balanceCommand.command("balance", async (ctx) => {
     `💰 <b>${escapeHtml(ctx.dbGroup.title)}</b>　餘額 · ${currency}\n\n` + lines.join("\n");
   await ctx.reply(text, {
     parse_mode: "HTML",
-    reply_markup: new InlineKeyboard().webApp("開啟揪帳", appUrl),
+    reply_markup: new InlineKeyboard().webApp(BTN.openApp, appUrl),
   });
 });

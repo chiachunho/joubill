@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { renderCard } from "@/bot/expenseCard";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
+import { BTN } from "@/lib/buttons";
 import { serverEnv } from "@/lib/env";
 import { n } from "@/lib/money";
 import {
@@ -187,7 +188,7 @@ export async function rememberNoticeMessage(recordId: number, messageId: number)
 function settlementKeyboard(username: string, loaded: LoadedNotice): InlineKeyboard {
   const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
   const url = `https://t.me/${username}/${appName}?startapp=group_${loaded.chatId}_stl_${loaded.recordId}`;
-  return new InlineKeyboard().url("🔗 App 編輯", url).text("🗑 刪除", `del_exp:${loaded.recordId}`);
+  return new InlineKeyboard().url(BTN.appEdit, url).text(BTN.delete, `del_exp:${loaded.recordId}`);
 }
 
 type Rendered = { text: string; reply_markup: InlineKeyboard | undefined };

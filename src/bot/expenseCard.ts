@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groupMembers, groups, users } from "@/db/schema";
 import { serverEnv } from "@/lib/env";
 import { getRate, loadGroupRateOverrides } from "@/lib/fx";
+import { BTN } from "@/lib/buttons";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped, n, splitEqual } from "@/lib/money";
 import { computeSplits } from "@/lib/splits";
@@ -353,7 +354,7 @@ async function cardText(card: CardData, mode: CardMode): Promise<string> {
 
   const hint =
     mode === "adjust" && !card.panelEditable
-      ? "這筆的分帳是在 App 裡自訂的，要改分帳請用 🔗 App 編輯"
+      ? `這筆的分帳是在 App 裡自訂的，要改分帳請用 ${BTN.appEdit}`
       : MODE_HINT[mode];
   if (hint) lines.push("", hint);
   return lines.join("\n");
@@ -385,24 +386,24 @@ async function cardKeyboard(
   const kb = new InlineKeyboard();
 
   if (mode === "default") {
-    kb.text("⚙️ 調整", `exp:adj:${id}`);
-    if (!card.expense.receiptFileId) kb.text("🧾 收據", `upload_receipt:${id}`);
-    return kb.text("🗑 刪除", `del_exp:${id}`);
+    kb.text(BTN.adjust, `exp:adj:${id}`);
+    if (!card.expense.receiptFileId) kb.text(BTN.receipt, `upload_receipt:${id}`);
+    return kb.text(BTN.delete, `del_exp:${id}`);
   }
 
   if (mode === "adjust") {
     // 誰分 / 份數 recompute every share from weights, so they're only offered
     // when the panel owns the split — otherwise they'd flatten a custom one.
     if (card.panelEditable) {
-      kb.text("👥 誰分", `exp:who:${id}`).text("⚖️ 份數", `exp:shr:${id}`);
+      kb.text(BTN.who, `exp:who:${id}`).text(BTN.shares, `exp:shr:${id}`);
     }
     return kb
-      .text("💱 幣別", `exp:cur:${id}`)
+      .text(BTN.currency, `exp:cur:${id}`)
       .row()
-      .text("✏️ 金額", `exp:amt:${id}`)
-      .url("🔗 App 編輯", miniAppUrl(origin, id))
+      .text(BTN.amount, `exp:amt:${id}`)
+      .url(BTN.appEdit, miniAppUrl(origin, id))
       .row()
-      .text("← 完成", `exp:done:${id}`);
+      .text(BTN.done, `exp:done:${id}`);
   }
 
   if (mode === "who") {
@@ -419,10 +420,10 @@ async function cardKeyboard(
     });
     if (listed.length % 2 === 1) kb.row();
     return kb
-      .text("全選", `exp:whoall:${id}`)
-      .text("只有我", `exp:whome:${id}`)
+      .text(BTN.selectAll, `exp:whoall:${id}`)
+      .text(BTN.onlyMe, `exp:whome:${id}`)
       .row()
-      .text("← 返回", `exp:adj:${id}`);
+      .text(BTN.back, `exp:adj:${id}`);
   }
 
   if (mode === "shares") {
@@ -431,7 +432,7 @@ async function cardKeyboard(
       if (i % 2 === 1) kb.row();
     });
     if (card.splits.length % 2 === 1) kb.row();
-    return kb.text("重設為均分", `exp:shrr:${id}`).row().text("← 返回", `exp:adj:${id}`);
+    return kb.text(BTN.resetShares, `exp:shrr:${id}`).row().text(BTN.back, `exp:adj:${id}`);
   }
 
   // currency
@@ -443,7 +444,7 @@ async function cardKeyboard(
   for (const code of codes) {
     kb.text(code === card.expense.currency ? `✅ ${code}` : code, `exp:curs:${id}:${code}`);
   }
-  return kb.row().text("其他…", `exp:curo:${id}`).text("← 返回", `exp:adj:${id}`);
+  return kb.row().text(BTN.otherCurrency, `exp:curo:${id}`).text(BTN.back, `exp:adj:${id}`);
 }
 
 /** Build the full card (text + keyboard) for an expense, or null if it's gone. */

@@ -1,5 +1,6 @@
 import { Composer, InlineKeyboard } from "grammy";
 
+import { BTN } from "@/lib/buttons";
 import { serverEnv } from "@/lib/env";
 
 import type { BotContext } from "../context";
@@ -18,6 +19,6 @@ appCommand.command("app", async (ctx) => {
   const url = `https://t.me/${botUsername}/${TELEGRAM_MINI_APP_NAME}?startapp=group_${chatId}`;
 
   await ctx.reply("開啟揪帳 Mini App 👇", {
-    reply_markup: new InlineKeyboard().webApp("開啟揪帳", url),
+    reply_markup: new InlineKeyboard().webApp(BTN.openApp, url),
   });
 });

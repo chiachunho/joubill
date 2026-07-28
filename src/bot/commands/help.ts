@@ -1,5 +1,7 @@
 import { Composer } from "grammy";
 
+import { BTN } from "@/lib/buttons";
+
 import type { BotContext } from "../context";
 
 /**
@@ -19,8 +21,8 @@ const HELP_TEXT = [
   "別的幣別：`/add 3000 JPY 拉麵`",
   "只給某些人分：`/add 500 晚餐 @alice @bob`",
   "",
-  "記完點訊息下方的 *⚙️ 調整*：",
-  "👥 誰分 · ⚖️ 份數 · 💱 幣別 · ✏️ 金額",
+  `記完點訊息下方的 *${BTN.adjust}*：`,
+  `${BTN.who} · ${BTN.shares} · ${BTN.currency} · ${BTN.amount}`,
   "",
   "*其他指令*",
   "`/list` — 最近支出",

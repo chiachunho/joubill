@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { groupDeleteRequests, groupMembers, groups } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { BTN } from "@/lib/buttons";
 import { labelUser } from "@/lib/label";
 
 export const runtime = "nodejs";
@@ -78,8 +79,8 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "✓ 同意刪除", callback_data: `approve_del:${request.id}` },
-              { text: "✗ 拒絕", callback_data: `cancel_del:${request.id}` },
+              { text: BTN.approveDeleteGroup, callback_data: `approve_del:${request.id}` },
+              { text: BTN.rejectDeleteGroup, callback_data: `cancel_del:${request.id}` },
             ],
           ],
         },

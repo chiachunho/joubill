@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { clientEnv } from "@/lib/env";
+import { BTN } from "@/lib/buttons";
 import { labelUser } from "@/lib/label";
 import { rememberNoticeMessage } from "@/lib/notify";
 import {
@@ -155,8 +156,8 @@ async function resolveParticipants(
       // point at the paths that actually seat someone (see /join's docs).
       error:
         `找不到揪帳裡的 ${missing.join("、")}。\n` +
-        `要先把人加進來：回覆對方的訊息再打 /join，或請他點群組裡「開啟揪帳」的按鈕。\n` +
-        `或者先「/add 500 晚餐」記起來，再用「⚙️ 調整 → 👥 誰分」挑人。`,
+        `要先把人加進來：回覆對方的訊息再打 /join，或請他點群組裡「${BTN.openApp}」的按鈕。\n` +
+        `或者先「/add 500 晚餐」記起來，再用「${BTN.adjust} → ${BTN.who}」挑人。`,
     };
   }
   return { participants: found };
@@ -271,7 +272,7 @@ export async function handleAddParsed(
 
 addCommand.command("add", async (ctx) => {
   if (!ctx.dbGroup || !ctx.dbUser) {
-    const keyboard = new InlineKeyboard().webApp("開啟揪帳", clientEnv.NEXT_PUBLIC_MINI_APP_URL);
+    const keyboard = new InlineKeyboard().webApp(BTN.openApp, clientEnv.NEXT_PUBLIC_MINI_APP_URL);
     await ctx.reply(
       "分帳要在群組裡才有意義 — 把我加進群組就能用 /add 記帳。\n" +
         "想看自己現在的帳，可以直接開 App。",

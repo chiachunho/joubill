@@ -1,5 +1,6 @@
 import { Composer, InlineKeyboard } from "grammy";
 
+import { BTN } from "@/lib/buttons";
 import { db } from "@/db";
 import { groupMembers } from "@/db/schema";
 import type { User as DbUser } from "@/db/schema";
@@ -148,7 +149,7 @@ joinCommand.command("join", async (ctx) => {
   // The button lets people seat themselves (opening the Mini App through a group
   // link auto-joins), so it's only worth offering when someone was left out.
   const keyboard = staleHandles.length
-    ? new InlineKeyboard().url("開啟揪帳 →", groupMiniAppLink(ctx.me.username, ctx.chat.id))
+    ? new InlineKeyboard().url(BTN.openAppArrow, groupMiniAppLink(ctx.me.username, ctx.chat.id))
     : undefined;
 
   await ctx.reply(lines.join("\n"), { parse_mode: "HTML", reply_markup: keyboard });

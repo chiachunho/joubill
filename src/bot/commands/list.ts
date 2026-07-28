@@ -3,6 +3,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expensePayers, expenses, users } from "@/db/schema";
+import { BTN } from "@/lib/buttons";
 import { fmt } from "@/lib/money";
 import { serverEnv } from "@/lib/env";
 
@@ -69,6 +70,6 @@ listCommand.command("list", async (ctx) => {
   const appUrl = `https://t.me/${ctx.me.username}/${TELEGRAM_MINI_APP_NAME}?startapp=group_${ctx.chat!.id}`;
   await ctx.reply(`最近 ${rows.length} 筆\n\`\`\`\n` + lines.join("\n") + "\n```", {
     parse_mode: "Markdown",
-    reply_markup: new InlineKeyboard().webApp("開啟揪帳", appUrl),
+    reply_markup: new InlineKeyboard().webApp(BTN.openApp, appUrl),
   });
 });
