@@ -1,6 +1,7 @@
-import { Composer } from "grammy";
+import { Composer, InlineKeyboard } from "grammy";
 
 import { BTN } from "@/lib/buttons";
+import { HELP_URL } from "@/lib/help-url";
 
 import type { BotContext } from "../context";
 
@@ -38,5 +39,10 @@ const HELP_TEXT = [
 export const helpCommand = new Composer<BotContext>();
 
 helpCommand.command("help", async (ctx) => {
-  await ctx.reply(HELP_TEXT, { parse_mode: "Markdown" });
+  // The message stays deliberately short; anything longer lives on the help
+  // site, so the button is what makes the rest of the documentation reachable.
+  await ctx.reply(HELP_TEXT, {
+    parse_mode: "Markdown",
+    reply_markup: new InlineKeyboard().url(BTN.helpFull, HELP_URL),
+  });
 });
