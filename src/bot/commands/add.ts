@@ -13,7 +13,9 @@ import {
 } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { clientEnv } from "@/lib/env";
+import { BTN, TOAST } from "@/lib/buttons";
 import { labelUser } from "@/lib/label";
+import { rememberNoticeMessage } from "@/lib/notify";
 import {
   ADD_USAGE,
   evalAmountExpr,
@@ -25,21 +27,21 @@ import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 
 import {
   loadGroupMembers,
+  originOf,
   renderCard,
   setExpenseAmount,
   splitRowsFor,
   type DbUser,
 } from "../expenseCard";
 import { escapeHtml, mention } from "../format";
+import { staleAwaitingBefore } from "../awaiting";
+import { USER_COLUMNS } from "../profiles";
 import { canVerifyMembership, verifyInChat } from "../membership";
 import type { BotContext } from "../context";
 
 export const addCommand = new Composer<BotContext>();
 
 const PROMPT_NEW = `${ADD_USAGE}\n\n👇 直接回覆這則訊息`;
-
-/** Rows older than 24 h are no longer actionable — cleaned up opportunistically. */
-const STALE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Send a ForceReply prompt and remember it, so the user's reply lands back in
@@ -79,7 +81,10 @@ function mentionRequester(ctx: BotContext): string {
   if (!from) return "";
   return from.username
     ? "@" + from.username
-    : mention(labelUser({ firstName: from.first_name, lastName: from.last_name ?? null, username: null }), from.id);
+    : mention(
+        labelUser({ firstName: from.first_name, lastName: from.last_name ?? null, username: null }),
+        from.id,
+      );
 }
 
 /** Report a parse failure and immediately offer a one-tap retry. */
@@ -124,13 +129,7 @@ async function resolveParticipants(
     conditions.push(inArray(users.telegramId, parsed.mentionTelegramIds));
 
   const found = await db
-    .select({
-      id: users.id,
-      username: users.username,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      telegramId: users.telegramId,
-    })
+    .select(USER_COLUMNS)
     .from(users)
     .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
     .where(and(eq(groupMembers.groupId, groupId), or(...conditions)));
@@ -150,8 +149,8 @@ async function resolveParticipants(
       // point at the paths that actually seat someone (see /join's docs).
       error:
         `找不到揪帳裡的 ${missing.join("、")}。\n` +
-        `要先把人加進來：回覆對方的訊息再打 /join，或請他點群組裡「開啟揪帳」的按鈕。\n` +
-        `或者先「/add 500 晚餐」記起來，再用「⚙️ 調整 → 👥 誰分」挑人。`,
+        `要先把人加進來：回覆對方的訊息再打 /join，或請他點群組裡「${BTN.openApp}」的按鈕。\n` +
+        `或者先「/add 500 晚餐」記起來，再用「${BTN.adjust} → ${BTN.who}」挑人。`,
     };
   }
   return { participants: found };
@@ -203,10 +202,7 @@ export async function handleAddParsed(
         ? await canVerifyMembership(ctx.api, ctx.chat.id, ctx.me.id)
         : false;
     }
-    if (
-      enforceMembership &&
-      (await verifyInChat(ctx.api, ctx.chat!.id, entity.user.id)) !== "in"
-    ) {
+    if (enforceMembership && (await verifyInChat(ctx.api, ctx.chat!.id, entity.user.id)) !== "in") {
       continue;
     }
 
@@ -253,15 +249,23 @@ export async function handleAddParsed(
     return row;
   });
 
-  const card = await renderCard(ctx, expense.id, "default");
-  if (card) await ctx.reply(card.text, { parse_mode: "HTML", reply_markup: card.reply_markup });
+  const card = await renderCard(originOf(ctx), expense.id, "default");
+  if (card) {
+    const sent = await ctx.reply(card.text, {
+      parse_mode: "HTML",
+      reply_markup: card.reply_markup,
+    });
+    // Bind the card to the expense so an edit made in the Mini App refreshes
+    // *this* message instead of posting a second one (src/lib/notify.ts).
+    await rememberNoticeMessage(expense.id, sent.message_id);
+  }
 }
 
 /* ── /add ─────────────────────────────────────────────────────────────── */
 
 addCommand.command("add", async (ctx) => {
   if (!ctx.dbGroup || !ctx.dbUser) {
-    const keyboard = new InlineKeyboard().webApp("開啟揪帳", clientEnv.NEXT_PUBLIC_MINI_APP_URL);
+    const keyboard = new InlineKeyboard().webApp(BTN.openApp, clientEnv.NEXT_PUBLIC_MINI_APP_URL);
     await ctx.reply(
       "分帳要在群組裡才有意義 — 把我加進群組就能用 /add 記帳。\n" +
         "想看自己現在的帳，可以直接開 App。",
@@ -297,14 +301,14 @@ addCommand.callbackQuery(/^upload_receipt:(\d+)$/, async (ctx) => {
   const expenseId = Number(ctx.match[1]);
 
   if (!ctx.dbUser) {
-    await ctx.answerCallbackQuery({ text: "無法識別使用者", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.unknownUser, show_alert: true });
     return;
   }
 
   const [expense] = await db.select().from(expenses).where(eq(expenses.id, expenseId));
   // Scoped to the group the callback came from — see deleteExpense.ts.
   if (!expense || !ctx.dbGroup || expense.groupId !== ctx.dbGroup.id) {
-    await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.recordGone, show_alert: true });
     return;
   }
 
@@ -342,7 +346,7 @@ addCommand.on("message:text", async (ctx, next) => {
 
   await Promise.all([
     db.delete(addAwaiting).where(eq(addAwaiting.id, pending.id)),
-    db.delete(addAwaiting).where(lt(addAwaiting.createdAt, new Date(Date.now() - STALE_MS))),
+    db.delete(addAwaiting).where(lt(addAwaiting.createdAt, staleAwaitingBefore())),
     ctx.api.deleteMessage(ctx.chat.id, replyToId).catch(() => undefined),
   ]);
 
@@ -421,7 +425,7 @@ async function applyFieldReply(
     }
   }
 
-  const card = await renderCard(ctx, expenseId, "adjust");
+  const card = await renderCard(originOf(ctx), expenseId, "adjust");
   if (!card || !panelMessageId) return;
   await ctx.api
     .editMessageText(ctx.chat.id, panelMessageId, card.text, {

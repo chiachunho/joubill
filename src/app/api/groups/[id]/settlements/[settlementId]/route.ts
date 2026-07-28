@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
+import { getBot } from "@/bot";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { fxColumnsFor } from "@/lib/fx";
 import { n } from "@/lib/money";
+import { deleterOf, loadNoticeRecord, markNoticeDeleted, updateRecordNotice } from "@/lib/notify";
 import { settlementInputSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -182,6 +184,8 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
     ]);
   });
 
+  await updateRecordNotice(getBot().api, settlementId);
+
   return NextResponse.json({ ok: true });
 });
 
@@ -206,9 +210,14 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
 
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
+  // Snapshot the notice before the row (and its message id) disappear.
+  const notice = await loadNoticeRecord(settlementId);
+
   // Any group member can delete a settlement (unchanged from the old behaviour).
   await db.delete(expenses).where(eq(expenses.id, settlementId));
   // expense_payers and expense_splits cascade-deleted via FK.
+
+  await markNoticeDeleted(getBot().api, notice, deleterOf(auth.user));
 
   return NextResponse.json({ ok: true });
 });

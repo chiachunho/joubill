@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import { eq } from "drizzle-orm";
 
+import { TOAST } from "@/lib/buttons";
 import { db } from "@/db";
 import { expenses } from "@/db/schema";
 
@@ -8,6 +9,7 @@ import {
   loadCard,
   loadGroupMembers,
   loadSplitState,
+  originOf,
   renderCard,
   writeSplits,
   type CardMode,
@@ -28,9 +30,9 @@ export const expensePanel = new Composer<BotContext>();
 
 /** Swap the card that the pressed button belongs to into another mode. */
 async function show(ctx: BotContext, expenseId: number, mode: CardMode) {
-  const card = await renderCard(ctx, expenseId, mode);
+  const card = await renderCard(originOf(ctx), expenseId, mode);
   if (!card) {
-    await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.recordGone, show_alert: true });
     return;
   }
   // Re-selecting what's already selected renders byte-identical output, which
@@ -58,12 +60,12 @@ async function show(ctx: BotContext, expenseId: number, mode: CardMode) {
  */
 async function guard(ctx: BotContext, expenseId: number) {
   if (!ctx.dbUser || !ctx.dbGroup) {
-    await ctx.answerCallbackQuery({ text: "無法識別使用者", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.unknownUser, show_alert: true });
     return null;
   }
   const card = await loadCard(expenseId);
   if (!card || card.expense.groupId !== ctx.dbGroup.id) {
-    await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.recordGone, show_alert: true });
     return null;
   }
   return card;

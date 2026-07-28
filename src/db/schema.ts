@@ -82,6 +82,12 @@ export const expenses = pgTable(
      *  takes precedence over group custom rates and the market rate cache. */
     fxRate: numeric("fx_rate", { precision: 20, scale: 10 }),
     fxQuote: varchar("fx_quote", { length: 3 }),
+    /** message_id of this record's notification message in the group chat.
+     *  One message per record for its whole life: created → sent, edited →
+     *  that same message is edited, deleted → edited to a struck-through
+     *  "已刪除" version (the message is deliberately kept). NULL for records
+     *  predating the feature, or when the send failed. See src/lib/notify.ts. */
+    noticeMessageId: integer("notice_message_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

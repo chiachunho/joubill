@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
+import { getBot } from "@/bot";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { resolveRecordFx } from "@/lib/fx";
 import { n } from "@/lib/money";
+import { sendRecordNotice } from "@/lib/notify";
 import { settlementInputSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -142,6 +144,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
 
     return row.id;
   });
+
+  await sendRecordNotice(getBot().api, id);
 
   return NextResponse.json({ id }, { status: 201 });
 });

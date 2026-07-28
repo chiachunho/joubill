@@ -1,14 +1,12 @@
 import { Composer, InlineKeyboard } from "grammy";
-import { inArray } from "drizzle-orm";
 
-import { db } from "@/db";
-import { users } from "@/db/schema";
-import { labelUser } from "@/lib/label";
+import { BTN } from "@/lib/buttons";
+import { groupLink } from "@/lib/deep-link";
 import { fmtGrouped } from "@/lib/money";
 import { computeGroupBalances } from "@/lib/settlement";
-import { serverEnv } from "@/lib/env";
 
-import { escapeHtml, mention } from "../format";
+import { escapeHtml } from "../format";
+import { loadMentionMap } from "../profiles";
 import type { BotContext } from "../context";
 
 export const balanceCommand = new Composer<BotContext>();
@@ -26,21 +24,7 @@ balanceCommand.command("balance", async (ctx) => {
     return;
   }
 
-  const profileRows = await db
-    .select({
-      id: users.id,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      username: users.username,
-      telegramId: users.telegramId,
-    })
-    .from(users)
-    .where(inArray(users.id, balances.map((b) => b.userId)));
-  const profiles = new Map(profileRows.map((p) => [p.id, p]));
-  const mentionOf = (uid: number) => {
-    const p = profiles.get(uid);
-    return p ? mention(labelUser(p), p.telegramId) : `user#${uid}`;
-  };
+  const mentionOf = await loadMentionMap(balances.map((b) => b.userId));
 
   // Positive (owed money) first, then negative (owes money).
   const sorted = [...balances].sort((a, b) => b.amount - a.amount);
@@ -50,12 +34,11 @@ balanceCommand.command("balance", async (ctx) => {
     return `${dot} ${mentionOf(b.userId)}　<b>${sign}${fmtGrouped(Math.abs(b.amount))}</b>`;
   });
 
-  const { TELEGRAM_MINI_APP_NAME } = serverEnv();
-  const appUrl = `https://t.me/${ctx.me.username}/${TELEGRAM_MINI_APP_NAME}?startapp=group_${ctx.chat!.id}`;
+  const appUrl = groupLink(ctx.me.username, ctx.chat!.id);
   const text =
     `💰 <b>${escapeHtml(ctx.dbGroup.title)}</b>　餘額 · ${currency}\n\n` + lines.join("\n");
   await ctx.reply(text, {
     parse_mode: "HTML",
-    reply_markup: new InlineKeyboard().webApp("開啟揪帳", appUrl),
+    reply_markup: new InlineKeyboard().webApp(BTN.openApp, appUrl),
   });
 });

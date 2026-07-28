@@ -12,6 +12,7 @@ type MyGroupsResponse = {
   groups: Array<{ id: number; title: string; defaultCurrency: string }>;
   activeGroupId: number | null;
   activeExpenseId: number | null;
+  activeSettlementId: number | null;
 };
 
 type GroupPhotosResponse = { photos: Record<number, string | null> };
@@ -25,6 +26,10 @@ export default function MiniHome() {
     if (!data?.activeGroupId) return;
     if (data.activeExpenseId) {
       router.replace(`/mini/groups/${data.activeGroupId}/expenses/${data.activeExpenseId}/edit`);
+    } else if (data.activeSettlementId) {
+      router.replace(
+        `/mini/groups/${data.activeGroupId}/settlements/${data.activeSettlementId}`,
+      );
     } else {
       router.replace(`/mini/groups/${data.activeGroupId}`);
     }

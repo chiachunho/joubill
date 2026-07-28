@@ -3,6 +3,7 @@ import { and, eq, gt, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { groupMembers, groups, sessions, users } from "@/db/schema";
 import type { Group, User } from "@/db/schema";
+import { parseStartParam } from "@/lib/deep-link";
 import { serverEnv } from "@/lib/env";
 
 import { ForbiddenError, UnauthorizedError } from "./errors";
@@ -15,6 +16,8 @@ export type Auth = {
   groupFromParam?: Group;
   /** Internal expense ID from start_param "group_<chatId>_exp_<expenseId>". */
   expenseFromParam?: number;
+  /** Internal settlement ID from start_param "group_<chatId>_stl_<settlementId>". */
+  settlementFromParam?: number;
 };
 
 export const SESSION_COOKIE = "session";
@@ -69,47 +72,45 @@ export async function getAuth(req: Request): Promise<Auth> {
 
     let groupFromParam: Group | undefined;
     let expenseFromParam: number | undefined;
-    if (verified.startParam?.startsWith("group_")) {
-      // Formats: "group_<chatId>" or "group_<chatId>_exp_<expenseId>"
-      const withExp = verified.startParam.match(/^group_(-?\d+)_exp_(\d+)$/);
-      const telegramChatId = withExp
-        ? Number(withExp[1])
-        : Number(verified.startParam.slice("group_".length));
-      if (Number.isFinite(telegramChatId)) {
-        const [g] = await db
-          .select()
-          .from(groups)
-          .where(eq(groups.telegramChatId, telegramChatId));
-        if (g) {
-          groupFromParam = g;
-          if (withExp) expenseFromParam = Number(withExp[2]);
-          // Auto-join when the user opens the Mini App via a group link.
-          // We only call getChatMember (slow) when the row is genuinely absent —
-          // subsequent requests hit onConflictDoNothing instantly.
-          const [existing] = await db
-            .select({ groupId: groupMembers.groupId })
-            .from(groupMembers)
-            .where(and(eq(groupMembers.userId, user.id), eq(groupMembers.groupId, g.id)));
-          if (!existing) {
-            const { TELEGRAM_BOT_TOKEN } = serverEnv();
-            const cmRes = await fetch(
-              `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMember?chat_id=${g.telegramChatId}&user_id=${user.telegramId}`,
-            ).catch(() => null);
-            const cmJson = cmRes?.ok
-              ? ((await cmRes.json()) as { ok: boolean; result?: { status: string } })
-              : null;
-            const status = cmJson?.ok ? cmJson.result?.status : undefined;
-            if (status && status !== "left" && status !== "kicked") {
-              await db
-                .insert(groupMembers)
-                .values({ groupId: g.id, userId: user.id })
-                .onConflictDoNothing();
-            }
+    let settlementFromParam: number | undefined;
+    // The payload shape lives in src/lib/deep-link.ts, next to the builders the
+    // bot uses — a parser that drifts from them fails silently.
+    const startParam = parseStartParam(verified.startParam);
+    if (startParam) {
+      const [g] = await db
+        .select()
+        .from(groups)
+        .where(eq(groups.telegramChatId, startParam.telegramChatId));
+      if (g) {
+        groupFromParam = g;
+        if (startParam.record?.kind === "expense") expenseFromParam = startParam.record.id;
+        else if (startParam.record) settlementFromParam = startParam.record.id;
+        // Auto-join when the user opens the Mini App via a group link.
+        // We only call getChatMember (slow) when the row is genuinely absent —
+        // subsequent requests hit onConflictDoNothing instantly.
+        const [existing] = await db
+          .select({ groupId: groupMembers.groupId })
+          .from(groupMembers)
+          .where(and(eq(groupMembers.userId, user.id), eq(groupMembers.groupId, g.id)));
+        if (!existing) {
+          const { TELEGRAM_BOT_TOKEN } = serverEnv();
+          const cmRes = await fetch(
+            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMember?chat_id=${g.telegramChatId}&user_id=${user.telegramId}`,
+          ).catch(() => null);
+          const cmJson = cmRes?.ok
+            ? ((await cmRes.json()) as { ok: boolean; result?: { status: string } })
+            : null;
+          const status = cmJson?.ok ? cmJson.result?.status : undefined;
+          if (status && status !== "left" && status !== "kicked") {
+            await db
+              .insert(groupMembers)
+              .values({ groupId: g.id, userId: user.id })
+              .onConflictDoNothing();
           }
         }
       }
     }
-    return { user, groupFromParam, expenseFromParam };
+    return { user, groupFromParam, expenseFromParam, settlementFromParam };
   }
 
   // Path 2: web session cookie

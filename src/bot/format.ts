@@ -1,15 +1,7 @@
-/** Escape user-controlled text for Telegram HTML parse_mode. */
-export function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
 /**
- * Render a name as a tappable Telegram inline mention (opens the user's profile
- * on tap). Works even for users without a public @username. Falls back to a
- * plain escaped name when the telegram id is unknown (e.g. non-Telegram users).
- * Used with parse_mode: "HTML".
+ * Telegram HTML helpers. The implementations live in `src/lib/telegram-html.ts`
+ * so that shared, unit-tested lib code (e.g. `src/lib/record-notice.ts`) can use
+ * them without importing from `src/bot`. Re-exported here because every bot
+ * command already imports them from this path.
  */
-export function mention(name: string, telegramId: number | null): string {
-  const safe = escapeHtml(name);
-  return telegramId ? `<a href="tg://user?id=${telegramId}">${safe}</a>` : safe;
-}
+export { escapeHtml, mention } from "@/lib/telegram-html";

@@ -43,6 +43,24 @@ A single Next.js 15 (App Router) app serves four concerns simultaneously:
 
 The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **They do NOT share the top-level page components**, though: each route under `/mini/**` has a hand-maintained near-duplicate under `/app/**` (e.g. `src/app/mini/groups/[id]/page.tsx` vs `src/app/app/groups/[id]/page.tsx`), differing only in fetcher (`tmaFetch` vs `webFetch`), link prefixes (`/mini` vs `/app`), and a few imports. **When you change list/detail UI or page behaviour, apply the same change to both copies.** Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
 
+### What to share, and what to leave duplicated
+
+**The test is not "is this written twice" — it is "when the copies drift, does anything fail loudly?"** Duplication that breaks a build or a test can wait; duplication that quietly produces a wrong result is what earns a shared module. Everything currently shared was collapsed for that reason, and each case names its own silent failure:
+
+- **Both ends of a wire contract belong in the same file.** `src/lib/deep-link.ts` builds *and* parses the `startapp` payload. When it was six builders and one parser, a mismatch didn't throw — the deep link just landed on the group list and nobody noticed for weeks. Anything with a producer and a consumer that must agree (a URL payload, a `callback_data` shape, a stored format) goes in one module, round-trip tested against itself rather than against hand-written strings.
+- **A query shape whose omission degrades output instead of erroring.** `USER_COLUMNS` (`src/bot/profiles.ts`) exists because a select that forgets `telegramId` still succeeds — it just renders every mention as plain text.
+- **One thing rendered by two renderers.** An expense card and a settlement notice draw the same 🔗 App 編輯 / 🗑 刪除 buttons, so `BTN` (`src/lib/buttons.ts`) owns the wording. Prose that *names* a button interpolates the same constant, so `/help` can't start describing a button that was renamed.
+
+**Leave it duplicated when sharing would cost more than the drift.** Three standing examples:
+
+- The `/mini` and `/app` page pairs are deliberately hand-maintained copies (see above) — they diverge on purpose and a shared abstraction would fight both.
+- A callback toast with a **single** caller stays inline next to the condition it describes. `TOAST` in `src/lib/buttons.ts` only holds the ones with two or more callers; a message you have to open another file to read is worse than a repeated one.
+- Not every repeated block is the same idea. Two functions that happen to look alike today, for unrelated reasons, will need to diverge tomorrow — and un-sharing is harder than sharing.
+
+**Where it goes:** `src/lib/**` when the bot *and* the API or a frontend both need it (that also keeps it pure and unit-testable — see `src/lib/expense-view.ts`, `src/lib/record-notice.ts`); `src/bot/**` when only the bot does. `src/lib` may import a leaf module from `src/bot` (`notify.ts` renders the expense card), but keep those leaves dependency-free so it never becomes a cycle.
+
+**Still duplicated, and known:** the `Number.isFinite` id-parsing preamble repeated in ~15 `/api/**` route handlers. Worth collapsing; just hasn't been.
+
 ### Bot (`src/bot/`)
 
 `src/bot/index.ts` exports a lazy singleton `getBot()` — the bot instance is not created until the first webhook hit, so `TELEGRAM_BOT_TOKEN` doesn't need to exist at build time. Middleware runs in registration order: `chatMigration` → `registerUser` → `trackMembership` → commands.
@@ -104,6 +122,25 @@ A **group-level** role (Settle Up's read-only vs edit) is the sane way to add re
 
 **404 on delete is now an ordinary outcome**, not an anomaly — two people can have the same record open. `deleteErrorMessage` (`src/lib/api-error.ts`) maps a status to a message and must never tell the user to retry something that cannot succeed.
 
+#### Shared bot pieces
+
+The inventory for the bot side of "What to share, and what to leave duplicated" above — each of these was collapsed because its duplicate failed silently, not loudly:
+
+- `src/lib/deep-link.ts` — the `startapp` payload, **built and parsed here**.
+  `groupLink` / `expenseLink` / `settlementLink` produce `group_<chatId>`,
+  `…_exp_<id>` and `…_stl_<id>`; `parseStartParam` reads them back in
+  `src/lib/auth/index.ts`. A builder that drifts from the parser doesn't throw —
+  the link just lands on the group list and nobody notices. Round-trip tested.
+- `src/lib/buttons.ts` — `BTN` (every inline-keyboard label) and `TOAST` (only
+  the callback answers with more than one caller). Prose that *names* a button
+  interpolates `BTN` too, so `/help` can't start describing a button that was
+  renamed. Single-caller toasts stay inline next to their condition.
+- `src/bot/profiles.ts` — `USER_COLUMNS` (the select shape every bot query
+  needs, so one can't forget `telegramId` and silently degrade its mentions to
+  plain text) and `loadMentionMap`, shared by `/balance` and `/settle`.
+- `src/bot/awaiting.ts` — the 24 h expiry shared by `add_awaiting` and
+  `receipt_awaiting`.
+
 ### Mini App (`src/app/mini/`)
 
 Telegram Mini App accessed via the bot's `web_app` button. All pages are client components that call the REST API using `tmaFetch` (`src/lib/tma-fetch.ts`), which attaches `Authorization: tma <initData>`. Data fetching uses SWR (`src/components/mini/SWRProvider.tsx`).
@@ -135,6 +172,8 @@ Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
 **Multi-payer model**: An expense has one or more payers in `expense_payers` (who paid, how much each) and one or more debtors in `expense_splits` (who owes, how much each). Both tables reference `expenses.id` with `ON DELETE CASCADE`. `expense_payers` has a `UNIQUE(expense_id, payer_id)` constraint. Both sides must sum to `expenses.amount`.
 
 **Settlements are expenses**: A repayment ("A 還 B $X") is just a degenerate expense — A is the sole payer, B the sole debtor — with identical balance impact. It is stored in `expenses` with `type='settlement'` (vs `type='expense'`), one `expense_payers` row (= sender) and one `expense_splits` row (= receiver, `share_type='exact'`). There is **no** separate `settlements` table. The `type` column is the only discriminator: balance/FX/rate-lock treat both kinds the same (no branching), while the expense list/detail and stats filter `type='expense'` and the merged group list renders `type='settlement'` rows as `from → to`. The `/api/groups/[id]/settlements` routes still exist as a from/to-shaped façade over `type='settlement'` expenses (forms unchanged); only the list page was removed (settlements now appear inline in the main list).
+
+`expenses.notice_message_id` holds the `message_id` of that record's message in the group chat — the expense card for an expense, the notice for a settlement (see Group notifications below). `NULL` for records predating the feature or when the send failed.
 
 `receipt_awaiting` stores in-flight "waiting for receipt photo" state for the ForceReply bot flow (only triggered after text-only `/add`; not shown when photo is already attached via caption). `add_awaiting` stores in-flight ForceReply prompts: with `expense_id`/`field` NULL it's a bare `/add` waiting for expense text, otherwise the reply sets one field (`amount` / `currency`) of an existing expense and `panel_message_id` says which card to refresh.
 
@@ -169,6 +208,30 @@ Receipts are stored on Telegram's servers — only the permanent `file_id` is pe
 Upload flow (Mini App): `POST /api/tg-upload` (auth-protected) → `sendPhoto` to the private storage channel → returns `file_id` → saved with the expense.
 
 Upload flow (bot): photo sent as a caption `/add …` stores `file_id` directly — the caption path goes through the same `handleAddParsed` as a text `/add`, so mentions and the ⚙️ 調整 panel work identically (only multi-photo albums are refused). The "🧾 收據" inline button on the card triggers a ForceReply prompt; the reply photo is matched via `receipt_awaiting`.
+
+### Group messages for records (`src/lib/notify.ts` + `src/lib/record-notice.ts`)
+
+Every record — **expense and settlement alike** — owns exactly **one** message in the Telegram group chat for its whole life, tracked by `expenses.notice_message_id`:
+
+- **created** → send it, remember the `message_id`
+- **edited** → `editMessageText` that same message in place (never a second message)
+- **deleted** → the message is **kept** and edited into the `🗑 已刪除 …` line, with its inline keyboard dropped
+
+This is what connects the two front ends to the chat: editing an expense in the Mini App refreshes the **same card** `/add` posted, and deleting it from either side leaves the same tombstone.
+
+**There is exactly one renderer per message, and that matters more than it looks.** An expense renders as the expense card (`renderCard`, `src/bot/expenseCard.ts`) — the same text and buttons `/add` posts. A second, simpler renderer for "the notification" would silently downgrade a card into a plain line (losing ⚙️ 調整, the `≈` conversion line and the `×n` weights) the first time someone edited from the app. So `renderCard` takes a `CardOrigin` (`{ botUsername, chatId }`) rather than a `BotContext`, which is what lets an API route handler render the identical card without an update to hang off. `src/lib/record-notice.ts` holds only what the card doesn't cover: `formatSettlementNotice` (settlements have no card) and `formatDeletedNotice` (shared by both kinds); both are pure and unit-tested.
+
+`/add` binds its own card with `rememberNoticeMessage` right after `ctx.reply`, so a bot-created expense never gets a duplicate — and since `receiptUpload.ts`'s photo-caption path delegates to `handleAddParsed`, that one call site covers every bot-created expense. Everything created from the Mini App / Web App is sent by the API route handler.
+
+`src/lib/notify.ts` does the delivery: `loadNoticeRecord` / `sendRecordNotice` / `updateRecordNotice` / `markNoticeDeleted`, all of which swallow their errors — a kicked bot or a manually deleted message must never fail the API request. An edit falls back to posting a fresh message (and re-remembering it) when there is nothing editable; Telegram's `message is not modified` rejection is treated as success, not a reason to re-post. An edited card re-renders in `default` mode, so a card left open on the ⚙️ panel collapses back to the summary — the panel mode is UI state, not part of the record.
+
+Three things to keep in mind when touching this:
+
+- **Deletes must snapshot first.** Call `loadNoticeRecord` *before* deleting the row — the record, its creator and its `notice_message_id` are gone afterwards. Both the bot's `del_exp` callback and the API's `DELETE` do this.
+- **The tombstone's attribution is load-bearing.** `formatDeletedNotice` names what went, who recorded it and who removed it. That is what stands in for the per-record owner lock this app deliberately doesn't have (see "Who may edit or delete a record") — don't quietly reduce it to "已刪除".
+- **Silence is inherited.** Messages are silent because the bot's api middleware (`src/bot/index.ts`) stamps `disable_notification: true` on every `send*` call. Nothing in `notify.ts` sets it explicitly, so removing that middleware would un-silence every one of them.
+
+Deep links: the card's 🔗 App 編輯 uses `?startapp=group_<chatId>_exp_<id>`, a settlement notice `_stl_<id>` — both parsed in `src/lib/auth/index.ts`, surfaced as `activeExpenseId` / `activeSettlementId` by `/api/me/groups`, and redirected in `src/app/mini/page.tsx`. The 🗑 刪除 button on both is the same `del_exp:<id>` callback, group-scoped and (per the policy above) not owner-gated.
 
 ### Beancount 匯出 (`src/lib/beancount.ts`)
 

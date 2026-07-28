@@ -1,6 +1,7 @@
 import type { MessageEntity } from "grammy/types";
 import { z } from "zod";
 
+import { BTN } from "./buttons";
 import { SUPPORTED_CURRENCIES } from "./zod";
 
 /**
@@ -31,8 +32,8 @@ export const ADD_USAGE = [
   "別的幣別：/add 3000 JPY 拉麵",
   "只給某些人分：/add 500 晚餐 @alice @bob",
   "",
-  "記完點訊息下方的「⚙️ 調整」：",
-  "👥 誰分 · ⚖️ 份數 · 💱 幣別 · ✏️ 金額",
+  `記完點訊息下方的「${BTN.adjust}」：`,
+  `${BTN.who} · ${BTN.shares} · ${BTN.currency} · ${BTN.amount}`,
 ].join("\n");
 
 /* ── input normalisation ──────────────────────────────────────────────── */
@@ -380,7 +381,7 @@ export function parseAddMessage(
   if (lines.slice(1).some((l) => l.trim())) {
     throw new Error(
       "多行分帳已經改用按鈕了。\n" +
-        "先記「/add 500 晚餐」，再點訊息下方的「⚙️ 調整」選誰分、改份數。",
+        `先記「/add 500 晚餐」，再點訊息下方的「${BTN.adjust}」選誰分、改份數。`,
     );
   }
 

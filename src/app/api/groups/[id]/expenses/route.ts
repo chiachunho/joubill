@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { desc, eq, inArray } from "drizzle-orm";
 
+import { getBot } from "@/bot";
 import { db } from "@/db";
 import { expenseReceipts, expensePayers, expenseSplits, expenses, users } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { resolveRecordFx } from "@/lib/fx";
 import { n } from "@/lib/money";
+import { sendRecordNotice } from "@/lib/notify";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
 
@@ -208,6 +210,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     await Promise.all(ops);
     return row;
   });
+
+  await sendRecordNotice(getBot().api, expense.id);
 
   return NextResponse.json({ id: expense.id }, { status: 201 });
 });
