@@ -1,13 +1,10 @@
 import { Composer } from "grammy";
-import { inArray } from "drizzle-orm";
 
-import { db } from "@/db";
-import { users } from "@/db/schema";
-import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { computeGroupBalances, minimizeTransfers } from "@/lib/settlement";
 
-import { escapeHtml, mention } from "../format";
+import { escapeHtml } from "../format";
+import { loadMentionMap } from "../profiles";
 import type { BotContext } from "../context";
 
 export const settleCommand = new Composer<BotContext>();
@@ -27,24 +24,9 @@ settleCommand.command("settle", async (ctx) => {
     return;
   }
 
-  const involvedIds = Array.from(
-    new Set(transfers.flatMap((t) => [t.fromUserId, t.toUserId])),
+  const mentionOf = await loadMentionMap(
+    Array.from(new Set(transfers.flatMap((t) => [t.fromUserId, t.toUserId]))),
   );
-  const profileRows = await db
-    .select({
-      id: users.id,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      username: users.username,
-      telegramId: users.telegramId,
-    })
-    .from(users)
-    .where(inArray(users.id, involvedIds));
-  const profiles = new Map(profileRows.map((p) => [p.id, p]));
-  const mentionOf = (uid: number) => {
-    const p = profiles.get(uid);
-    return p ? mention(labelUser(p), p.telegramId) : `user#${uid}`;
-  };
 
   const lines = transfers.map(
     (t) => `${mentionOf(t.fromUserId)} → ${mentionOf(t.toUserId)}　<b>${fmtGrouped(t.amount)}</b>`,

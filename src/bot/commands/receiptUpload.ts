@@ -5,13 +5,11 @@ import { db } from "@/db";
 import { expenses, receiptAwaiting } from "@/db/schema";
 import { ADD_USAGE, parseAddMessage } from "@/lib/parseAdd";
 
+import { staleAwaitingBefore } from "../awaiting";
 import { handleAddParsed } from "./add";
 import type { BotContext } from "../context";
 
 export const receiptUploadHandler = new Composer<BotContext>();
-
-// Rows older than 24 h are no longer actionable — clean up opportunistically.
-const STALE_MS = 24 * 60 * 60 * 1000;
 
 receiptUploadHandler.on("message:photo", async (ctx) => {
   if (!ctx.dbGroup || !ctx.dbUser) return;
@@ -51,7 +49,7 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
     // Opportunistic stale cleanup — only fires on reply-photos, not every photo.
     await db
       .delete(receiptAwaiting)
-      .where(lt(receiptAwaiting.createdAt, new Date(Date.now() - STALE_MS)));
+      .where(lt(receiptAwaiting.createdAt, staleAwaitingBefore()));
   }
 
   // ── Path B: photo sent with an /add caption (receipt already attached) ────

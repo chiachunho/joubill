@@ -6,11 +6,13 @@ import { expensePayers, expenseSplits, expenses, groupMembers, groups, users } f
 import { serverEnv } from "@/lib/env";
 import { getRate, loadGroupRateOverrides } from "@/lib/fx";
 import { BTN } from "@/lib/buttons";
+import { expenseLink } from "@/lib/deep-link";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped, n, splitEqual } from "@/lib/money";
 import { computeSplits } from "@/lib/splits";
 
 import { escapeHtml, mention } from "./format";
+import { USER_COLUMNS } from "./profiles";
 import type { BotContext } from "./context";
 
 export type DbUser = {
@@ -21,18 +23,10 @@ export type DbUser = {
   telegramId: number | null;
 };
 
-const MEMBER_COLUMNS = {
-  id: users.id,
-  username: users.username,
-  firstName: users.firstName,
-  lastName: users.lastName,
-  telegramId: users.telegramId,
-} as const;
-
 /** Active members of a group, in a stable order. */
 export async function loadGroupMembers(groupId: number): Promise<DbUser[]> {
   return db
-    .select(MEMBER_COLUMNS)
+    .select(USER_COLUMNS)
     .from(users)
     .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
     .where(and(eq(groupMembers.groupId, groupId), sql`${groupMembers.status} <> 'inactive'`))
@@ -235,14 +229,14 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
 
   const [payerRows, splitRows] = await Promise.all([
     db
-      .select(MEMBER_COLUMNS)
+      .select(USER_COLUMNS)
       .from(expensePayers)
       .innerJoin(users, eq(users.id, expensePayers.payerId))
       .where(eq(expensePayers.expenseId, expenseId))
       .orderBy(expensePayers.id),
     db
       .select({
-        ...MEMBER_COLUMNS,
+        ...USER_COLUMNS,
         splitAmount: expenseSplits.amount,
         shareType: expenseSplits.shareType,
         splitValue: expenseSplits.splitValue,
@@ -372,11 +366,6 @@ export function originOf(ctx: BotContext): CardOrigin {
   return { botUsername: ctx.me.username, chatId: ctx.chat?.id ?? 0 };
 }
 
-function miniAppUrl(origin: CardOrigin, expenseId: number): string {
-  const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
-  return `https://t.me/${origin.botUsername}/${appName}?startapp=group_${origin.chatId}_exp_${expenseId}`;
-}
-
 async function cardKeyboard(
   origin: CardOrigin,
   card: CardData,
@@ -401,7 +390,7 @@ async function cardKeyboard(
       .text(BTN.currency, `exp:cur:${id}`)
       .row()
       .text(BTN.amount, `exp:amt:${id}`)
-      .url(BTN.appEdit, miniAppUrl(origin, id))
+      .url(BTN.appEdit, expenseLink(origin.botUsername, origin.chatId, id))
       .row()
       .text(BTN.done, `exp:done:${id}`);
   }

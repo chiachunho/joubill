@@ -5,7 +5,7 @@ import { renderCard } from "@/bot/expenseCard";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
 import { BTN } from "@/lib/buttons";
-import { serverEnv } from "@/lib/env";
+import { settlementLink } from "@/lib/deep-link";
 import { n } from "@/lib/money";
 import {
   formatDeletedNotice,
@@ -186,8 +186,7 @@ export async function rememberNoticeMessage(recordId: number, messageId: number)
 
 /** The 編輯 / 刪除 buttons on a settlement notice (expenses get the card's own). */
 function settlementKeyboard(username: string, loaded: LoadedNotice): InlineKeyboard {
-  const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
-  const url = `https://t.me/${username}/${appName}?startapp=group_${loaded.chatId}_stl_${loaded.recordId}`;
+  const url = settlementLink(username, loaded.chatId, loaded.recordId);
   return new InlineKeyboard().url(BTN.appEdit, url).text(BTN.delete, `del_exp:${loaded.recordId}`);
 }
 

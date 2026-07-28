@@ -13,7 +13,7 @@ import {
 } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { clientEnv } from "@/lib/env";
-import { BTN } from "@/lib/buttons";
+import { BTN, TOAST } from "@/lib/buttons";
 import { labelUser } from "@/lib/label";
 import { rememberNoticeMessage } from "@/lib/notify";
 import {
@@ -34,15 +34,14 @@ import {
   type DbUser,
 } from "../expenseCard";
 import { escapeHtml, mention } from "../format";
+import { staleAwaitingBefore } from "../awaiting";
+import { USER_COLUMNS } from "../profiles";
 import { canVerifyMembership, verifyInChat } from "../membership";
 import type { BotContext } from "../context";
 
 export const addCommand = new Composer<BotContext>();
 
 const PROMPT_NEW = `${ADD_USAGE}\n\n👇 直接回覆這則訊息`;
-
-/** Rows older than 24 h are no longer actionable — cleaned up opportunistically. */
-const STALE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Send a ForceReply prompt and remember it, so the user's reply lands back in
@@ -130,13 +129,7 @@ async function resolveParticipants(
     conditions.push(inArray(users.telegramId, parsed.mentionTelegramIds));
 
   const found = await db
-    .select({
-      id: users.id,
-      username: users.username,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      telegramId: users.telegramId,
-    })
+    .select(USER_COLUMNS)
     .from(users)
     .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
     .where(and(eq(groupMembers.groupId, groupId), or(...conditions)));
@@ -308,14 +301,14 @@ addCommand.callbackQuery(/^upload_receipt:(\d+)$/, async (ctx) => {
   const expenseId = Number(ctx.match[1]);
 
   if (!ctx.dbUser) {
-    await ctx.answerCallbackQuery({ text: "無法識別使用者", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.unknownUser, show_alert: true });
     return;
   }
 
   const [expense] = await db.select().from(expenses).where(eq(expenses.id, expenseId));
   // Scoped to the group the callback came from — see deleteExpense.ts.
   if (!expense || !ctx.dbGroup || expense.groupId !== ctx.dbGroup.id) {
-    await ctx.answerCallbackQuery({ text: "找不到這筆支出（可能已刪除）", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.recordGone, show_alert: true });
     return;
   }
 
@@ -353,7 +346,7 @@ addCommand.on("message:text", async (ctx, next) => {
 
   await Promise.all([
     db.delete(addAwaiting).where(eq(addAwaiting.id, pending.id)),
-    db.delete(addAwaiting).where(lt(addAwaiting.createdAt, new Date(Date.now() - STALE_MS))),
+    db.delete(addAwaiting).where(lt(addAwaiting.createdAt, staleAwaitingBefore())),
     ctx.api.deleteMessage(ctx.chat.id, replyToId).catch(() => undefined),
   ]);
 

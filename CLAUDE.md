@@ -104,6 +104,26 @@ A **group-level** role (Settle Up's read-only vs edit) is the sane way to add re
 
 **404 on delete is now an ordinary outcome**, not an anomaly — two people can have the same record open. `deleteErrorMessage` (`src/lib/api-error.ts`) maps a status to a message and must never tell the user to retry something that cannot succeed.
 
+#### Shared bot pieces
+
+Things rendered or parsed in more than one place live in one module, because the
+duplicates are the kind that fail silently rather than loudly:
+
+- `src/lib/deep-link.ts` — the `startapp` payload, **built and parsed here**.
+  `groupLink` / `expenseLink` / `settlementLink` produce `group_<chatId>`,
+  `…_exp_<id>` and `…_stl_<id>`; `parseStartParam` reads them back in
+  `src/lib/auth/index.ts`. A builder that drifts from the parser doesn't throw —
+  the link just lands on the group list and nobody notices. Round-trip tested.
+- `src/lib/buttons.ts` — `BTN` (every inline-keyboard label) and `TOAST` (only
+  the callback answers with more than one caller). Prose that *names* a button
+  interpolates `BTN` too, so `/help` can't start describing a button that was
+  renamed. Single-caller toasts stay inline next to their condition.
+- `src/bot/profiles.ts` — `USER_COLUMNS` (the select shape every bot query
+  needs, so one can't forget `telegramId` and silently degrade its mentions to
+  plain text) and `loadMentionMap`, shared by `/balance` and `/settle`.
+- `src/bot/awaiting.ts` — the 24 h expiry shared by `add_awaiting` and
+  `receipt_awaiting`.
+
 ### Mini App (`src/app/mini/`)
 
 Telegram Mini App accessed via the bot's `web_app` button. All pages are client components that call the REST API using `tmaFetch` (`src/lib/tma-fetch.ts`), which attaches `Authorization: tma <initData>`. Data fetching uses SWR (`src/components/mini/SWRProvider.tsx`).

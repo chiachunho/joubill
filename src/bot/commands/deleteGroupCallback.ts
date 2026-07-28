@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import { and, eq } from "drizzle-orm";
 
+import { TOAST } from "@/lib/buttons";
 import { db } from "@/db";
 import { groupDeleteRequests, groupMembers, groups } from "@/db/schema";
 import { labelUser } from "@/lib/label";
@@ -14,7 +15,7 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
   const user = ctx.dbUser;
 
   if (!user) {
-    await ctx.answerCallbackQuery({ text: "無法識別使用者", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.unknownUser, show_alert: true });
     return;
   }
 
@@ -24,7 +25,7 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
     .where(eq(groupDeleteRequests.id, requestId));
 
   if (!request) {
-    await ctx.answerCallbackQuery({ text: "此申請已不存在或已處理", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.requestGone, show_alert: true });
     await ctx.editMessageText("此刪除申請已不存在或已處理。").catch(() => null);
     return;
   }
@@ -40,7 +41,7 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
     .where(and(eq(groupMembers.userId, user.id), eq(groupMembers.groupId, request.groupId)));
 
   if (!membership) {
-    await ctx.answerCallbackQuery({ text: "你不是此群組的成員", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.notAMember, show_alert: true });
     return;
   }
 
@@ -78,13 +79,13 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
 
     if (!deleted) {
       // Group was already deleted by a concurrent approver — still a success.
-      await ctx.answerCallbackQuery({ text: "已同意，群組已刪除" });
+      await ctx.answerCallbackQuery({ text: TOAST.groupDeleted });
       return;
     }
 
-    await ctx.answerCallbackQuery({ text: "已同意，群組已刪除" });
+    await ctx.answerCallbackQuery({ text: TOAST.groupDeleted });
   } catch {
-    await ctx.answerCallbackQuery({ text: "操作失敗，請再試一次", show_alert: true }).catch(() => null);
+    await ctx.answerCallbackQuery({ text: TOAST.actionFailed, show_alert: true }).catch(() => null);
   }
 });
 
@@ -93,7 +94,7 @@ deleteGroupCallback.callbackQuery(/^cancel_del:(\d+)$/, async (ctx) => {
   const user = ctx.dbUser;
 
   if (!user) {
-    await ctx.answerCallbackQuery({ text: "無法識別使用者", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.unknownUser, show_alert: true });
     return;
   }
 
@@ -103,7 +104,7 @@ deleteGroupCallback.callbackQuery(/^cancel_del:(\d+)$/, async (ctx) => {
     .where(eq(groupDeleteRequests.id, requestId));
 
   if (!request) {
-    await ctx.answerCallbackQuery({ text: "此申請已不存在或已處理", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.requestGone, show_alert: true });
     await ctx.editMessageText("此刪除申請已不存在或已處理。").catch(() => null);
     return;
   }
@@ -115,7 +116,7 @@ deleteGroupCallback.callbackQuery(/^cancel_del:(\d+)$/, async (ctx) => {
     .where(and(eq(groupMembers.userId, user.id), eq(groupMembers.groupId, request.groupId)));
 
   if (!membership) {
-    await ctx.answerCallbackQuery({ text: "你不是此群組的成員", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.notAMember, show_alert: true });
     return;
   }
 
@@ -132,6 +133,6 @@ deleteGroupCallback.callbackQuery(/^cancel_del:(\d+)$/, async (ctx) => {
 
     await ctx.answerCallbackQuery({ text: isRequester ? "已取消" : "已拒絕" });
   } catch {
-    await ctx.answerCallbackQuery({ text: "操作失敗，請再試一次", show_alert: true }).catch(() => null);
+    await ctx.answerCallbackQuery({ text: TOAST.actionFailed, show_alert: true }).catch(() => null);
   }
 });

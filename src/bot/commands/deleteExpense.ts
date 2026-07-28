@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import { eq } from "drizzle-orm";
 
+import { TOAST } from "@/lib/buttons";
 import { db } from "@/db";
 import { expenses } from "@/db/schema";
 import { deleterOf, loadNoticeRecord } from "@/lib/notify";
@@ -16,7 +17,7 @@ deleteExpenseCallback.callbackQuery(/^del_exp:(\d+)$/, async (ctx) => {
   const user = ctx.dbUser;
 
   if (!user) {
-    await ctx.answerCallbackQuery({ text: "無法識別使用者", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.unknownUser, show_alert: true });
     return;
   }
 
@@ -28,7 +29,7 @@ deleteExpenseCallback.callbackQuery(/^del_exp:(\d+)$/, async (ctx) => {
   // this the button would delete an expense belonging to any other group. The
   // bot-side equivalent of the REST layer's assertGroupMember.
   if (!notice || !ctx.dbGroup || notice.groupId !== ctx.dbGroup.id) {
-    await ctx.answerCallbackQuery({ text: "找不到這筆紀錄（可能已刪除）", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.recordGone, show_alert: true });
     return;
   }
 

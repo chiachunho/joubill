@@ -47,3 +47,21 @@ export const BTN = {
   approveDeleteGroup: "✓ 同意刪除",
   rejectDeleteGroup: "✗ 拒絕",
 } as const;
+
+/**
+ * Callback-answer toasts that more than one handler raises.
+ *
+ * Only the shared ones live here. A toast raised from exactly one place stays
+ * inline next to the condition it describes — a message you have to jump to
+ * another file to read is worse than a repeated one, and this list earns its
+ * keep only while every entry has two or more callers.
+ */
+export const TOAST = {
+  unknownUser: "無法識別使用者",
+  /** Covers a record deleted between rendering the card and pressing the button. */
+  recordGone: "找不到這筆紀錄（可能已刪除）",
+  requestGone: "此申請已不存在或已處理",
+  notAMember: "你不是此群組的成員",
+  actionFailed: "操作失敗，請再試一次",
+  groupDeleted: "已同意，群組已刪除",
+} as const;

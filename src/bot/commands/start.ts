@@ -1,23 +1,12 @@
 import { Composer, InlineKeyboard } from "grammy";
 
 import { BTN } from "@/lib/buttons";
-import { clientEnv, serverEnv } from "@/lib/env";
+import { groupLink } from "@/lib/deep-link";
+import { clientEnv } from "@/lib/env";
 
 import type { BotContext } from "../context";
 
 export const startCommand = new Composer<BotContext>();
-
-/**
- * Deep link that opens the Mini App straight into `chatId`'s group.
- *
- * Telegram restriction: a `web_app` button only works in private chat, so groups
- * get a plain url button with `startapp` — Telegram turns that into a Mini App
- * launch, and `start_param` is what the API auth path resolves to a group.
- */
-export function groupMiniAppLink(botUsername: string, chatId: number): string {
-  const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
-  return `https://t.me/${botUsername}/${appName}?startapp=group_${chatId}`;
-}
 
 /** Build and send the group welcome message (used by /start and bot-join events). */
 export async function sendGroupWelcome(
@@ -25,7 +14,7 @@ export async function sendGroupWelcome(
 ) {
   const keyboard = new InlineKeyboard().url(
     BTN.openAppArrow,
-    groupMiniAppLink(ctx.me.username, ctx.chat.id),
+    groupLink(ctx.me.username, ctx.chat.id),
   );
   // Tapping the button is what actually seats someone (opening the Mini App
   // through a group link auto-joins), so the message has to say so — otherwise
