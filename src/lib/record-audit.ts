@@ -209,8 +209,8 @@ export function diffRecords(before: RecordSnapshot, after: RecordSnapshot): Chan
     out.push({
       key: "payers",
       label: "付款人",
-      before: (detail ? legNames(before.payers).join("、") : legAmounts(before.payers)) || NONE,
-      after: (detail ? legNames(after.payers).join("、") : legAmounts(after.payers)) || NONE,
+      before: detail ? legNames(before.payers).join("、") : legAmounts(before.payers),
+      after: detail ? legNames(after.payers).join("、") : legAmounts(after.payers),
       ...(detail ? { detail } : {}),
     });
   }
@@ -220,8 +220,8 @@ export function diffRecords(before: RecordSnapshot, after: RecordSnapshot): Chan
     out.push({
       key: "splits",
       label: "分帳",
-      before: (detail ? `${before.splits.length} 人` : legAmounts(before.splits)) || NONE,
-      after: (detail ? `${after.splits.length} 人` : legAmounts(after.splits)) || NONE,
+      before: detail ? `${before.splits.length} 人` : legAmounts(before.splits),
+      after: detail ? `${after.splits.length} 人` : legAmounts(after.splits),
       ...(detail ? { detail } : {}),
     });
   }
@@ -248,6 +248,59 @@ export function diffRecords(before: RecordSnapshot, after: RecordSnapshot): Chan
   // nothing, however it was arrived at. Better to drop the row — and if that
   // empties the diff, to write no log entry at all.
   return out.filter((c) => c.before !== c.after || c.detail !== undefined);
+}
+
+/* ── row wording ──────────────────────────────────────────────────────── */
+
+/** What `changeHeading` and `rateLockImpact` need — `ActivityEntry` satisfies it. */
+export type HeadingInput = {
+  action: AuditAction;
+  recordType: string;
+  recordLabel?: string | null;
+  changes?: ChangedField[];
+  rateLock?: { base: string; rate: number | null } | null;
+};
+
+/**
+ * The bold first line of a row.
+ *
+ * Lives here rather than in the component so it can be tested: this is the
+ * line that read "改了金額、付款人、分帳" for what was a single amount edit,
+ * and nothing would have caught it.
+ *
+ * `withRecordName` is true on the group feed, where a row has to say which
+ * record it is about. On a record's own page that is already the page title,
+ * so the heading spends itself naming the fields that moved instead.
+ */
+export function changeHeading(entry: HeadingInput, withRecordName: boolean): string {
+  const kind = entry.recordType === "settlement" ? "還款" : "支出";
+  const named = entry.recordLabel?.trim() || kind;
+
+  switch (entry.action) {
+    case "created":
+      return withRecordName ? `新增了 ${named}` : `新增了${kind}`;
+    case "deleted":
+      return withRecordName ? `刪除了 ${named}` : `刪除了${kind}`;
+    case "rate_locked": {
+      if (!entry.rateLock) return "鎖定了匯率";
+      const rate = entry.rateLock.rate != null ? ` ${entry.rateLock.rate}` : "";
+      return `鎖定了 ${entry.rateLock.base} 匯率${rate}`;
+    }
+    default: {
+      if (withRecordName) return `改了 ${named}`;
+      const fields = entry.changes?.map((c) => c.label).join("、");
+      return `改了${fields || "內容"}`;
+    }
+  }
+}
+
+/** "影響 12 筆支出 · 3 筆轉帳" — a kind with nothing in it is left out entirely. */
+export function rateLockImpact(counts: { expenses: number; settlements: number }): string {
+  const parts = [
+    counts.expenses > 0 ? `${counts.expenses} 筆支出` : null,
+    counts.settlements > 0 ? `${counts.settlements} 筆轉帳` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? `影響 ${parts.join(" · ")}` : "沒有影響既有紀錄";
 }
 
 /**

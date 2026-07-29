@@ -6,6 +6,7 @@ import { ChevronRight, Lock } from "lucide-react";
 import { Avatar } from "@/components/mini/Avatar";
 import { dayLabel, stampLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
+import { changeHeading, rateLockImpact } from "@/lib/record-audit";
 import type { ActivityEntry } from "@/lib/record-history";
 
 /**
@@ -38,39 +39,8 @@ type Props = {
   groupByDay?: boolean;
 };
 
-/** "改了 晚餐" on the feed, "改了金額" on a record's own page. */
-function actionText(entry: ActivityEntry, showRecordLabel: boolean): string {
-  const kind = entry.recordType === "settlement" ? "還款" : "支出";
-  const name = entry.recordLabel?.trim();
-  const target = showRecordLabel ? ` ${name || kind}` : "";
-
-  switch (entry.action) {
-    case "created":
-      return `新增了${target || kind}`;
-    case "deleted":
-      return `刪除了${target || kind}`;
-    case "rate_locked":
-      return entry.rateLock
-        ? `鎖定了 ${entry.rateLock.base} 匯率${entry.rateLock.rate != null ? ` ${entry.rateLock.rate}` : ""}`
-        : "鎖定了匯率";
-    default:
-      // On a record's own page the changed fields carry the detail, so the
-      // heading names them instead of repeating the record.
-      return showRecordLabel
-        ? `改了${target || kind}`
-        : `改了${entry.changes?.map((c) => c.label).join("、") || "內容"}`;
-  }
-}
-
 function ChangeLine({ entry }: { entry: ActivityEntry }) {
-  if (entry.rateLock) {
-    const { expenses, settlements } = entry.rateLock;
-    const parts = [
-      expenses > 0 ? `${expenses} 筆支出` : null,
-      settlements > 0 ? `${settlements} 筆轉帳` : null,
-    ].filter(Boolean);
-    return <>影響 {parts.join(" · ")}</>;
-  }
+  if (entry.rateLock) return <>{rateLockImpact(entry.rateLock)}</>;
 
   if (entry.changes?.length) {
     return (
@@ -148,7 +118,7 @@ function Row({
       )}
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-snug">
-          <span className="font-semibold">{who}</span> {actionText(entry, showRecordLabel)}
+          <span className="font-semibold">{who}</span> {changeHeading(entry, showRecordLabel)}
         </p>
         <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
           <ChangeLine entry={entry} />
