@@ -28,6 +28,12 @@ type Props = {
   groupId: string | number;
   /** Group feed names the record in each row; a record's own history doesn't. */
   showRecordLabel?: boolean;
+  /**
+   * Whether a row may link to its record's history. False on that history page
+   * itself — every row there would link to the page you are already on, which
+   * renders a chevron that promises navigation and then does nothing.
+   */
+  linkRows?: boolean;
   /** Day headings only make sense on the feed; a record's history is short. */
   groupByDay?: boolean;
 };
@@ -98,6 +104,7 @@ function Row({
   groupId,
   showRecordLabel,
   showDate,
+  linkRows,
 }: {
   entry: ActivityEntry;
   photos?: Record<number, string | null>;
@@ -106,6 +113,7 @@ function Row({
   groupId: string | number;
   showRecordLabel: boolean;
   showDate: boolean;
+  linkRows: boolean;
 }) {
   const who = entry.actor
     ? labelUser({ ...entry.actor, userId: entry.actor.userId }, currentUserId)
@@ -117,7 +125,10 @@ function Row({
   // A deleted record has nowhere to go, and a rate lock belongs to the group
   // rather than to any one row — neither is tappable.
   const href =
-    entry.recordId != null && entry.action !== "deleted" && entry.action !== "rate_locked"
+    linkRows &&
+    entry.recordId != null &&
+    entry.action !== "deleted" &&
+    entry.action !== "rate_locked"
       ? `${appBase}/groups/${groupId}/activity?record=${entry.recordId}`
       : null;
 
@@ -178,6 +189,7 @@ export function ActivityList({
   groupId,
   showRecordLabel = false,
   groupByDay = false,
+  linkRows = true,
 }: Props) {
   if (!groupByDay) {
     return (
@@ -193,6 +205,7 @@ export function ActivityList({
               groupId={groupId}
               showRecordLabel={showRecordLabel}
               showDate
+              linkRows={linkRows}
             />
           ))}
         </div>
@@ -223,6 +236,7 @@ export function ActivityList({
                 groupId={groupId}
                 showRecordLabel={showRecordLabel}
                 showDate={false}
+                linkRows={linkRows}
               />
             ))}
           </div>

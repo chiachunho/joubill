@@ -64,6 +64,46 @@ describe("diffRecords", () => {
     expect(changed[0].key).toBe("currency");
   });
 
+  it("reports a rescaled total once, not once per leg", () => {
+    // Dropping 1,000 → 100 rescales the payer's contribution and the single
+    // share along with it. Reported per-leg, one edit reads as three changes,
+    // two of which render as "Alice → Alice".
+    const before = snapshot({
+      amount: 1000,
+      payers: [{ user: alice, amount: 1000 }],
+      splits: [{ user: alice, amount: 1000 }],
+    });
+    const after = snapshot({
+      amount: 100,
+      payers: [{ user: alice, amount: 100 }],
+      splits: [{ user: alice, amount: 100 }],
+    });
+    expect(diffRecords(before, after).map((c) => c.key)).toEqual(["amount"]);
+  });
+
+  it("still reports a redistribution that leaves the total alone", () => {
+    const after = snapshot({
+      splits: [
+        { user: alice, amount: 900 },
+        { user: bob, amount: 300 },
+      ],
+    });
+    const [change] = diffRecords(snapshot(), after);
+    // Amounts, not "2 人 → 2 人", which would say nothing.
+    expect(change).toMatchObject({
+      key: "splits",
+      before: "Alice 600、Bob 600",
+      after: "Alice 900、Bob 300",
+    });
+  });
+
+  it("drops any row whose two sides read identically", () => {
+    // Whatever produced it, "X → X" is not a change a reader can use.
+    for (const change of diffRecords(snapshot(), snapshot({ amount: 2400 }))) {
+      expect(change.before).not.toBe(change.after);
+    }
+  });
+
   it("names who left and who joined a split", () => {
     const after = snapshot({
       splits: [

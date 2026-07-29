@@ -102,12 +102,45 @@ function membershipDetail(before: NoticeLeg[], after: NoticeLeg[]): string | und
   return parts.join(" · ");
 }
 
-/** True when the same people owe/paid the same amounts, in any order. */
-function legsEqual(a: NoticeLeg[], b: NoticeLeg[]): boolean {
+/** True when the same people appear on both sides, in any order. */
+function sameMembership(a: NoticeLeg[], b: NoticeLeg[]): boolean {
   if (a.length !== b.length) return false;
-  const key = (l: NoticeLeg) => `${l.user.userId}:${l.amount}`;
-  const sorted = (legs: NoticeLeg[]) => legs.map(key).sort();
-  return sorted(a).every((k, i) => k === sorted(b)[i]);
+  const ids = new Set(legIds(a));
+  return b.every((l) => ids.has(l.user.userId));
+}
+
+/** Proportions are compared, not amounts, so 1,000 → 100 doesn't read as three changes. */
+const SHARE_EPSILON = 0.005;
+
+/**
+ * Whether the legs still divide the record the same way.
+ *
+ * Changing the total rescales every payer contribution and every share, so a
+ * naive amount comparison reports 付款人 and 分帳 as having changed too — three
+ * rows, all restating the one edit, and two of them rendering as "X → X"
+ * because the names never moved. Comparing each person's *proportion* of the
+ * total separates "the total moved" from "the split moved".
+ */
+function distributionUnchanged(
+  before: NoticeLeg[],
+  after: NoticeLeg[],
+  beforeTotal: number,
+  afterTotal: number,
+): boolean {
+  if (!sameMembership(before, after)) return false;
+
+  const share = (leg: NoticeLeg, total: number) => (total > 0 ? leg.amount / total : leg.amount);
+  const afterById = new Map(after.map((l) => [l.user.userId, l] as const));
+
+  return before.every((b) => {
+    const a = afterById.get(b.user.userId);
+    return a !== undefined && Math.abs(share(b, beforeTotal) - share(a, afterTotal)) <= SHARE_EPSILON;
+  });
+}
+
+/** "Alice 600、Bob 400" — names alone cannot show a redistribution. */
+function legAmounts(legs: NoticeLeg[]): string {
+  return legs.map((l) => `${labelUser(l.user)} ${fmtGrouped(l.amount)}`).join("、");
 }
 
 function dateLabel(iso: string): string {
@@ -170,22 +203,25 @@ export function diffRecords(before: RecordSnapshot, after: RecordSnapshot): Chan
     });
   }
 
-  if (!legsEqual(before.payers, after.payers)) {
+  if (!distributionUnchanged(before.payers, after.payers, before.amount, after.amount)) {
+    // Who paid, when the people changed; how much each paid, when they didn't.
+    const detail = membershipDetail(before.payers, after.payers);
     out.push({
       key: "payers",
       label: "付款人",
-      before: legNames(before.payers).join("、") || NONE,
-      after: legNames(after.payers).join("、") || NONE,
+      before: (detail ? legNames(before.payers).join("、") : legAmounts(before.payers)) || NONE,
+      after: (detail ? legNames(after.payers).join("、") : legAmounts(after.payers)) || NONE,
+      ...(detail ? { detail } : {}),
     });
   }
 
-  if (!legsEqual(before.splits, after.splits)) {
+  if (!distributionUnchanged(before.splits, after.splits, before.amount, after.amount)) {
     const detail = membershipDetail(before.splits, after.splits);
     out.push({
       key: "splits",
       label: "分帳",
-      before: `${before.splits.length} 人`,
-      after: `${after.splits.length} 人`,
+      before: (detail ? `${before.splits.length} 人` : legAmounts(before.splits)) || NONE,
+      after: (detail ? `${after.splits.length} 人` : legAmounts(after.splits)) || NONE,
       ...(detail ? { detail } : {}),
     });
   }
@@ -208,7 +244,10 @@ export function diffRecords(before: RecordSnapshot, after: RecordSnapshot): Chan
     });
   }
 
-  return out;
+  // Last line of defence: a row whose two sides read the same tells the reader
+  // nothing, however it was arrived at. Better to drop the row — and if that
+  // empties the diff, to write no log entry at all.
+  return out.filter((c) => c.before !== c.after || c.detail !== undefined);
 }
 
 /**
