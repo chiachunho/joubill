@@ -3,17 +3,25 @@ import { eq } from "drizzle-orm";
 
 import { renderCard } from "@/bot/expenseCard";
 import { db } from "@/db";
-import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
+import {
+  expensePayers,
+  expenseReceipts,
+  expenseSplits,
+  expenses,
+  groups,
+  users,
+} from "@/db/schema";
 import { BTN } from "@/lib/buttons";
 import { settlementLink } from "@/lib/deep-link";
 import { n } from "@/lib/money";
+import { type RecordSnapshot } from "@/lib/record-audit";
 import {
   formatDeletedNotice,
   formatSettlementNotice,
   type NoticeLeg,
   type NoticePerson,
-  type NoticeRecord,
 } from "@/lib/record-notice";
+import { resolveReceiptFileIds } from "@/lib/receipts";
 
 /**
  * Group-chat messages for records (expenses and settlements).
@@ -39,14 +47,27 @@ import {
  * message someone deleted, must never fail the API request that triggered it.
  */
 
+/**
+ * Anything that can run a select: the pooled `db`, or an open transaction.
+ * Callers that need a snapshot to line up exactly with a write pass their
+ * transaction, so a concurrent edit can't slip in between the two.
+ */
+export type Executor = Pick<typeof db, "select">;
+
 export type LoadedNotice = {
   recordId: number;
   groupId: number;
   chatId: number;
   noticeMessageId: number | null;
   /** Who recorded it, for the deleted-record line. */
-  creator: (NoticePerson & { userId: number }) | null;
-  record: NoticeRecord;
+  creator: NoticePerson | null;
+  /**
+   * Full snapshot rather than just what the message renders. The audit log
+   * (`src/lib/record-mutation.ts`) stores this same object as its before/after,
+   * so there is exactly one loader and one shape — a change can't be described
+   * one way in the chat and another way in the log.
+   */
+  record: RecordSnapshot;
 };
 
 /** Cached across invocations in the same lambda — the username never changes. */
@@ -69,10 +90,13 @@ async function botUsername(api: Api): Promise<string | null> {
  * Callers handling a deletion must call this *before* deleting the row — the
  * record (and its message id) are gone afterwards.
  */
-export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice | null> {
+export async function loadNoticeRecord(
+  recordId: number,
+  exec: Executor = db,
+): Promise<LoadedNotice | null> {
   const creatorUser = users;
 
-  const [row] = await db
+  const [row] = await exec
     .select({
       id: expenses.id,
       groupId: expenses.groupId,
@@ -80,6 +104,10 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
       amount: expenses.amount,
       currency: expenses.currency,
       description: expenses.description,
+      spentAt: expenses.spentAt,
+      fxRate: expenses.fxRate,
+      fxQuote: expenses.fxQuote,
+      receiptFileId: expenses.receiptFileId,
       noticeMessageId: expenses.noticeMessageId,
       chatId: groups.telegramChatId,
       creatorId: creatorUser.id,
@@ -95,10 +123,11 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
 
   if (!row) return null;
 
-  const [payerRows, splitRows] = await Promise.all([
-    db
+  const [payerRows, splitRows, receiptRows] = await Promise.all([
+    exec
       .select({
         amount: expensePayers.amount,
+        userId: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
         username: users.username,
@@ -108,9 +137,10 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
       .innerJoin(users, eq(users.id, expensePayers.payerId))
       .where(eq(expensePayers.expenseId, recordId))
       .orderBy(expensePayers.id),
-    db
+    exec
       .select({
         amount: expenseSplits.amount,
+        userId: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
         username: users.username,
@@ -120,11 +150,16 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
       .innerJoin(users, eq(users.id, expenseSplits.debtorId))
       .where(eq(expenseSplits.expenseId, recordId))
       .orderBy(expenseSplits.id),
+    exec
+      .select({ fileId: expenseReceipts.fileId })
+      .from(expenseReceipts)
+      .where(eq(expenseReceipts.expenseId, recordId)),
   ]);
 
   const toLeg = (r: (typeof payerRows)[number]): NoticeLeg => ({
     amount: n(r.amount),
     user: {
+      userId: r.userId,
       firstName: r.firstName,
       lastName: r.lastName,
       username: r.username,
@@ -152,6 +187,13 @@ export async function loadNoticeRecord(recordId: number): Promise<LoadedNotice |
       amount: n(row.amount),
       currency: row.currency,
       description: row.description,
+      spentAt: row.spentAt.toISOString(),
+      fxRate: row.fxRate != null ? n(row.fxRate) : null,
+      fxQuote: row.fxQuote,
+      receipts: resolveReceiptFileIds(
+        receiptRows.map((r) => r.fileId),
+        row.receiptFileId,
+      ).length,
       payers: payerRows.map(toLeg),
       splits: splitRows.map(toLeg),
     },
@@ -165,7 +207,7 @@ export function deleterOf(u: {
   lastName: string | null;
   username: string | null;
   telegramId: number | null;
-}): NoticePerson & { userId: number } {
+}): NoticePerson {
   return {
     userId: u.id,
     firstName: u.firstName,
@@ -286,7 +328,7 @@ export async function updateRecordNotice(api: Api, recordId: number): Promise<vo
 export async function markNoticeDeleted(
   api: Api,
   snapshot: LoadedNotice | null,
-  deleter: NoticePerson & { userId: number },
+  deleter: NoticePerson,
 ): Promise<void> {
   if (!snapshot?.noticeMessageId) return;
   try {

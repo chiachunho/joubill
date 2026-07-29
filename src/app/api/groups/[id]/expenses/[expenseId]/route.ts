@@ -8,7 +8,8 @@ import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { fxColumnsFor } from "@/lib/fx";
 import { n } from "@/lib/money";
-import { deleterOf, loadNoticeRecord, markNoticeDeleted, updateRecordNotice } from "@/lib/notify";
+import { loadLastActivity } from "@/lib/record-history";
+import { logDeleted, logUpdated } from "@/lib/record-mutation";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
 
@@ -72,12 +73,23 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     expense.receiptFileId,
   );
 
+  const lastActivity = await loadLastActivity(ids.eid);
+
   return NextResponse.json({
     id: expense.id,
     // Who entered this. The edit form shows it beside the destructive actions —
     // attribution is what replaces the removed owner lock, so dropping it here
     // silently disables the feature (the form's type keeps this honest).
     createdBy: expense.createdBy,
+    // When they entered it. Distinct from spentAt, which is the date of the
+    // expense itself and is already an editable field on the form.
+    createdAt: expense.createdAt,
+    // Null until someone edits it: createdBy already speaks for an untouched
+    // record, and repeating it as "last modified" would be noise.
+    lastActivity: lastActivity && {
+      actorId: lastActivity.actor?.userId ?? null,
+      at: lastActivity.at,
+    },
     amount: n(expense.amount),
     currency: expense.currency,
     fxRate: expense.fxRate != null ? n(expense.fxRate) : null,
@@ -146,7 +158,9 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
     existing.fxQuote !== group.defaultCurrency &&
     input.currency === existing.currency;
 
-  await db.transaction(async (tx) => {
+  // logUpdated snapshots the record either side of the write, logs the diff and
+  // refreshes the group message. Anything that edits a record goes through it.
+  await logUpdated(getBot().api, ids.eid, { userId: auth.user.id, source: "app" }, async (tx) => {
     await tx
       .update(expenses)
       .set({
@@ -201,8 +215,6 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
     }
   });
 
-  await updateRecordNotice(getBot().api, ids.eid);
-
   return NextResponse.json({ ok: true });
 });
 
@@ -227,13 +239,20 @@ export const DELETE = withAuth(async (req: Request, ctx: Params) => {
     );
   if (!expense) return NextResponse.json({ error: "expense not found" }, { status: 404 });
 
-  // Snapshot the notice before the row (and its message id) disappear.
-  const notice = await loadNoticeRecord(ids.eid);
-
-  await db.delete(expenses).where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
-  // expense_payers and expense_splits cascade-deleted via FK.
-
-  await markNoticeDeleted(getBot().api, notice, deleterOf(auth.user));
+  // logDeleted snapshots before the row (and its message id) disappear, writes
+  // the log entry and edits the group message into its tombstone.
+  await logDeleted(
+    getBot().api,
+    ids.eid,
+    { userId: auth.user.id, source: "app" },
+    auth.user,
+    async (tx) => {
+      await tx
+        .delete(expenses)
+        .where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
+      // expense_payers and expense_splits cascade-deleted via FK.
+    },
+  );
 
   return NextResponse.json({ ok: true });
 });

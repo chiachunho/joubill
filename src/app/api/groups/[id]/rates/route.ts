@@ -8,9 +8,11 @@ import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { loadGroupRateOverrides } from "@/lib/fx";
 import { n } from "@/lib/money";
+import { logRateLock } from "@/lib/record-mutation";
 import {
   affectedCurrencyFor,
   applyRateLock,
+  lockedIds,
   planRateLock,
   type RateLockPlan,
 } from "@/lib/rate-lock";
@@ -154,6 +156,27 @@ export const PUT = withAuth(async (req: Request, { params }: Params) => {
     return saved;
   });
 
+  // One row for a change that rewrote many records: the user performed a single
+  // group-level action, and fanning it out would bury the day's real edits.
+  // The affected ids ride along so a single record's history can still explain
+  // why its converted amount moved.
+  if (plan) {
+    await logRateLock(
+      groupId,
+      { userId: auth.user.id, source: "app" },
+      {
+        kind: "rateLock",
+        base: plan.base,
+        quote: plan.quote,
+        // The plan is always stated as affected-currency → group default, while
+        // the request may name the pair the other way round. Logging the
+        // request's number under the plan's pair would print an inverted rate.
+        rate: base === plan.base ? rate : 1 / rate,
+        ...lockedIds(plan),
+      },
+    );
+  }
+
   return NextResponse.json({
     id: row.id,
     base: row.base,
@@ -216,6 +239,15 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
         ),
       );
   });
+
+  if (plan) {
+    // rate null: the agreed rate is gone, and the pins now hold what it was.
+    await logRateLock(
+      groupId,
+      { userId: auth.user.id, source: "app" },
+      { kind: "rateLock", base: plan.base, quote: plan.quote, rate: null, ...lockedIds(plan) },
+    );
+  }
 
   return NextResponse.json({
     ok: true,

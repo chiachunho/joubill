@@ -12,6 +12,8 @@ type Member = { id: number; firstName: string; lastName: string | null; username
 type ExpenseDetail = {
   id: number;
   createdBy: number | null;
+  createdAt: string | null;
+  lastActivity: { actorId: number | null; at: string } | null;
   amount: number;
   currency: string;
   fxRate: number | null;

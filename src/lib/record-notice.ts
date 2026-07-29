@@ -15,6 +15,9 @@ import { escapeHtml, mention } from "@/lib/telegram-html";
  */
 
 export type NoticePerson = {
+  /** Required so a snapshot stored in the audit log can still key an avatar or
+   *  a mention later, when the name captured alongside it has gone stale. */
+  userId: number;
   firstName: string;
   lastName?: string | null;
   username: string | null;

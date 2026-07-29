@@ -8,7 +8,7 @@ import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { resolveRecordFx } from "@/lib/fx";
 import { n } from "@/lib/money";
-import { sendRecordNotice } from "@/lib/notify";
+import { logCreated } from "@/lib/record-mutation";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
 
@@ -211,7 +211,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     return row;
   });
 
-  await sendRecordNotice(getBot().api, expense.id);
+  await logCreated(getBot().api, expense.id, { userId: auth.user.id, source: "app" });
 
   return NextResponse.json({ id: expense.id }, { status: 201 });
 });

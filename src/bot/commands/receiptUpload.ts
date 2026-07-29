@@ -2,10 +2,12 @@ import { Composer } from "grammy";
 import { and, eq, lt } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenses, receiptAwaiting } from "@/db/schema";
+import { receiptAwaiting } from "@/db/schema";
 import { ADD_USAGE, parseAddMessage } from "@/lib/parseAdd";
 
+import { actorOf } from "../actor";
 import { staleAwaitingBefore } from "../awaiting";
+import { setExpenseReceipt } from "../expenseEdits";
 import { handleAddParsed } from "./add";
 import type { BotContext } from "../context";
 
@@ -35,10 +37,9 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
         return;
       }
       await Promise.all([
-        db
-          .update(expenses)
-          .set({ receiptFileId: fileId, updatedAt: new Date() })
-          .where(eq(expenses.id, pending.expenseId)),
+        // Passing the api refreshes the expense's card, which otherwise keeps
+        // offering 🧾 收據 for a receipt that has already been attached.
+        setExpenseReceipt(pending.expenseId, fileId, actorOf(ctx), ctx.api),
         db.delete(receiptAwaiting).where(eq(receiptAwaiting.id, pending.id)),
         ctx.api.deleteMessage(ctx.chat.id, replyToId).catch(() => undefined),
       ]);

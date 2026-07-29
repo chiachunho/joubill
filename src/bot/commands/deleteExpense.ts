@@ -4,9 +4,11 @@ import { eq } from "drizzle-orm";
 import { TOAST } from "@/lib/buttons";
 import { db } from "@/db";
 import { expenses } from "@/db/schema";
-import { deleterOf, loadNoticeRecord } from "@/lib/notify";
+import { deleterOf } from "@/lib/notify";
+import { logDeleted } from "@/lib/record-mutation";
 import { formatDeletedNotice } from "@/lib/record-notice";
 
+import { actorOf } from "../actor";
 import type { BotContext } from "../context";
 
 export const deleteExpenseCallback = new Composer<BotContext>();
@@ -21,26 +23,31 @@ deleteExpenseCallback.callbackQuery(/^del_exp:(\d+)$/, async (ctx) => {
     return;
   }
 
-  // Loaded before the delete: the record is gone afterwards, and the message
-  // left behind is rendered from this snapshot.
-  const notice = await loadNoticeRecord(recordId);
-
   // Callback data is attacker-controlled, so the id alone proves nothing: without
   // this the button would delete an expense belonging to any other group. The
   // bot-side equivalent of the REST layer's assertGroupMember.
-  if (!notice || !ctx.dbGroup || notice.groupId !== ctx.dbGroup.id) {
+  const [target] = await db
+    .select({ groupId: expenses.groupId })
+    .from(expenses)
+    .where(eq(expenses.id, recordId));
+  if (!target || !ctx.dbGroup || target.groupId !== ctx.dbGroup.id) {
     await ctx.answerCallbackQuery({ text: TOAST.recordGone, show_alert: true });
     return;
   }
 
   // Anyone in the group may delete — see CLAUDE.md. What replaces the lock is
-  // attribution: the message left behind says what went and who removed it, so
-  // a wrong deletion is visible in the chat and retypeable, not silent.
+  // attribution: the log records who removed it, and the message left behind
+  // says so too, so a wrong deletion is visible in the chat and retypeable.
   //
-  // expensePayers / expenseSplits are cascade-deleted by the FK constraint
-  await db.delete(expenses).where(eq(expenses.id, recordId));
+  // `null` api because the message to rewrite is the card this button sits on,
+  // edited below. logDeleted hands back the snapshot it took before the row
+  // (and its payers/splits, cascade-deleted by FK) disappeared.
+  const notice = await logDeleted(null, recordId, actorOf(ctx), user, async (tx) => {
+    await tx.delete(expenses).where(eq(expenses.id, recordId));
+  });
 
   await ctx.answerCallbackQuery({ text: "已刪除" });
+  if (!notice) return;
 
   // Editing "the" message hits the card this button sits on. Omitting
   // reply_markup clears the now-dangling buttons. Rendered through the same

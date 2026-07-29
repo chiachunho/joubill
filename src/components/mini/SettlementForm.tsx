@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR, { mutate } from "swr";
-import { ArrowLeft, Calendar as CalendarIcon } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, ChevronRight } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { CopyBeancountButton } from "@/components/mini/CopyBeancountButton";
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useAuthMode } from "@/components/AuthProvider";
 import { deleteErrorMessage } from "@/lib/api-error";
+import { stampLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
@@ -49,6 +51,11 @@ type Initial = {
   /** Required, not optional: an omitted field here is exactly how the
    *  attribution silently stopped rendering once before. */
   createdBy: number | null;
+  /** When it was entered — distinct from settledAt, the date of the repayment.
+   *  Required for the same reason createdBy is. */
+  createdAt: string | null;
+  /** The most recent edit, or null when nobody has touched it since. */
+  lastActivity: { actorId: number | null; at: string } | null;
   amount: number;
   currency: string;
   fxRate?: number | null;
@@ -81,6 +88,8 @@ function dayToNoonUtcIso(d: Date): string {
 export function SettlementForm({ groupId, defaultCurrency, currentUserId, members, photos, initial, returnPath }: Props) {
   const router = useRouter();
   const mode = useAuthMode();
+  // "tma" → /mini, "web" → /app. Same split the fetchers make below.
+  const appBase = mode === "web" ? "/app" : "/mini";
   const isEdit = !!initial;
 
   // Anyone in the group may edit or delete any record, so who entered it is
@@ -91,6 +100,17 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
   const recordedBy = recorder ? labelUser({ ...recorder, userId: recorder.id }, currentUserId) : null;
   const recordedBySomeoneElse =
     initial?.createdBy != null && initial.createdBy !== currentUserId;
+
+  // Only rendered once someone has actually edited the record — see ExpenseForm.
+  const lastEditor = initial?.lastActivity
+    ? members.find((m) => m.id === initial.lastActivity?.actorId)
+    : undefined;
+  const lastEdit = initial?.lastActivity
+    ? {
+        by: lastEditor ? labelUser({ ...lastEditor, userId: lastEditor.id }, currentUserId) : "?",
+        at: initial.lastActivity.at,
+      }
+    : null;
   const back = returnPath ?? `/mini/groups/${groupId}`;
 
   const backToList = useCallback(() => {
@@ -420,7 +440,22 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
 
         {/* Actions */}
         {isEdit && recordedBy && (
-          <p className="text-xs text-muted-foreground">由 {recordedBy} 記錄</p>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">
+              由 {recordedBy} {initial?.createdAt ? `於 ${stampLabel(initial.createdAt)} ` : ""}記錄
+            </p>
+            {lastEdit && (
+              <Link
+                href={`${appBase}/groups/${groupId}/activity?record=${initial!.id}`}
+                className="-mx-2 flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary"
+              >
+                <span>
+                  最後由 {lastEdit.by} 於 {stampLabel(lastEdit.at)} 修改
+                </span>
+                <ChevronRight className="size-3.5 shrink-0" />
+              </Link>
+            )}
+          </div>
         )}
         <div className="flex gap-2 pt-1">
           <Button

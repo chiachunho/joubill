@@ -4,6 +4,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -280,6 +281,55 @@ export const groupDeleteRequests = pgTable("group_delete_requests", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Who changed which record, when, and what it looked like before and after.
+ *
+ * This is the accounting that replaces the per-record owner lock: any group
+ * member may edit any record (see CLAUDE.md, "Who may edit or delete a
+ * record"), so a change has to be attributable after the fact.
+ *
+ * **`recordId` deliberately has no foreign key.** `ON DELETE CASCADE` would
+ * erase "who deleted this expense" at the exact moment that row becomes the
+ * only evidence, and even `SET NULL` would orphan the record's own history. The
+ * `before`/`after` snapshots stand alone, so a deleted record keeps a readable
+ * past. `groupId` *does* cascade — deleting the group is meant to take its log
+ * with it.
+ *
+ * `recordId` is NULL for group-level events (`rate_locked`), which are logged
+ * once rather than once per touched row. Those still have to be findable from a
+ * single record's history, so the affected ids live in `after` — see
+ * `src/lib/record-audit.ts`.
+ */
+export const recordAuditLog = pgTable(
+  "record_audit_log",
+  {
+    id: serial("id").primaryKey(),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    /** The `expenses.id` this is about; NULL for group-level events. No FK — see above. */
+    recordId: integer("record_id"),
+    /** 'expense' | 'settlement' | 'group' */
+    recordType: varchar("record_type", { length: 16 }).notNull(),
+    /** 'created' | 'updated' | 'deleted' | 'rate_locked' */
+    action: varchar("action", { length: 24 }).notNull(),
+    actorId: integer("actor_id")
+      .notNull()
+      .references(() => users.id),
+    /** Which surface the change came from: 'bot' | 'app'. */
+    source: varchar("source", { length: 8 }).notNull(),
+    /** RecordSnapshot; NULL on 'created'. */
+    before: jsonb("before"),
+    /** RecordSnapshot, or the rate-lock payload; NULL on 'deleted'. */
+    after: jsonb("after"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("record_audit_group_idx").on(t.groupId, t.createdAt),
+    index("record_audit_record_idx").on(t.recordId),
+  ],
+);
+
 // Convenient row types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -303,3 +353,5 @@ export type ReceiptAwaiting = typeof receiptAwaiting.$inferSelect;
 export type AddAwaiting = typeof addAwaiting.$inferSelect;
 export type ExpenseReceipt = typeof expenseReceipts.$inferSelect;
 export type GroupDeleteRequest = typeof groupDeleteRequests.$inferSelect;
+export type RecordAuditLog = typeof recordAuditLog.$inferSelect;
+export type NewRecordAuditLog = typeof recordAuditLog.$inferInsert;

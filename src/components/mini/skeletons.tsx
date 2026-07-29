@@ -237,3 +237,29 @@ export function FormSkeleton({ variant }: { variant: "expense" | "settlement" })
     </div>
   );
 }
+
+/** Activity feed: title + a day heading and a panel of two-line rows. */
+export function ActivitySkeleton() {
+  return (
+    <div className="space-y-6 py-4">
+      <div className="px-4">
+        <Skeleton className="h-5 w-20" />
+      </div>
+      <section className="px-4">
+        <Skeleton className="mb-2.5 h-3 w-16" />
+        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3">
+              <Skeleton className="size-7 shrink-0 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-2.5 w-2/5" />
+              </div>
+              <Skeleton className="h-2.5 w-8 shrink-0" />
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
