@@ -102,12 +102,45 @@ function membershipDetail(before: NoticeLeg[], after: NoticeLeg[]): string | und
   return parts.join(" · ");
 }
 
-/** True when the same people owe/paid the same amounts, in any order. */
-function legsEqual(a: NoticeLeg[], b: NoticeLeg[]): boolean {
+/** True when the same people appear on both sides, in any order. */
+function sameMembership(a: NoticeLeg[], b: NoticeLeg[]): boolean {
   if (a.length !== b.length) return false;
-  const key = (l: NoticeLeg) => `${l.user.userId}:${l.amount}`;
-  const sorted = (legs: NoticeLeg[]) => legs.map(key).sort();
-  return sorted(a).every((k, i) => k === sorted(b)[i]);
+  const ids = new Set(legIds(a));
+  return b.every((l) => ids.has(l.user.userId));
+}
+
+/** Proportions are compared, not amounts, so 1,000 → 100 doesn't read as three changes. */
+const SHARE_EPSILON = 0.005;
+
+/**
+ * Whether the legs still divide the record the same way.
+ *
+ * Changing the total rescales every payer contribution and every share, so a
+ * naive amount comparison reports 付款人 and 分帳 as having changed too — three
+ * rows, all restating the one edit, and two of them rendering as "X → X"
+ * because the names never moved. Comparing each person's *proportion* of the
+ * total separates "the total moved" from "the split moved".
+ */
+function distributionUnchanged(
+  before: NoticeLeg[],
+  after: NoticeLeg[],
+  beforeTotal: number,
+  afterTotal: number,
+): boolean {
+  if (!sameMembership(before, after)) return false;
+
+  const share = (leg: NoticeLeg, total: number) => (total > 0 ? leg.amount / total : leg.amount);
+  const afterById = new Map(after.map((l) => [l.user.userId, l] as const));
+
+  return before.every((b) => {
+    const a = afterById.get(b.user.userId);
+    return a !== undefined && Math.abs(share(b, beforeTotal) - share(a, afterTotal)) <= SHARE_EPSILON;
+  });
+}
+
+/** "Alice 600、Bob 400" — names alone cannot show a redistribution. */
+function legAmounts(legs: NoticeLeg[]): string {
+  return legs.map((l) => `${labelUser(l.user)} ${fmtGrouped(l.amount)}`).join("、");
 }
 
 function dateLabel(iso: string): string {
@@ -170,22 +203,25 @@ export function diffRecords(before: RecordSnapshot, after: RecordSnapshot): Chan
     });
   }
 
-  if (!legsEqual(before.payers, after.payers)) {
+  if (!distributionUnchanged(before.payers, after.payers, before.amount, after.amount)) {
+    // Who paid, when the people changed; how much each paid, when they didn't.
+    const detail = membershipDetail(before.payers, after.payers);
     out.push({
       key: "payers",
       label: "付款人",
-      before: legNames(before.payers).join("、") || NONE,
-      after: legNames(after.payers).join("、") || NONE,
+      before: detail ? legNames(before.payers).join("、") : legAmounts(before.payers),
+      after: detail ? legNames(after.payers).join("、") : legAmounts(after.payers),
+      ...(detail ? { detail } : {}),
     });
   }
 
-  if (!legsEqual(before.splits, after.splits)) {
+  if (!distributionUnchanged(before.splits, after.splits, before.amount, after.amount)) {
     const detail = membershipDetail(before.splits, after.splits);
     out.push({
       key: "splits",
       label: "分帳",
-      before: `${before.splits.length} 人`,
-      after: `${after.splits.length} 人`,
+      before: detail ? `${before.splits.length} 人` : legAmounts(before.splits),
+      after: detail ? `${after.splits.length} 人` : legAmounts(after.splits),
       ...(detail ? { detail } : {}),
     });
   }
@@ -208,7 +244,63 @@ export function diffRecords(before: RecordSnapshot, after: RecordSnapshot): Chan
     });
   }
 
-  return out;
+  // Last line of defence: a row whose two sides read the same tells the reader
+  // nothing, however it was arrived at. Better to drop the row — and if that
+  // empties the diff, to write no log entry at all.
+  return out.filter((c) => c.before !== c.after || c.detail !== undefined);
+}
+
+/* ── row wording ──────────────────────────────────────────────────────── */
+
+/** What `changeHeading` and `rateLockImpact` need — `ActivityEntry` satisfies it. */
+export type HeadingInput = {
+  action: AuditAction;
+  recordType: string;
+  recordLabel?: string | null;
+  changes?: ChangedField[];
+  rateLock?: { base: string; rate: number | null } | null;
+};
+
+/**
+ * The bold first line of a row.
+ *
+ * Lives here rather than in the component so it can be tested: this is the
+ * line that read "改了金額、付款人、分帳" for what was a single amount edit,
+ * and nothing would have caught it.
+ *
+ * `withRecordName` is true on the group feed, where a row has to say which
+ * record it is about. On a record's own page that is already the page title,
+ * so the heading spends itself naming the fields that moved instead.
+ */
+export function changeHeading(entry: HeadingInput, withRecordName: boolean): string {
+  const kind = entry.recordType === "settlement" ? "還款" : "支出";
+  const named = entry.recordLabel?.trim() || kind;
+
+  switch (entry.action) {
+    case "created":
+      return withRecordName ? `新增了 ${named}` : `新增了${kind}`;
+    case "deleted":
+      return withRecordName ? `刪除了 ${named}` : `刪除了${kind}`;
+    case "rate_locked": {
+      if (!entry.rateLock) return "鎖定了匯率";
+      const rate = entry.rateLock.rate != null ? ` ${entry.rateLock.rate}` : "";
+      return `鎖定了 ${entry.rateLock.base} 匯率${rate}`;
+    }
+    default: {
+      if (withRecordName) return `改了 ${named}`;
+      const fields = entry.changes?.map((c) => c.label).join("、");
+      return `改了${fields || "內容"}`;
+    }
+  }
+}
+
+/** "影響 12 筆支出 · 3 筆轉帳" — a kind with nothing in it is left out entirely. */
+export function rateLockImpact(counts: { expenses: number; settlements: number }): string {
+  const parts = [
+    counts.expenses > 0 ? `${counts.expenses} 筆支出` : null,
+    counts.settlements > 0 ? `${counts.settlements} 筆轉帳` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? `影響 ${parts.join(" · ")}` : "沒有影響既有紀錄";
 }
 
 /**

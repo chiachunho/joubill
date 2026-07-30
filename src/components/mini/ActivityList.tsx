@@ -6,6 +6,7 @@ import { ChevronRight, Lock } from "lucide-react";
 import { Avatar } from "@/components/mini/Avatar";
 import { dayLabel, stampLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
+import { changeHeading, rateLockImpact } from "@/lib/record-audit";
 import type { ActivityEntry } from "@/lib/record-history";
 
 /**
@@ -28,43 +29,18 @@ type Props = {
   groupId: string | number;
   /** Group feed names the record in each row; a record's own history doesn't. */
   showRecordLabel?: boolean;
+  /**
+   * Whether a row may link to its record's history. False on that history page
+   * itself — every row there would link to the page you are already on, which
+   * renders a chevron that promises navigation and then does nothing.
+   */
+  linkRows?: boolean;
   /** Day headings only make sense on the feed; a record's history is short. */
   groupByDay?: boolean;
 };
 
-/** "改了 晚餐" on the feed, "改了金額" on a record's own page. */
-function actionText(entry: ActivityEntry, showRecordLabel: boolean): string {
-  const kind = entry.recordType === "settlement" ? "還款" : "支出";
-  const name = entry.recordLabel?.trim();
-  const target = showRecordLabel ? ` ${name || kind}` : "";
-
-  switch (entry.action) {
-    case "created":
-      return `新增了${target || kind}`;
-    case "deleted":
-      return `刪除了${target || kind}`;
-    case "rate_locked":
-      return entry.rateLock
-        ? `鎖定了 ${entry.rateLock.base} 匯率${entry.rateLock.rate != null ? ` ${entry.rateLock.rate}` : ""}`
-        : "鎖定了匯率";
-    default:
-      // On a record's own page the changed fields carry the detail, so the
-      // heading names them instead of repeating the record.
-      return showRecordLabel
-        ? `改了${target || kind}`
-        : `改了${entry.changes?.map((c) => c.label).join("、") || "內容"}`;
-  }
-}
-
 function ChangeLine({ entry }: { entry: ActivityEntry }) {
-  if (entry.rateLock) {
-    const { expenses, settlements } = entry.rateLock;
-    const parts = [
-      expenses > 0 ? `${expenses} 筆支出` : null,
-      settlements > 0 ? `${settlements} 筆轉帳` : null,
-    ].filter(Boolean);
-    return <>影響 {parts.join(" · ")}</>;
-  }
+  if (entry.rateLock) return <>{rateLockImpact(entry.rateLock)}</>;
 
   if (entry.changes?.length) {
     return (
@@ -98,6 +74,7 @@ function Row({
   groupId,
   showRecordLabel,
   showDate,
+  linkRows,
 }: {
   entry: ActivityEntry;
   photos?: Record<number, string | null>;
@@ -106,6 +83,7 @@ function Row({
   groupId: string | number;
   showRecordLabel: boolean;
   showDate: boolean;
+  linkRows: boolean;
 }) {
   const who = entry.actor
     ? labelUser({ ...entry.actor, userId: entry.actor.userId }, currentUserId)
@@ -117,7 +95,10 @@ function Row({
   // A deleted record has nowhere to go, and a rate lock belongs to the group
   // rather than to any one row — neither is tappable.
   const href =
-    entry.recordId != null && entry.action !== "deleted" && entry.action !== "rate_locked"
+    linkRows &&
+    entry.recordId != null &&
+    entry.action !== "deleted" &&
+    entry.action !== "rate_locked"
       ? `${appBase}/groups/${groupId}/activity?record=${entry.recordId}`
       : null;
 
@@ -137,7 +118,7 @@ function Row({
       )}
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-snug">
-          <span className="font-semibold">{who}</span> {actionText(entry, showRecordLabel)}
+          <span className="font-semibold">{who}</span> {changeHeading(entry, showRecordLabel)}
         </p>
         <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
           <ChangeLine entry={entry} />
@@ -178,6 +159,7 @@ export function ActivityList({
   groupId,
   showRecordLabel = false,
   groupByDay = false,
+  linkRows = true,
 }: Props) {
   if (!groupByDay) {
     return (
@@ -193,6 +175,7 @@ export function ActivityList({
               groupId={groupId}
               showRecordLabel={showRecordLabel}
               showDate
+              linkRows={linkRows}
             />
           ))}
         </div>
@@ -223,6 +206,7 @@ export function ActivityList({
                 groupId={groupId}
                 showRecordLabel={showRecordLabel}
                 showDate={false}
+                linkRows={linkRows}
               />
             ))}
           </div>

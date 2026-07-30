@@ -90,6 +90,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           groupId={id}
           showRecordLabel={!recordId}
           groupByDay={!recordId}
+          linkRows={!recordId}
         />
       )}
 
