@@ -239,17 +239,24 @@ export type SettlementFormValues = z.infer<typeof settlementFormSchema>;
 
 // ── Beancount account customisation (per-user, per-group) ────────────────────
 
-/** A full beancount account path, e.g. `Assets:Receivable` or `Expenses:Food:Dining`. */
+/**
+ * A full beancount account path, e.g. `Assets:Receivable` or `Expenses:Food:Dining`.
+ * Beancount's own grammar only requires each segment to start with a letter or digit
+ * (any Unicode letter, not just ASCII uppercase) — segments like `Assets:Flow:現金` are
+ * valid beancount syntax and parse fine.
+ */
 export const BEANCOUNT_ACCOUNT_RE =
-  /^(Assets|Liabilities|Equity|Income|Expenses)(:[\p{Lu}\p{N}][\p{L}\p{N}-]*)+$/u;
+  /^(Assets|Liabilities|Equity|Income|Expenses)(:[\p{L}\p{N}][\p{L}\p{N}-]*)+$/u;
 /** A single account leaf component (a person's name under the receivable prefix). */
-export const BEANCOUNT_LEAF_RE = /^[\p{Lu}\p{N}][\p{L}\p{N}-]*$/u;
+export const BEANCOUNT_LEAF_RE = /^[\p{L}\p{N}][\p{L}\p{N}-]*$/u;
 
-const beancountAccount = z
-  .string()
-  .trim()
-  .regex(BEANCOUNT_ACCOUNT_RE, "帳戶格式不正確（例如 Assets:Cash）");
-const beancountLeaf = z.string().trim().regex(BEANCOUNT_LEAF_RE, "名稱格式不正確");
+/** Shared with the settings-page inputs so the inline hint matches the API's rejection reason. */
+export const BEANCOUNT_ACCOUNT_HINT =
+  "每段路徑須以字母或數字開頭，例如 Assets:Cash 或 Assets:Flow:現金";
+export const BEANCOUNT_LEAF_HINT = "須以字母或數字開頭，例如 Kevin 或 阿明";
+
+const beancountAccount = z.string().trim().regex(BEANCOUNT_ACCOUNT_RE, BEANCOUNT_ACCOUNT_HINT);
+const beancountLeaf = z.string().trim().regex(BEANCOUNT_LEAF_RE, BEANCOUNT_LEAF_HINT);
 
 /** PUT body for a user's per-group beancount config. */
 export const beancountConfigInputSchema = z.object({

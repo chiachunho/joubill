@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { expenseInputSchema, settlementInputSchema } from "../zod";
+import { beancountConfigInputSchema, expenseInputSchema, settlementInputSchema } from "../zod";
 
 const validExpense = {
   amount: 300,
@@ -158,7 +158,10 @@ describe("expenseInputSchema", () => {
 
   it("accepts a receiptFileIds array", () => {
     expect(
-      expenseInputSchema.safeParse({ ...validExpense, receiptFileIds: ["AgACAgIAAx", "BgACBgIBBy"] }).success,
+      expenseInputSchema.safeParse({
+        ...validExpense,
+        receiptFileIds: ["AgACAgIAAx", "BgACBgIBBy"],
+      }).success,
     ).toBe(true);
   });
 
@@ -228,5 +231,49 @@ describe("settlementInputSchema", () => {
 
   it("rejects a non-positive fxRate", () => {
     expect(settlementInputSchema.safeParse({ ...valid, fxRate: 0 }).success).toBe(false);
+  });
+});
+
+describe("beancountConfigInputSchema", () => {
+  const valid = {
+    expensesAccount: "Expenses:Uncategorized",
+    cashAccount: "Assets:Cash",
+    receivablePrefix: "Assets:Receivable",
+    personAccounts: {},
+  };
+
+  it("accepts ASCII account names", () => {
+    expect(beancountConfigInputSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("accepts a Chinese account segment", () => {
+    const r = beancountConfigInputSchema.safeParse({ ...valid, cashAccount: "Assets:Flow:現金" });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts a Chinese person-account leaf", () => {
+    const r = beancountConfigInputSchema.safeParse({
+      ...valid,
+      personAccounts: { "1": "阿明" },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects a segment starting with punctuation", () => {
+    const r = beancountConfigInputSchema.safeParse({ ...valid, cashAccount: "Assets:-Cash" });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects a leaf starting with punctuation", () => {
+    const r = beancountConfigInputSchema.safeParse({
+      ...valid,
+      personAccounts: { "1": "-阿明" },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects a root outside the five beancount account types", () => {
+    const r = beancountConfigInputSchema.safeParse({ ...valid, cashAccount: "Foo:Cash" });
+    expect(r.success).toBe(false);
   });
 });
