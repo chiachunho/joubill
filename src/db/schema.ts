@@ -221,7 +221,9 @@ export const exchangeRates = pgTable(
     base: varchar("base", { length: 3 }).notNull(),
     quote: varchar("quote", { length: 3 }).notNull(),
     rate: numeric("rate", { precision: 20, scale: 10 }).notNull(),
-    asOfDate: date("as_of_date").notNull().default(sql`CURRENT_DATE`),
+    asOfDate: date("as_of_date")
+      .notNull()
+      .default(sql`CURRENT_DATE`),
     fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.base, t.quote, t.asOfDate] })],
@@ -330,6 +332,37 @@ export const recordAuditLog = pgTable(
   ],
 );
 
+/**
+ * Per-(user, group) beancount account customisation for the "copy record"
+ * feature. A row exists only when the user has enabled the feature for that
+ * group; no row = feature off (the copy button stays hidden). `personAccounts`
+ * maps a member's user id (as a string key) to the account leaf to use under
+ * `receivablePrefix`; members absent from the map fall back to an auto-derived
+ * name.
+ */
+export const userBeancountConfigs = pgTable(
+  "user_beancount_configs",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    expensesAccount: text("expenses_account").notNull(),
+    cashAccount: text("cash_account").notNull(),
+    receivablePrefix: text("receivable_prefix").notNull(),
+    personAccounts: jsonb("person_accounts")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("user_beancount_configs_user_group").on(t.userId, t.groupId)],
+);
+
 // Convenient row types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -355,3 +388,5 @@ export type ExpenseReceipt = typeof expenseReceipts.$inferSelect;
 export type GroupDeleteRequest = typeof groupDeleteRequests.$inferSelect;
 export type RecordAuditLog = typeof recordAuditLog.$inferSelect;
 export type NewRecordAuditLog = typeof recordAuditLog.$inferInsert;
+export type UserBeancountConfig = typeof userBeancountConfigs.$inferSelect;
+export type NewUserBeancountConfig = typeof userBeancountConfigs.$inferInsert;

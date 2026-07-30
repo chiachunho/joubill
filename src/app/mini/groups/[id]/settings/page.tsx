@@ -7,6 +7,7 @@ import { ChevronRight, Coins, History, Trash2 } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { BeancountSettingsSection } from "@/components/mini/BeancountSettingsSection";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { CustomRatesSection } from "@/components/mini/CustomRatesSection";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
@@ -227,6 +228,9 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
           </Link>
         </div>
       </section>
+
+      {/* Beancount 複製 */}
+      <BeancountSettingsSection groupId={id} members={membersData.members} rawFetch={tmaRawFetch} />
 
       {/* 成員 */}
       <section className="px-4">

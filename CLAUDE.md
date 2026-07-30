@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Maintenance rule:** When implementing a feature that changes architecture, env vars, DB schema, or testing conventions, update this file in the same PR/commit.
+> **Maintenance rule:** When implementing a feature that changes architecture, env vars, DB schema, or testing conventions, update this file in the same PR/commit. Also check whether the public help site (`src/app/help/**`, see "Help site" below) needs updating — it describes user-visible behaviour, so a changed bot reply, button label, form field, or permission goes stale there silently if not updated in the same commit.
 
 ## Commands
 
@@ -197,7 +197,7 @@ Fetchers: Mini App pages use `tmaFetch` (`src/lib/tma-fetch.ts`, attaches the `t
 ### Database (`src/db/`)
 
 Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
-`users` → `groups` → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests` + `record_audit_log`.
+`users` → `groups` → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests` + `record_audit_log` + `user_beancount_configs` (per-user, per-group beancount account customisation; `UNIQUE(user_id, group_id)`, jsonb `person_accounts`).
 
 **Multi-payer model**: An expense has one or more payers in `expense_payers` (who paid, how much each) and one or more debtors in `expense_splits` (who owes, how much each). Both tables reference `expenses.id` with `ON DELETE CASCADE`. `expense_payers` has a `UNIQUE(expense_id, payer_id)` constraint. Both sides must sum to `expenses.amount`.
 
@@ -316,11 +316,13 @@ same page with `?record=<id>` is one record's history.
 ### Beancount 匯出 (`src/lib/beancount.ts`)
 
 A single record (expense or settlement) can be copied as a beancount transaction via the **`Bean` icon button** in the top-right of the expense/settlement edit form header (`CopyBeancountButton`, edit mode only). The output is from the **personal-ledger perspective** of the current user (U):
-- `Expenses:Uncategorized` — U's own share (the schema has no category, so this is a fixed account on purpose; the user re-categorises after pasting).
+- `Expenses:Uncategorized` — U's own share (the schema has no category, so the default is a fixed account; the user re-categorises after pasting).
 - `Assets:Cash` — cash U fronted (negative).
 - `Assets:Receivable:<X>` — net position with each other person X (positive = X owes U, negative = U owes X). U's net is allocated proportionally across the opposite-sign counterparties, so multi-payer records stay balanced and only reflect U's own legs. Settlements skip the Expenses leg and just move cash ↔ receivable.
 
-`recordToBeancount` in `src/lib/beancount.ts` is **pure** (no DB/fetch) and unit-tested in `src/lib/__tests__/beancount.test.ts`. FX is resolved by the caller (`CopyBeancountButton`) following the same pin→group→market priority as `src/lib/fx.ts` — using the per-record pin when present, else `GET /api/groups/[id]/rates/effective` — and passed in as `fx`; the function appends `@ <rate> <quote>` to every posting so the transaction balances in both the record currency and the group default. The button lives in the **shared** `ExpenseForm`/`SettlementForm`, so it appears in both `/mini` and `/app` from one place.
+The three account prefixes above are the **defaults** (`DEFAULT_BEANCOUNT_ACCOUNTS`). The feature is **opt-in per (user, group)**: a user enables it in the group settings page (`BeancountSettingsSection`, shared by `/mini` + `/app`), which writes a `user_beancount_configs` row (`expenses_account`, `cash_account`, `receivable_prefix`, and a jsonb `person_accounts` map of memberUserId→account leaf). **No row = feature off**, so `CopyBeancountButton` (which SWR-fetches `GET /api/groups/[id]/beancount`) renders nothing and the button stays hidden. The config is personal — it only affects the setter, not other members of the same group. CRUD is `GET/PUT/DELETE /api/groups/[id]/beancount`, keyed on `(auth.user.id, groupId)`; account strings are zod-validated against `BEANCOUNT_ACCOUNT_RE` / `BEANCOUNT_LEAF_RE`.
+
+`recordToBeancount` in `src/lib/beancount.ts` is **pure** (no DB/fetch) and unit-tested in `src/lib/__tests__/beancount.test.ts`; it takes the resolved `accounts` (defaulting to `DEFAULT_BEANCOUNT_ACCOUNTS`) so tests and any caller can pass custom prefixes. Postings carry a `kind` tag (`expenses`/`cash`/`receivable`) so the rounding-residual fold targets a receivable leg regardless of the configured prefix. FX is resolved by the caller (`CopyBeancountButton`) following the same pin→group→market priority as `src/lib/fx.ts` — using the per-record pin when present, else `GET /api/groups/[id]/rates/effective` — and passed in as `fx`; the function appends `@ <rate> <quote>` to every posting so the transaction balances in both the record currency and the group default. The button lives in the **shared** `ExpenseForm`/`SettlementForm`, so it appears in both `/mini` and `/app` from one place.
 
 ### Environment variables
 

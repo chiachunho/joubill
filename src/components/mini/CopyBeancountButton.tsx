@@ -2,13 +2,22 @@
 
 import { useState } from "react";
 import { Bean, Check } from "lucide-react";
+import useSWR from "swr";
 
 import { useAuthMode } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { recordToBeancount, type BeancountFx, type BeancountRecord } from "@/lib/beancount";
+import {
+  recordToBeancount,
+  type BeancountAccounts,
+  type BeancountFx,
+  type BeancountRecord,
+} from "@/lib/beancount";
 import type { Profile } from "@/lib/label";
 import { tmaRawFetch, webRawFetch } from "@/lib/web-fetch";
+import type { BeancountConfigInput } from "@/lib/zod";
+
+type ConfigResponse = { config: BeancountConfigInput | null };
 
 type Member = {
   id: number;
@@ -61,6 +70,8 @@ export function CopyBeancountButton({
 }: Props) {
   const mode = useAuthMode();
   const [copied, setCopied] = useState(false);
+  // The feature is opt-in per (user, group): no config row → button stays hidden.
+  const { data } = useSWR<ConfigResponse>(`/api/groups/${groupId}/beancount`);
 
   // Resolve the rate to convert the record into the group default currency,
   // mirroring fx.ts priority: per-record pin → group/market (via the effective
@@ -86,7 +97,10 @@ export function CopyBeancountButton({
     return { quote: defaultCurrency, rate: null };
   }
 
+  const config = data?.config ?? null;
+
   async function handleCopy() {
+    if (!config) return;
     const peopleById = new Map<number, Profile>(
       members.map((m) => [
         m.id,
@@ -98,11 +112,20 @@ export function CopyBeancountButton({
         },
       ]),
     );
+    const accounts: BeancountAccounts = {
+      expenses: config.expensesAccount,
+      cash: config.cashAccount,
+      receivablePrefix: config.receivablePrefix,
+      personAccounts: config.personAccounts,
+    };
     const fx = await resolveFx();
-    await copyText(recordToBeancount(record, currentUserId, peopleById, fx));
+    await copyText(recordToBeancount(record, currentUserId, peopleById, fx, accounts));
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
+
+  // Hidden until the user enables the feature for this group.
+  if (!config) return null;
 
   return (
     <Tooltip>

@@ -92,7 +92,9 @@ export const settlementInputSchema = z.object({
   fxRate: z.number().positive().max(1_000_000_000).nullable().optional(),
   settledAt: z
     .string()
-    .refine((s) => !Number.isNaN(Date.parse(s)), { message: "settledAt must be a valid date string" })
+    .refine((s) => !Number.isNaN(Date.parse(s)), {
+      message: "settledAt must be a valid date string",
+    })
     .optional(),
 });
 
@@ -113,14 +115,19 @@ export const expenseFormSchema = z
     /** Custom FX rate as typed; empty string = use the automatic rate. */
     fxRate: z
       .string()
-      .refine((v) => v === "" || (Number.isFinite(parseFloat(v)) && parseFloat(v) > 0), "請輸入有效匯率"),
+      .refine(
+        (v) => v === "" || (Number.isFinite(parseFloat(v)) && parseFloat(v) > 0),
+        "請輸入有效匯率",
+      ),
     description: z.string().max(500),
-    payers: z.array(
-      z.object({
-        userId: z.string().min(1),
-        amount: z.string(),
-      }),
-    ).min(1),
+    payers: z
+      .array(
+        z.object({
+          userId: z.string().min(1),
+          amount: z.string(),
+        }),
+      )
+      .min(1),
     spentDate: z.date(),
     shareType: z.enum(SHARE_TYPES),
     participants: z.array(
@@ -138,12 +145,19 @@ export const expenseFormSchema = z
       const emptyPayer = data.payers.some((p) => !p.userId);
       if (emptyPayer) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "請選擇付款人", path: ["payers"] });
-      } else if (data.payers.length > 1 && data.payers.some((p) => !Number.isFinite(parseFloat(p.amount)))) {
+      } else if (
+        data.payers.length > 1 &&
+        data.payers.some((p) => !Number.isFinite(parseFloat(p.amount)))
+      ) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "請輸入有效金額", path: ["payers"] });
       } else {
         const payerSum = data.payers.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
         if (Math.abs(payerSum - total) >= 0.005) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "付款人金額加總需等於總金額", path: ["payers"] });
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "付款人金額加總需等於總金額",
+            path: ["payers"],
+          });
         }
       }
     }
@@ -151,7 +165,11 @@ export const expenseFormSchema = z
     // Participants validation
     const included = data.participants.filter((p) => p.included);
     if (included.length === 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "至少選一位參與者", path: ["participants"] });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "至少選一位參與者",
+        path: ["participants"],
+      });
       return;
     }
     if (data.shareType === "equal") return;
@@ -159,11 +177,19 @@ export const expenseFormSchema = z
     const sum = included.reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
     if (data.shareType === "percent") {
       if (Math.abs(sum - 100) >= 0.005) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "比例加總需為 100%", path: ["participants"] });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "比例加總需為 100%",
+          path: ["participants"],
+        });
       }
     } else if (data.shareType === "shares") {
       if (sum <= 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "份數合計須大於 0", path: ["participants"] });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "份數合計須大於 0",
+          path: ["participants"],
+        });
       }
     } else if (data.shareType === "adjustment") {
       if (sum > total) {
@@ -198,7 +224,10 @@ export const settlementFormSchema = z
     /** Custom FX rate as typed; empty string = use the automatic rate. */
     fxRate: z
       .string()
-      .refine((v) => v === "" || (Number.isFinite(parseFloat(v)) && parseFloat(v) > 0), "請輸入有效匯率"),
+      .refine(
+        (v) => v === "" || (Number.isFinite(parseFloat(v)) && parseFloat(v) > 0),
+        "請輸入有效匯率",
+      ),
     settledDate: z.date(),
   })
   .refine((d) => d.fromUserId !== d.toUserId, {
@@ -207,3 +236,28 @@ export const settlementFormSchema = z
   });
 
 export type SettlementFormValues = z.infer<typeof settlementFormSchema>;
+
+// ── Beancount account customisation (per-user, per-group) ────────────────────
+
+/** A full beancount account path, e.g. `Assets:Receivable` or `Expenses:Food:Dining`. */
+export const BEANCOUNT_ACCOUNT_RE =
+  /^(Assets|Liabilities|Equity|Income|Expenses)(:[\p{Lu}\p{N}][\p{L}\p{N}-]*)+$/u;
+/** A single account leaf component (a person's name under the receivable prefix). */
+export const BEANCOUNT_LEAF_RE = /^[\p{Lu}\p{N}][\p{L}\p{N}-]*$/u;
+
+const beancountAccount = z
+  .string()
+  .trim()
+  .regex(BEANCOUNT_ACCOUNT_RE, "帳戶格式不正確（例如 Assets:Cash）");
+const beancountLeaf = z.string().trim().regex(BEANCOUNT_LEAF_RE, "名稱格式不正確");
+
+/** PUT body for a user's per-group beancount config. */
+export const beancountConfigInputSchema = z.object({
+  expensesAccount: beancountAccount,
+  cashAccount: beancountAccount,
+  receivablePrefix: beancountAccount,
+  /** memberUserId (as string key) → account leaf. Blank/omitted leaves fall back to auto-derived. */
+  personAccounts: z.record(z.string().regex(/^\d+$/), beancountLeaf).default({}),
+});
+
+export type BeancountConfigInput = z.infer<typeof beancountConfigInputSchema>;

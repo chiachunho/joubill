@@ -235,6 +235,62 @@ describe("recordToBeancount — FX", () => {
   });
 });
 
+describe("recordToBeancount — custom accounts", () => {
+  const accounts = {
+    expenses: "Expenses:Food",
+    cash: "Assets:Bank:Checking",
+    receivablePrefix: "Assets:Owed",
+    personAccounts: { [String(BOB)]: "Robert" },
+  };
+
+  it("uses the configured accounts and per-person leaf, falling back to auto name", () => {
+    const out = recordToBeancount(expense({}), ALICE, people, undefined, accounts);
+    const ps = postings(out);
+    expect(ps).toContainEqual({ account: "Expenses:Food", amount: 100 });
+    expect(ps).toContainEqual({ account: "Assets:Bank:Checking", amount: -300 });
+    // Bob has a configured leaf; Carol falls back to her auto-derived name.
+    expect(ps).toContainEqual({ account: "Assets:Owed:Robert", amount: 100 });
+    expect(ps).toContainEqual({ account: "Assets:Owed:Carol", amount: 100 });
+    expect(sum(out)).toBe(0);
+  });
+
+  it("a blank configured leaf falls back to the auto name (no trailing colon)", () => {
+    const out = recordToBeancount(expense({}), ALICE, people, undefined, {
+      ...accounts,
+      personAccounts: { [String(BOB)]: "" },
+    });
+    const ps = postings(out);
+    expect(ps).toContainEqual({ account: "Assets:Owed:Bob", amount: 100 });
+    expect(out).not.toContain("Assets:Owed: ");
+  });
+
+  it("residual still lands on a receivable leg under a custom prefix, keeping Cash exact", () => {
+    const out = recordToBeancount(
+      expense({
+        amount: 15,
+        payers: [
+          { userId: ALICE, amount: 10 },
+          { userId: BOB, amount: 5 },
+        ],
+        splits: [
+          { userId: ALICE, amount: 3.75 },
+          { userId: BOB, amount: 3.75 },
+          { userId: CAROL, amount: 3.75 },
+          { userId: 4, amount: 3.75 },
+        ],
+      }),
+      ALICE,
+      new Map([...people, [4, { userId: 4, firstName: "Dave", lastName: null, username: "dave" }]]),
+      undefined,
+      accounts,
+    );
+    const ps = postings(out);
+    // The kind tag (not the "Assets:Receivable" string) drives residual folding.
+    expect(ps).toContainEqual({ account: "Assets:Bank:Checking", amount: -10 });
+    expect(sum(out)).toBe(0);
+  });
+});
+
 describe("beancountAccountName", () => {
   it("prefers a capitalized username", () => {
     expect(

@@ -2,11 +2,12 @@
  * Render a single splitbill record (expense or settlement) as a beancount
  * transaction, from the **personal-ledger perspective** of the current user (U).
  *
- * Accounts (fixed prefixes for now — see CLAUDE.md):
- * - `Expenses:Uncategorized` — U's own share of consumption.
- * - `Assets:Cash`            — cash U actually fronted (negative).
- * - `Assets:Receivable:<X>`  — net position between U and each other person X
- *                              (positive = X owes U, negative = U owes X).
+ * Accounts default to {@link DEFAULT_BEANCOUNT_ACCOUNTS} but are configurable
+ * per (user, group) via the `accounts` argument (see CLAUDE.md):
+ * - expenses (`Expenses:Uncategorized`)  — U's own share of consumption.
+ * - cash (`Assets:Cash`)                 — cash U actually fronted (negative).
+ * - receivablePrefix (`Assets:Receivable`) + person leaf — net position between
+ *   U and each other person X (positive = X owes U, negative = U owes X).
  *
  * The transaction always balances in the record's own currency. When `fx` is
  * supplied, every posting also carries an `@ <rate> <quote>` price so it
@@ -40,7 +41,28 @@ export type BeancountRecord = {
  */
 export type BeancountFx = { quote: string; rate: number | null } | null | undefined;
 
-type Posting = { account: string; amount: number };
+/**
+ * Per-(user, group) account customisation. `personAccounts` maps a member's
+ * user id to the account leaf to use under `receivablePrefix`; members absent
+ * from the map fall back to {@link beancountAccountName}.
+ */
+export type BeancountAccounts = {
+  expenses: string;
+  cash: string;
+  receivablePrefix: string;
+  /** member user id (as string key) → account leaf under `receivablePrefix`. */
+  personAccounts?: Record<string, string>;
+};
+
+/** Built-in defaults, also used as the settings-form placeholders. */
+export const DEFAULT_BEANCOUNT_ACCOUNTS: BeancountAccounts = {
+  expenses: "Expenses:Uncategorized",
+  cash: "Assets:Cash",
+  receivablePrefix: "Assets:Receivable",
+};
+
+/** `kind` lets balance() find the receivable legs without matching on the (now configurable) account string. */
+type Posting = { account: string; amount: number; kind: "expenses" | "cash" | "receivable" };
 
 /** A beancount account leaf must start with an uppercase letter or a digit. */
 function sanitizeComponent(raw: string): string {
@@ -62,8 +84,16 @@ export function beancountAccountName(person: Profile): string {
   return `User${person.userId ?? 0}`;
 }
 
-function receivableAccount(person: Profile): string {
-  return `Assets:Receivable:${beancountAccountName(person)}`;
+function receivableAccount(person: Profile, accounts: BeancountAccounts): string {
+  // `||` (not `??`) so a blank configured leaf falls back to the auto name
+  // instead of producing an invalid `<prefix>:` with a trailing colon.
+  const leaf = accounts.personAccounts?.[String(person.userId ?? -1)] || beancountAccountName(person);
+  return `${accounts.receivablePrefix}:${leaf}`;
+}
+
+/** Build a receivable posting for a person. */
+function receivablePosting(person: Profile, amount: number, accounts: BeancountAccounts): Posting {
+  return { account: receivableAccount(person, accounts), amount, kind: "receivable" };
 }
 
 function round2(value: number): number {
@@ -86,6 +116,7 @@ function expensePostings(
   record: BeancountRecord,
   currentUserId: number,
   peopleById: Map<number, Profile>,
+  accounts: BeancountAccounts,
 ): Posting[] {
   const paid = sumByUser(record.payers);
   const owed = sumByUser(record.splits);
@@ -98,8 +129,8 @@ function expensePostings(
   const owedR = round2(owedU);
   const paidR = round2(paidU);
   const postings: Posting[] = [];
-  if (owedR !== 0) postings.push({ account: "Expenses:Uncategorized", amount: owedR });
-  if (paidR !== 0) postings.push({ account: "Assets:Cash", amount: -paidR });
+  if (owedR !== 0) postings.push({ account: accounts.expenses, amount: owedR, kind: "expenses" });
+  if (paidR !== 0) postings.push({ account: accounts.cash, amount: -paidR, kind: "cash" });
 
   // Allocate U's net across the opposite-sign counterparties, proportional to
   // their own net. In the common single-payer case this reduces to "each
@@ -121,7 +152,7 @@ function expensePostings(
       // netU > 0 → receivables positive; netU < 0 → payables negative.
       for (const c of counterparties) {
         const share = round2((c.weight / totalWeight) * Math.abs(netU)) * sign;
-        if (share !== 0) postings.push({ account: receivableAccount(c.person), amount: share });
+        if (share !== 0) postings.push(receivablePosting(c.person, share, accounts));
       }
     }
   }
@@ -134,36 +165,32 @@ function settlementPostings(
   record: BeancountRecord,
   currentUserId: number,
   peopleById: Map<number, Profile>,
+  accounts: BeancountAccounts,
 ): { postings: Posting[]; uninvolved: boolean } {
   const fromId = record.payers[0]?.userId;
   const toId = record.splits[0]?.userId;
   const amount = round2(record.amount);
+  const cash = (n: number): Posting => ({ account: accounts.cash, amount: n, kind: "cash" });
 
   if (currentUserId === fromId) {
     // U repays someone: settle what U owed them, paying cash.
     return {
-      postings: [
-        { account: receivableAccount(personFor(peopleById, toId)), amount },
-        { account: "Assets:Cash", amount: -amount },
-      ],
+      postings: [receivablePosting(personFor(peopleById, toId), amount, accounts), cash(-amount)],
       uninvolved: false,
     };
   }
   if (currentUserId === toId) {
     // U receives a repayment: cash in, the payer's debt to U is reduced.
     return {
-      postings: [
-        { account: "Assets:Cash", amount },
-        { account: receivableAccount(personFor(peopleById, fromId)), amount: -amount },
-      ],
+      postings: [cash(amount), receivablePosting(personFor(peopleById, fromId), -amount, accounts)],
       uninvolved: false,
     };
   }
   // U not involved — neutral two-party representation.
   return {
     postings: [
-      { account: receivableAccount(personFor(peopleById, fromId)), amount },
-      { account: receivableAccount(personFor(peopleById, toId)), amount: -amount },
+      receivablePosting(personFor(peopleById, fromId), amount, accounts),
+      receivablePosting(personFor(peopleById, toId), -amount, accounts),
     ],
     uninvolved: true,
   };
@@ -189,7 +216,7 @@ function balance(postings: Posting[]): Posting[] {
   if (postings.length === 0) return postings;
   const total = round2(postings.reduce((s, p) => s + p.amount, 0));
   if (total === 0) return postings;
-  let idx = largestBy(postings, (p) => p.account.startsWith("Assets:Receivable:"));
+  let idx = largestBy(postings, (p) => p.kind === "receivable");
   if (idx === -1) idx = largestBy(postings, () => true);
   postings[idx] = { ...postings[idx], amount: round2(postings[idx].amount - total) };
   return postings;
@@ -245,13 +272,16 @@ function render(
 /**
  * Render `record` as a beancount transaction from `currentUserId`'s perspective.
  * `peopleById` maps user ids to display profiles (for account names). `fx` is
- * resolved by the caller (see {@link BeancountFx}).
+ * resolved by the caller (see {@link BeancountFx}). `accounts` is the user's
+ * per-group account customisation (see {@link BeancountAccounts}); it defaults
+ * to {@link DEFAULT_BEANCOUNT_ACCOUNTS}.
  */
 export function recordToBeancount(
   record: BeancountRecord,
   currentUserId: number,
   peopleById: Map<number, Profile>,
   fx?: BeancountFx,
+  accounts: BeancountAccounts = DEFAULT_BEANCOUNT_ACCOUNTS,
 ): string {
   const comments: string[] = [];
   if (fx && fx.rate == null && fx.quote !== record.currency) {
@@ -259,12 +289,17 @@ export function recordToBeancount(
   }
 
   if (record.type === "settlement") {
-    const { postings, uninvolved } = settlementPostings(record, currentUserId, peopleById);
+    const { postings, uninvolved } = settlementPostings(
+      record,
+      currentUserId,
+      peopleById,
+      accounts,
+    );
     if (uninvolved) comments.push("你未參與這筆還款");
     return render(record, postings, fx, comments);
   }
 
-  const postings = expensePostings(record, currentUserId, peopleById);
+  const postings = expensePostings(record, currentUserId, peopleById, accounts);
   // No legs means U neither paid for nor shares this expense; without a note the
   // pasted transaction would be an empty (invalid) beancount entry.
   if (postings.length === 0) comments.push("你與這筆支出無關");
