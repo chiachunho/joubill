@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Maintenance rule:** When implementing a feature that changes architecture, env vars, DB schema, or testing conventions, update this file in the same PR/commit.
+> **Maintenance rule:** When implementing a feature that changes architecture, env vars, DB schema, or testing conventions, update this file in the same PR/commit. Also check whether the public help site (`src/app/help/**`, see "Help site" below) needs updating — it describes user-visible behaviour, so a changed bot reply, button label, form field, or permission goes stale there silently if not updated in the same commit.
 
 ## Commands
 
