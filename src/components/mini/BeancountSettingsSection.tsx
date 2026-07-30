@@ -1,13 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ExternalLink, Loader2 } from "lucide-react";
 import useSWR from "swr";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { beancountAccountName, DEFAULT_BEANCOUNT_ACCOUNTS } from "@/lib/beancount";
 import { BEANCOUNT_ACCOUNT_RE, BEANCOUNT_LEAF_RE, type BeancountConfigInput } from "@/lib/zod";
+
+const BEANCOUNT_PROJECT_URL = "https://github.com/beancount/beancount";
+
+/**
+ * Open an external link from either surface. Mirrors the help-site pattern
+ * (`src/app/mini/settings/page.tsx`): inside the Mini App's Telegram webview a
+ * plain `<a>`/`window.open` would navigate the webview itself away rather than
+ * opening a browser, so try `WebApp.openLink` first; outside Telegram (the Web
+ * App, or a browser preview) the SDK call itself falls back to `window.open`.
+ */
+function openExternal(url: string) {
+  import("@twa-dev/sdk")
+    .then(({ default: WebApp }) => WebApp.openLink(url))
+    .catch(() => window.open(url, "_blank", "noopener"));
+}
 
 type Member = {
   id: number;
@@ -39,7 +54,17 @@ export function BeancountSettingsSection({ groupId, members, rawFetch }: Props) 
 
   return (
     <section className="px-4">
-      <p className="sect mb-2.5">Beancount 複製</p>
+      <div className="mb-2.5 flex items-center justify-between">
+        <p className="sect">Beancount 複製</p>
+        <button
+          type="button"
+          onClick={() => openExternal(BEANCOUNT_PROJECT_URL)}
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          什麼是 beancount？
+          <ExternalLink className="size-3" />
+        </button>
+      </div>
       <div className="overflow-hidden rounded-2xl bg-secondary/50">
         {error ? (
           <p className="px-4 py-3 text-sm text-muted-foreground">無法載入設定</p>
