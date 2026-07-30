@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { Clock, Loader2, Trash2 } from "lucide-react";
 import useSWR from "swr";
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 
 type DeleteRequestResponse = {
@@ -25,7 +31,13 @@ type Props = {
   redirectPath: string;
 };
 
-export function DangerZoneSection({ groupId, membersCount, selfUserId, rawFetch, redirectPath }: Props) {
+export function DangerZoneSection({
+  groupId,
+  membersCount,
+  selfUserId,
+  rawFetch,
+  redirectPath,
+}: Props) {
   const router = useRouter();
 
   const {
@@ -107,7 +119,7 @@ export function DangerZoneSection({ groupId, membersCount, selfUserId, rawFetch,
 
   return (
     <section className="px-4">
-      <p className="sect mb-2.5">危險區域</p>
+      {pendingRequest && selfUserId !== undefined && <p className="sect mb-2.5">危險區域</p>}
 
       {pendingRequest && selfUserId !== undefined ? (
         pendingRequest.requestedBy === selfUserId ? (
@@ -166,22 +178,27 @@ export function DangerZoneSection({ groupId, membersCount, selfUserId, rawFetch,
           </div>
         )
       ) : (
-        <div className="overflow-hidden rounded-2xl bg-secondary/50">
-          <button
-            onClick={() => setDeleteGroupOpen(true)}
-            className="flex w-full items-center gap-3 px-4 py-3 text-destructive transition-colors hover:bg-destructive/10"
-          >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-              <Trash2 className="size-3.5 text-destructive" />
-            </div>
-            <span className="text-sm font-medium">刪除群組</span>
-          </button>
-        </div>
+        <Accordion type="single" collapsible>
+          <AccordionItem value="danger-zone">
+            <AccordionTrigger className="sect">危險區域</AccordionTrigger>
+            <AccordionContent>
+              <div className="overflow-hidden rounded-2xl bg-secondary/50">
+                <button
+                  onClick={() => setDeleteGroupOpen(true)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+                    <Trash2 className="size-3.5 text-destructive" />
+                  </div>
+                  <span className="text-sm font-medium">刪除群組</span>
+                </button>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       )}
 
-      {deleteGroupError && (
-        <p className="mt-2 text-xs text-destructive">{deleteGroupError}</p>
-      )}
+      {deleteGroupError && <p className="mt-2 text-xs text-destructive">{deleteGroupError}</p>}
 
       <ConfirmDialog
         open={deleteGroupOpen}
