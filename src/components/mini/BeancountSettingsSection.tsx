@@ -7,7 +7,13 @@ import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { beancountAccountName, DEFAULT_BEANCOUNT_ACCOUNTS } from "@/lib/beancount";
-import { BEANCOUNT_ACCOUNT_RE, BEANCOUNT_LEAF_RE, type BeancountConfigInput } from "@/lib/zod";
+import {
+  BEANCOUNT_ACCOUNT_HINT,
+  BEANCOUNT_ACCOUNT_RE,
+  BEANCOUNT_LEAF_HINT,
+  BEANCOUNT_LEAF_RE,
+  type BeancountConfigInput,
+} from "@/lib/zod";
 
 const BEANCOUNT_PROJECT_URL = "https://github.com/beancount/beancount";
 
@@ -243,6 +249,7 @@ function Editor({
           accountValid(value) ? "" : "ring-1 ring-destructive"
         }`}
       />
+      {!accountValid(value) && <p className="text-xs text-destructive">{BEANCOUNT_ACCOUNT_HINT}</p>}
     </div>
   );
 
@@ -280,16 +287,21 @@ function Editor({
           const name =
             [m.firstName, m.lastName].filter(Boolean).join(" ") || m.username || `#${m.id}`;
           return (
-            <div key={m.id} className="flex items-center gap-2">
-              <span className="w-20 shrink-0 truncate text-sm">{name}</span>
-              <Input
-                value={value}
-                onChange={(e) => setPerson(m.id, e.target.value)}
-                placeholder={auto}
-                className={`h-8 flex-1 rounded-lg border-0 bg-background/60 text-sm ${
-                  leafValid(value) ? "" : "ring-1 ring-destructive"
-                }`}
-              />
+            <div key={m.id} className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-20 shrink-0 truncate text-sm">{name}</span>
+                <Input
+                  value={value}
+                  onChange={(e) => setPerson(m.id, e.target.value)}
+                  placeholder={auto}
+                  className={`h-8 flex-1 rounded-lg border-0 bg-background/60 text-sm ${
+                    leafValid(value) ? "" : "ring-1 ring-destructive"
+                  }`}
+                />
+              </div>
+              {!leafValid(value) && (
+                <p className="pl-[5.5rem] text-xs text-destructive">{BEANCOUNT_LEAF_HINT}</p>
+              )}
             </div>
           );
         })}
