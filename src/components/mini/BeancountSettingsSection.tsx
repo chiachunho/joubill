@@ -43,7 +43,7 @@ type ConfigResponse = { config: Config | null };
 
 type Props = {
   groupId: string;
-  /** Group members, from the settings page's members SWR (avoids a duplicate fetch). */
+  /** Group members, from the host page's own members SWR call. */
   members: Member[];
   rawFetch: (url: string, init?: RequestInit) => Promise<Response>;
 };
@@ -51,8 +51,10 @@ type Props = {
 /**
  * Per-(user, group) beancount account customisation. Enabling it (saving a
  * config) is what makes the "copy record as beancount" button appear on this
- * group's expense/settlement edit pages — for the current user only. Shared by
- * the Mini App and Web App settings pages; auth is injected via `rawFetch`.
+ * group's expense/settlement edit pages — for the current user only. Renders
+ * as the sole content of the Beancount 帳戶名稱設定 settings sub-page (Mini
+ * App and Web App each have a copy) — no internal heading, the page owns its
+ * own `<h1>`. Auth is injected via `rawFetch`.
  */
 export function BeancountSettingsSection({ groupId, members, rawFetch }: Props) {
   const { data, error, mutate } = useSWR<ConfigResponse>(`/api/groups/${groupId}/beancount`);
@@ -60,8 +62,7 @@ export function BeancountSettingsSection({ groupId, members, rawFetch }: Props) 
 
   return (
     <section className="px-4">
-      <div className="mb-2.5 flex items-center justify-between">
-        <p className="sect">Beancount 複製</p>
+      <div className="mb-2.5 flex items-center justify-end">
         <button
           type="button"
           onClick={() => openExternal(BEANCOUNT_PROJECT_URL)}

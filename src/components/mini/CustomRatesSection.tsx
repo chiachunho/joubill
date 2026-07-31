@@ -51,8 +51,10 @@ function fmtAffected(expenses: number, settlements: number): string {
 
 /**
  * Group-wide custom FX rates. A rate set here overrides the market rate for
- * ALL expenses of the group in that currency (past and future). Shared by the
- * Mini App and Web App settings pages — auth is injected via `rawFetch`.
+ * ALL expenses of the group in that currency (past and future). Renders as
+ * the sole content of the 自訂匯率 settings sub-page (Mini App and Web App
+ * each have a copy) — no internal heading, the page owns its own `<h1>`.
+ * Auth is injected via `rawFetch`.
  */
 export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props) {
   const { data, error, mutate } = useSWR<RatesResponse>(`/api/groups/${groupId}/rates`);
@@ -86,10 +88,11 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
   // Same counts for the rate being deleted (its records fall back to market rates).
   const deleteCurrency = deleteTarget ? affectedCurrencyFor(deleteTarget, defaultCurrency) : null;
   const { data: deleteCounts, isLoading: deleteCountsLoading } = useSWR<EffectiveResponse>(
-    deleteCurrency ? `/api/groups/${groupId}/rates/effective?base=${deleteCurrency}&counts=1` : null,
+    deleteCurrency
+      ? `/api/groups/${groupId}/rates/effective?base=${deleteCurrency}&counts=1`
+      : null,
   );
-  const deleteCountsReady =
-    !deleteCurrency || (!deleteCountsLoading && deleteCounts !== undefined);
+  const deleteCountsReady = !deleteCurrency || (!deleteCountsLoading && deleteCounts !== undefined);
   const deleteAffectedTotal = deleteCurrency
     ? (deleteCounts?.affectedExpenses ?? 0) + (deleteCounts?.affectedSettlements ?? 0)
     : 0;
@@ -173,7 +176,6 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
 
   return (
     <section className="px-4">
-      <p className="sect mb-2.5">自訂匯率</p>
       <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
         {rates.map((row) => {
           const dormant = row.quote !== defaultCurrency;
@@ -237,9 +239,7 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
               min="0"
               inputMode="decimal"
               className="num h-8 flex-1 rounded-lg border-0 bg-background/60 text-sm"
-              placeholder={
-                reference?.marketRate != null ? fmtRate(reference.marketRate) : "匯率"
-              }
+              placeholder={reference?.marketRate != null ? fmtRate(reference.marketRate) : "匯率"}
               value={rateInput}
               onChange={(e) => setRateInput(e.target.value)}
             />

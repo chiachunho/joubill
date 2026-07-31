@@ -131,7 +131,51 @@ avatar left, text middle, amount right (`.num`).
 
 ---
 
-## 6. The three states (every data page needs them)
+## 6. Nav rows & collapsible sections
+
+Two variants of a section, beyond a plain grouped panel of data rows:
+
+**Nav row** — a single-row panel that hands a whole sub-topic off to its own
+page instead of expanding it inline. Use this when the content has its own
+forms/lists heavy enough to dominate the page it'd sit on — e.g. 自訂匯率 and
+Beancount 複製 on the group settings page each moved to their own
+`settings/rates` / `settings/beancount` page, leaving a nav row behind. Shape:
+icon tile + label + `ChevronRight`, **no secondary status text** — keep it as
+plain as 動態紀錄's row. A status line ("已啟用" / "N 筆設定") invites a second
+question — what does the empty/zero state say? — that a plain label sidesteps
+entirely.
+
+```tsx
+<Link
+  href={`/mini/groups/${id}/settings/rates`}
+  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+>
+  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+    <ArrowRightLeft className="size-3.5" />
+  </span>
+  <p className="min-w-0 flex-1 text-sm">自訂匯率</p>
+  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+</Link>
+```
+
+**Collapsible section** — `Accordion` / `AccordionItem` / `AccordionTrigger` /
+`AccordionContent` (`components/ui/accordion.tsx`, wraps
+`@radix-ui/react-accordion`). Use only for secondary or low-frequency content
+that would otherwise add scroll weight to a page everyone visits — not as a
+general "make the page shorter" trick. Default collapsed
+(`<Accordion type="single" collapsible>`, no `defaultValue`); `AccordionTrigger`
+takes the same `.sect` label the section would otherwise use, so a collapsed
+section reads identically to an ordinary section header until tapped.
+
+**Never collapse an actionable state by default.** `DangerZoneSection` collapses
+the idle "刪除群組" button behind the accordion, but renders a pending delete
+request — yours to cancel, or someone else's to approve/reject — directly, no
+accordion involved. An accordion a user has to know to open is the wrong place
+for something that needs their attention right now.
+
+---
+
+## 7. The three states (every data page needs them)
 
 | State | Approach |
 | --- | --- |
@@ -141,17 +185,18 @@ avatar left, text middle, amount right (`.num`).
 
 ---
 
-## 7. Icons
+## 8. Icons
 
 - Always [`lucide-react`](https://lucide.dev), size `size-3.5` ~ `size-4`.
 - **No emoji on controls (buttons)** — use a lucide icon. (Celebratory plain-text messages may use emoji, e.g. "Settled 🎉".)
 
 ---
 
-## 8. Pre-change checklist
+## 9. Pre-change checklist
 
 - [ ] Radius is only `rounded-2xl` (container) / `rounded-lg` (control) / `rounded-full`? No `rounded-xl`, `rounded-[…]`?
 - [ ] All colors go through CSS variables? No hardcoded brand hex? Positive/negative amounts use emerald/rose?
 - [ ] Amounts have `.num`? Sections have a `.sect` micro-label?
 - [ ] Loading is a skeleton, not a spinner? Empty / Error states both present?
 - [ ] Reused existing shadcn / `components/mini` components instead of re-rolling one?
+- [ ] A block heavy enough to need its own forms/lists moved to a nav row + sub-page, rather than expanding inline? A collapsed section only used for genuinely secondary content, never for something the user needs to act on right now?
