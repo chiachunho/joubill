@@ -28,6 +28,17 @@ function Panel({ rows }: { rows: number }) {
   );
 }
 
+/** Icon tile + single label, no amount column — mirrors a nav row (e.g. 動態紀錄). */
+function NavRowSkeleton() {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <Skeleton className="size-7 shrink-0 rounded-full" />
+      <Skeleton className="h-3.5 flex-1" />
+      <Skeleton className="size-3.5 shrink-0" />
+    </div>
+  );
+}
+
 /** Label + input field placeholder. */
 function FieldSkeleton({ width = "w-16" }: { width?: string }) {
   return (
@@ -122,7 +133,11 @@ export function StatsSkeleton() {
   );
 }
 
-/** Group settings: 一般 section (currency row) + 成員 section with rows. */
+/**
+ * Group settings: 貨幣與匯率 (currency row + rates nav row) + 動態紀錄 nav row +
+ * Beancount nav row + 成員 section with rows + a thin 危險區域 placeholder
+ * (collapsed accordion — just enough height that it doesn't jump in).
+ */
 export function GroupSettingsSkeleton() {
   return (
     <div className="space-y-6 py-4">
@@ -131,18 +146,56 @@ export function GroupSettingsSkeleton() {
       </div>
 
       <section className="px-4">
-        <Skeleton className="mb-2.5 h-3 w-8" />
-        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+        <Skeleton className="mb-2.5 h-3 w-20" />
+        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
           <div className="flex items-center gap-3 px-4 py-3">
             <Skeleton className="size-7 rounded-full" />
             <Skeleton className="h-3.5 flex-1" />
             <Skeleton className="h-8 w-24 rounded-lg" />
           </div>
+          <NavRowSkeleton />
+        </div>
+      </section>
+
+      <section className="px-4">
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <NavRowSkeleton />
+        </div>
+      </section>
+
+      <section className="px-4">
+        <Skeleton className="mb-2.5 h-3 w-24" />
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <NavRowSkeleton />
         </div>
       </section>
 
       <section className="px-4">
         <Skeleton className="mb-2.5 h-3 w-16" />
+        <Panel rows={3} />
+      </section>
+
+      <section className="px-4">
+        <Skeleton className="h-3 w-16" />
+      </section>
+    </div>
+  );
+}
+
+/**
+ * Generic settings sub-page shell: back header + one panel of a few rows.
+ * Shared by the 自訂匯率 and Beancount 帳戶名稱設定 sub-pages — both are a
+ * single `bg-secondary/50` panel under a page title, just with different
+ * row content once loaded.
+ */
+export function SettingsSubpageSkeleton() {
+  return (
+    <div className="space-y-6 py-4">
+      <div className="px-4">
+        <Skeleton className="h-5 w-32" />
+      </div>
+
+      <section className="px-4">
         <Panel rows={3} />
       </section>
     </div>

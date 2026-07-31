@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { Clock, Loader2, Trash2 } from "lucide-react";
 import useSWR from "swr";
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 
 type DeleteRequestResponse = {
@@ -25,7 +31,13 @@ type Props = {
   redirectPath: string;
 };
 
-export function DangerZoneSection({ groupId, membersCount, selfUserId, rawFetch, redirectPath }: Props) {
+export function DangerZoneSection({
+  groupId,
+  membersCount,
+  selfUserId,
+  rawFetch,
+  redirectPath,
+}: Props) {
   const router = useRouter();
 
   const {
@@ -38,6 +50,12 @@ export function DangerZoneSection({ groupId, membersCount, selfUserId, rawFetch,
   });
 
   const pendingRequest = deleteRequestData?.request ?? null;
+  // `pendingRequest` and `selfUserId` come from two independent, unordered
+  // fetches. Until both have resolved we can't yet tell whether there's an
+  // actionable pending request, so we must not fall through to the collapsed
+  // idle accordion — that would hide a real pending request behind a tap.
+  const dangerZoneLoading =
+    deleteRequestData === undefined || (pendingRequest !== null && selfUserId === undefined);
 
   // If polling returns an auth error the group was deleted by someone else — leave the page.
   useEffect(() => {
@@ -107,9 +125,16 @@ export function DangerZoneSection({ groupId, membersCount, selfUserId, rawFetch,
 
   return (
     <section className="px-4">
-      <p className="sect mb-2.5">危險區域</p>
+      {(dangerZoneLoading || pendingRequest) && <p className="sect mb-2.5">危險區域</p>}
 
-      {pendingRequest && selfUserId !== undefined ? (
+      {dangerZoneLoading ? (
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">載入中…</p>
+          </div>
+        </div>
+      ) : pendingRequest ? (
         pendingRequest.requestedBy === selfUserId ? (
           <div className="overflow-hidden rounded-2xl bg-secondary/50">
             <div className="flex items-center gap-3 px-4 py-3">
@@ -166,22 +191,27 @@ export function DangerZoneSection({ groupId, membersCount, selfUserId, rawFetch,
           </div>
         )
       ) : (
-        <div className="overflow-hidden rounded-2xl bg-secondary/50">
-          <button
-            onClick={() => setDeleteGroupOpen(true)}
-            className="flex w-full items-center gap-3 px-4 py-3 text-destructive transition-colors hover:bg-destructive/10"
-          >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-              <Trash2 className="size-3.5 text-destructive" />
-            </div>
-            <span className="text-sm font-medium">刪除群組</span>
-          </button>
-        </div>
+        <Accordion type="single" collapsible>
+          <AccordionItem value="danger-zone">
+            <AccordionTrigger className="sect">危險區域</AccordionTrigger>
+            <AccordionContent>
+              <div className="overflow-hidden rounded-2xl bg-secondary/50">
+                <button
+                  onClick={() => setDeleteGroupOpen(true)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+                    <Trash2 className="size-3.5 text-destructive" />
+                  </div>
+                  <span className="text-sm font-medium">刪除群組</span>
+                </button>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       )}
 
-      {deleteGroupError && (
-        <p className="mt-2 text-xs text-destructive">{deleteGroupError}</p>
-      )}
+      {deleteGroupError && <p className="mt-2 text-xs text-destructive">{deleteGroupError}</p>}
 
       <ConfirmDialog
         open={deleteGroupOpen}

@@ -112,7 +112,36 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 
 ---
 
-## 6. 三種狀態 States(每個資料頁都要有)
+## 6. 導覽 Row 與可摺疊區塊
+
+除了單純的資料列表面板,還有兩種變體:
+
+**導覽 Row (Nav row)** —— 把一整個子主題交給獨立頁面,而不是就地展開的單列面板。當內容本身有夠重的表單/清單、就地展開會佔滿整頁時使用——例如群組設定頁的「自訂匯率」「Beancount 複製」都各自搬去了自己的 `settings/rates` / `settings/beancount` 頁,原地留下一條 nav row。樣式:icon tile + 標籤文字 + `ChevronRight`,**不放次要狀態文字**——保持跟「動態紀錄」那一列一樣單純。一行狀態文字(「已啟用」「N 筆設定」)會帶出下一個問題——沒資料/零狀態要顯示什麼?——乾淨的純標籤直接繞過了這個問題。
+
+```tsx
+<Link
+  href={`/mini/groups/${id}/settings/rates`}
+  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+>
+  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+    <ArrowRightLeft className="size-3.5" />
+  </span>
+  <p className="min-w-0 flex-1 text-sm">自訂匯率</p>
+  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+</Link>
+```
+
+**可摺疊區塊 (Collapsible section)** —— `Accordion` / `AccordionItem` /
+`AccordionTrigger` / `AccordionContent`(`components/ui/accordion.tsx`,包裝
+`@radix-ui/react-accordion`)。只用在次要或低頻、放著不動會替所有人都要滑過的頁面增加捲動長度的內容——不是拿來當「把頁面變短」的通用招式。預設收合
+(`<Accordion type="single" collapsible>`,不要給 `defaultValue`);`AccordionTrigger`
+沿用原本區塊會用的同一個 `.sect` 標籤,所以收合起來的區塊在被點開之前,看起來就跟普通的區塊標題一樣。
+
+**絕對不要把「需要處理的狀態」預設收合。** `DangerZoneSection` 把閒置狀態的「刪除群組」按鈕收進 accordion,但只要有待處理的刪除申請——不管是自己可以取消的,還是別人送來要你同意/拒絕的——就直接顯示,完全不經過 accordion。使用者得先知道要點開才看得到的東西,不適合放需要立刻處理的內容。
+
+---
+
+## 7. 三種狀態 States(每個資料頁都要有)
 
 | 狀態 | 做法 |
 | --- | --- |
@@ -122,17 +151,18 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 
 ---
 
-## 7. 圖示 Icons
+## 8. 圖示 Icons
 
 - 一律用 [`lucide-react`](https://lucide.dev),尺寸 `size-3.5` ~ `size-4`。
 - **控制元件(按鈕)不要放 emoji**——用 lucide icon。(慶祝性質的純文字訊息可以用 emoji,例如「已結清 🎉」。)
 
 ---
 
-## 8. 改動前的 checklist
+## 9. 改動前的 checklist
 
 - [ ] 圓角只用了 `rounded-2xl`(容器)/ `rounded-lg`(控制)/ `rounded-full`?沒有 `rounded-xl`、`rounded-[…]`?
 - [ ] 顏色都走 CSS 變數?沒有寫死品牌 hex?正負金額用 emerald/rose?
 - [ ] 金額有 `.num`?區塊有 `.sect` 小標?
 - [ ] Loading 是 skeleton 不是 spinner?Empty / Error 狀態都有?
 - [ ] 用了既有 shadcn / `components/mini` 元件,而不是重刻一個?
+- [ ] 內容重到有自己的表單/清單時,是不是搬去了「導覽 row + 獨立頁面」,而不是就地展開?可摺疊區塊是不是只用在真的次要的內容,而不是拿來收「使用者現在就要處理」的東西?

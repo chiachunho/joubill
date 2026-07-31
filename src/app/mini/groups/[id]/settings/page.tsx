@@ -3,12 +3,11 @@
 import { use, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, ChevronRight, Coins, History, Trash2 } from "lucide-react";
+import { ArrowRightLeft, BookOpen, ChevronRight, Coins, History, Trash2 } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
-import { CustomRatesSection } from "@/components/mini/CustomRatesSection";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import {
@@ -78,7 +77,11 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
     mutateMembers(
       (prev) =>
         prev
-          ? { members: prev.members.map((m) => (m.id === member.id ? { ...m, status: newStatus } : m)) }
+          ? {
+              members: prev.members.map((m) =>
+                m.id === member.id ? { ...m, status: newStatus } : m,
+              ),
+            }
           : prev,
       { revalidate: false },
     );
@@ -108,7 +111,9 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (res.status === 409) {
-          setDeleteError(`無法刪除：此成員有 ${(data as { expenseCount?: number }).expenseCount ?? "多筆"} 筆費用記錄，只能停用。`);
+          setDeleteError(
+            `無法刪除：此成員有 ${(data as { expenseCount?: number }).expenseCount ?? "多筆"} 筆費用記錄，只能停用。`,
+          );
         } else {
           setDeleteError("刪除失敗，請再試一次");
         }
@@ -170,9 +175,11 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
         <h1 className="text-lg font-semibold">群組設定</h1>
       </div>
 
-      {/* 一般 */}
+      {/* 貨幣與匯率 — 預設貨幣 stays inline (single control, no reason to
+          leave the page); 自訂匯率 has its own forms/list heavy enough that
+          it moved to its own sub-page, see docs/design-system.md §6. */}
       <section className="px-4">
-        <p className="sect mb-2.5">一般</p>
+        <p className="sect mb-2.5">貨幣與匯率</p>
         <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -198,16 +205,18 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
               </SelectContent>
             </Select>
           </div>
+          <Link
+            href={`/mini/groups/${id}/settings/rates`}
+            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <ArrowRightLeft className="size-3.5" />
+            </span>
+            <p className="min-w-0 flex-1 text-sm">自訂匯率</p>
+            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+          </Link>
         </div>
       </section>
-
-      {/* 自訂匯率 */}
-      <CustomRatesSection
-        groupId={id}
-        defaultCurrency={settings.defaultCurrency}
-        rawFetch={tmaRawFetch}
-      />
-
 
       {/* 動態紀錄 — the way into the audit log. The group page header has no
           free slot (personal settings left, group settings right) and the
@@ -228,8 +237,10 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
         </div>
       </section>
 
-      {/* Beancount 複製 — now its own page (issue #59); this is just the entry row. */}
+      {/* Beancount 複製 — 帳戶名稱設定 has its own form fields (3 prefixes +
+          per-member accounts), so it's a nav row into its own sub-page too. */}
       <section className="px-4">
+        <p className="sect mb-2.5">Beancount 複製</p>
         <div className="overflow-hidden rounded-2xl bg-secondary/50">
           <Link
             href={`/mini/groups/${id}/settings/beancount`}
@@ -238,7 +249,7 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
               <BookOpen className="size-3.5" />
             </span>
-            <p className="min-w-0 flex-1 text-sm">Beancount 複製</p>
+            <p className="min-w-0 flex-1 text-sm">帳戶名稱設定</p>
             <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
           </Link>
         </div>
@@ -253,7 +264,12 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
             const isInactive = member.status === "inactive";
             const isToggling = togglingId === member.id;
             const label = labelUser(
-              { userId: member.id, firstName: member.firstName, lastName: member.lastName, username: member.username },
+              {
+                userId: member.id,
+                firstName: member.firstName,
+                lastName: member.lastName,
+                username: member.username,
+              },
               selfUserId,
             );
 
@@ -297,7 +313,10 @@ export default function GroupSettingsPage({ params }: { params: Promise<{ id: st
       {toggleError && (
         <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
           {toggleError}
-          <button onClick={() => setToggleError(null)} className="ml-2 text-xs underline opacity-70">
+          <button
+            onClick={() => setToggleError(null)}
+            className="ml-2 text-xs underline opacity-70"
+          >
             關閉
           </button>
         </div>

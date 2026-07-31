@@ -51,7 +51,7 @@ type ConfigResponse = { config: Config | null };
 
 type Props = {
   groupId: string;
-  /** Group members, from the page's members SWR (avoids a duplicate fetch). */
+  /** Group members, from the host page's own members SWR call. */
   members: Member[];
   rawFetch: (url: string, init?: RequestInit) => Promise<Response>;
 };
@@ -74,11 +74,14 @@ function Intro() {
 }
 
 /**
- * The whole beancount settings page, minus the page chrome (title/back nav,
- * owned by the two page.tsx wrappers). Apple Wi-Fi-style: a description +
- * toggle card is always shown; the account fields and per-member accounts
- * only appear once the toggle is on (`config !== null`). Shared by the Mini
- * App and Web App standalone pages; auth is injected via `rawFetch`.
+ * Per-(user, group) beancount account customisation. Enabling it (saving a
+ * config) is what makes the "copy record as beancount" button appear on this
+ * group's expense/settlement edit pages — for the current user only. Renders
+ * as the sole content of the Beancount 帳戶名稱設定 settings sub-page (Mini
+ * App and Web App each have a copy) — no internal heading, the page owns its
+ * own `<h1>`. Apple Wi-Fi-style: a description + toggle card is always shown;
+ * the account fields and per-member accounts only appear once the toggle is
+ * on (`config !== null`). Auth is injected via `rawFetch`.
  */
 export function BeancountSettingsSection({ groupId, members, rawFetch }: Props) {
   const { data, error, mutate } = useSWR<ConfigResponse>(`/api/groups/${groupId}/beancount`);
