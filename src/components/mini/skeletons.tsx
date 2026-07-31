@@ -149,6 +149,30 @@ export function GroupSettingsSkeleton() {
   );
 }
 
+/**
+ * Beancount settings page: just the description+toggle card. Reused two ways —
+ * the standalone page shows it while `members` loads (page title already
+ * rendered), and `BeancountSettingsSection` shows it again while its own
+ * `config` fetch is in flight; either way it's the same shape, so one
+ * component covers both without duplicating the title.
+ */
+export function BeancountSettingsSkeleton() {
+  return (
+    <section className="px-4">
+      <div className="overflow-hidden rounded-2xl bg-secondary/50">
+        <div className="space-y-2 px-4 py-4">
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-2/3" />
+        </div>
+        <div className="flex items-center justify-between border-t border-border/40 px-4 py-3">
+          <Skeleton className="h-3.5 w-10" />
+          <Skeleton className="h-[27px] w-[46px] rounded-full" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** Personal settings: profile block + about section. */
 export function PersonalSettingsSkeleton() {
   return (

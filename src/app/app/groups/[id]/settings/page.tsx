@@ -2,11 +2,10 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Coins, History, Trash2 } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Coins, History, Trash2 } from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
-import { BeancountSettingsSection } from "@/components/mini/BeancountSettingsSection";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { CustomRatesSection } from "@/components/mini/CustomRatesSection";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
@@ -229,8 +228,21 @@ export default function AppGroupSettingsPage({ params }: { params: Promise<{ id:
         </div>
       </section>
 
-      {/* Beancount 複製 */}
-      <BeancountSettingsSection groupId={id} members={membersData.members} rawFetch={webRawFetch} />
+      {/* Beancount 複製 — now its own page (issue #59); this is just the entry row. */}
+      <section className="px-4">
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <Link
+            href={`/app/groups/${id}/settings/beancount`}
+            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <BookOpen className="size-3.5" />
+            </span>
+            <p className="min-w-0 flex-1 text-sm">Beancount 複製</p>
+            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+          </Link>
+        </div>
+      </section>
 
       {/* 成員 */}
       <section className="px-4">

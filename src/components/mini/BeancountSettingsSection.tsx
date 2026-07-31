@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ExternalLink, Loader2 } from "lucide-react";
 import useSWR from "swr";
 
+import { Avatar } from "@/components/mini/Avatar";
+import { BeancountSettingsSkeleton } from "@/components/mini/skeletons";
+import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { beancountAccountName, DEFAULT_BEANCOUNT_ACCOUNTS } from "@/lib/beancount";
+import { labelMember } from "@/lib/label";
 import {
   BEANCOUNT_ACCOUNT_HINT,
   BEANCOUNT_ACCOUNT_RE,
@@ -16,6 +21,9 @@ import {
 } from "@/lib/zod";
 
 const BEANCOUNT_PROJECT_URL = "https://github.com/beancount/beancount";
+
+/** How long the post-save "已儲存" flag stays up before reverting to the plain button. */
+const SAVED_FLAG_MS = 2000;
 
 /**
  * Open an external link from either surface. Mirrors the help-site pattern
@@ -43,57 +51,62 @@ type ConfigResponse = { config: Config | null };
 
 type Props = {
   groupId: string;
-  /** Group members, from the settings page's members SWR (avoids a duplicate fetch). */
+  /** Group members, from the page's members SWR (avoids a duplicate fetch). */
   members: Member[];
   rawFetch: (url: string, init?: RequestInit) => Promise<Response>;
 };
 
+function Intro() {
+  return (
+    <p className="text-xs leading-relaxed text-muted-foreground">
+      啟用後，這個群組的支出／還款編輯頁會出現「複製 beancount」按鈕（只有你看得到），可自訂輸出的
+      account 名稱。{" "}
+      <button
+        type="button"
+        onClick={() => openExternal(BEANCOUNT_PROJECT_URL)}
+        className="inline-flex items-center gap-0.5 font-medium text-primary"
+      >
+        什麼是 beancount？
+        <ExternalLink className="size-3" />
+      </button>
+    </p>
+  );
+}
+
 /**
- * Per-(user, group) beancount account customisation. Enabling it (saving a
- * config) is what makes the "copy record as beancount" button appear on this
- * group's expense/settlement edit pages — for the current user only. Shared by
- * the Mini App and Web App settings pages; auth is injected via `rawFetch`.
+ * The whole beancount settings page, minus the page chrome (title/back nav,
+ * owned by the two page.tsx wrappers). Apple Wi-Fi-style: a description +
+ * toggle card is always shown; the account fields and per-member accounts
+ * only appear once the toggle is on (`config !== null`). Shared by the Mini
+ * App and Web App standalone pages; auth is injected via `rawFetch`.
  */
 export function BeancountSettingsSection({ groupId, members, rawFetch }: Props) {
   const { data, error, mutate } = useSWR<ConfigResponse>(`/api/groups/${groupId}/beancount`);
   const config = data?.config ?? null;
 
-  return (
-    <section className="px-4">
-      <div className="mb-2.5 flex items-center justify-between">
-        <p className="sect">Beancount 複製</p>
-        <button
-          type="button"
-          onClick={() => openExternal(BEANCOUNT_PROJECT_URL)}
-          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          什麼是 beancount？
-          <ExternalLink className="size-3" />
-        </button>
-      </div>
-      <div className="overflow-hidden rounded-2xl bg-secondary/50">
-        {error ? (
-          <p className="px-4 py-3 text-sm text-muted-foreground">無法載入設定</p>
-        ) : !data ? (
-          <p className="px-4 py-3 text-sm text-muted-foreground">載入中…</p>
-        ) : config === null ? (
-          <EnablePrompt groupId={groupId} rawFetch={rawFetch} onChange={mutate} />
-        ) : (
-          <Editor
-            key="on"
-            groupId={groupId}
-            members={members}
-            rawFetch={rawFetch}
-            initial={config}
-            onChange={mutate}
-          />
-        )}
-      </div>
-    </section>
+  if (error) {
+    return (
+      <section className="px-4">
+        <div className="rounded-2xl bg-secondary/50 px-4 py-3 text-sm text-muted-foreground">
+          無法載入設定
+        </div>
+      </section>
+    );
+  }
+
+  if (!data) return <BeancountSettingsSkeleton />;
+
+  // `key` remounts Off/On only when the enabled state actually flips, not on
+  // every background revalidation — that's what lets `On` seed its editable
+  // state once and keep it across a `mutate()` triggered by its own save.
+  return config === null ? (
+    <Off key="off" groupId={groupId} rawFetch={rawFetch} onChange={mutate} />
+  ) : (
+    <On key="on" groupId={groupId} members={members} rawFetch={rawFetch} initial={config} onChange={mutate} />
   );
 }
 
-function EnablePrompt({
+function Off({
   groupId,
   rawFetch,
   onChange,
@@ -133,20 +146,22 @@ function EnablePrompt({
   }
 
   return (
-    <div className="space-y-3 px-4 py-3">
-      <p className="text-sm text-muted-foreground">
-        啟用後，這個群組的支出／還款編輯頁會出現「複製 beancount」按鈕（只有你看得到），可自訂輸出的
-        account 名稱。
-      </p>
-      <Button type="button" size="sm" className="rounded-lg" disabled={enabling} onClick={enable}>
-        {enabling ? <Loader2 className="size-3.5 animate-spin" /> : "啟用"}
-      </Button>
-      {err && <p className="text-sm text-destructive">{err}</p>}
-    </div>
+    <section className="px-4">
+      <div className="overflow-hidden rounded-2xl bg-secondary/50">
+        <div className="px-4 py-4">
+          <Intro />
+        </div>
+        <div className="flex items-center justify-between border-t border-border/40 px-4 py-3">
+          <span className="text-sm font-medium">啟用</span>
+          <Switch checked={enabling} disabled={enabling} onCheckedChange={enable} />
+        </div>
+      </div>
+      {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
+    </section>
   );
 }
 
-function Editor({
+function On({
   groupId,
   members,
   rawFetch,
@@ -166,23 +181,45 @@ function Editor({
     initial.personAccounts,
   );
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [disabling, setDisabling] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+  }, []);
+
+  // Any mutation in flight disables every field — a save and a disable can't
+  // overlap, and the fields shouldn't be editable mid-request either.
+  const busy = saving || disabling;
 
   const accountValid = (v: string) => BEANCOUNT_ACCOUNT_RE.test(v.trim());
   const leafValid = (v: string) => v.trim() === "" || BEANCOUNT_LEAF_RE.test(v.trim());
   const canSave =
+    !busy &&
     accountValid(expensesAccount) &&
     accountValid(cashAccount) &&
     accountValid(receivablePrefix) &&
     members.every((m) => leafValid(personAccounts[String(m.id)] ?? ""));
 
+  /** Clear the transient "已儲存" flag as soon as the user changes anything again. */
+  function markDirty() {
+    if (savedTimer.current) {
+      clearTimeout(savedTimer.current);
+      savedTimer.current = null;
+    }
+    setJustSaved(false);
+  }
+
   function setPerson(id: number, value: string) {
+    markDirty();
     setPersonAccounts((prev) => ({ ...prev, [String(id)]: value }));
   }
 
   async function save() {
-    if (saving || !canSave) return;
+    if (!canSave) return;
     setSaving(true);
     setErr(null);
     // Drop blank person entries so they fall back to the auto-derived name.
@@ -208,6 +245,8 @@ function Editor({
         return;
       }
       await onChange();
+      setJustSaved(true);
+      savedTimer.current = setTimeout(() => setJustSaved(false), SAVED_FLAG_MS);
     } catch {
       setErr("儲存失敗，請再試一次");
     } finally {
@@ -225,6 +264,7 @@ function Editor({
         setErr("停用失敗，請再試一次");
         return;
       }
+      setConfirmOpen(false);
       await onChange();
     } catch {
       setErr("停用失敗，請再試一次");
@@ -243,8 +283,12 @@ function Editor({
       <label className="text-xs text-muted-foreground">{label}</label>
       <Input
         value={value}
-        onChange={(e) => onValue(e.target.value)}
+        onChange={(e) => {
+          markDirty();
+          onValue(e.target.value);
+        }}
         placeholder={placeholder}
+        disabled={busy}
         className={`h-8 rounded-lg border-0 bg-background/60 text-sm ${
           accountValid(value) ? "" : "ring-1 ring-destructive"
         }`}
@@ -254,81 +298,104 @@ function Editor({
   );
 
   return (
-    <div className="space-y-3 px-4 py-3">
-      {field(
-        "Expenses 帳戶",
-        expensesAccount,
-        setExpensesAccount,
-        DEFAULT_BEANCOUNT_ACCOUNTS.expenses,
-      )}
-      {field("Cash 帳戶", cashAccount, setCashAccount, DEFAULT_BEANCOUNT_ACCOUNTS.cash)}
-      {field(
-        "Receivable 前綴",
-        receivablePrefix,
-        setReceivablePrefix,
-        DEFAULT_BEANCOUNT_ACCOUNTS.receivablePrefix,
-      )}
+    <>
+      <section className="px-4">
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <div className="px-4 py-4">
+            <Intro />
+          </div>
+          <div className="flex items-center justify-between border-t border-border/40 px-4 py-3">
+            <span className="text-sm font-medium">啟用</span>
+            <Switch checked disabled={busy} onCheckedChange={() => setConfirmOpen(true)} />
+          </div>
+        </div>
+      </section>
 
-      <div className="space-y-1.5 pt-1">
-        <p className="text-xs text-muted-foreground">
-          成員 account 名稱（接在{" "}
-          {receivablePrefix.trim() || DEFAULT_BEANCOUNT_ACCOUNTS.receivablePrefix}{" "}
-          之後；留空則自動取名）
+      <section className="px-4">
+        <p className="sect mb-2.5">帳戶設定</p>
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <div className="space-y-3 px-4 py-3">
+            {field(
+              "Expenses 帳戶",
+              expensesAccount,
+              setExpensesAccount,
+              DEFAULT_BEANCOUNT_ACCOUNTS.expenses,
+            )}
+            {field("Cash 帳戶", cashAccount, setCashAccount, DEFAULT_BEANCOUNT_ACCOUNTS.cash)}
+            {field(
+              "Receivable 前綴",
+              receivablePrefix,
+              setReceivablePrefix,
+              DEFAULT_BEANCOUNT_ACCOUNTS.receivablePrefix,
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4">
+        <p className="sect mb-2.5">成員帳戶</p>
+        <p className="mb-2 text-xs text-muted-foreground">
+          接在 {receivablePrefix.trim() || DEFAULT_BEANCOUNT_ACCOUNTS.receivablePrefix} 之後；留空則自動取名
         </p>
-        {members.map((m) => {
-          const key = String(m.id);
-          const value = personAccounts[key] ?? "";
-          const auto = beancountAccountName({
-            userId: m.id,
-            firstName: m.firstName,
-            lastName: m.lastName ?? null,
-            username: m.username,
-          });
-          const name =
-            [m.firstName, m.lastName].filter(Boolean).join(" ") || m.username || `#${m.id}`;
-          return (
-            <div key={m.id} className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="w-20 shrink-0 truncate text-sm">{name}</span>
-                <Input
-                  value={value}
-                  onChange={(e) => setPerson(m.id, e.target.value)}
-                  placeholder={auto}
-                  className={`h-8 flex-1 rounded-lg border-0 bg-background/60 text-sm ${
-                    leafValid(value) ? "" : "ring-1 ring-destructive"
-                  }`}
-                />
+        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          {members.map((m) => {
+            const key = String(m.id);
+            const value = personAccounts[key] ?? "";
+            const auto = beancountAccountName({
+              userId: m.id,
+              firstName: m.firstName,
+              lastName: m.lastName ?? null,
+              username: m.username,
+            });
+            const name = labelMember(m);
+            return (
+              <div key={m.id} className="flex items-center gap-3 px-4 py-3">
+                <Avatar name={name} userId={m.id} size="sm" />
+                <span className="w-14 shrink-0 truncate text-sm">{name}</span>
+                <div className="min-w-0 flex-1">
+                  <Input
+                    value={value}
+                    onChange={(e) => setPerson(m.id, e.target.value)}
+                    placeholder={auto}
+                    disabled={busy}
+                    className={`h-8 rounded-lg border-0 bg-background/60 text-sm ${
+                      leafValid(value) ? "" : "ring-1 ring-destructive"
+                    }`}
+                  />
+                  {!leafValid(value) && (
+                    <p className="mt-1 text-xs text-destructive">{BEANCOUNT_LEAF_HINT}</p>
+                  )}
+                </div>
               </div>
-              {!leafValid(value) && (
-                <p className="pl-[5.5rem] text-xs text-destructive">{BEANCOUNT_LEAF_HINT}</p>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </section>
 
-      <div className="flex items-center gap-2 pt-1">
-        <Button
-          type="button"
-          size="sm"
-          className="rounded-lg"
-          disabled={!canSave || saving}
-          onClick={save}
-        >
+      <section className="flex items-center gap-3 px-4">
+        <Button type="button" size="sm" className="rounded-lg" disabled={!canSave} onClick={save}>
           {saving ? <Loader2 className="size-3.5 animate-spin" /> : "儲存"}
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="rounded-lg"
-          disabled={disabling}
-          onClick={disable}
-        >
-          {disabling ? <Loader2 className="size-3.5 animate-spin" /> : "停用"}
-        </Button>
-      </div>
-      {err && <p className="text-sm text-destructive">{err}</p>}
-    </div>
+        {justSaved && (
+          <span className="inline-flex items-center gap-1 text-sm font-medium text-primary">
+            <Check className="size-3.5" />
+            已儲存
+          </span>
+        )}
+      </section>
+
+      {err && <p className="px-4 text-sm text-destructive">{err}</p>}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="停用 beancount 複製？"
+        description="停用後，「複製 beancount」按鈕會立刻消失（只影響你自己看到的功能）。目前自訂的帳戶設定不會保留——之後重新啟用會回到預設值。"
+        confirmLabel="確定停用"
+        variant="destructive"
+        loading={disabling}
+        onConfirm={disable}
+      />
+    </>
   );
 }
