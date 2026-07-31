@@ -351,7 +351,9 @@ function On({
             return (
               <div key={m.id} className="flex items-center gap-3 px-4 py-3">
                 <Avatar name={name} userId={m.id} size="sm" />
-                <span className="w-14 shrink-0 truncate text-sm">{name}</span>
+                <span className="w-20 shrink-0 truncate text-sm" title={name}>
+                  {name}
+                </span>
                 <div className="min-w-0 flex-1">
                   <Input
                     value={value}
@@ -390,7 +392,14 @@ function On({
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title="停用 beancount 複製？"
-        description="停用後，「複製 beancount」按鈕會立刻消失（只影響你自己看到的功能）。目前自訂的帳戶設定不會保留——之後重新啟用會回到預設值。"
+        description={
+          <span>
+            停用後，「複製 beancount」按鈕會立刻消失（只影響你自己看到的功能）。目前自訂的帳戶設定不會保留——之後重新啟用會回到預設值。
+            {/* The outer {err} paragraph below sits behind this dialog's overlay
+                while it's open, so a failed disable needs its own copy here too. */}
+            {err && <span className="mt-2 block text-destructive">{err}</span>}
+          </span>
+        }
         confirmLabel="確定停用"
         variant="destructive"
         loading={disabling}
