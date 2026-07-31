@@ -43,7 +43,7 @@ type ConfigResponse = { config: Config | null };
 
 type Props = {
   groupId: string;
-  /** Group members, from the settings page's members SWR (avoids a duplicate fetch). */
+  /** Group members, from the host page's own members SWR call. */
   members: Member[];
   rawFetch: (url: string, init?: RequestInit) => Promise<Response>;
 };
