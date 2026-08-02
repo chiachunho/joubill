@@ -231,6 +231,24 @@ Rate resolution priority, highest first:
 
 When existing records would be re-converted, the settings page asks for the scope before saving or deleting. `PUT /api/groups/[id]/rates` with `lockExisting: true` (and `DELETE …?lock=1`) first pins every affected expense **and settlement** at its **current** effective rate (old group rate or per-day market rate, resolved by `planRateLock` in `src/lib/rate-lock.ts` before the write transaction; both kinds are `expenses` rows, told apart by `type`) so the change only applies to future records — this is how "each trip has its own agreed rate" is supported. Changing the group's default currency also pops a warning, since it re-converts everything at market rates and makes all custom rates/pins dormant.
 
+### Stats (`src/lib/stats-core.ts` + `GET /api/groups/[id]/stats`)
+
+The stats page is personalised and range-scoped, not a fixed group-wide report. `GET /api/groups/[id]/stats?userId=&range=&from=&to=` takes:
+- `userId` (optional, defaults to the caller) — the "查看視角" member being viewed. Must be a group member; validated with the same `assertGroupMember` used for the caller, just applied to the target id too. There's no per-record privacy model in this app (see the `createdBy` transparency decision below), so viewing another member's stats needs no extra permission.
+- `range` — `3m` / `6m` (default) / `1y` / `all` / `custom`. `custom` additionally requires `from`/`to` (`YYYY-MM-DD`). One `range` value drives all three response sections below; there's no separate window per chart.
+
+Same pure/DB split as settlement logic: `src/lib/stats-core.ts` (`resolveStatsRange`, `monthKeysBetween`, `monthKeyToDate`, `computeNetTrend` — no DB, fully testable) resolves the range and does the tricky arithmetic; the route does the DB queries and FX conversion (`resolveRate`, same priority chain as balances) and calls into it.
+
+The response has three sections, each answering a different question and each **only** partially about the viewed member:
+
+1. **`netTrend`** — the viewed member's cumulative net balance (paid − split, settlements included since they're `expenses` rows too) plotted over time. This is the only place with a *history* of the balance Balance itself only shows as one current number — the rightmost point always equals that current number. `computeNetTrend` anchors the series at the resolved `from` with whatever total was carried in from before the window, rather than resetting to 0 — so a quiet window still renders a correctly-valued flat line instead of an empty chart, and `all` needs a concrete anchor date too (the route resolves `from: null` to the group's earliest record, since `stats-core` has no DB access to do that itself).
+2. **`monthly`** — group-wide `type='expense'` totals per month (capped at `MAX_MONTHS = 24` bars regardless of range, so `all` on an old group doesn't render an unreadable strip) plus the viewed member's `expense_splits` total for the same months — i.e. their *allocated share*, not what they paid.
+3. **`byPayer`** — same metric the page used to show as its only chart (each member's `expense_payers` contribution, i.e. who fronted the cash) — kept as a secondary section, but now scoped to the same `range` instead of always being all-time.
+
+`byPayer`'s "who paid" and `monthly`'s "member's share" are deliberately different tables (`expense_payers` vs `expense_splits`) — conflating them would silently misrepresent one or the other. The page's member list/photos come from the existing `GET /api/groups/[id]/members` and `/avatars` endpoints rather than being duplicated into this response.
+
+`DateRangeSelect` (`src/components/mini/DateRangeSelect.tsx`) and the view-as `MemberSelect` are shared components imported by both `/mini` and `/app` stats pages (which otherwise stay hand-maintained near-duplicates per the usual convention). `src/components/ui/calendar.tsx` gained `day_range_start` / `day_range_end` / `day_range_middle` classNames for the custom-range picker — `mode="range"` was previously unused in this codebase (only `mode="single"` in the expense/settlement date fields).
+
 ### Receipt photos (`src/app/api/tg-photo/` and `src/app/api/tg-upload/`)
 
 Receipts are stored on Telegram's servers — only the permanent `file_id` is persisted. An expense can have **up to 5 receipt photos**, stored as rows in `expense_receipts` (`position` sets display order). The legacy single-photo column `expenses.receipt_file_id` still exists and is written by the bot's `/add`; the expenses API merges it with `expense_receipts` rows. Serving goes through the `/api/tg-photo` proxy (accepts `?fileId=` or `?path=`) so the bot token never appears in client URLs.
