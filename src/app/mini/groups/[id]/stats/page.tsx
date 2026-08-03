@@ -5,10 +5,15 @@ import { useRouter } from "next/navigation";
 import type { EChartsOption } from "echarts";
 import useSWR from "swr";
 
-import { DateRangeSelect, type StatsRangeValue } from "@/components/mini/DateRangeSelect";
+import {
+  DateRangeSelect,
+  RANGE_LABELS,
+  type StatsRangeValue,
+} from "@/components/mini/DateRangeSelect";
 import { EChart } from "@/components/mini/EChart";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { StatsSkeleton } from "@/components/mini/skeletons";
+import { fmt } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { labelUser } from "@/lib/label";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
@@ -50,18 +55,6 @@ type StatsResponse = {
     total: number;
   }>;
 };
-
-const RANGE_LABELS: Record<string, string> = {
-  "3m": "3 個月",
-  "6m": "6 個月",
-  "1y": "1 年",
-  all: "全部",
-  custom: "自訂區間",
-};
-
-function fmt(amount: number) {
-  return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 const FONT_FAMILY =
   'system-ui, -apple-system, "Segoe UI", "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
@@ -108,7 +101,19 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
 
   const viewedUserId = selectedUserId ?? stats?.selectedUserId;
   const viewedMember = membersData?.members.find((m) => m.id === viewedUserId);
-  const viewedLabel = viewedMember ? labelUser(viewedMember, selfUserId) : undefined;
+  // `viewedMember` comes from /members (shaped `{id, ...}`), but labelUser's
+  // "you" check compares `userId` — map the id field across or "你" never matches.
+  const viewedLabel = viewedMember
+    ? labelUser(
+        {
+          userId: viewedMember.id,
+          firstName: viewedMember.firstName,
+          lastName: viewedMember.lastName,
+          username: viewedMember.username,
+        },
+        selfUserId,
+      )
+    : undefined;
   const rangeLabel = RANGE_LABELS[range.key] ?? range.key;
 
   const netTrendOption = useMemo<EChartsOption | null>(() => {

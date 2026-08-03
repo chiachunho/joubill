@@ -22,12 +22,18 @@ export type StatsRangeValue = {
   to?: string;
 };
 
-const PRESET_LABELS: Record<Exclude<StatsRangeKey, "custom">, string> = {
+/** Single source of truth for range labels — also imported by the stats
+ *  pages for their "· 6 個月" badges, so a rename can't drift between the
+ *  dropdown text and the chart headers. */
+export const RANGE_LABELS: Record<StatsRangeKey, string> = {
   "3m": "3 個月",
   "6m": "6 個月",
   "1y": "1 年",
   all: "全部",
+  custom: "自訂區間",
 };
+
+const PRESET_KEYS: Array<Exclude<StatsRangeKey, "custom">> = ["3m", "6m", "1y", "all"];
 
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -61,12 +67,12 @@ export function DateRangeSelect({ value, onChange }: Props) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {(Object.keys(PRESET_LABELS) as Array<keyof typeof PRESET_LABELS>).map((key) => (
+          {PRESET_KEYS.map((key) => (
             <SelectItem key={key} value={key}>
-              {PRESET_LABELS[key]}
+              {RANGE_LABELS[key]}
             </SelectItem>
           ))}
-          <SelectItem value="custom">自訂區間</SelectItem>
+          <SelectItem value="custom">{RANGE_LABELS.custom}</SelectItem>
         </SelectContent>
       </Select>
 

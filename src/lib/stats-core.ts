@@ -38,7 +38,15 @@ export function resolveStatsRange(
   if (range === "all") return { from: null, to: now };
 
   const monthsBack = range === "3m" ? 3 : range === "6m" ? 6 : 12;
-  const from = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate());
+  // Clamp the day-of-month to the target month's actual length: naively
+  // reusing now.getDate() overflows into the following month whenever the
+  // target month is shorter (e.g. Aug 31 minus 6 months would land on
+  // Mar 3 instead of Feb 28/29, via JS Date's automatic day rollover).
+  const targetYear = now.getFullYear();
+  const targetMonth = now.getMonth() - monthsBack;
+  const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const day = Math.min(now.getDate(), daysInTargetMonth);
+  const from = new Date(targetYear, targetMonth, day);
   return { from, to: now };
 }
 

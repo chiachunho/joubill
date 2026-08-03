@@ -38,6 +38,24 @@ describe("resolveStatsRange", () => {
   it("rejects a malformed custom date", () => {
     expect(() => resolveStatsRange("custom", now, "not-a-date", "2026-01-01")).toThrow();
   });
+
+  it("clamps the day-of-month instead of overflowing into the next month", () => {
+    // Aug 31 minus 6 months would naively construct "Feb 31", which JS Date
+    // normalizes into Mar 3 (2026 is not a leap year) — must clamp to Feb 28.
+    const aug31 = new Date(2026, 7, 31);
+    expect(resolveStatsRange("6m", aug31)).toEqual({ from: new Date(2026, 1, 28), to: aug31 });
+    // Same day-31 problem one month back (3m from a month whose -3 target is Apr, 30 days).
+    const jul31 = new Date(2026, 6, 31);
+    expect(resolveStatsRange("3m", jul31)).toEqual({ from: new Date(2026, 3, 30), to: jul31 });
+    // A leap-year February should NOT be clamped down further than necessary.
+    const aug29 = new Date(2028, 7, 29);
+    expect(resolveStatsRange("6m", aug29)).toEqual({ from: new Date(2028, 1, 29), to: aug29 });
+  });
+
+  it("does not clamp when the target month has enough days", () => {
+    const jan15 = new Date(2026, 0, 15);
+    expect(resolveStatsRange("1y", jan15)).toEqual({ from: new Date(2025, 0, 15), to: jan15 });
+  });
 });
 
 describe("monthKeysBetween", () => {

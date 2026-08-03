@@ -83,16 +83,39 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       .from(expenses)
       .where(eq(expenses.groupId, groupId));
     effectiveFrom = earliest?.earliest ?? group.createdAt;
+    // A record can be future-dated (no validation prevents it) — if the
+    // "earliest" record somehow lands after `to` (=now for "all"), clamp so
+    // monthKeysBetween/monthKeys[0] below never see an inverted range.
+    if (effectiveFrom.getTime() > resolvedTo.getTime()) effectiveFrom = resolvedTo;
   }
 
   const overrides = await loadGroupRateOverrides(groupId);
+  // Per-request memoization: many rows share the same (currency, quote, day),
+  // so this both avoids redundant `getRate` DB/API round-trips and lets every
+  // loop below resolve its rates in parallel instead of one `await` at a time.
+  const rateCache = new Map<string, Promise<number>>();
+  function cachedRate(
+    record: { currency: string; fxRate: string | number | null; fxQuote: string | null },
+    at: Date,
+  ): Promise<number> {
+    const key = `${record.currency}|${at.toISOString().slice(0, 10)}|${record.fxRate ?? ""}|${record.fxQuote ?? ""}`;
+    let rate = rateCache.get(key);
+    if (!rate) {
+      rate = resolveRate(record, group.defaultCurrency, at, overrides);
+      rateCache.set(key, rate);
+    }
+    return rate;
+  }
 
   // Monthly bar chart: capped to the most recent MAX_MONTHS for readability,
-  // independent of how far back the net-trend/ranking window goes.
+  // independent of how far back the net-trend/ranking window goes. Only the
+  // capped case rounds the query window down to a month boundary — the
+  // uncapped case uses the exact `effectiveFrom` so "近期支出" stays
+  // consistent with "誰花得最多" (same range, not a wider one).
   const allMonthKeys = monthKeysBetween(effectiveFrom, resolvedTo);
-  const monthKeys =
-    allMonthKeys.length > MAX_MONTHS ? allMonthKeys.slice(-MAX_MONTHS) : allMonthKeys;
-  const monthlyWindowStart = monthKeyToDate(monthKeys[0]);
+  const isCapped = allMonthKeys.length > MAX_MONTHS;
+  const monthKeys = isCapped ? allMonthKeys.slice(-MAX_MONTHS) : allMonthKeys;
+  const monthlyQueryStart = isCapped ? monthKeyToDate(monthKeys[0]) : effectiveFrom;
 
   const [expenseRows, memberSplitRows, payerRowsInRange] = await Promise.all([
     db
@@ -108,7 +131,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
         and(
           eq(expenses.groupId, groupId),
           eq(expenses.type, "expense"),
-          gte(expenses.spentAt, monthlyWindowStart),
+          gte(expenses.spentAt, monthlyQueryStart),
           lte(expenses.spentAt, resolvedTo),
         ),
       ),
@@ -127,7 +150,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
           eq(expenses.groupId, groupId),
           eq(expenses.type, "expense"),
           eq(expenseSplits.debtorId, selectedUserId),
-          gte(expenses.spentAt, monthlyWindowStart),
+          gte(expenses.spentAt, monthlyQueryStart),
           lte(expenses.spentAt, resolvedTo),
         ),
       ),
@@ -196,25 +219,35 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       ),
   ]);
 
+  // Resolve every row's FX rate up front, in parallel (deduped by cachedRate)
+  // — then aggregate synchronously below so no two rows racing on the same
+  // accumulator can interleave between a read and its write.
+  const [expenseRates, memberSplitRates, payerRates, netPaidRates, netSplitRates] =
+    await Promise.all([
+      Promise.all(expenseRows.map((r) => cachedRate(r, r.spentAt))),
+      Promise.all(memberSplitRows.map((r) => cachedRate(r, r.spentAt))),
+      Promise.all(payerRowsInRange.map((r) => cachedRate(r, r.spentAt))),
+      Promise.all(netPaidRows.map((r) => cachedRate(r, r.spentAt))),
+      Promise.all(netSplitRows.map((r) => cachedRate(r, r.spentAt))),
+    ]);
+
   // Monthly group total + the selected member's monthly share, zero-filled.
   const monthly = monthKeys.map((month) => ({ month, groupTotal: 0, memberShare: 0 }));
   const monthIndex = new Map(monthly.map((m, idx) => [m.month, idx]));
-  for (const r of expenseRows) {
-    const rate = await resolveRate(r, group.defaultCurrency, r.spentAt, overrides);
+  expenseRows.forEach((r, i) => {
     const key = `${r.spentAt.getFullYear()}-${String(r.spentAt.getMonth() + 1).padStart(2, "0")}`;
     const idx = monthIndex.get(key);
     if (idx !== undefined)
       monthly[idx].groupTotal =
-        Math.round((monthly[idx].groupTotal + n(r.amount) * rate) * 100) / 100;
-  }
-  for (const r of memberSplitRows) {
-    const rate = await resolveRate(r, group.defaultCurrency, r.spentAt, overrides);
+        Math.round((monthly[idx].groupTotal + n(r.amount) * expenseRates[i]) * 100) / 100;
+  });
+  memberSplitRows.forEach((r, i) => {
     const key = `${r.spentAt.getFullYear()}-${String(r.spentAt.getMonth() + 1).padStart(2, "0")}`;
     const idx = monthIndex.get(key);
     if (idx !== undefined)
       monthly[idx].memberShare =
-        Math.round((monthly[idx].memberShare + n(r.amount) * rate) * 100) / 100;
-  }
+        Math.round((monthly[idx].memberShare + n(r.amount) * memberSplitRates[i]) * 100) / 100;
+  });
 
   // Ranking ("誰花得最多"): each member's payer contribution within the range.
   const byPayerMap = new Map<
@@ -227,8 +260,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       total: number;
     }
   >();
-  for (const r of payerRowsInRange) {
-    const rate = await resolveRate(r, group.defaultCurrency, r.spentAt, overrides);
+  payerRowsInRange.forEach((r, i) => {
     const cur = byPayerMap.get(r.payerId) ?? {
       userId: r.payerId,
       firstName: r.payerFirstName,
@@ -236,23 +268,18 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       username: r.payerUsername,
       total: 0,
     };
-    cur.total += n(r.amount) * rate;
+    cur.total += n(r.amount) * payerRates[i];
     byPayerMap.set(r.payerId, cur);
-  }
+  });
   const byPayer = Array.from(byPayerMap.values())
     .map((p) => ({ ...p, total: Math.round(p.total * 100) / 100 }))
     .sort((a, b) => b.total - a.total);
 
   // Net trend: paid legs positive, split legs negative, both currency-normalised.
-  const netLegs: NetLeg[] = [];
-  for (const r of netPaidRows) {
-    const rate = await resolveRate(r, group.defaultCurrency, r.spentAt, overrides);
-    netLegs.push({ date: r.spentAt, amount: n(r.amount) * rate });
-  }
-  for (const r of netSplitRows) {
-    const rate = await resolveRate(r, group.defaultCurrency, r.spentAt, overrides);
-    netLegs.push({ date: r.spentAt, amount: -n(r.amount) * rate });
-  }
+  const netLegs: NetLeg[] = [
+    ...netPaidRows.map((r, i) => ({ date: r.spentAt, amount: n(r.amount) * netPaidRates[i] })),
+    ...netSplitRows.map((r, i) => ({ date: r.spentAt, amount: -n(r.amount) * netSplitRates[i] })),
+  ];
   const netTrend = computeNetTrend(netLegs, effectiveFrom);
 
   return NextResponse.json({
