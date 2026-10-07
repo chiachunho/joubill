@@ -5,6 +5,7 @@ import { groupMembers, groups, sessions, users } from "@/db/schema";
 import type { Group, User } from "@/db/schema";
 import { parseStartParam } from "@/lib/deep-link";
 import { serverEnv } from "@/lib/env";
+import { telegramGroupWhere } from "@/lib/platform";
 
 import { ForbiddenError, UnauthorizedError } from "./errors";
 import { verifyInitData } from "./initData";
@@ -80,7 +81,7 @@ export async function getAuth(req: Request): Promise<Auth> {
       const [g] = await db
         .select()
         .from(groups)
-        .where(eq(groups.telegramChatId, startParam.telegramChatId));
+        .where(telegramGroupWhere(startParam.telegramChatId));
       if (g) {
         groupFromParam = g;
         if (startParam.record?.kind === "expense") expenseFromParam = startParam.record.id;
@@ -95,7 +96,7 @@ export async function getAuth(req: Request): Promise<Auth> {
         if (!existing) {
           const { TELEGRAM_BOT_TOKEN } = serverEnv();
           const cmRes = await fetch(
-            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMember?chat_id=${g.telegramChatId}&user_id=${user.telegramId}`,
+            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMember?chat_id=${g.externalChatId}&user_id=${user.telegramId}`,
           ).catch(() => null);
           const cmJson = cmRes?.ok
             ? ((await cmRes.json()) as { ok: boolean; result?: { status: string } })

@@ -28,6 +28,7 @@ pnpm bot:set-commands   # tsx scripts/set-commands.ts (register the bot's slash-
 pnpm tsx scripts/migrate-payers.ts       # (run BEFORE db:push) populate expense_payers from expenses.payer_id
 pnpm tsx scripts/migrate-settlements.ts  # (run BEFORE db:push) fold settlements into expenses(type='settlement'), then db:push drops the table
 pnpm db:migrate-identities               # (run AFTER db:push) backfill auth_identities from users.telegramId
+pnpm tsx scripts/migrate-group-platform.ts  # (run BEFORE db:push) groups.telegram_chat_id → platform + external_chat_id; message ids → text
 ```
 
 Package manager is **pnpm**. Do not use npm or yarn.
@@ -94,7 +95,7 @@ Two limits worth knowing before trying to "just add everyone":
 
 The reply form is the escape hatch from both limits, and its guards live in `replyTargetUser` (`src/lib/parseMentions.ts`): messages posted on behalf of a chat (anonymous admin, channel) have no personal account behind them and resolve to nothing, while a reply to a forwarded message resolves to the member who posted it here, not the original author.
 
-`src/bot/handlers/chatMigration.ts` follows the chat-id rewrite when a basic group is upgraded to a supergroup (`migrate_to_chat_id` / `migrate_from_chat_id`), repointing `groups.telegramChatId` so the existing members and expenses aren't orphaned under the dead id. It **must stay registered before `registerUser`**, which would otherwise upsert an empty duplicate group row under the new id first. When a duplicate does exist, whichever side has no expenses is folded into the other (`absorbGroup` carries over members and rates rather than letting the cascade drop them); if both hold expenses it logs and bails, since merging two real ledgers can't be done safely without a human.
+`src/bot/handlers/chatMigration.ts` follows the chat-id rewrite when a basic group is upgraded to a supergroup (`migrate_to_chat_id` / `migrate_from_chat_id`), repointing `groups.externalChatId` so the existing members and expenses aren't orphaned under the dead id. It **must stay registered before `registerUser`**, which would otherwise upsert an empty duplicate group row under the new id first. When a duplicate does exist, whichever side has no expenses is folded into the other (`absorbGroup` carries over members and rates rather than letting the cascade drop them); if both hold expenses it logs and bails, since merging two real ledgers can't be done safely without a human.
 
 #### `/add` and the expense card
 
@@ -206,6 +207,8 @@ Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
 `expenses.notice_message_id` holds the `message_id` of that record's message in the group chat — the expense card for an expense, the notice for a settlement (see Group notifications below). `NULL` for records predating the feature or when the send failed.
 
 `receipt_awaiting` stores in-flight "waiting for receipt photo" state for the ForceReply bot flow (only triggered after text-only `/add`; not shown when photo is already attached via caption). `add_awaiting` stores in-flight ForceReply prompts: with `expense_id`/`field` NULL it's a bare `/add` waiting for expense text, otherwise the reply sets one field (`amount` / `currency`) of an existing expense and `panel_message_id` says which card to refresh.
+
+**Groups are platform-tagged** (groundwork for Discord, see [`docs/discord-support-design.zh-TW.md`](docs/discord-support-design.zh-TW.md)): `groups.platform` (`'telegram'` today, no default — an insert must say which) + `groups.external_chat_id`, `UNIQUE(platform, external_chat_id)`. Chat and message ids (`external_chat_id`, `expenses.notice_message_id`, `group_delete_requests.notice_message_id`) are **text**, because a Discord snowflake exceeds 2^53 and a `bigint` `mode: "number"` column would silently corrupt it. Never compare or convert them by hand: look a Telegram group up with `telegramGroupWhere(chatId)` and get Bot API ids back with `telegramChatIdOf(group)` / `telegramMessageIdOf(id)` (`src/lib/platform.ts`). `telegramChatIdOf` returns `null` for a non-Telegram group, and code outside `src/bot/**` (route handlers, `notify.ts`) must skip the Telegram call in that case rather than assume.
 
 Schema is pushed directly with `db:push` (no migration workflow). `numeric` columns come back as strings from Drizzle; use `n()` from `src/lib/money.ts` to parse them to numbers.
 

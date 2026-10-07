@@ -1,6 +1,6 @@
 # Discord 支援設計（繁體中文）
 
-> 狀態：**草案，尚未實作**。本文件整理「讓揪帳同時支援 Discord server bot」的設計方向、
+> 狀態：**草案**。Phase 0（schema 去 Telegram 化）已實作，其餘尚未開始。本文件整理「讓揪帳同時支援 Discord server bot」的設計方向、
 > 需要改動的地方與分階段計畫。標註 ⚠️ **待確認** 的項目是尚未對照 Discord 最新官方文件驗證的假設，
 > 動工前需先確認。
 
@@ -157,7 +157,7 @@ Discord 的這組變數要做成**選用**：沒設定時 Discord 路由回 404�
 
 | 階段 | 內容 | 備註 |
 |---|---|---|
-| **Phase 0** | Schema 去 Telegram 化 + `migrate-group-platform.ts` | 需要資料遷移；不做 Discord 也能先合併 |
+| **Phase 0** ✅ | Schema 去 Telegram 化 + `migrate-group-platform.ts` | 已實作；需要資料遷移，不做 Discord 也能先合併 |
 | **Phase 1** | `RecordNotifier`、`CardView` 拆層、`custom_id` 模組 | 純重構，讓 `src/lib` 和 API route 不再依賴 grammy |
 | **Phase 2** | `src/discord/` bot 本體、指令註冊腳本 | 份量約等於現在的 `src/bot/`（約 2,500 行），但核心邏輯沿用 |
 | **Phase 3** | Discord 登入、收據轉存、頭像 | Web App 可供 Discord 使用者使用 |

@@ -31,15 +31,29 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** A Telegram chat (group / supergroup) maps to one splitbill group. */
-export const groups = pgTable("groups", {
-  id: serial("id").primaryKey(),
-  telegramChatId: bigint("telegram_chat_id", { mode: "number" }).notNull().unique(),
-  title: text("title").notNull(),
-  defaultCurrency: varchar("default_currency", { length: 3 }).notNull().default("TWD"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+/**
+ * One chat on one platform maps to one splitbill group: a Telegram group /
+ * supergroup today, a Discord channel later (docs/discord-support-design.zh-TW.md).
+ *
+ * `externalChatId` is text, not bigint: Discord snowflakes exceed 2^53, so a
+ * `mode: "number"` column would silently corrupt them. Telegram code converts
+ * back with `telegramChatIdOf` / looks rows up with `telegramGroupWhere`
+ * (src/lib/platform.ts) rather than comparing strings by hand.
+ */
+export const groups = pgTable(
+  "groups",
+  {
+    id: serial("id").primaryKey(),
+    /** 'telegram' | 'discord' — see PLATFORMS in src/lib/platform.ts. */
+    platform: varchar("platform", { length: 16 }).notNull(),
+    externalChatId: text("external_chat_id").notNull(),
+    title: text("title").notNull(),
+    defaultCurrency: varchar("default_currency", { length: 3 }).notNull().default("TWD"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("groups_platform_external_chat_id").on(t.platform, t.externalChatId)],
+);
 
 /** Group membership. Auto-populated when the bot sees a user speak or get mentioned. */
 export const groupMembers = pgTable(
@@ -87,8 +101,10 @@ export const expenses = pgTable(
      *  One message per record for its whole life: created → sent, edited →
      *  that same message is edited, deleted → edited to a struck-through
      *  "已刪除" version (the message is deliberately kept). NULL for records
-     *  predating the feature, or when the send failed. See src/lib/notify.ts. */
-    noticeMessageId: integer("notice_message_id"),
+     *  predating the feature, or when the send failed. See src/lib/notify.ts.
+     *  Text because the group's platform decides the id format (a Discord
+     *  snowflake doesn't fit in a JS number); see `telegramMessageIdOf`. */
+    noticeMessageId: text("notice_message_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -279,7 +295,9 @@ export const groupDeleteRequests = pgTable("group_delete_requests", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  telegramMessageId: integer("telegram_message_id"),
+  /** The approve/reject prompt in the group chat; text for the same reason as
+   *  `expenses.noticeMessageId`. */
+  noticeMessageId: text("notice_message_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

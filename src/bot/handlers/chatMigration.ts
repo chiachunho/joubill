@@ -3,13 +3,14 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expenses, groupExchangeRates, groupMembers, groups } from "@/db/schema";
+import { telegramGroupWhere } from "@/lib/platform";
 
 import type { BotContext } from "../context";
 
 /**
  * A basic group upgrading to a supergroup gets a brand-new chat id (the `-100…`
- * form). `groups.telegramChatId` is the unique key every lookup goes through, so
- * unless we follow the rename the supergroup reads as an unrelated new group and
+ * form). The chat id (`groups.externalChatId`) is the key every lookup goes
+ * through, so unless we follow the rename the supergroup reads as an unrelated new group and
  * the original members / expenses are orphaned under an id nobody talks in again.
  *
  * Telegram announces the upgrade twice: `migrate_to_chat_id` on a service message
@@ -100,13 +101,13 @@ async function migrateGroupChatId(oldChatId: number, newChatId: number) {
   if (oldChatId === newChatId) return;
 
   const oldGroup = await db.query.groups.findFirst({
-    where: eq(groups.telegramChatId, oldChatId),
+    where: telegramGroupWhere(oldChatId),
   });
   // Nothing tracked under the old id — the upgrade doesn't concern us.
   if (!oldGroup) return;
 
   const newGroup = await db.query.groups.findFirst({
-    where: eq(groups.telegramChatId, newChatId),
+    where: telegramGroupWhere(newChatId),
   });
 
   if (newGroup && newGroup.id !== oldGroup.id) {
@@ -145,7 +146,7 @@ async function migrateGroupChatId(oldChatId: number, newChatId: number) {
 
   await db
     .update(groups)
-    .set({ telegramChatId: newChatId, updatedAt: new Date() })
+    .set({ externalChatId: String(newChatId), updatedAt: new Date() })
     .where(eq(groups.id, oldGroup.id));
 
   console.info(`[chatMigration] group #${oldGroup.id}: ${oldChatId} → ${newChatId}`);

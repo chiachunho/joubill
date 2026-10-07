@@ -8,6 +8,7 @@ import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { BTN } from "@/lib/buttons";
 import { labelUser } from "@/lib/label";
+import { telegramChatIdOf } from "@/lib/platform";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,13 +41,16 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   const { user } = auth;
   const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
   const bot = getBot();
+  const chatId = telegramChatIdOf(group);
 
   // Single member — delete immediately without requiring approval
   if (memberCount <= 1) {
-    await bot.api
-      .sendMessage(group.telegramChatId, `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`)
-      .catch(() => null);
-    await bot.api.leaveChat(group.telegramChatId).catch(() => null);
+    if (chatId != null) {
+      await bot.api
+        .sendMessage(chatId, `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`)
+        .catch(() => null);
+      await bot.api.leaveChat(chatId).catch(() => null);
+    }
     await db.delete(groups).where(eq(groups.id, groupId));
     return NextResponse.json({ ok: true });
   }
@@ -71,27 +75,30 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     .values({ groupId, requestedBy: user.id, expiresAt })
     .returning();
 
-  const sent = await bot.api
-    .sendMessage(
-      group.telegramChatId,
-      `${name} 申請刪除揪帳群組「${group.title}」，需要其他成員確認。\n\n同意後所有費用與結算紀錄將永久清除。`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: BTN.approveDeleteGroup, callback_data: `approve_del:${request.id}` },
-              { text: BTN.rejectDeleteGroup, callback_data: `cancel_del:${request.id}` },
-            ],
-          ],
-        },
-      },
-    )
-    .catch(() => null);
+  const sent =
+    chatId == null
+      ? null
+      : await bot.api
+          .sendMessage(
+            chatId,
+            `${name} 申請刪除揪帳群組「${group.title}」，需要其他成員確認。\n\n同意後所有費用與結算紀錄將永久清除。`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: BTN.approveDeleteGroup, callback_data: `approve_del:${request.id}` },
+                    { text: BTN.rejectDeleteGroup, callback_data: `cancel_del:${request.id}` },
+                  ],
+                ],
+              },
+            },
+          )
+          .catch(() => null);
 
   if (sent) {
     await db
       .update(groupDeleteRequests)
-      .set({ telegramMessageId: sent.message_id })
+      .set({ noticeMessageId: String(sent.message_id) })
       .where(eq(groupDeleteRequests.id, request.id));
   }
 

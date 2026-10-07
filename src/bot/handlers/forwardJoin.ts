@@ -3,7 +3,8 @@ import { Composer, InlineKeyboard } from "grammy";
 import { db } from "@/db";
 import { groupMembers, groups, users } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
-import { eq } from "drizzle-orm";
+import { telegramChatIdOf } from "@/lib/platform";
+import { and, eq } from "drizzle-orm";
 
 import type { BotContext } from "../context";
 
@@ -34,7 +35,8 @@ forwardJoin.on("message:forward_origin", async (ctx, next) => {
     .select({ id: groups.id, title: groups.title })
     .from(groupMembers)
     .innerJoin(groups, eq(groupMembers.groupId, groups.id))
-    .where(eq(groupMembers.userId, adminUser.id));
+    // Only Telegram groups: the next step asks Telegram whether they're a member.
+    .where(and(eq(groupMembers.userId, adminUser.id), eq(groups.platform, "telegram")));
 
   if (adminGroups.length === 0) {
     await ctx.reply("你還不在任何揪帳群組裡。");
@@ -67,7 +69,8 @@ forwardJoin.callbackQuery(/^fwd_join:(\d+):(\d+):(\d+)$/, async (ctx) => {
     db.query.users.findFirst({ where: eq(users.id, dbUserId) }),
   ]);
 
-  if (!group) {
+  const chatId = group ? telegramChatIdOf(group) : null;
+  if (!group || chatId == null) {
     await ctx.answerCallbackQuery({ text: "找不到群組，請重試。" });
     return;
   }
@@ -80,7 +83,7 @@ forwardJoin.callbackQuery(/^fwd_join:(\d+):(\d+):(\d+)$/, async (ctx) => {
 
   let member;
   try {
-    member = await ctx.api.getChatMember(group.telegramChatId, telegramUserId);
+    member = await ctx.api.getChatMember(chatId, telegramUserId);
   } catch {
     await ctx.answerCallbackQuery({ text: "無法確認對方是否在群組，可能 bot 已被移除。" });
     return;

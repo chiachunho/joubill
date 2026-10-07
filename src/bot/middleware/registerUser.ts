@@ -36,11 +36,12 @@ registerUser.use(async (ctx, next) => {
     const [group] = await db
       .insert(groups)
       .values({
-        telegramChatId: ctx.chat.id,
+        platform: "telegram",
+        externalChatId: String(ctx.chat.id),
         title: ctx.chat.title,
       })
       .onConflictDoUpdate({
-        target: groups.telegramChatId,
+        target: [groups.platform, groups.externalChatId],
         set: { title: ctx.chat.title, updatedAt: new Date() },
       })
       .returning();

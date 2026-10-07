@@ -7,6 +7,7 @@ import { groupDeleteRequests, groups, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { labelUser } from "@/lib/label";
+import { telegramChatIdOf, telegramMessageIdOf } from "@/lib/platform";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -93,25 +94,19 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   const { user } = auth;
   const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
   const bot = getBot();
+  const chatId = telegramChatIdOf(group);
+  const messageId = telegramMessageIdOf(request.noticeMessageId);
 
-  if (request.telegramMessageId) {
-    await bot.api
-      .editMessageText(
-        group.telegramChatId,
-        request.telegramMessageId,
-        `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`,
-      )
-      .catch(() => null);
-  } else {
-    await bot.api
-      .sendMessage(
-        group.telegramChatId,
-        `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`,
-      )
-      .catch(() => null);
+  // Only a Telegram group has a chat to announce in and leave.
+  if (chatId != null) {
+    const text = `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`;
+    await (
+      messageId != null
+        ? bot.api.editMessageText(chatId, messageId, text)
+        : bot.api.sendMessage(chatId, text)
+    ).catch(() => null);
+    await bot.api.leaveChat(chatId).catch(() => null);
   }
-
-  await bot.api.leaveChat(group.telegramChatId).catch(() => null);
   await db.delete(groups).where(eq(groups.id, groupId));
 
   return NextResponse.json({ ok: true });
@@ -141,14 +136,16 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   const isRequester = request.requestedBy === auth.user.id;
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
 
-  if (request.telegramMessageId && group) {
+  const chatId = group ? telegramChatIdOf(group) : null;
+  const messageId = telegramMessageIdOf(request.noticeMessageId);
+  if (chatId != null && messageId != null) {
     const { user } = auth;
     const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
     const action = isRequester ? "取消了刪除申請" : "拒絕了刪除申請";
     const bot = getBot();
 
     await bot.api
-      .editMessageText(group.telegramChatId, request.telegramMessageId, `${name} ${action}。`, {
+      .editMessageText(chatId, messageId, `${name} ${action}。`, {
         reply_markup: { inline_keyboard: [] },
       })
       .catch(() => null);

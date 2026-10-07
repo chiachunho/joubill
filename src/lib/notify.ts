@@ -14,6 +14,7 @@ import {
 import { BTN } from "@/lib/buttons";
 import { settlementLink } from "@/lib/deep-link";
 import { n } from "@/lib/money";
+import { telegramChatIdOf, telegramMessageIdOf } from "@/lib/platform";
 import { type RecordSnapshot } from "@/lib/record-audit";
 import {
   formatDeletedNotice,
@@ -57,7 +58,10 @@ export type Executor = Pick<typeof db, "select">;
 export type LoadedNotice = {
   recordId: number;
   groupId: number;
-  chatId: number;
+  /** Telegram chat to post in; null when the group lives on another platform,
+   *  in which case there is nothing for this module to send (the snapshot is
+   *  still needed for the audit log). */
+  chatId: number | null;
   noticeMessageId: number | null;
   /** Who recorded it, for the deleted-record line. */
   creator: NoticePerson | null;
@@ -109,7 +113,8 @@ export async function loadNoticeRecord(
       fxQuote: expenses.fxQuote,
       receiptFileId: expenses.receiptFileId,
       noticeMessageId: expenses.noticeMessageId,
-      chatId: groups.telegramChatId,
+      platform: groups.platform,
+      externalChatId: groups.externalChatId,
       creatorId: creatorUser.id,
       creatorFirstName: creatorUser.firstName,
       creatorLastName: creatorUser.lastName,
@@ -170,8 +175,8 @@ export async function loadNoticeRecord(
   return {
     recordId: row.id,
     groupId: row.groupId,
-    chatId: row.chatId,
-    noticeMessageId: row.noticeMessageId,
+    chatId: telegramChatIdOf(row),
+    noticeMessageId: telegramMessageIdOf(row.noticeMessageId),
     creator:
       row.creatorId != null
         ? {
@@ -221,41 +226,40 @@ export function deleterOf(u: {
 export async function rememberNoticeMessage(recordId: number, messageId: number): Promise<void> {
   await db
     .update(expenses)
-    .set({ noticeMessageId: messageId })
+    .set({ noticeMessageId: String(messageId) })
     .where(eq(expenses.id, recordId))
     .catch(() => undefined);
 }
 
 /** The 編輯 / 刪除 buttons on a settlement notice (expenses get the card's own). */
-function settlementKeyboard(username: string, loaded: LoadedNotice): InlineKeyboard {
-  const url = settlementLink(username, loaded.chatId, loaded.recordId);
-  return new InlineKeyboard().url(BTN.appEdit, url).text(BTN.delete, `del_exp:${loaded.recordId}`);
+function settlementKeyboard(username: string, chatId: number, recordId: number): InlineKeyboard {
+  const url = settlementLink(username, chatId, recordId);
+  return new InlineKeyboard().url(BTN.appEdit, url).text(BTN.delete, `del_exp:${recordId}`);
 }
 
-type Rendered = { text: string; reply_markup: InlineKeyboard | undefined };
+type Rendered = { chatId: number; text: string; reply_markup: InlineKeyboard | undefined };
 
 /**
  * Expenses render as the card `/add` posts, settlements as their own notice.
- * Returns null when the bot's username can't be resolved (both kinds need it
- * for the Mini App deep link).
+ * Returns null when the group isn't on Telegram, or when the bot's username
+ * can't be resolved (both kinds need it for the Mini App deep link).
  */
 async function render(api: Api, loaded: LoadedNotice): Promise<Rendered | null> {
+  const { chatId } = loaded;
+  if (chatId == null) return null;
   const username = await botUsername(api);
   if (!username) return null;
 
   if (loaded.record.type === "settlement") {
     return {
+      chatId,
       text: formatSettlementNotice(loaded.record),
-      reply_markup: settlementKeyboard(username, loaded),
+      reply_markup: settlementKeyboard(username, chatId, loaded.recordId),
     };
   }
 
-  const card = await renderCard(
-    { botUsername: username, chatId: loaded.chatId },
-    loaded.recordId,
-    "default",
-  );
-  return card ? { text: card.text, reply_markup: card.reply_markup } : null;
+  const card = await renderCard({ botUsername: username, chatId }, loaded.recordId, "default");
+  return card ? { chatId, text: card.text, reply_markup: card.reply_markup } : null;
 }
 
 /** Telegram's "nothing changed" rejection — an edit no-op, not a failure. */
@@ -271,7 +275,7 @@ export async function sendRecordNotice(api: Api, recordId: number): Promise<void
     const rendered = await render(api, loaded);
     if (!rendered) return;
 
-    const sent = await api.sendMessage(loaded.chatId, rendered.text, {
+    const sent = await api.sendMessage(rendered.chatId, rendered.text, {
       parse_mode: "HTML",
       reply_markup: rendered.reply_markup,
     });
@@ -300,7 +304,7 @@ export async function updateRecordNotice(api: Api, recordId: number): Promise<vo
     if (loaded.noticeMessageId != null) {
       try {
         // editMessageText drops the keyboard unless it is passed again.
-        await api.editMessageText(loaded.chatId, loaded.noticeMessageId, rendered.text, {
+        await api.editMessageText(rendered.chatId, loaded.noticeMessageId, rendered.text, {
           parse_mode: "HTML",
           reply_markup: rendered.reply_markup,
         });
@@ -311,7 +315,7 @@ export async function updateRecordNotice(api: Api, recordId: number): Promise<vo
       }
     }
 
-    const sent = await api.sendMessage(loaded.chatId, rendered.text, {
+    const sent = await api.sendMessage(rendered.chatId, rendered.text, {
       parse_mode: "HTML",
       reply_markup: rendered.reply_markup,
     });
@@ -330,7 +334,7 @@ export async function markNoticeDeleted(
   snapshot: LoadedNotice | null,
   deleter: NoticePerson,
 ): Promise<void> {
-  if (!snapshot?.noticeMessageId) return;
+  if (snapshot?.chatId == null || snapshot.noticeMessageId == null) return;
   try {
     // No reply_markup: the buttons point at a record that no longer exists.
     await api.editMessageText(

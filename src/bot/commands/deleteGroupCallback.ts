@@ -5,6 +5,7 @@ import { TOAST } from "@/lib/buttons";
 import { db } from "@/db";
 import { groupDeleteRequests, groupMembers, groups } from "@/db/schema";
 import { labelUser } from "@/lib/label";
+import { telegramChatIdOf } from "@/lib/platform";
 
 import type { BotContext } from "../context";
 
@@ -67,7 +68,8 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
       `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`,
     ).catch(() => null);
 
-    await ctx.api.leaveChat(group.telegramChatId).catch(() => null);
+    const chatId = telegramChatIdOf(group);
+    if (chatId != null) await ctx.api.leaveChat(chatId).catch(() => null);
 
     // Use .returning() to detect a race where two members both approved simultaneously.
     // Postgres DELETE is a silent no-op when the row is already gone; the empty result

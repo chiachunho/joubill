@@ -7,6 +7,7 @@ import { groupMembers, groups, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { serverEnv } from "@/lib/env";
+import { telegramChatIdOf } from "@/lib/platform";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,7 +55,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
       .where(eq(groupMembers.groupId, groupId)),
     db
-      .select({ telegramChatId: groups.telegramChatId })
+      .select({ platform: groups.platform, externalChatId: groups.externalChatId })
       .from(groups)
       .where(eq(groups.id, groupId)),
   ]);
@@ -83,9 +84,10 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
 
   let groupPhoto: string | null = null;
-  if (groupRows[0]) {
+  const chatId = groupRows[0] ? telegramChatIdOf(groupRows[0]) : null;
+  if (chatId != null) {
     try {
-      const chat = await tgApi.getChat(groupRows[0].telegramChatId);
+      const chat = await tgApi.getChat(chatId);
       const photo = (chat as { photo?: { big_file_id: string } }).photo;
       if (photo?.big_file_id) {
         groupPhoto = await getFileUrl(tgApi, photo.big_file_id);

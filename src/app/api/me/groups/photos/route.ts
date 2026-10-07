@@ -7,6 +7,7 @@ import { groupMembers, groups } from "@/db/schema";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { serverEnv } from "@/lib/env";
+import { telegramChatIdOf } from "@/lib/platform";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export const GET = withAuth(async (req: Request) => {
   }
 
   const rows = await db
-    .select({ id: groups.id, telegramChatId: groups.telegramChatId })
+    .select({ id: groups.id, platform: groups.platform, externalChatId: groups.externalChatId })
     .from(groups)
     .innerJoin(groupMembers, eq(groupMembers.groupId, groups.id))
     .where(eq(groupMembers.userId, auth.user.id));
@@ -34,9 +35,12 @@ export const GET = withAuth(async (req: Request) => {
   const tgApi = new Api(token);
 
   const results = await Promise.allSettled(
-    rows.map(async ({ id, telegramChatId }) => {
+    rows.map(async (row) => {
+      const { id } = row;
+      const chatId = telegramChatIdOf(row);
+      if (chatId == null) return { id, url: null };
       try {
-        const chat = await tgApi.getChat(telegramChatId);
+        const chat = await tgApi.getChat(chatId);
         const photo = (chat as { photo?: { big_file_id: string } }).photo;
         if (!photo?.big_file_id) return { id, url: null };
         const file = await tgApi.getFile(photo.big_file_id);
