@@ -12,6 +12,7 @@ import {
   computeNetTrend,
   monthKeyToDate,
   monthKeysBetween,
+  recentMonthKeys,
   resolveStatsRange,
   type NetLeg,
   type StatsRangeKey,
@@ -30,14 +31,11 @@ const MAX_MONTHS = 24;
 const querySchema = z.object({
   userId: z.coerce.number().int().positive().optional(),
   range: z.enum(["3m", "6m", "1y", "all", "custom"]).default("6m"),
-  from: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  to: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  // Full ISO instants, not bare "YYYY-MM-DD" — only the browser knows the
+  // viewer's local day boundaries, so it resolves those itself
+  // (`customRangeToQueryBounds` in stats-core.ts) before this ever sees them.
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
 });
 
 export const GET = withAuth(async (req: Request, { params }: Params) => {
@@ -60,12 +58,16 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
   const { range, from: customFrom, to: customTo } = parsed.data;
   const selectedUserId = parsed.data.userId ?? auth.user.id;
-  await assertGroupMember(selectedUserId, groupId);
+  // Already proven a member above when selectedUserId === auth.user.id (the
+  // common case: viewing your own stats) — skip the redundant lookup.
+  if (selectedUserId !== auth.user.id) {
+    await assertGroupMember(selectedUserId, groupId);
+  }
 
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
   if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
 
-  let resolved: { from: Date | null; to: Date };
+  let resolved: { from: Date | null; to: Date; monthsBack?: number };
   try {
     resolved = resolveStatsRange(range as StatsRangeKey, new Date(), customFrom, customTo);
   } catch (err) {
@@ -76,17 +78,32 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
   const resolvedTo = resolved.to;
 
+  // effectiveFrom anchors the net trend (settlement-inclusive — a settlement
+  // is a real balance-changing event, so "all" history starts there, not at
+  // the first *expense*). earliestExpenseDate is only for bounding the
+  // monthly chart/ranking on "all", so a group whose very first record
+  // happens to be a settlement doesn't get padded with zero-filled months
+  // before any real expense existed.
   let effectiveFrom = resolved.from;
+  let earliestExpenseDate: Date | null = null;
   if (!effectiveFrom) {
-    const [earliest] = await db
-      .select({ earliest: min(expenses.spentAt) })
-      .from(expenses)
-      .where(eq(expenses.groupId, groupId));
-    effectiveFrom = earliest?.earliest ?? group.createdAt;
+    const [[earliestAny], [earliestExpense]] = await Promise.all([
+      db
+        .select({ earliest: min(expenses.spentAt) })
+        .from(expenses)
+        .where(eq(expenses.groupId, groupId)),
+      db
+        .select({ earliest: min(expenses.spentAt) })
+        .from(expenses)
+        .where(and(eq(expenses.groupId, groupId), eq(expenses.type, "expense"))),
+    ]);
+    effectiveFrom = earliestAny?.earliest ?? group.createdAt;
     // A record can be future-dated (no validation prevents it) — if the
     // "earliest" record somehow lands after `to` (=now for "all"), clamp so
     // monthKeysBetween/monthKeys[0] below never see an inverted range.
     if (effectiveFrom.getTime() > resolvedTo.getTime()) effectiveFrom = resolvedTo;
+    earliestExpenseDate = earliestExpense?.earliest ?? effectiveFrom;
+    if (earliestExpenseDate.getTime() > resolvedTo.getTime()) earliestExpenseDate = resolvedTo;
   }
 
   const overrides = await loadGroupRateOverrides(groupId);
@@ -107,117 +124,135 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     return rate;
   }
 
-  // Monthly bar chart: capped to the most recent MAX_MONTHS for readability,
-  // independent of how far back the net-trend/ranking window goes. Only the
-  // capped case rounds the query window down to a month boundary — the
-  // uncapped case uses the exact `effectiveFrom` so "近期支出" stays
-  // consistent with "誰花得最多" (same range, not a wider one).
-  const allMonthKeys = monthKeysBetween(effectiveFrom, resolvedTo);
+  // Monthly chart / ranking share one window, built differently per range:
+  //   - presets (3m/6m/1y): the last `monthsBack` *calendar* months ending
+  //     at `to`'s month — always exactly N, matching the help doc's "選 6
+  //     個月會看到 6 根長條". This is deliberately NOT the same window as
+  //     the net trend's exact day-count `effectiveFrom`: a bar chart reads
+  //     "6 個月" as 6 labeled months, a continuous trend line as 6 months
+  //     of days — two reasonable, different interpretations of the words.
+  //   - all: from the earliest *expense* (not the settlement-inclusive
+  //     effectiveFrom), so idle months before any real expense don't show
+  //     up as a run of zero-filled bars.
+  //   - custom: the viewer's exact picked window (no "N months" promise).
+  // Monthly and the ranking always share this window with each other.
+  let allMonthKeys: string[];
+  let rangeQueryStart: Date;
+  if (resolved.monthsBack !== undefined) {
+    allMonthKeys = recentMonthKeys(resolvedTo, resolved.monthsBack);
+    rangeQueryStart = monthKeyToDate(allMonthKeys[0]);
+  } else if (range === "all") {
+    allMonthKeys = monthKeysBetween(earliestExpenseDate!, resolvedTo);
+    rangeQueryStart = earliestExpenseDate!;
+  } else {
+    allMonthKeys = monthKeysBetween(effectiveFrom, resolvedTo);
+    rangeQueryStart = effectiveFrom;
+  }
   const isCapped = allMonthKeys.length > MAX_MONTHS;
   const monthKeys = isCapped ? allMonthKeys.slice(-MAX_MONTHS) : allMonthKeys;
-  const monthlyQueryStart = isCapped ? monthKeyToDate(monthKeys[0]) : effectiveFrom;
+  const monthlyQueryStart = isCapped ? monthKeyToDate(monthKeys[0]) : rangeQueryStart;
 
-  const [expenseRows, memberSplitRows, payerRowsInRange] = await Promise.all([
-    db
-      .select({
-        amount: expenses.amount,
-        currency: expenses.currency,
-        spentAt: expenses.spentAt,
-        fxRate: expenses.fxRate,
-        fxQuote: expenses.fxQuote,
-      })
-      .from(expenses)
-      .where(
-        and(
-          eq(expenses.groupId, groupId),
-          eq(expenses.type, "expense"),
-          gte(expenses.spentAt, monthlyQueryStart),
-          lte(expenses.spentAt, resolvedTo),
+  // All five row queries are independent of each other — one Promise.all so
+  // a slow connection pays for one round trip, not two sequential ones.
+  const [expenseRows, memberSplitRows, payerRowsInRange, netPaidRows, netSplitRows] =
+    await Promise.all([
+      db
+        .select({
+          amount: expenses.amount,
+          currency: expenses.currency,
+          spentAt: expenses.spentAt,
+          fxRate: expenses.fxRate,
+          fxQuote: expenses.fxQuote,
+        })
+        .from(expenses)
+        .where(
+          and(
+            eq(expenses.groupId, groupId),
+            eq(expenses.type, "expense"),
+            gte(expenses.spentAt, monthlyQueryStart),
+            lte(expenses.spentAt, resolvedTo),
+          ),
         ),
-      ),
-    db
-      .select({
-        amount: expenseSplits.amount,
-        currency: expenses.currency,
-        spentAt: expenses.spentAt,
-        fxRate: expenses.fxRate,
-        fxQuote: expenses.fxQuote,
-      })
-      .from(expenseSplits)
-      .innerJoin(expenses, eq(expenses.id, expenseSplits.expenseId))
-      .where(
-        and(
-          eq(expenses.groupId, groupId),
-          eq(expenses.type, "expense"),
-          eq(expenseSplits.debtorId, selectedUserId),
-          gte(expenses.spentAt, monthlyQueryStart),
-          lte(expenses.spentAt, resolvedTo),
+      db
+        .select({
+          amount: expenseSplits.amount,
+          currency: expenses.currency,
+          spentAt: expenses.spentAt,
+          fxRate: expenses.fxRate,
+          fxQuote: expenses.fxQuote,
+        })
+        .from(expenseSplits)
+        .innerJoin(expenses, eq(expenses.id, expenseSplits.expenseId))
+        .where(
+          and(
+            eq(expenses.groupId, groupId),
+            eq(expenses.type, "expense"),
+            eq(expenseSplits.debtorId, selectedUserId),
+            gte(expenses.spentAt, monthlyQueryStart),
+            lte(expenses.spentAt, resolvedTo),
+          ),
         ),
-      ),
-    db
-      .select({
-        amount: expensePayers.amount,
-        currency: expenses.currency,
-        spentAt: expenses.spentAt,
-        fxRate: expenses.fxRate,
-        fxQuote: expenses.fxQuote,
-        payerId: expensePayers.payerId,
-        payerFirstName: users.firstName,
-        payerLastName: users.lastName,
-        payerUsername: users.username,
-      })
-      .from(expensePayers)
-      .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
-      .innerJoin(users, eq(users.id, expensePayers.payerId))
-      .where(
-        and(
-          eq(expenses.groupId, groupId),
-          eq(expenses.type, "expense"),
-          gte(expenses.spentAt, effectiveFrom),
-          lte(expenses.spentAt, resolvedTo),
+      db
+        .select({
+          amount: expensePayers.amount,
+          currency: expenses.currency,
+          spentAt: expenses.spentAt,
+          fxRate: expenses.fxRate,
+          fxQuote: expenses.fxQuote,
+          payerId: expensePayers.payerId,
+          payerFirstName: users.firstName,
+          payerLastName: users.lastName,
+          payerUsername: users.username,
+        })
+        .from(expensePayers)
+        .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
+        .innerJoin(users, eq(users.id, expensePayers.payerId))
+        .where(
+          and(
+            eq(expenses.groupId, groupId),
+            eq(expenses.type, "expense"),
+            gte(expenses.spentAt, monthlyQueryStart),
+            lte(expenses.spentAt, resolvedTo),
+          ),
         ),
-      ),
-  ]);
-
-  // Net trend needs the selected member's full history up to `to` (both
-  // expenses and settlements) so the running total is never reset to 0 —
-  // resolveStatsRange/computeNetTrend anchor the visible window at `from`.
-  const [netPaidRows, netSplitRows] = await Promise.all([
-    db
-      .select({
-        amount: expensePayers.amount,
-        currency: expenses.currency,
-        spentAt: expenses.spentAt,
-        fxRate: expenses.fxRate,
-        fxQuote: expenses.fxQuote,
-      })
-      .from(expensePayers)
-      .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
-      .where(
-        and(
-          eq(expenses.groupId, groupId),
-          eq(expensePayers.payerId, selectedUserId),
-          lte(expenses.spentAt, resolvedTo),
+      // Net trend needs the selected member's full history up to `to` (both
+      // expenses and settlements) so the running total is never reset to 0 —
+      // resolveStatsRange/computeNetTrend anchor the visible window at `from`.
+      db
+        .select({
+          amount: expensePayers.amount,
+          currency: expenses.currency,
+          spentAt: expenses.spentAt,
+          fxRate: expenses.fxRate,
+          fxQuote: expenses.fxQuote,
+        })
+        .from(expensePayers)
+        .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
+        .where(
+          and(
+            eq(expenses.groupId, groupId),
+            eq(expensePayers.payerId, selectedUserId),
+            lte(expenses.spentAt, resolvedTo),
+          ),
         ),
-      ),
-    db
-      .select({
-        amount: expenseSplits.amount,
-        currency: expenses.currency,
-        spentAt: expenses.spentAt,
-        fxRate: expenses.fxRate,
-        fxQuote: expenses.fxQuote,
-      })
-      .from(expenseSplits)
-      .innerJoin(expenses, eq(expenses.id, expenseSplits.expenseId))
-      .where(
-        and(
-          eq(expenses.groupId, groupId),
-          eq(expenseSplits.debtorId, selectedUserId),
-          lte(expenses.spentAt, resolvedTo),
+      db
+        .select({
+          amount: expenseSplits.amount,
+          currency: expenses.currency,
+          spentAt: expenses.spentAt,
+          fxRate: expenses.fxRate,
+          fxQuote: expenses.fxQuote,
+        })
+        .from(expenseSplits)
+        .innerJoin(expenses, eq(expenses.id, expenseSplits.expenseId))
+        .where(
+          and(
+            eq(expenses.groupId, groupId),
+            eq(expenseSplits.debtorId, selectedUserId),
+            lte(expenses.spentAt, resolvedTo),
+          ),
         ),
-      ),
-  ]);
+    ]);
 
   // Resolve every row's FX rate up front, in parallel (deduped by cachedRate)
   // — then aggregate synchronously below so no two rows racing on the same

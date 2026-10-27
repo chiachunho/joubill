@@ -16,6 +16,7 @@ import { StatsSkeleton } from "@/components/mini/skeletons";
 import { fmt } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { labelUser } from "@/lib/label";
+import { customRangeToQueryBounds } from "@/lib/stats-core";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
 // Tailwind's emerald-500 / rose-500 — the two design-system-sanctioned
@@ -91,8 +92,9 @@ export default function StatsPage({ params }: { params: Promise<{ id: string }> 
     if (selectedUserId !== undefined) qs.set("userId", String(selectedUserId));
     qs.set("range", range.key);
     if (range.key === "custom") {
-      qs.set("from", range.from!);
-      qs.set("to", range.to!);
+      const bounds = customRangeToQueryBounds(range);
+      qs.set("from", bounds.from!);
+      qs.set("to", bounds.to!);
     }
     return `/api/groups/${id}/stats?${qs.toString()}`;
   }, [id, selectedUserId, range]);

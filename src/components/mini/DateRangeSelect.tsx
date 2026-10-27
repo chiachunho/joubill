@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { StatsRangeKey } from "@/lib/stats-core";
+import { parseLocalDay } from "@/lib/stats-core";
 
 export type StatsRangeValue = {
   key: StatsRangeKey;
@@ -92,8 +93,8 @@ export function DateRangeSelect({ value, onChange }: Props) {
             <Calendar
               mode="range"
               selected={{
-                from: value.from ? new Date(value.from) : undefined,
-                to: value.to ? new Date(value.to) : undefined,
+                from: value.from ? parseLocalDay(value.from) : undefined,
+                to: value.to ? parseLocalDay(value.to) : undefined,
               }}
               onSelect={(range) => {
                 onChange({

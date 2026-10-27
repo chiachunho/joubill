@@ -7,11 +7,24 @@ export type ResolvedRange = {
   from: Date | null;
   /** Inclusive upper bound. */
   to: Date;
+  /** Set only for "3m"/"6m"/"1y" — the net-trend anchor (`from`) is an exact
+   *  day-count window, but the monthly chart / ranking want "the last N
+   *  calendar months" (matching the help doc's "選 6 個月會看到 6 根長條"),
+   *  which is a different, month-aligned span. The caller uses this to build
+   *  that span with `recentMonthKeys` instead of `from`. */
+  monthsBack?: number;
 };
 
 /**
- * Resolves a range key (+ optional custom bounds, "YYYY-MM-DD") to concrete
- * from/to dates. Pure — no DB, no "now" side effect (caller passes `now`).
+ * Resolves a range key (+ optional custom bounds) to concrete from/to dates.
+ * Pure — no DB, no "now" side effect (caller passes `now`).
+ *
+ * `customFrom`/`customTo` are full ISO instants, not bare "YYYY-MM-DD" —
+ * only the browser knows the viewer's local day boundaries (there's no
+ * server-side timezone to guess from), so the client resolves "the day I
+ * clicked" to an exact UTC instant itself (see `customRangeToQueryBounds`)
+ * and this just parses what it's given.
+ *
  * Throws on a malformed or inverted custom range so the route can turn that
  * into a 400 instead of silently swapping or dropping bounds.
  */
@@ -25,8 +38,8 @@ export function resolveStatsRange(
     if (!customFrom || !customTo) {
       throw new Error("custom range requires both from and to");
     }
-    const from = new Date(`${customFrom}T00:00:00.000Z`);
-    const to = new Date(`${customTo}T23:59:59.999Z`);
+    const from = new Date(customFrom);
+    const to = new Date(customTo);
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
       throw new Error("invalid from/to date");
     }
@@ -47,7 +60,7 @@ export function resolveStatsRange(
   const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
   const day = Math.min(now.getDate(), daysInTargetMonth);
   const from = new Date(targetYear, targetMonth, day);
-  return { from, to: now };
+  return { from, to: now, monthsBack };
 }
 
 /** "YYYY-MM" keys for every month from `from` to `to`, inclusive on both ends. */
@@ -62,10 +75,52 @@ export function monthKeysBetween(from: Date, to: Date): string[] {
   return keys;
 }
 
+/** The last `count` calendar months ending at (and including) `to`'s month —
+ *  e.g. count=6 from an August `to` gives Mar..Aug, always exactly 6 keys
+ *  regardless of day-of-month (unlike `monthKeysBetween` against an exact
+ *  day-count `from`, which almost never lands on a month boundary). */
+export function recentMonthKeys(to: Date, count: number): string[] {
+  if (count <= 0) return [];
+  const end = new Date(to.getFullYear(), to.getMonth(), 1);
+  const start = new Date(end.getFullYear(), end.getMonth() - (count - 1), 1);
+  return monthKeysBetween(start, end);
+}
+
 /** Inverse of the key format produced by `monthKeysBetween`: "YYYY-MM" -> the 1st of that month. */
 export function monthKeyToDate(key: string): Date {
   const [year, month] = key.split("-").map(Number);
   return new Date(year, month - 1, 1);
+}
+
+/** Parses a "YYYY-MM-DD" string as a local calendar date (midnight in
+ *  whatever timezone this code runs in) — the inverse of the `ymd()`
+ *  formatter in `DateRangeSelect.tsx`. Deliberately not `new Date(str)`:
+ *  that parses a bare date as UTC midnight, which displays as the previous
+ *  day in any negative-UTC-offset timezone. */
+export function parseLocalDay(ymd: string): Date {
+  const [year, month, day] = ymd.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/**
+ * Converts the calendar days a viewer picked (in their own local time, via
+ * `DateRangeSelect`'s "YYYY-MM-DD" strings) into the exact UTC instants
+ * bounding that local day. A bare date string carries no timezone, so this
+ * is the one place that decides what "that day" means — using whichever
+ * clock calls it (the browser, for every real caller) rather than assuming
+ * UTC, which would silently exclude a viewer's early-morning records in any
+ * positive-UTC-offset timezone.
+ */
+export function customRangeToQueryBounds(value: {
+  key: StatsRangeKey;
+  from?: string;
+  to?: string;
+}): { from?: string; to?: string } {
+  if (value.key !== "custom" || !value.from || !value.to) return {};
+  const start = parseLocalDay(value.from);
+  const end = parseLocalDay(value.to);
+  end.setHours(23, 59, 59, 999);
+  return { from: start.toISOString(), to: end.toISOString() };
 }
 
 /** A single signed contribution to a user's net balance: positive when they
