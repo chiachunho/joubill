@@ -8,6 +8,9 @@ is_production() { [ "$VERCEL_ENV" = "production" ]; }
 is_dev_preview() { [ "$VERCEL_ENV" = "preview" ] && [ "$VERCEL_GIT_COMMIT_REF" = "dev" ]; }
 
 if is_production || is_dev_preview; then
+  echo "[vercel-build] applying data migrations..."
+  pnpm db:migrate
+
   echo "[vercel-build] syncing database schema..."
   pnpm db:push
 

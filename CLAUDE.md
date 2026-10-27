@@ -19,6 +19,7 @@ pnpm test:watch     # Vitest watch mode
 # Run a single test file:
 pnpm vitest run src/lib/__tests__/settlement.test.ts
 
+pnpm db:migrate     # Apply pending data migrations from migrations/ (recorded in schema_migrations)
 pnpm db:push        # Sync Drizzle schema to Neon (no migration files)
 pnpm db:generate    # Generate migration SQL (not normally needed)
 pnpm db:studio      # Drizzle Studio GUI
@@ -211,6 +212,8 @@ Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
 `receipt_awaiting` stores in-flight "waiting for receipt photo" state for the ForceReply bot flow (only triggered after text-only `/add`; not shown when photo is already attached via caption). `add_awaiting` stores in-flight ForceReply prompts: with `expense_id`/`field` NULL it's a bare `/add` waiting for expense text, otherwise the reply sets one field (`amount` / `currency`) of an existing expense and `panel_message_id` says which card to refresh.
 
 Schema is pushed directly with `db:push` (no migration workflow). `numeric` columns come back as strings from Drizzle; use `n()` from `src/lib/money.ts` to parse them to numbers.
+
+**Data migrations run in the Vercel build** (`scripts/vercel-build.sh`: `db:migrate` → `db:push` → `next build`). `scripts/migrate.ts` applies each unrecorded file in `migrations/NNNN-name.ts` (`export default async function up(sql)`) and records it in `schema_migrations`; a throwing migration fails the build, so the release never ships. Two rules, both because the previous release is still serving traffic while the build runs: a migration must be **idempotent** (there is no lock), and it must work against **both old and new code** — add, backfill and relax in one release, drop in a later one. `pendingMigrations` (`src/lib/migration-plan.ts`) is the pure, tested part. The one-off `scripts/migrate-*.ts` below predate the runner and were run by hand.
 
 **Schema upgrade procedure** (when adding tables or dropping columns): if the change requires a data migration, place a script in `scripts/` that reads the old data and writes the new shape, run it first, then run `pnpm db:push`. The script must abort loudly if the source column/table is already gone. See `scripts/migrate-payers.ts` as a reference.
 
