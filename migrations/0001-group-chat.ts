@@ -8,6 +8,11 @@
 import type { MigrationSql } from "../scripts/migrate";
 
 export default async function up(sql: MigrationSql) {
+  // A brand-new database has no groups table yet: db:push (which runs after the
+  // migrations) creates it in its final shape, so there is nothing to migrate.
+  const [{ exists }] = await sql`SELECT to_regclass('public.groups') IS NOT NULL AS exists`;
+  if (!exists) return;
+
   // Guard: if telegram_chat_id is already gone the ids are unrecoverable without a restore.
   const col = await sql`
     SELECT 1 FROM information_schema.columns
