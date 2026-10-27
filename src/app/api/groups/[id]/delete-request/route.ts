@@ -161,9 +161,14 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     const bot = getBot();
 
     await bot.api
-      .editMessageText(requireTelegramChatId(group), request.telegramMessageId, `${name} ${action}。`, {
-        reply_markup: { inline_keyboard: [] },
-      })
+      .editMessageText(
+        requireTelegramChatId(group),
+        request.telegramMessageId,
+        `${name} ${action}。`,
+        {
+          reply_markup: { inline_keyboard: [] },
+        },
+      )
       .catch(() => null);
   }
 
