@@ -3,7 +3,6 @@ import { and, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groupMembers, groups, users } from "@/db/schema";
-import { serverEnv } from "@/lib/env";
 import { getRate, loadGroupRateOverrides } from "@/lib/fx";
 import { BTN } from "@/lib/buttons";
 import { expenseLink } from "@/lib/deep-link";

@@ -234,6 +234,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
         </Link>
         <div className="flex min-w-0 items-center gap-2.5">
           {avatars?.groupPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={avatars.groupPhoto}
               alt={groupTitle}

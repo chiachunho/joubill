@@ -182,6 +182,7 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
           返回
         </Link>
         {avatars?.groupPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={avatars.groupPhoto}
             alt={groupTitle}

@@ -6,7 +6,6 @@ import { expensePayers, expenses, users } from "@/db/schema";
 import { BTN } from "@/lib/buttons";
 import { groupLink } from "@/lib/deep-link";
 import { fmt } from "@/lib/money";
-import { serverEnv } from "@/lib/env";
 
 import type { BotContext } from "../context";
 

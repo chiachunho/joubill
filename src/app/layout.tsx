@@ -23,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* TODO: switch to next/font/google (Chiron_GoRound_TC) once Next.js adds it to its font list */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font -- see the TODO above: next/font has no Chiron_GoRound_TC yet */}
         <link
           href="https://fonts.googleapis.com/css2?family=Chiron+GoRound+TC:wght@300;400;500;700&display=swap"
           rel="stylesheet"
