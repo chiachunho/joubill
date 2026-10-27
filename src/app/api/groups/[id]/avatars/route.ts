@@ -4,6 +4,7 @@ import { Api } from "grammy";
 
 import { db } from "@/db";
 import { groupMembers, groups, users } from "@/db/schema";
+import { requireTelegramChatId } from "@/lib/chat";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { serverEnv } from "@/lib/env";
@@ -53,7 +54,10 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       .from(users)
       .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
       .where(eq(groupMembers.groupId, groupId)),
-    db.select({ telegramChatId: groups.telegramChatId }).from(groups).where(eq(groups.id, groupId)),
+    db
+      .select({ chatType: groups.chatType, chatId: groups.chatId })
+      .from(groups)
+      .where(eq(groups.id, groupId)),
   ]);
 
   const tgApi = new Api(token);
@@ -82,7 +86,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   let groupPhoto: string | null = null;
   if (groupRows[0]) {
     try {
-      const chat = await tgApi.getChat(groupRows[0].telegramChatId);
+      const chat = await tgApi.getChat(requireTelegramChatId(groupRows[0]));
       const photo = (chat as { photo?: { big_file_id: string } }).photo;
       if (photo?.big_file_id) {
         groupPhoto = await getFileUrl(tgApi, photo.big_file_id);

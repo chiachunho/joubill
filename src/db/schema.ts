@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  check,
   date,
   index,
   integer,
@@ -32,14 +33,28 @@ export const users = pgTable("users", {
 });
 
 /** A Telegram chat (group / supergroup) maps to one splitbill group. */
-export const groups = pgTable("groups", {
-  id: serial("id").primaryKey(),
-  telegramChatId: bigint("telegram_chat_id", { mode: "number" }).notNull().unique(),
-  title: text("title").notNull(),
-  defaultCurrency: varchar("default_currency", { length: 3 }).notNull().default("TWD"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const groups = pgTable(
+  "groups",
+  {
+    id: serial("id").primaryKey(),
+    // The chat this group lives in: ('telegram', '<chat id>'). Both NULL for a group with no chat.
+    // Read and query through src/lib/chat.ts — never touch these two columns directly.
+    // DEPRECATED, unused. Kept (nullable) for one release so `db:push` in the build doesn't drop
+    // it under the old release that is still live; remove it, its unique and the
+    // `groups_sync_chat` trigger (migrations/0001-group-chat.ts) in the next release.
+    telegramChatId: bigint("telegram_chat_id", { mode: "number" }).unique(),
+    chatType: varchar("chat_type", { length: 16 }),
+    chatId: text("chat_id"),
+    title: text("title").notNull(),
+    defaultCurrency: varchar("default_currency", { length: 3 }).notNull().default("TWD"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("groups_chat").on(t.chatType, t.chatId),
+    check("groups_chat_pair", sql`(${t.chatType} IS NULL) = (${t.chatId} IS NULL)`),
+  ],
+);
 
 /** Group membership. Auto-populated when the bot sees a user speak or get mentioned. */
 export const groupMembers = pgTable(

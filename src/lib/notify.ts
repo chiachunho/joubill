@@ -12,6 +12,7 @@ import {
   users,
 } from "@/db/schema";
 import { BTN } from "@/lib/buttons";
+import { telegramChatId } from "@/lib/chat";
 import { settlementLink } from "@/lib/deep-link";
 import { n } from "@/lib/money";
 import { type RecordSnapshot } from "@/lib/record-audit";
@@ -109,7 +110,8 @@ export async function loadNoticeRecord(
       fxQuote: expenses.fxQuote,
       receiptFileId: expenses.receiptFileId,
       noticeMessageId: expenses.noticeMessageId,
-      chatId: groups.telegramChatId,
+      chatType: groups.chatType,
+      chatId: groups.chatId,
       creatorId: creatorUser.id,
       creatorFirstName: creatorUser.firstName,
       creatorLastName: creatorUser.lastName,
@@ -122,6 +124,9 @@ export async function loadNoticeRecord(
     .where(eq(expenses.id, recordId));
 
   if (!row) return null;
+  // A group outside Telegram has no chat for this layer to write into.
+  const chatId = telegramChatId(row);
+  if (chatId === null) return null;
 
   const [payerRows, splitRows, receiptRows] = await Promise.all([
     exec
@@ -170,7 +175,7 @@ export async function loadNoticeRecord(
   return {
     recordId: row.id,
     groupId: row.groupId,
-    chatId: row.chatId,
+    chatId,
     noticeMessageId: row.noticeMessageId,
     creator:
       row.creatorId != null

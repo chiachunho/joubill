@@ -2,6 +2,7 @@ import { Composer, InlineKeyboard } from "grammy";
 
 import { db } from "@/db";
 import { groupMembers, groups, users } from "@/db/schema";
+import { requireTelegramChatId } from "@/lib/chat";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { eq } from "drizzle-orm";
 
@@ -80,7 +81,7 @@ forwardJoin.callbackQuery(/^fwd_join:(\d+):(\d+):(\d+)$/, async (ctx) => {
 
   let member;
   try {
-    member = await ctx.api.getChatMember(group.telegramChatId, telegramUserId);
+    member = await ctx.api.getChatMember(requireTelegramChatId(group), telegramUserId);
   } catch {
     await ctx.answerCallbackQuery({ text: "無法確認對方是否在群組，可能 bot 已被移除。" });
     return;
