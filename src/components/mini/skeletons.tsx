@@ -109,7 +109,7 @@ export function GroupsListSkeleton() {
   );
 }
 
-/** Stats page: header + two chart panels. */
+/** Stats page: header + view/range controls + three chart panels. */
 export function StatsSkeleton() {
   return (
     <div className="space-y-6 py-4">
@@ -118,14 +118,32 @@ export function StatsSkeleton() {
         <Skeleton className="h-2.5 w-8" />
       </div>
       <section className="px-4">
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <Skeleton className="mb-2.5 h-3 w-16" />
+            <Skeleton className="h-9 w-full rounded-lg" />
+          </div>
+          <div>
+            <Skeleton className="mb-2.5 h-3 w-10" />
+            <Skeleton className="h-9 w-full rounded-lg" />
+          </div>
+        </div>
+      </section>
+      <section className="px-4">
         <Skeleton className="mb-2.5 h-3 w-28" />
+        <div className="rounded-2xl bg-secondary/50 px-4 py-4">
+          <Skeleton className="h-[200px] w-full rounded-lg" />
+        </div>
+      </section>
+      <section className="px-4">
+        <Skeleton className="mb-2.5 h-3 w-20" />
         <div className="rounded-2xl bg-secondary/50 px-4 py-4">
           <Skeleton className="h-[220px] w-full rounded-lg" />
         </div>
       </section>
       <section className="px-4">
         <Skeleton className="mb-2.5 h-3 w-20" />
-        <div className="rounded-2xl bg-secondary/50 px-4 py-4">
+        <div className="rounded-2xl bg-secondary/30 px-4 py-4">
           <Skeleton className="h-[160px] w-full rounded-lg" />
         </div>
       </section>

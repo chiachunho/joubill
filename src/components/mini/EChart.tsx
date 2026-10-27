@@ -23,8 +23,13 @@ async function loadEcharts(): Promise<EchartsCore> {
   ]);
   core.use([
     charts.BarChart,
+    charts.LineChart,
     components.GridComponent,
     components.TooltipComponent,
+    // Piecewise visualMap colors the net-trend line/area by sign (emerald
+    // above zero, rose below) and MarkLine draws its dashed zero baseline.
+    components.VisualMapComponent,
+    components.MarkLineComponent,
     // SVG (not Canvas): <text> nodes inherit the page font so CJK renders
     // correctly inside the Telegram desktop webview, where the canvas default
     // font lacks CJK glyphs.
