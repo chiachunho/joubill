@@ -39,10 +39,6 @@ export const groups = pgTable(
     id: serial("id").primaryKey(),
     // The chat this group lives in: ('telegram', '<chat id>'). Both NULL for a group with no chat.
     // Read and query through src/lib/chat.ts — never touch these two columns directly.
-    // DEPRECATED, unused. Kept (nullable) for one release so `db:push` in the build doesn't drop
-    // it under the old release that is still live; remove it, its unique and the
-    // `groups_sync_chat` trigger (migrations/0001-group-chat.ts) in the next release.
-    telegramChatId: bigint("telegram_chat_id", { mode: "number" }).unique(),
     chatType: varchar("chat_type", { length: 16 }),
     chatId: text("chat_id"),
     title: text("title").notNull(),
