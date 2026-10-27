@@ -31,11 +31,14 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     return NextResponse.json({ currency: group.defaultCurrency, transfers: [] });
   }
 
-  const involvedIds = Array.from(
-    new Set(transfers.flatMap((t) => [t.fromUserId, t.toUserId])),
-  );
+  const involvedIds = Array.from(new Set(transfers.flatMap((t) => [t.fromUserId, t.toUserId])));
   const profileRows = await db
-    .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, username: users.username })
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      username: users.username,
+    })
     .from(users)
     .where(inArray(users.id, involvedIds));
   const profiles = new Map(profileRows.map((p) => [p.id, p]));

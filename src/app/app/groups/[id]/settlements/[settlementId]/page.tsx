@@ -12,12 +12,17 @@ type MeResponse = { userId: number; groups: Array<{ id: number; defaultCurrency:
 type MembersResponse = { members: Member[] };
 type AvatarsResponse = { userPhotos: Record<number, string | null> };
 type SettlementDetail = {
-  id: number; createdBy: number | null;
+  id: number;
+  createdBy: number | null;
   createdAt: string | null;
   lastActivity: { actorId: number | null; at: string } | null;
-  amount: number; currency: string; fxRate: number | null; fxQuote: string | null;
+  amount: number;
+  currency: string;
+  fxRate: number | null;
+  fxQuote: string | null;
   settledAt: string;
-  from: { userId: number }; to: { userId: number };
+  from: { userId: number };
+  to: { userId: number };
 };
 
 export default function AppEditSettlementPage({
@@ -38,7 +43,10 @@ export default function AppEditSettlementPage({
 
   if (meError ?? msError ?? settlementError) {
     return (
-      <Card><CardHeader><CardTitle>無法載入</CardTitle></CardHeader>
+      <Card>
+        <CardHeader>
+          <CardTitle>無法載入</CardTitle>
+        </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           {String(meError ?? msError ?? settlementError)}
         </CardContent>
@@ -50,7 +58,10 @@ export default function AppEditSettlementPage({
   const group = me.groups.find((g) => g.id === groupId);
   if (!group) {
     return (
-      <Card><CardHeader><CardTitle>無法載入</CardTitle></CardHeader>
+      <Card>
+        <CardHeader>
+          <CardTitle>無法載入</CardTitle>
+        </CardHeader>
         <CardContent className="text-sm text-muted-foreground">你不屬於這個群組</CardContent>
       </Card>
     );

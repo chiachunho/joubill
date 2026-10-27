@@ -143,7 +143,10 @@ function Row({
 
   const className = "flex items-center gap-3 px-4 py-3";
   return href ? (
-    <Link href={href} className={`${className} transition-colors hover:bg-accent/30 active:bg-accent/50`}>
+    <Link
+      href={href}
+      className={`${className} transition-colors hover:bg-accent/30 active:bg-accent/50`}
+    >
       {body}
     </Link>
   ) : (

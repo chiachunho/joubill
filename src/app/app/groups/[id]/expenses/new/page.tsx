@@ -22,8 +22,13 @@ export default function AppNewExpensePage({ params }: { params: Promise<{ id: st
 
   if (meError ?? msError) {
     return (
-      <Card><CardHeader><CardTitle>無法載入</CardTitle></CardHeader>
-        <CardContent className="text-sm text-muted-foreground">{String(meError ?? msError)}</CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>無法載入</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          {String(meError ?? msError)}
+        </CardContent>
       </Card>
     );
   }
@@ -32,7 +37,10 @@ export default function AppNewExpensePage({ params }: { params: Promise<{ id: st
   const group = me.groups.find((g) => g.id === groupId);
   if (!group) {
     return (
-      <Card><CardHeader><CardTitle>無法載入</CardTitle></CardHeader>
+      <Card>
+        <CardHeader>
+          <CardTitle>無法載入</CardTitle>
+        </CardHeader>
         <CardContent className="text-sm text-muted-foreground">你不屬於這個群組</CardContent>
       </Card>
     );

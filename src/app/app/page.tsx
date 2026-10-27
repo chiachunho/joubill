@@ -66,6 +66,7 @@ export default function AppHome() {
               className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40 active:bg-accent/60"
             >
               {photosData?.photos[g.id] ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={photosData.photos[g.id]!}
                   alt={g.title}

@@ -40,7 +40,7 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
       <img
         src={src}
         alt={name}
-        className={`${sizeClass} rounded-full object-cover shrink-0 ring-1 ring-black/10 dark:ring-white/10`}
+        className={`${sizeClass} shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10`}
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = "none";
         }}
@@ -49,7 +49,7 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
   }
   return (
     <span
-      className={`${sizeClass} ${color} inline-flex items-center justify-center rounded-full font-semibold text-white shrink-0`}
+      className={`${sizeClass} ${color} inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white`}
     >
       {initials || "?"}
     </span>

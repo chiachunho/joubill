@@ -72,4 +72,3 @@ export async function computeGroupBalances(
     .map(([userId, amount]) => ({ userId, amount: Math.round(amount * 100) / 100 }))
     .filter((b) => Math.abs(b.amount) >= EPSILON);
 }
-

@@ -15,10 +15,7 @@ type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
  * Single source of truth for both the lock queries and the affected-record
  * counts in the rates API — keep them counting the same set.
  */
-export function noApplicablePin(
-  cols: { fxRate: AnyColumn; fxQuote: AnyColumn },
-  quote: string,
-) {
+export function noApplicablePin(cols: { fxRate: AnyColumn; fxQuote: AnyColumn }, quote: string) {
   return or(isNull(cols.fxRate), isNull(cols.fxQuote), ne(cols.fxQuote, quote));
 }
 

@@ -53,6 +53,7 @@ export default function PersonalSettingsPage() {
       <section className="px-4">
         <div className="flex items-center gap-4 rounded-2xl bg-secondary/50 px-4 py-4">
           {profile.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={profile.photoUrl}
               alt={displayName}

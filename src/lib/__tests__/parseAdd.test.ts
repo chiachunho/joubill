@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { MessageEntity } from "grammy/types";
 
-import { evalAmountExpr, isSupportedCurrency, normalizeWidth, parseAddMessage, scanAmount } from "../parseAdd";
+import {
+  evalAmountExpr,
+  isSupportedCurrency,
+  normalizeWidth,
+  parseAddMessage,
+  scanAmount,
+} from "../parseAdd";
 import { SUPPORTED_CURRENCIES } from "../zod";
 
 /** Build a `mention` entity covering the @handle at `offset`. */
@@ -165,7 +171,12 @@ describe("parseAddMessage", () => {
     const text = "/add 100 gift Bob";
     const offset = text.indexOf("Bob");
     const entities: MessageEntity[] = [
-      { type: "text_mention", offset, length: 3, user: { id: 4242, is_bot: false, first_name: "Bob" } },
+      {
+        type: "text_mention",
+        offset,
+        length: 3,
+        user: { id: 4242, is_bot: false, first_name: "Bob" },
+      },
     ];
     const result = parseAddMessage(text, entities);
     expect(result.mentionTelegramIds).toEqual([4242]);

@@ -55,7 +55,11 @@ interface OAuthButtonsProps {
   showGoogle?: boolean;
 }
 
-export function OAuthButtons({ callbackUrl = "/app", showGithub = false, showGoogle = false }: OAuthButtonsProps) {
+export function OAuthButtons({
+  callbackUrl = "/app",
+  showGithub = false,
+  showGoogle = false,
+}: OAuthButtonsProps) {
   return (
     <div className="flex flex-col gap-3">
       <button

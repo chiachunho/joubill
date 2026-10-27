@@ -199,6 +199,11 @@ expensePanel.callbackQuery(/^exp:(amt|curo):(\d+)$/, async (ctx) => {
     return;
   }
 
-  await promptForExpenseField(ctx, expenseId, kind === "amt" ? "amount" : "currency", panelMessageId);
+  await promptForExpenseField(
+    ctx,
+    expenseId,
+    kind === "amt" ? "amount" : "currency",
+    panelMessageId,
+  );
   await ctx.answerCallbackQuery();
 });

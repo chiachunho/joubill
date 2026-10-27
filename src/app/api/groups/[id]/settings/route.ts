@@ -21,7 +21,10 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
   await assertGroupMember(auth.user.id, groupId);
 
-  const [group] = await db.select({ defaultCurrency: groups.defaultCurrency }).from(groups).where(eq(groups.id, groupId));
+  const [group] = await db
+    .select({ defaultCurrency: groups.defaultCurrency })
+    .from(groups)
+    .where(eq(groups.id, groupId));
   if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
 
   return NextResponse.json({ defaultCurrency: group.defaultCurrency });

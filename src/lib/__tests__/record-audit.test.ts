@@ -243,11 +243,15 @@ describe("changeHeading", () => {
   });
 
   it("calls a settlement a 還款", () => {
-    expect(changeHeading({ action: "created", recordType: "settlement" }, false)).toBe("新增了還款");
+    expect(changeHeading({ action: "created", recordType: "settlement" }, false)).toBe(
+      "新增了還款",
+    );
   });
 
   it("falls back to the kind when a record has no description", () => {
-    expect(changeHeading({ ...base, recordLabel: "  ", action: "deleted" }, true)).toBe("刪除了 支出");
+    expect(changeHeading({ ...base, recordLabel: "  ", action: "deleted" }, true)).toBe(
+      "刪除了 支出",
+    );
   });
 
   it("lists the changed fields on a record's own page", () => {
@@ -264,10 +268,16 @@ describe("changeHeading", () => {
 
   it("states the locked rate, and copes with a deleted one", () => {
     expect(
-      changeHeading({ action: "rate_locked", recordType: "group", rateLock: { base: "JPY", rate: 0.213 } }, true),
+      changeHeading(
+        { action: "rate_locked", recordType: "group", rateLock: { base: "JPY", rate: 0.213 } },
+        true,
+      ),
     ).toBe("鎖定了 JPY 匯率 0.213");
     expect(
-      changeHeading({ action: "rate_locked", recordType: "group", rateLock: { base: "JPY", rate: null } }, true),
+      changeHeading(
+        { action: "rate_locked", recordType: "group", rateLock: { base: "JPY", rate: null } },
+        true,
+      ),
     ).toBe("鎖定了 JPY 匯率");
   });
 });

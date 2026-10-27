@@ -17,10 +17,7 @@ if (!TOKEN) {
   process.exit(1);
 }
 
-async function setCommands(
-  commands: { command: string; description: string }[],
-  scope: object,
-) {
+async function setCommands(commands: { command: string; description: string }[], scope: object) {
   const res = await fetch(`https://api.telegram.org/bot${TOKEN}/setMyCommands`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

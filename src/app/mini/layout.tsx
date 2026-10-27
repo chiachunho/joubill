@@ -21,9 +21,7 @@ export default function MiniLayout({ children }: { children: React.ReactNode }) 
         <TelegramApp>
           <SWRProvider>
             <TooltipProvider delayDuration={200}>
-              <main className="mx-auto min-h-screen max-w-xl pb-10">
-                {children}
-              </main>
+              <main className="mx-auto min-h-screen max-w-xl pb-10">{children}</main>
             </TooltipProvider>
           </SWRProvider>
         </TelegramApp>

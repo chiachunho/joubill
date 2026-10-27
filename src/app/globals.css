@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --font-sans: 'Chiron GoRound TC', system-ui, sans-serif;
+    --font-sans: "Chiron GoRound TC", system-ui, sans-serif;
 
     /* Brand palette (non-Telegram fallback)
      * 揪綠 #2EBD8F → 161 61% 46%
@@ -13,15 +13,15 @@
      * 米白 #F2F0EB → 43 21% 94%
      * 墨黑 #1A1A1A → 0 0% 10%
      */
-    --background: 43 21% 94%;       /* 米白 */
-    --foreground: 0 0% 10%;         /* 墨黑 */
+    --background: 43 21% 94%; /* 米白 */
+    --foreground: 0 0% 10%; /* 墨黑 */
     --card: 0 0% 100%;
     --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
-    --primary: 161 61% 46%;         /* 揪綠 */
+    --primary: 161 61% 46%; /* 揪綠 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 43 18% 88%;        /* warm panel surface */
+    --secondary: 43 18% 88%; /* warm panel surface */
     --secondary-foreground: 0 0% 10%;
     --muted: 43 18% 88%;
     --muted-foreground: 0 0% 44%;
@@ -31,19 +31,19 @@
     --destructive-foreground: 0 0% 98%;
     --border: 43 12% 84%;
     --input: 43 12% 84%;
-    --ring: 161 61% 46%;            /* 揪綠 */
+    --ring: 161 61% 46%; /* 揪綠 */
     --radius: 0.625rem;
-    --brand-gold: 41 91% 58%;       /* 帳金 — for financial highlights */
+    --brand-gold: 41 91% 58%; /* 帳金 — for financial highlights */
   }
 
   .dark {
     --background: 0 0% 8%;
-    --foreground: 43 21% 94%;       /* 米白 */
+    --foreground: 43 21% 94%; /* 米白 */
     --card: 0 0% 12%;
     --card-foreground: 43 21% 94%;
     --popover: 0 0% 12%;
     --popover-foreground: 43 21% 94%;
-    --primary: 161 58% 50%;         /* 揪綠 lightened for dark bg */
+    --primary: 161 58% 50%; /* 揪綠 lightened for dark bg */
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 17%;
     --secondary-foreground: 43 21% 94%;

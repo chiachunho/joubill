@@ -53,10 +53,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       .from(users)
       .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
       .where(eq(groupMembers.groupId, groupId)),
-    db
-      .select({ telegramChatId: groups.telegramChatId })
-      .from(groups)
-      .where(eq(groups.id, groupId)),
+    db.select({ telegramChatId: groups.telegramChatId }).from(groups).where(eq(groups.id, groupId)),
   ]);
 
   const tgApi = new Api(token);

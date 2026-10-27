@@ -2,7 +2,6 @@ import { Composer, InlineKeyboard } from "grammy";
 
 import { BTN } from "@/lib/buttons";
 import { groupLink } from "@/lib/deep-link";
-import { serverEnv } from "@/lib/env";
 
 import type { BotContext } from "../context";
 

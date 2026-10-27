@@ -15,11 +15,7 @@ function toAdapterUser(user: User): AdapterUser {
   };
 }
 
-function toAdapterSession(row: {
-  id: string;
-  userId: number;
-  expiresAt: Date;
-}): AdapterSession {
+function toAdapterSession(row: { id: string; userId: number; expiresAt: Date }): AdapterSession {
   return {
     sessionToken: row.id,
     userId: String(row.userId),
@@ -52,7 +48,10 @@ export const splitbillAdapter: Adapter = {
   },
 
   async getUser(id) {
-    const [user] = await db.select().from(users).where(eq(users.id, Number(id)));
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, Number(id)));
     return user ? toAdapterUser(user) : null;
   },
 

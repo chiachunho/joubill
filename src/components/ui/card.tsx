@@ -18,9 +18,7 @@ function CardHeader({ className, ...props }: DivProps) {
 }
 
 function CardTitle({ className, ...props }: DivProps) {
-  return (
-    <div className={cn("font-semibold leading-none tracking-tight", className)} {...props} />
-  );
+  return <div className={cn("font-semibold leading-none tracking-tight", className)} {...props} />;
 }
 
 function CardDescription({ className, ...props }: DivProps) {

@@ -31,9 +31,19 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
 
   const profileRows = await db
-    .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, username: users.username })
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      username: users.username,
+    })
     .from(users)
-    .where(inArray(users.id, balances.map((b) => b.userId)));
+    .where(
+      inArray(
+        users.id,
+        balances.map((b) => b.userId),
+      ),
+    );
   const profiles = new Map(profileRows.map((p) => [p.id, p]));
 
   return NextResponse.json({

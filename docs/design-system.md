@@ -24,13 +24,13 @@ light/dark themes would break it.
 
 When no Telegram theme is applied, `globals.css`'s `:root` defaults use these brand colors:
 
-| Name | HEX | CSS variable | Use |
-| --- | --- | --- | --- |
-| Jiu-green | `#2EBD8F` | `--primary` / `--ring` | primary action buttons, selected state |
-| Ledger-gold | `#F5B731` | `--brand-gold` | financial highlights (see below) |
-| Deep green | `#1F9D74` | — | dark variant of jiu-green; kept as a dark-mode `--primary` reference |
-| Off-white | `#F2F0EB` | `--background` | page background |
-| Ink-black | `#1A1A1A` | `--foreground` | primary text |
+| Name        | HEX       | CSS variable           | Use                                                                  |
+| ----------- | --------- | ---------------------- | -------------------------------------------------------------------- |
+| Jiu-green   | `#2EBD8F` | `--primary` / `--ring` | primary action buttons, selected state                               |
+| Ledger-gold | `#F5B731` | `--brand-gold`         | financial highlights (see below)                                     |
+| Deep green  | `#1F9D74` | —                      | dark variant of jiu-green; kept as a dark-mode `--primary` reference |
+| Off-white   | `#F2F0EB` | `--background`         | page background                                                      |
+| Ink-black   | `#1A1A1A` | `--foreground`         | primary text                                                         |
 
 #### Ledger-gold (`--brand-gold`) rules
 
@@ -51,15 +51,15 @@ emphasis" (e.g. cumulative totals, unsettled sums).
 
 ### Standard semantic classes
 
-| Use | class | Notes |
-| --- | --- | --- |
-| Page background | `bg-background` | follows TG `bg_color`; defaults to off-white |
-| Primary text | `text-foreground` | |
-| Secondary / hint text | `text-muted-foreground` | dates, descriptions, units |
-| Panel background | `bg-secondary/50` | for grouped panels (see §5) |
-| Dividers | `divide-border/40`, `border-border` | |
-| Primary action | `bg-primary text-primary-foreground` | primary button, selected state; defaults to jiu-green |
-| Tinted primary | `bg-primary/10 text-primary` | secondary pills, icon tiles |
+| Use                   | class                                | Notes                                                 |
+| --------------------- | ------------------------------------ | ----------------------------------------------------- |
+| Page background       | `bg-background`                      | follows TG `bg_color`; defaults to off-white          |
+| Primary text          | `text-foreground`                    |                                                       |
+| Secondary / hint text | `text-muted-foreground`              | dates, descriptions, units                            |
+| Panel background      | `bg-secondary/50`                    | for grouped panels (see §5)                           |
+| Dividers              | `divide-border/40`, `border-border`  |                                                       |
+| Primary action        | `bg-primary text-primary-foreground` | primary button, selected state; defaults to jiu-green |
+| Tinted primary        | `bg-primary/10 text-primary`         | secondary pills, icon tiles                           |
 
 **The only two named colors allowed** — strictly for the sign of financial figures:
 
@@ -78,10 +78,10 @@ Radius is all derived from `--radius` (`globals.css` defines it as `0.625rem` =
 10px; `tailwind.config.ts` binds `lg/md/sm` to it). **Just two tiers — don't
 invent a third:**
 
-| Tier | class | value | used for |
-| --- | --- | --- | --- |
-| **Container** | `rounded-2xl` | 16px | grouped panels, cards, icon tiles, large blocks |
-| **Control** | `rounded-lg` | 10px | all button / input / select / pill / segmented toggles |
+| Tier          | class         | value | used for                                               |
+| ------------- | ------------- | ----- | ------------------------------------------------------ |
+| **Container** | `rounded-2xl` | 16px  | grouped panels, cards, icon tiles, large blocks        |
+| **Control**   | `rounded-lg`  | 10px  | all button / input / select / pill / segmented toggles |
 
 Nested inner elements (e.g. options inside a segmented toggle) use `rounded-md`
 (8px), which aligns neatly with an outer `rounded-lg` + `p-0.5`. Circles
@@ -177,11 +177,11 @@ for something that needs their attention right now.
 
 ## 7. The three states (every data page needs them)
 
-| State | Approach |
-| --- | --- |
+| State       | Approach                                                                                                                                                                                                                       |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Loading** | **No spinner.** Use page-shaped skeletons — [`skeletons.tsx`](../src/components/mini/skeletons.tsx) already exports one per page. New pages add a matching skeleton, reusing the `Skeleton` primitive and panel shapes inside. |
-| **Empty** | Centered, `text-sm text-muted-foreground`, optionally a `size-14 rounded-2xl bg-secondary` icon tile. |
-| **Error** | Centered message + a thin `text-xs text-muted-foreground/60` error detail. |
+| **Empty**   | Centered, `text-sm text-muted-foreground`, optionally a `size-14 rounded-2xl bg-secondary` icon tile.                                                                                                                          |
+| **Error**   | Centered message + a thin `text-xs text-muted-foreground/60` error detail.                                                                                                                                                     |
 
 ---
 

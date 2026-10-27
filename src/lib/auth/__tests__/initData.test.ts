@@ -10,10 +10,7 @@ const BOT_TOKEN = "123456:test-bot-token";
  * the round trip. `extra` lets a test inject fields like `signature` that must
  * still participate in the HMAC.
  */
-function signInitData(
-  params: Record<string, string>,
-  botToken = BOT_TOKEN,
-): string {
+function signInitData(params: Record<string, string>, botToken = BOT_TOKEN): string {
   const dataCheckString = Object.entries(params)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`)
