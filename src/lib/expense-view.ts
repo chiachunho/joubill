@@ -64,13 +64,27 @@ export type SettlementParty = {
  * the `split.debtorId → userId` remap so the two group-list pages stay in sync.
  */
 export function settlementParties(e: {
-  payers: { userId: number; firstName: string | null; lastName: string | null; username: string | null }[];
-  splits: { debtorId: number; firstName: string | null; lastName: string | null; username: string | null }[];
+  payers: {
+    userId: number;
+    firstName: string | null;
+    lastName: string | null;
+    username: string | null;
+  }[];
+  splits: {
+    debtorId: number;
+    firstName: string | null;
+    lastName: string | null;
+    username: string | null;
+  }[];
 }): { from: SettlementParty | null; to: SettlementParty | null } {
   const p = e.payers[0];
   const s = e.splits[0];
   return {
-    from: p ? { userId: p.userId, firstName: p.firstName, lastName: p.lastName, username: p.username } : null,
-    to: s ? { userId: s.debtorId, firstName: s.firstName, lastName: s.lastName, username: s.username } : null,
+    from: p
+      ? { userId: p.userId, firstName: p.firstName, lastName: p.lastName, username: p.username }
+      : null,
+    to: s
+      ? { userId: s.debtorId, firstName: s.firstName, lastName: s.lastName, username: s.username }
+      : null,
   };
 }

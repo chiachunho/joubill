@@ -2,7 +2,18 @@
 
 import { startTransition, use, useEffect, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Check, ChevronLeft, HandCoins, Loader2, Plus, Settings, User, Users } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  Check,
+  ChevronLeft,
+  HandCoins,
+  Loader2,
+  Plus,
+  Settings,
+  User,
+  Users,
+} from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
@@ -35,7 +46,13 @@ type Profile = {
   username: string | null;
 };
 
-type ExpensePayer = { userId: number; firstName: string; lastName: string | null; username: string | null; amount: number };
+type ExpensePayer = {
+  userId: number;
+  firstName: string;
+  lastName: string | null;
+  username: string | null;
+  amount: number;
+};
 
 type ExpensesResponse = {
   expenses: Array<{
@@ -46,19 +63,36 @@ type ExpensesResponse = {
     description: string | null;
     spentAt: string;
     payers: ExpensePayer[];
-    splits: Array<{ debtorId: number; firstName: string; lastName: string | null; username: string | null; amount: number }>;
+    splits: Array<{
+      debtorId: number;
+      firstName: string;
+      lastName: string | null;
+      username: string | null;
+      amount: number;
+    }>;
   }>;
 };
 
 type BalanceResponse = {
   currency: string;
-  balances: Array<{ userId: number; amount: number; firstName: string | null; lastName: string | null; username: string | null }>;
+  balances: Array<{
+    userId: number;
+    amount: number;
+    firstName: string | null;
+    lastName: string | null;
+    username: string | null;
+  }>;
 };
 
 type AvatarsResponse = { groupPhoto: string | null; userPhotos: Record<number, string | null> };
 
-type Transfer = { fromUserId: number; toUserId: number; amount: number; from: Profile | null; to: Profile | null };
-
+type Transfer = {
+  fromUserId: number;
+  toUserId: number;
+  amount: number;
+  from: Profile | null;
+  to: Profile | null;
+};
 
 export default function AppGroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -67,10 +101,16 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
   const selfUserId = me?.userId;
   const groupTitle = me?.groups.find((g) => g.id === Number(id))?.title ?? "";
 
-  const { data: expensesData, error: expensesError, mutate: mutateExpenses } =
-    useSWR<ExpensesResponse>(`/api/groups/${id}/expenses`);
-  const { data: balance, error: balanceError, mutate: mutateBalance } =
-    useSWR<BalanceResponse>(`/api/groups/${id}/balance`);
+  const {
+    data: expensesData,
+    error: expensesError,
+    mutate: mutateExpenses,
+  } = useSWR<ExpensesResponse>(`/api/groups/${id}/expenses`);
+  const {
+    data: balance,
+    error: balanceError,
+    mutate: mutateBalance,
+  } = useSWR<BalanceResponse>(`/api/groups/${id}/balance`);
   const { data: avatars } = useSWR<AvatarsResponse>(`/api/groups/${id}/avatars`);
 
   const computedTransfers = useMemo<Transfer[]>(() => {
@@ -88,7 +128,9 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
     (state: Transfer[], idx: number) => state.filter((_, i) => i !== idx),
   );
   const [pendingIdx, setPendingIdx] = useState<number | null>(null);
-  const [settleConfirm, setSettleConfirm] = useState<{ transfer: Transfer; idx: number } | null>(null);
+  const [settleConfirm, setSettleConfirm] = useState<{ transfer: Transfer; idx: number } | null>(
+    null,
+  );
   const [settleError, setSettleError] = useState<string | null>(null);
 
   // Expense-list view preferences, persisted in localStorage (shared with the Mini App page).
@@ -204,7 +246,9 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
 
       {allSettled && (
         <div className="mx-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-center">
-          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">所有帳款已結清</p>
+          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+            所有帳款已結清
+          </p>
           <div className="mt-2 flex justify-center gap-4">
             <Link
               href={`/app/groups/${id}/stats`}
@@ -236,7 +280,11 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                 <span className="flex-1 text-sm">{labelUser(b, selfUserId)}</span>
                 <span
                   className={`num text-sm font-semibold ${
-                    b.amount > 0 ? "text-emerald-500" : b.amount < 0 ? "text-rose-500" : "text-muted-foreground"
+                    b.amount > 0
+                      ? "text-emerald-500"
+                      : b.amount < 0
+                        ? "text-rose-500"
+                        : "text-muted-foreground"
                   }`}
                 >
                   {b.amount > 0 ? "+" : ""}
@@ -257,23 +305,43 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
             {optimisticTransfers.map((t, i) => (
               <div key={i} className="rounded-2xl bg-secondary/50 px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <Avatar src={getPhoto(t.fromUserId)} name={labelUser(t.from)} userId={t.fromUserId} size="sm" />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{labelUser(t.from, selfUserId)}</span>
+                  <Avatar
+                    src={getPhoto(t.fromUserId)}
+                    name={labelUser(t.from)}
+                    userId={t.fromUserId}
+                    size="sm"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {labelUser(t.from, selfUserId)}
+                  </span>
                   <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/60" />
-                  <span className="min-w-0 flex-1 truncate text-right text-sm font-medium">{labelUser(t.to, selfUserId)}</span>
-                  <Avatar src={getPhoto(t.toUserId)} name={labelUser(t.to)} userId={t.toUserId} size="sm" />
+                  <span className="min-w-0 flex-1 truncate text-right text-sm font-medium">
+                    {labelUser(t.to, selfUserId)}
+                  </span>
+                  <Avatar
+                    src={getPhoto(t.toUserId)}
+                    name={labelUser(t.to)}
+                    userId={t.toUserId}
+                    size="sm"
+                  />
                 </div>
                 <div className="mt-2.5 flex items-center justify-between">
                   <p className="num text-base font-semibold">
                     {fmt(t.amount)}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">{balance.currency}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {balance.currency}
+                    </span>
                   </p>
                   <button
                     disabled={pendingIdx === i}
                     onClick={() => markSettled(t, i)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
                   >
-                    {pendingIdx === i ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
+                    {pendingIdx === i ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <Check className="size-3" />
+                    )}
                     {pendingIdx === i ? "處理中" : "已轉"}
                   </button>
                 </div>
@@ -307,10 +375,12 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
         {/* View controls: total/balance segmented toggle + "only mine" filter */}
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="inline-flex rounded-lg bg-secondary/50 p-0.5">
-            {([
-              ["total", "總額"],
-              ["balance", "淨額"],
-            ] as const).map(([mode, label]) => (
+            {(
+              [
+                ["total", "總額"],
+                ["balance", "淨額"],
+              ] as const
+            ).map(([mode, label]) => (
               <button
                 key={mode}
                 onClick={() => changeViewMode(mode)}
@@ -328,7 +398,9 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
             <button
               onClick={toggleOnlyMine}
               className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                onlyMine ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                onlyMine
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               <User className="size-3" />
@@ -364,11 +436,25 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                           className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
                         >
                           <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                            <Avatar src={getPhoto(from?.userId ?? 0)} name={labelUser(from)} userId={from?.userId ?? 0} size="sm" />
-                            <span className="max-w-[60px] truncate text-sm">{labelUser(from, selfUserId)}</span>
+                            <Avatar
+                              src={getPhoto(from?.userId ?? 0)}
+                              name={labelUser(from)}
+                              userId={from?.userId ?? 0}
+                              size="sm"
+                            />
+                            <span className="max-w-[60px] truncate text-sm">
+                              {labelUser(from, selfUserId)}
+                            </span>
                             <ArrowRight className="size-3 shrink-0 text-muted-foreground/50" />
-                            <Avatar src={getPhoto(to?.userId ?? 0)} name={labelUser(to)} userId={to?.userId ?? 0} size="sm" />
-                            <span className="max-w-[60px] truncate text-sm">{labelUser(to, selfUserId)}</span>
+                            <Avatar
+                              src={getPhoto(to?.userId ?? 0)}
+                              name={labelUser(to)}
+                              userId={to?.userId ?? 0}
+                              size="sm"
+                            />
+                            <span className="max-w-[60px] truncate text-sm">
+                              {labelUser(to, selfUserId)}
+                            </span>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="inline-flex shrink-0 items-center rounded-lg bg-muted p-1 text-muted-foreground">
@@ -391,12 +477,16 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                               >
                                 {sbal.net > 0 ? "+" : ""}
                                 {fmt(sbal.net)}{" "}
-                                <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  {e.currency}
+                                </span>
                               </p>
                             ) : (
                               <p className="num text-sm font-semibold">
                                 {fmt(e.amount)}{" "}
-                                <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  {e.currency}
+                                </span>
                               </p>
                             )}
                             <p className="text-xs text-muted-foreground">{day} 日</p>
@@ -405,13 +495,14 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                       );
                     }
 
-                    const payerLabel = e.payers.length === 0
-                      ? "?"
-                      : e.payers.length === 1
-                        ? labelUser(e.payers[0], selfUserId)
-                        : e.payers.length === 2
-                          ? `${labelUser(e.payers[0], selfUserId)}、${labelUser(e.payers[1], selfUserId)}`
-                          : `${labelUser(e.payers[0], selfUserId)} +${e.payers.length - 1}`;
+                    const payerLabel =
+                      e.payers.length === 0
+                        ? "?"
+                        : e.payers.length === 1
+                          ? labelUser(e.payers[0], selfUserId)
+                          : e.payers.length === 2
+                            ? `${labelUser(e.payers[0], selfUserId)}、${labelUser(e.payers[1], selfUserId)}`
+                            : `${labelUser(e.payers[0], selfUserId)} +${e.payers.length - 1}`;
                     const bal = expenseUserBalance(e, selfUserId);
                     // Balance view: spell out 墊付 (what you fronted) and 我分 (your share)
                     // so the net on the right reads as 付 − 分. Avatars already show who paid.
@@ -434,7 +525,12 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                         <div className="relative flex shrink-0">
                           {e.payers.slice(0, 2).map((p, idx) => (
                             <div key={p.userId} className={idx > 0 ? "-ml-2" : ""}>
-                              <Avatar src={getPhoto(p.userId)} name={labelUser(p)} userId={p.userId} size="sm" />
+                              <Avatar
+                                src={getPhoto(p.userId)}
+                                name={labelUser(p)}
+                                userId={p.userId}
+                                size="sm"
+                              />
                             </div>
                           ))}
                           {e.payers.length > 2 && (
@@ -466,12 +562,16 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
                             >
                               {bal.net > 0 ? "+" : ""}
                               {fmt(bal.net)}{" "}
-                              <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                              <span className="text-xs font-normal text-muted-foreground">
+                                {e.currency}
+                              </span>
                             </p>
                           ) : (
                             <p className="num text-sm font-semibold">
                               {fmt(e.amount)}{" "}
-                              <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                              <span className="text-xs font-normal text-muted-foreground">
+                                {e.currency}
+                              </span>
                             </p>
                           )}
                           <p className="text-xs text-muted-foreground">{day} 日</p>
@@ -494,7 +594,9 @@ export default function AppGroupPage({ params }: { params: Promise<{ id: string 
 
       <ConfirmDialog
         open={settleConfirm !== null}
-        onOpenChange={(open) => { if (!open) setSettleConfirm(null); }}
+        onOpenChange={(open) => {
+          if (!open) setSettleConfirm(null);
+        }}
         title="確認已轉帳"
         description={
           settleConfirm && balance ? (

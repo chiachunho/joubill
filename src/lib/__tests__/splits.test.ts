@@ -116,8 +116,14 @@ describe("computeSplits", () => {
     });
 
     it("returns zeros when total shares is 0", () => {
-      const result = computeSplits(100, "shares", [{ userId: 1, value: "0" }, { userId: 2, value: "0" }]);
-      expect(result).toEqual([{ debtorId: 1, amount: 0 }, { debtorId: 2, amount: 0 }]);
+      const result = computeSplits(100, "shares", [
+        { userId: 1, value: "0" },
+        { userId: 2, value: "0" },
+      ]);
+      expect(result).toEqual([
+        { debtorId: 1, amount: 0 },
+        { debtorId: 2, amount: 0 },
+      ]);
     });
   });
 

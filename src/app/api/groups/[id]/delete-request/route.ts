@@ -50,7 +50,11 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     request: {
       id: row.id,
       requestedBy: row.requestedBy,
-      requestedByName: labelUser({ firstName: row.firstName, lastName: row.lastName, username: row.username }),
+      requestedByName: labelUser({
+        firstName: row.firstName,
+        lastName: row.lastName,
+        username: row.username,
+      }),
       createdAt: row.createdAt,
       expiresAt: row.expiresAt,
     },
@@ -91,7 +95,11 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
 
   const { user } = auth;
-  const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
+  const name = labelUser({
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+  });
   const bot = getBot();
 
   if (request.telegramMessageId) {
@@ -143,7 +151,11 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
 
   if (request.telegramMessageId && group) {
     const { user } = auth;
-    const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
+    const name = labelUser({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
+    });
     const action = isRequester ? "取消了刪除申請" : "拒絕了刪除申請";
     const bot = getBot();
 

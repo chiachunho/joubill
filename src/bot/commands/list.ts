@@ -55,11 +55,14 @@ listCommand.command("list", async (ctx) => {
 
   const lines = rows.map((r) => {
     const payers = payersByExpense.get(r.id) ?? [];
-    const who = payers.length === 0
-      ? "?"
-      : payers.length === 1
-        ? (payers[0].username ? "@" + payers[0].username : payers[0].firstName)
-        : payers.map((p) => p.username ? "@" + p.username : p.firstName).join("、");
+    const who =
+      payers.length === 0
+        ? "?"
+        : payers.length === 1
+          ? payers[0].username
+            ? "@" + payers[0].username
+            : payers[0].firstName
+          : payers.map((p) => (p.username ? "@" + p.username : p.firstName)).join("、");
     const date = r.spentAt.toISOString().slice(5, 10).replace("-", "/");
     const amount = fmt(Number(r.amount));
     const desc = r.description ? `  ${r.description}` : "";

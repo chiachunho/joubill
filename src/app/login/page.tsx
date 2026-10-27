@@ -8,8 +8,7 @@ type Props = { searchParams: Promise<{ next?: string }> };
 
 export default async function LoginPage({ searchParams }: Props) {
   const { next } = await searchParams;
-  const callbackUrl =
-    next && next.startsWith("/") && !next.startsWith("//") ? next : "/app";
+  const callbackUrl = next && next.startsWith("/") && !next.startsWith("//") ? next : "/app";
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">

@@ -47,4 +47,6 @@ for (const user of usersWithTelegram) {
   if (result.length > 0) inserted++;
 }
 
-console.log(`Done. Inserted ${inserted} new identity rows (${usersWithTelegram.length - inserted} already existed).`);
+console.log(
+  `Done. Inserted ${inserted} new identity rows (${usersWithTelegram.length - inserted} already existed).`,
+);

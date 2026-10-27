@@ -58,14 +58,18 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
     return;
   }
 
-  const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
+  const name = labelUser({
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+  });
 
   // Always answer the callback query — even if DB/Telegram calls below fail — so the
   // Telegram client never shows an indefinite loading spinner on the button.
   try {
-    await ctx.editMessageText(
-      `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`,
-    ).catch(() => null);
+    await ctx
+      .editMessageText(`${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`)
+      .catch(() => null);
 
     await ctx.api.leaveChat(group.telegramChatId).catch(() => null);
 
@@ -121,13 +125,19 @@ deleteGroupCallback.callbackQuery(/^cancel_del:(\d+)$/, async (ctx) => {
   }
 
   const isRequester = request.requestedBy === user.id;
-  const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
+  const name = labelUser({
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+  });
   const action = isRequester ? "取消了刪除申請" : "拒絕了刪除申請";
 
   try {
-    await ctx.editMessageText(`${name} ${action}。`, {
-      reply_markup: { inline_keyboard: [] },
-    }).catch(() => null);
+    await ctx
+      .editMessageText(`${name} ${action}。`, {
+        reply_markup: { inline_keyboard: [] },
+      })
+      .catch(() => null);
 
     await db.delete(groupDeleteRequests).where(eq(groupDeleteRequests.id, requestId));
 

@@ -105,7 +105,14 @@ export function BeancountSettingsSection({ groupId, members, rawFetch }: Props) 
   return config === null ? (
     <Off key="off" groupId={groupId} rawFetch={rawFetch} onChange={mutate} />
   ) : (
-    <On key="on" groupId={groupId} members={members} rawFetch={rawFetch} initial={config} onChange={mutate} />
+    <On
+      key="on"
+      groupId={groupId}
+      members={members}
+      rawFetch={rawFetch}
+      initial={config}
+      onChange={mutate}
+    />
   );
 }
 
@@ -190,9 +197,12 @@ function On({
   const [err, setErr] = useState<string | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    if (savedTimer.current) clearTimeout(savedTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
 
   // Any mutation in flight disables every field — a save and a disable can't
   // overlap, and the fields shouldn't be editable mid-request either.
@@ -338,7 +348,8 @@ function On({
       <section className="px-4">
         <p className="sect mb-2.5">成員帳戶</p>
         <p className="mb-2 text-xs text-muted-foreground">
-          接在 {receivablePrefix.trim() || DEFAULT_BEANCOUNT_ACCOUNTS.receivablePrefix} 之後；留空則自動取名
+          接在 {receivablePrefix.trim() || DEFAULT_BEANCOUNT_ACCOUNTS.receivablePrefix}{" "}
+          之後；留空則自動取名
         </p>
         <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
           {members.map((m) => {
@@ -397,7 +408,8 @@ function On({
         title="停用 beancount 複製？"
         description={
           <span>
-            停用後，「複製 beancount」按鈕會立刻消失（只影響你自己看到的功能）。目前自訂的帳戶設定不會保留——之後重新啟用會回到預設值。
+            停用後，「複製
+            beancount」按鈕會立刻消失（只影響你自己看到的功能）。目前自訂的帳戶設定不會保留——之後重新啟用會回到預設值。
             {/* The outer {err} paragraph below sits behind this dialog's overlay
                 while it's open, so a failed disable needs its own copy here too. */}
             {err && <span className="mt-2 block text-destructive">{err}</span>}

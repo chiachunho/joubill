@@ -25,13 +25,7 @@ import {
 import { logCreated } from "@/lib/record-mutation";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 
-import {
-  loadGroupMembers,
-  originOf,
-  renderCard,
-  splitRowsFor,
-  type DbUser,
-} from "../expenseCard";
+import { loadGroupMembers, originOf, renderCard, splitRowsFor, type DbUser } from "../expenseCard";
 import { setExpenseAmount, setExpenseCurrency } from "../expenseEdits";
 import { actorOf } from "../actor";
 import { escapeHtml, mention } from "../format";

@@ -25,10 +25,7 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
       .select()
       .from(receiptAwaiting)
       .where(
-        and(
-          eq(receiptAwaiting.chatId, ctx.chat.id),
-          eq(receiptAwaiting.messageId, replyToId),
-        ),
+        and(eq(receiptAwaiting.chatId, ctx.chat.id), eq(receiptAwaiting.messageId, replyToId)),
       );
 
     if (pending) {
@@ -48,9 +45,7 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
     }
 
     // Opportunistic stale cleanup — only fires on reply-photos, not every photo.
-    await db
-      .delete(receiptAwaiting)
-      .where(lt(receiptAwaiting.createdAt, staleAwaitingBefore()));
+    await db.delete(receiptAwaiting).where(lt(receiptAwaiting.createdAt, staleAwaitingBefore()));
   }
 
   // ── Path B: photo sent with an /add caption (receipt already attached) ────
@@ -80,10 +75,7 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
 
   // Same path as a text /add — mentions and the ⚙️ 調整 panel work identically,
   // the only difference is that the receipt is already attached.
-  await handleAddParsed(
-    ctx as Parameters<typeof handleAddParsed>[0],
-    parsed,
-    captionEntities,
-    { receiptFileId: fileId },
-  );
+  await handleAddParsed(ctx as Parameters<typeof handleAddParsed>[0], parsed, captionEntities, {
+    receiptFileId: fileId,
+  });
 });

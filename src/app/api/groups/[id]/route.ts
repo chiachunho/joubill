@@ -38,7 +38,11 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     .where(eq(groupMembers.groupId, groupId));
 
   const { user } = auth;
-  const name = labelUser({ firstName: user.firstName, lastName: user.lastName, username: user.username });
+  const name = labelUser({
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+  });
   const bot = getBot();
 
   // Single member — delete immediately without requiring approval

@@ -12,12 +12,12 @@
 
 ## Endpoints
 
-| Purpose | URL | Method |
-|------|-----|--------|
-| Authorization | `https://oauth.telegram.org/auth` | GET |
-| Token Exchange | `https://oauth.telegram.org/token` | POST |
-| JWKS | `https://oauth.telegram.org/.well-known/jwks.json` | GET |
-| Discovery | `https://oauth.telegram.org/.well-known/openid-configuration` | GET |
+| Purpose        | URL                                                           | Method |
+| -------------- | ------------------------------------------------------------- | ------ |
+| Authorization  | `https://oauth.telegram.org/auth`                             | GET    |
+| Token Exchange | `https://oauth.telegram.org/token`                            | POST   |
+| JWKS           | `https://oauth.telegram.org/.well-known/jwks.json`            | GET    |
+| Discovery      | `https://oauth.telegram.org/.well-known/openid-configuration` | GET    |
 
 The discovery document has **no `userinfo_endpoint`** — the biggest difference
 from a normal OIDC provider (see "Gotchas" below).
@@ -28,22 +28,22 @@ from a normal OIDC provider (see "Gotchas" below).
 
 **Required:**
 
-| Param | Notes |
-|------|------|
-| `client_id` | the Bot ID from BotFather |
-| `redirect_uri` | a pre-registered callback URL |
-| `response_type` | always `code` |
-| `scope` | space-separated (see Scopes) |
-| `code_challenge` | SHA256 of the code verifier, Base64URL-encoded (PKCE) |
-| `code_challenge_method` | always `S256` |
+| Param                   | Notes                                                 |
+| ----------------------- | ----------------------------------------------------- |
+| `client_id`             | the Bot ID from BotFather                             |
+| `redirect_uri`          | a pre-registered callback URL                         |
+| `response_type`         | always `code`                                         |
+| `scope`                 | space-separated (see Scopes)                          |
+| `code_challenge`        | SHA256 of the code verifier, Base64URL-encoded (PKCE) |
+| `code_challenge_method` | always `S256`                                         |
 
 **Optional:**
 
-| Param | Notes |
-|------|------|
+| Param   | Notes                                                  |
+| ------- | ------------------------------------------------------ |
 | `state` | random CSRF string. **~128-char limit** (see gotcha 1) |
-| `nonce` | random anti-replay string |
-| `lang` | UI language (e.g. `en`, `zh`) |
+| `nonce` | random anti-replay string                              |
+| `lang`  | UI language (e.g. `en`, `zh`)                          |
 
 ---
 
@@ -54,13 +54,13 @@ from a normal OIDC provider (see "Gotchas" below).
 
 **Required body:**
 
-| Param | Notes |
-|------|------|
-| `grant_type` | always `authorization_code` |
-| `code` | the authorization code from the redirect |
-| `redirect_uri` | must equal the one in the authorization request |
-| `client_id` | Bot ID |
-| `code_verifier` | the original PKCE verifier |
+| Param           | Notes                                           |
+| --------------- | ----------------------------------------------- |
+| `grant_type`    | always `authorization_code`                     |
+| `code`          | the authorization code from the redirect        |
+| `redirect_uri`  | must equal the one in the authorization request |
+| `client_id`     | Bot ID                                          |
+| `code_verifier` | the original PKCE verifier                      |
 
 **Response:**
 
@@ -77,12 +77,12 @@ from a normal OIDC provider (see "Gotchas" below).
 
 ## Scopes
 
-| Scope | Claims returned | Notes |
-|-------|--------------|------|
-| `openid` | `sub`, `iss`, `iat`, `exp` | required |
-| `profile` | `name`, `preferred_username`, `picture` | optional |
-| `phone` | `phone_number` | needs user consent |
-| `telegram:bot_access` | none (lets the bot DM the user) | optional |
+| Scope                 | Claims returned                         | Notes              |
+| --------------------- | --------------------------------------- | ------------------ |
+| `openid`              | `sub`, `iss`, `iat`, `exp`              | required           |
+| `profile`             | `name`, `preferred_username`, `picture` | optional           |
+| `phone`               | `phone_number`                          | needs user consent |
+| `telegram:bot_access` | none (lets the bot DM the user)         | optional           |
 
 This project uses `openid profile` (no email/phone needed; Telegram never
 provides email anyway).
@@ -100,11 +100,11 @@ All user data is delivered **only through the id_token — there is no UserInfo 
   "sub": "<user_id>",
   "iat": 1700000000,
   "exp": 1700003600,
-  "id": 123456789,             // numeric user id
+  "id": 123456789, // numeric user id
   "name": "<full name>",
   "preferred_username": "<username>",
   "picture": "<profile photo url>",
-  "phone_number": "<verified number>"  // only with the phone scope
+  "phone_number": "<verified number>", // only with the phone scope
 }
 ```
 

@@ -6,13 +6,7 @@ export type AuthMode = "tma" | "web";
 
 const AuthModeContext = createContext<AuthMode>("tma");
 
-export function AuthProvider({
-  children,
-  mode,
-}: {
-  children: React.ReactNode;
-  mode: AuthMode;
-}) {
+export function AuthProvider({ children, mode }: { children: React.ReactNode; mode: AuthMode }) {
   return <AuthModeContext.Provider value={mode}>{children}</AuthModeContext.Provider>;
 }
 

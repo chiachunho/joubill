@@ -11,7 +11,8 @@ pnpm dev            # Next.js dev server on http://localhost:3000
 pnpm build          # Production build
 pnpm typecheck      # tsc --noEmit
 pnpm lint           # ESLint via next lint
-pnpm format         # Prettier
+pnpm format         # Prettier (writes)
+pnpm format:check   # Prettier (read-only; what PR check runs — keep the tree formatted)
 
 pnpm test           # Run all tests once (vitest)
 pnpm test:watch     # Vitest watch mode
@@ -48,9 +49,9 @@ The Mini App and Web App share the same **lower-level building blocks** — `src
 
 **The test is not "is this written twice" — it is "when the copies drift, does anything fail loudly?"** Duplication that breaks a build or a test can wait; duplication that quietly produces a wrong result is what earns a shared module. Everything currently shared was collapsed for that reason, and each case names its own silent failure:
 
-- **Both ends of a wire contract belong in the same file.** `src/lib/deep-link.ts` builds *and* parses the `startapp` payload. When it was six builders and one parser, a mismatch didn't throw — the deep link just landed on the group list and nobody noticed for weeks. Anything with a producer and a consumer that must agree (a URL payload, a `callback_data` shape, a stored format) goes in one module, round-trip tested against itself rather than against hand-written strings.
+- **Both ends of a wire contract belong in the same file.** `src/lib/deep-link.ts` builds _and_ parses the `startapp` payload. When it was six builders and one parser, a mismatch didn't throw — the deep link just landed on the group list and nobody noticed for weeks. Anything with a producer and a consumer that must agree (a URL payload, a `callback_data` shape, a stored format) goes in one module, round-trip tested against itself rather than against hand-written strings.
 - **A query shape whose omission degrades output instead of erroring.** `USER_COLUMNS` (`src/bot/profiles.ts`) exists because a select that forgets `telegramId` still succeeds — it just renders every mention as plain text.
-- **One thing rendered by two renderers.** An expense card and a settlement notice draw the same 🔗 App 編輯 / 🗑 刪除 buttons, so `BTN` (`src/lib/buttons.ts`) owns the wording. Prose that *names* a button interpolates the same constant, so `/help` can't start describing a button that was renamed.
+- **One thing rendered by two renderers.** An expense card and a settlement notice draw the same 🔗 App 編輯 / 🗑 刪除 buttons, so `BTN` (`src/lib/buttons.ts`) owns the wording. Prose that _names_ a button interpolates the same constant, so `/help` can't start describing a button that was renamed.
 
 **Leave it duplicated when sharing would cost more than the drift.** Three standing examples:
 
@@ -58,7 +59,7 @@ The Mini App and Web App share the same **lower-level building blocks** — `src
 - A callback toast with a **single** caller stays inline next to the condition it describes. `TOAST` in `src/lib/buttons.ts` only holds the ones with two or more callers; a message you have to open another file to read is worse than a repeated one.
 - Not every repeated block is the same idea. Two functions that happen to look alike today, for unrelated reasons, will need to diverge tomorrow — and un-sharing is harder than sharing.
 
-**Where it goes:** `src/lib/**` when the bot *and* the API or a frontend both need it (that also keeps it pure and unit-testable — see `src/lib/expense-view.ts`, `src/lib/record-notice.ts`); `src/bot/**` when only the bot does. `src/lib` may import a leaf module from `src/bot` (`notify.ts` renders the expense card), but keep those leaves dependency-free so it never becomes a cycle.
+**Where it goes:** `src/lib/**` when the bot _and_ the API or a frontend both need it (that also keeps it pure and unit-testable — see `src/lib/expense-view.ts`, `src/lib/record-notice.ts`); `src/bot/**` when only the bot does. `src/lib` may import a leaf module from `src/bot` (`notify.ts` renders the expense card), but keep those leaves dependency-free so it never becomes a cycle.
 
 **Still duplicated, and known:** the `Number.isFinite` id-parsing preamble repeated in ~15 `/api/**` route handlers. Worth collapsing; just hasn't been.
 
@@ -67,6 +68,7 @@ The Mini App and Web App share the same **lower-level building blocks** — `src
 `src/bot/index.ts` exports a lazy singleton `getBot()` — the bot instance is not created until the first webhook hit, so `TELEGRAM_BOT_TOKEN` doesn't need to exist at build time. Middleware runs in registration order: `chatMigration` → `registerUser` → `trackMembership` → commands.
 
 Two middleware layers auto-populate the DB:
+
 - `registerUser` — upserts the `users` row for any message sender
 - `trackMembership` — upserts the `group_members` row
 
@@ -74,9 +76,9 @@ Two middleware layers auto-populate the DB:
 
 The Bot API has **no "list chat members" endpoint** (only `getChatMemberCount`, `getChatAdministrators`, and `getChatMember` for an id you already have), so `group_members` is assembled from whatever events happen to arrive. Four sources, in the order a person is most likely to hit them:
 
-1. `registerUser` — the sender of any group message or callback query the bot actually receives, which under **privacy mode** (BotFather's default) is only slash commands, @mentions of the bot, and replies to the bot's own messages. So this is "anyone who has used the bot", *not* "anyone who has talked in the group" — turning privacy mode off widens it to every message at the cost of the bot reading all group chat. Explicitly **not** `chat_member` updates: there `ctx.from` is whoever caused a status change, so seating them would add a lurker the moment they leave, or an admin for kicking someone. A spurious `group_members` row silently enlarges every equal split.
+1. `registerUser` — the sender of any group message or callback query the bot actually receives, which under **privacy mode** (BotFather's default) is only slash commands, @mentions of the bot, and replies to the bot's own messages. So this is "anyone who has used the bot", _not_ "anyone who has talked in the group" — turning privacy mode off widens it to every message at the cost of the bot reading all group chat. Explicitly **not** `chat_member` updates: there `ctx.from` is whoever caused a status change, so seating them would add a lurker the moment they leave, or an admin for kicking someone. A spurious `group_members` row silently enlarges every equal split.
 2. `trackMembership` on `new_chat_members` — the service message for someone added after the bot joined.
-3. `trackMembership` on `chat_member` — every member status change, including invite-link joins; registers the *target*, and only on an absent → present transition. **Not delivered by default**: requires `chat_member` in `setWebhook`'s `allowed_updates` (`scripts/set-webhook.ts`) *and* the bot being a group administrator.
+3. `trackMembership` on `chat_member` — every member status change, including invite-link joins; registers the _target_, and only on an absent → present transition. **Not delivered by default**: requires `chat_member` in `setWebhook`'s `allowed_updates` (`scripts/set-webhook.ts`) _and_ the bot being a group administrator.
 4. `/join` (`src/bot/commands/join.ts`) and `forwardJoin` — manual, for people none of the above caught. **`/join` means "reply to their message, then type `/join`"** — that is the only form the help text, the usage message and the command menu mention. One person per reply, and privacy mode means it must be the `/join` command carrying the reply; a bare reply to another user never reaches the bot.
 
 Two limits worth knowing before trying to "just add everyone":
@@ -84,7 +86,7 @@ Two limits worth knowing before trying to "just add everyone":
 - **Group creation emits no roster.** MTProto's `messageActionChatCreate` carries the initial participant list, but the Bot API flattens it to `Message.group_chat_created = true` and drops the users. Adding the bot while creating the group registers only the creator.
 - **Mentioning can't identify anyone who has a username.** The two mention entity kinds are not equivalent: `text_mention` carries the full `User` object, while `mention` is the bare text `@handle` and there is no username → id lookup. Which one you get is not your choice — Telegram rewrites an @-list pick into a plain `@username` for any account that has one, leaving `text_mention` for the handle-less few. `src/lib/parseMentions.ts` splits them; `/join` still accepts `text_mention` because it costs nothing, but **does not advertise it**, since instructing users to "pick from the @ list" mostly sends them down a path that silently produces the unusable kind.
 
-**`/join` deliberately does not resolve a typed-out `@handle` at all.** The only available guess is a match against `users.username`, which is neither unique nor live — it refreshes only when its owner next touches the bot — so a handle that has changed hands quietly seats the wrong person, and `getChatMember` can't catch it because the stale account is usually still in the chat. `parseMentions` still returns the handles, but purely so `/join` can tell the sender they did nothing and point at the reply form. Everything `/join` *does* resolve goes through `getChatMember` before being seated, so it can't put a non-member into balances.
+**`/join` deliberately does not resolve a typed-out `@handle` at all.** The only available guess is a match against `users.username`, which is neither unique nor live — it refreshes only when its owner next touches the bot — so a handle that has changed hands quietly seats the wrong person, and `getChatMember` can't catch it because the stale account is usually still in the chat. `parseMentions` still returns the handles, but purely so `/join` can tell the sender they did nothing and point at the reply form. Everything `/join` _does_ resolve goes through `getChatMember` before being seated, so it can't put a non-member into balances.
 
 `/add` is a separate case and still accepts `@handle` (`src/lib/parseAdd.ts` → `resolveParticipants` in `src/bot/commands/add.ts`): its lookup is scoped to the group's **existing members** rather than all users, and a miss is a visible error rather than a silent wrong-person insert.
 
@@ -98,22 +100,23 @@ The reply form is the escape hatch from both limits, and its guards live in `rep
 
 #### `/add` and the expense card
 
-**The text grammar is one line and that's on purpose: `/add <金額> [幣別] [說明] [@人 …]`.** Anything that would need memorising — who splits, per-person shares, changing the currency — is a *button* on the expense card, not syntax. Don't grow the grammar; add a button.
+**The text grammar is one line and that's on purpose: `/add <金額> [幣別] [說明] [@人 …]`.** Anything that would need memorising — who splits, per-person shares, changing the currency — is a _button_ on the expense card, not syntax. Don't grow the grammar; add a button.
 
 - `src/lib/parseAdd.ts` — pure, unit-tested. Its job is **forgiveness**, not expressiveness: full-width characters, thousands separators (`1,200`), currency decorations (`$300`, `300元`, `€50`), `k`/`千`/`萬` multipliers and arithmetic (`150+200`, `(300+150)/3`) all parse. The arithmetic evaluator is a hand-written recursive-descent parser — **never `eval`**. Currency codes match `SUPPORTED_CURRENCIES` from `src/lib/zod.ts` and **nothing wider** — the bot must not create a record the Mini App form can't render or save (its `currency` is a `z.enum` over that same constant), and an unknown code makes `getRate` throw, which takes `/balance` and `/settle` down for the whole group. Amounts must end on whitespace, so `3杯咖啡` is rejected rather than read as 3. Error strings are plain text (no HTML) so the bot can echo user input without escaping.
 - `src/bot/expenseCard.ts` — renders the card (text + keyboard) for any `CardMode` (`default` / `adjust` / `who` / `shares` / `currency`) and owns split writing. `writeSplits` stores `share_type='equal'` when every weight is 1 and `share_type='shares'` + `split_value` otherwise, so the Mini App form round-trips the same input.
-- `src/bot/commands/expensePanel.ts` — the ⚙️ 調整 callbacks. **The panel keeps no state of its own** — every tap re-reads the expense from the DB and re-renders, so old cards keep working and concurrent taps converge. **Every callback that names an expense id must check it belongs to `ctx.dbGroup`** (`guard()`, plus `del_exp`, `upload_receipt` and the ForceReply replies): callback data is just a string the client sends, so an id on its own would reach across groups. That check is the bot-side counterpart of the REST layer's `assertGroupMember` — it is *not* an ownership check, see below. `editMessageText` is `.catch()`-ed because re-selecting the current value renders identical output, which Telegram rejects.
+- `src/bot/commands/expensePanel.ts` — the ⚙️ 調整 callbacks. **The panel keeps no state of its own** — every tap re-reads the expense from the DB and re-renders, so old cards keep working and concurrent taps converge. **Every callback that names an expense id must check it belongs to `ctx.dbGroup`** (`guard()`, plus `del_exp`, `upload_receipt` and the ForceReply replies): callback data is just a string the client sends, so an id on its own would reach across groups. That check is the bot-side counterpart of the REST layer's `assertGroupMember` — it is _not_ an ownership check, see below. `editMessageText` is `.catch()`-ed because re-selecting the current value renders identical output, which Telegram rejects.
 - **`selective` targets nobody on a prompt that replies to the bot's own message** (Telegram only targets @mentioned users and the sender of the replied-to message), so every prompt raised from a callback mentions the requester in its text instead of setting `reply_to_message_id`.
 - 👥 誰分 / ⚖️ 份數 recompute every share from weights, so they are only offered when `panelEditable` — i.e. every split is `equal` or `shares`. A Mini-App `exact`/`percent`/`adjustment` split carries per-person intent the panel can't express, so the buttons are hidden and ✏️ 金額 rescales those amounts proportionally rather than flattening them.
-- `src/bot/commands/add.ts` — the command, expense creation (`handleAddParsed`, also used by the photo-caption path in `receiptUpload.ts`) and the ForceReply replies. Parse failures reply *with* a ForceReply prompt so a mistake is one tap from a retry.
+- `src/bot/commands/add.ts` — the command, expense creation (`handleAddParsed`, also used by the photo-caption path in `receiptUpload.ts`) and the ForceReply replies. Parse failures reply _with_ a ForceReply prompt so a mistake is one tap from a retry.
 
 #### Who may edit or delete a record
 
 **Group membership is the only gate — there is no per-record owner lock, and adding one back is a decision to re-open, not a cleanup.** Any member can edit or delete any expense or settlement in a group they belong to; `assertGroupMember` is the whole check.
 
-The case that decides it is "A recorded 800 as 300 and B is standing right there": with an owner lock B can only ask A to fix it, and A may be asleep, driving, or already out of the group. [Splitwise has taken the same position for over a decade](https://kb.splitwise.com/groups/can-i-prevent-group-members-from-changing-expenses-or-set-permissions) — *anyone involved should be able to correct mistakes and fix errors* — against steady requests for permissions.
+The case that decides it is "A recorded 800 as 300 and B is standing right there": with an owner lock B can only ask A to fix it, and A may be asleep, driving, or already out of the group. [Splitwise has taken the same position for over a decade](https://kb.splitwise.com/groups/can-i-prevent-group-members-from-changing-expenses-or-set-permissions) — _anyone involved should be able to correct mistakes and fix errors_ — against steady requests for permissions.
 
 What replaces the lock is **attribution**:
+
 - `expenses.createdBy` is returned by the expense and settlement endpoints — **including the `[expenseId]` / `[settlementId]` detail ones, which is where the edit forms actually read it from** — and the shared `ExpenseForm` / `SettlementForm` render 由 X 記錄 next to the destructive actions. `Initial.createdBy` is deliberately required rather than optional: it shipped optional once and the whole feature silently rendered nothing because only the list endpoints had been updated.
 - Deleting someone else's record names them in the confirm dialog; the bot's 🗑 刪除 leaves a message saying what went, who recorded it and who removed it, so the chat itself is the audit trail.
 
@@ -121,7 +124,7 @@ What replaces the lock is **attribution**:
 
 A **group-level** role (Settle Up's read-only vs edit) is the sane way to add restriction later if it's ever wanted — permission belonging to a person's standing in the group, not to who typed a given row. Don't reintroduce `createdBy` gating for it.
 
-`group_members.status` (`active` / `inactive`) is unrelated: that controls *who is counted in a split*, not who may change records.
+`group_members.status` (`active` / `inactive`) is unrelated: that controls _who is counted in a split_, not who may change records.
 
 **404 on delete is now an ordinary outcome**, not an anomaly — two people can have the same record open. `deleteErrorMessage` (`src/lib/api-error.ts`) maps a status to a message and must never tell the user to retry something that cannot succeed.
 
@@ -135,7 +138,7 @@ The inventory for the bot side of "What to share, and what to leave duplicated" 
   `src/lib/auth/index.ts`. A builder that drifts from the parser doesn't throw —
   the link just lands on the group list and nobody notices. Round-trip tested.
 - `src/lib/buttons.ts` — `BTN` (every inline-keyboard label) and `TOAST` (only
-  the callback answers with more than one caller). Prose that *names* a button
+  the callback answers with more than one caller). Prose that _names_ a button
   interpolates `BTN` too, so `/help` can't start describing a button that was
   renamed. Single-caller toasts stay inline next to their condition.
 - `src/bot/profiles.ts` — `USER_COLUMNS` (the select shape every bot query
@@ -214,6 +217,7 @@ Schema is pushed directly with `db:push` (no migration workflow). `numeric` colu
 ### Settlement logic
 
 Split across two files deliberately:
+
 - `src/lib/settlement-core.ts` — pure greedy min-transfer algorithm, no DB, fully testable
 - `src/lib/settlement.ts` — DB queries that build `NetBalance[]`, then delegates to core
 
@@ -234,6 +238,7 @@ When existing records would be re-converted, the settings page asks for the scop
 ### Stats (`src/lib/stats-core.ts` + `GET /api/groups/[id]/stats`)
 
 The stats page is personalised and range-scoped, not a fixed group-wide report. `GET /api/groups/[id]/stats?userId=&range=&from=&to=` takes:
+
 - `userId` (optional, defaults to the caller) — the "查看視角" member being viewed. Must be a group member; checked with `assertGroupMember`, skipped when `userId` resolves to the caller themselves (already proven above) to save a redundant round trip. There's no per-record privacy model in this app (see the `createdBy` transparency decision below), so viewing another member's stats needs no extra permission.
 - `range` — `3m` / `6m` (default) / `1y` / `all` / `custom`. `custom` additionally requires `from`/`to` as **full ISO instants, not bare "YYYY-MM-DD"** — only the browser knows the viewer's local day boundaries, so `customRangeToQueryBounds` (`stats-core.ts`) resolves "the day I clicked" to an exact UTC instant client-side before the request is sent; the route never reinterprets a bare date (that would silently use UTC midnight, excluding a viewer's early-morning records in any positive-UTC-offset timezone — this bit the first version of this feature). `DateRangeSelect` also uses `parseLocalDay` (not `new Date(str)`) to redraw the picker's own `selected` state for the same reason.
 
@@ -241,8 +246,8 @@ Same pure/DB split as settlement logic: `src/lib/stats-core.ts` (`resolveStatsRa
 
 The response has three sections, each answering a different question, and **two different notions of "the range" on purpose**:
 
-1. **`netTrend`** — the viewed member's cumulative net balance (paid − split, settlements included since they're `expenses` rows too) plotted over time. This is the only place with a *history* of the balance Balance itself only shows as one current number — the rightmost point always equals that current number. `computeNetTrend` anchors the series at the resolved `from` (an exact day-count window for presets, e.g. "180 days before now") with whatever total was carried in from before the window, rather than resetting to 0 — so a quiet window still renders a correctly-valued flat line instead of an empty chart. `all` anchors at the group's settlement-inclusive earliest record (a settlement is a real balance-changing event, so history starts there).
-2. **`monthly`** — group-wide `type='expense'` totals per month (capped at `MAX_MONTHS = 24` bars regardless of range) plus the viewed member's `expense_splits` total for the same months — i.e. their *allocated share*, not what they paid. For presets, this uses `recentMonthKeys` — the last N *calendar* months ending at the current month, always exactly N regardless of day-of-month (e.g. `6m` always shows exactly 6 bars, matching the help doc's "選 6 個月會看到 6 根長條") — **deliberately a different window than `netTrend`'s**: a bar chart reads "6 個月" as 6 labeled months, a continuous trend line as 6 months of days, and trying to force both charts onto one window produces either a wrong bar count or a wrong trend anchor. For `all`, the window starts at the earliest **expense** record specifically (not the settlement-inclusive one netTrend uses), so a group whose very first record happens to be a settlement doesn't pick up a run of zero-filled idle months before any real expense existed.
+1. **`netTrend`** — the viewed member's cumulative net balance (paid − split, settlements included since they're `expenses` rows too) plotted over time. This is the only place with a _history_ of the balance Balance itself only shows as one current number — the rightmost point always equals that current number. `computeNetTrend` anchors the series at the resolved `from` (an exact day-count window for presets, e.g. "180 days before now") with whatever total was carried in from before the window, rather than resetting to 0 — so a quiet window still renders a correctly-valued flat line instead of an empty chart. `all` anchors at the group's settlement-inclusive earliest record (a settlement is a real balance-changing event, so history starts there).
+2. **`monthly`** — group-wide `type='expense'` totals per month (capped at `MAX_MONTHS = 24` bars regardless of range) plus the viewed member's `expense_splits` total for the same months — i.e. their _allocated share_, not what they paid. For presets, this uses `recentMonthKeys` — the last N _calendar_ months ending at the current month, always exactly N regardless of day-of-month (e.g. `6m` always shows exactly 6 bars, matching the help doc's "選 6 個月會看到 6 根長條") — **deliberately a different window than `netTrend`'s**: a bar chart reads "6 個月" as 6 labeled months, a continuous trend line as 6 months of days, and trying to force both charts onto one window produces either a wrong bar count or a wrong trend anchor. For `all`, the window starts at the earliest **expense** record specifically (not the settlement-inclusive one netTrend uses), so a group whose very first record happens to be a settlement doesn't pick up a run of zero-filled idle months before any real expense existed.
 3. **`byPayer`** — same metric the page used to show as its only chart (each member's `expense_payers` contribution, i.e. who fronted the cash) — kept as a secondary section, but now scoped to the same `range` instead of always being all-time. **Always shares `monthly`'s window, not `netTrend`'s** — the two sections being consistent with each other is the invariant that matters, since they're reporting over "the same visible window," while `netTrend` is answering a different kind of question.
 
 `byPayer`'s "who paid" and `monthly`'s "member's share" are deliberately different tables (`expense_payers` vs `expense_splits`) — conflating them would silently misrepresent one or the other. The page's member list/photos come from the existing `GET /api/groups/[id]/members` and `/avatars` endpoints rather than being duplicated into this response.
@@ -275,7 +280,7 @@ This is what connects the two front ends to the chat: editing an expense in the 
 
 Three things to keep in mind when touching this:
 
-- **Deletes must snapshot first.** Call `loadNoticeRecord` *before* deleting the row — the record, its creator and its `notice_message_id` are gone afterwards. Both the bot's `del_exp` callback and the API's `DELETE` do this.
+- **Deletes must snapshot first.** Call `loadNoticeRecord` _before_ deleting the row — the record, its creator and its `notice_message_id` are gone afterwards. Both the bot's `del_exp` callback and the API's `DELETE` do this.
 - **The tombstone's attribution is load-bearing.** `formatDeletedNotice` names what went, who recorded it and who removed it. That is what stands in for the per-record owner lock this app deliberately doesn't have (see "Who may edit or delete a record") — don't quietly reduce it to "已刪除".
 - **Silence is inherited.** Messages are silent because the bot's api middleware (`src/bot/index.ts`) stamps `disable_notification: true` on every `send*` call. Nothing in `notify.ts` sets it explicitly, so removing that middleware would un-silence every one of them.
 
@@ -286,10 +291,10 @@ Deep links: the card's 🔗 App 編輯 uses `?startapp=group_<chatId>_exp_<id>`,
 Every create, edit and delete of a record is logged to `record_audit_log` with
 who did it, from which surface, and a full before/after snapshot. This is the
 accounting half of "any member may edit anything" — without it, relaxing the
-owner lock would mean changes are both unrestricted *and* untraceable.
+owner lock would mean changes are both unrestricted _and_ untraceable.
 
 **Audit and the group message are one layer, on purpose. Do not split them.**
-`logCreated` / `logUpdated` / `logDeleted` write the log *and* drive
+`logCreated` / `logUpdated` / `logDeleted` write the log _and_ drive
 `src/lib/notify.ts`. The fifteen mutation sites are spread across six route
 handlers and seven bot callbacks; a standalone `logAudit()` next to each would
 eventually be forgotten somewhere, and a missing audit row is invisible.
@@ -307,7 +312,7 @@ Other things to know:
 
 - **`record_id` has no foreign key, deliberately.** `ON DELETE CASCADE` would
   erase "who deleted this" at the exact moment that row becomes the only
-  evidence. `group_id` *does* cascade — deleting the group should take its log.
+  evidence. `group_id` _does_ cascade — deleting the group should take its log.
 - **`src/bot/expenseEdits.ts` exists because of an import cycle.** `notify.ts`
   imports `expenseCard.ts` to render a card from a route handler, so that module
   has to stay a dependency-free leaf. Every bot write to an existing expense
@@ -334,6 +339,7 @@ same page with `?record=<id>` is one record's history.
 ### Beancount 匯出 (`src/lib/beancount.ts`)
 
 A single record (expense or settlement) can be copied as a beancount transaction via the **`Bean` icon button** in the top-right of the expense/settlement edit form header (`CopyBeancountButton`, edit mode only). The output is from the **personal-ledger perspective** of the current user (U):
+
 - `Expenses:Uncategorized` — U's own share (the schema has no category, so the default is a fixed account; the user re-categorises after pasting).
 - `Assets:Cash` — cash U fronted (negative).
 - `Assets:Receivable:<X>` — net position with each other person X (positive = X owes U, negative = U owes X). U's net is allocated proportionally across the opposite-sign counterparties, so multi-payer records stay balanced and only reflect U's own legs. Settlements skip the Expenses leg and just move cash ↔ receivable.
@@ -347,6 +353,7 @@ The settings page itself (`BeancountSettingsSection`, shared by `/mini` + `/app`
 ### Environment variables
 
 Validated at runtime (not build time) via `serverEnv()` in `src/lib/env.ts`:
+
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
 - `TELEGRAM_MINI_APP_NAME` — short name from BotFather `/newapp`
@@ -355,6 +362,7 @@ Validated at runtime (not build time) via `serverEnv()` in `src/lib/env.ts`:
 - `NEXT_PUBLIC_MINI_APP_URL` — public URL of the `/mini` route
 
 The web-auth (Auth.js) vars are **not** in `serverEnv()` — Auth.js reads them directly from `process.env`:
+
 - `AUTH_SECRET` — required; signs Auth.js sessions (`openssl rand -base64 32`)
 - `AUTH_TELEGRAM_CLIENT_ID` / `AUTH_TELEGRAM_CLIENT_SECRET` — from BotFather → Bot Settings → Web Login
 - `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — optional; each provider is enabled only when its pair is present
@@ -367,7 +375,7 @@ Commit subjects and PR titles follow **Conventional Commits**: `type(scope): imp
 
 - Types in use: `feat`, `fix`, `chore`, `ci`, `docs`, `refactor`.
 - Scope is optional and names an area rather than a file — `bot`, `mini`, `deps`.
-- The body carries the *why*. Explanations that a user can't act on belong here, not in the bot's replies (see `src/bot/commands/help.ts`).
+- The body carries the _why_. Explanations that a user can't act on belong here, not in the bot's replies (see `src/bot/commands/help.ts`).
 
 The prefix is for humans only: the release workflow's semver bump is a manual `workflow_dispatch` input (`.github/workflows/merge-dev-to-main.yml`), **not** parsed from commit types, so a wrong prefix can't mis-release anything.
 
@@ -378,6 +386,7 @@ Production runs on **Vercel** (frontend + bot webhook + API in one deploy), serv
 Node runtime is **24.x**, pinned in two places that must agree: `engines.node` in `package.json` (Vercel reads this and it overrides the dashboard's Node.js Version setting) and `.nvmrc` (CI's `setup-node` reads it via `node-version-file`). Vercel only honours the major version and patches it on its own, so a security release on that line (e.g. CVE-2026-111497 "Node2Shell", fixed in 24.22.1) is picked up on the next deploy, not by editing the pin. CI mirrors that with `check-latest: true` — without it `setup-node` silently uses whatever 24.x the runner image has cached, which lagged behind the Node2Shell fix.
 
 Things that bite, in priority order:
+
 - `TELEGRAM_WEBHOOK_SECRET` must be **identical** in Vercel and in local `.env.local` — `/api/telegram` rejects mismatched `X-Telegram-Bot-Api-Secret-Token` headers.
 - `NEXT_PUBLIC_MINI_APP_URL` is baked at **build time**; changing it requires a redeploy.
 - The Telegram webhook only needs re-setting (`pnpm bot:set-webhook https://<domain>`) when the **domain, the secret, or the `allowed_updates` list changes** — not on every deploy. `allowed_updates` lives on Telegram's side, not in the deploy, so editing the array in `scripts/set-webhook.ts` does nothing until the script is re-run; the update types it drops just silently stop arriving.

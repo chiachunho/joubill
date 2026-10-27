@@ -85,7 +85,15 @@ function dayToNoonUtcIso(d: Date): string {
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)).toISOString();
 }
 
-export function SettlementForm({ groupId, defaultCurrency, currentUserId, members, photos, initial, returnPath }: Props) {
+export function SettlementForm({
+  groupId,
+  defaultCurrency,
+  currentUserId,
+  members,
+  photos,
+  initial,
+  returnPath,
+}: Props) {
   const router = useRouter();
   const mode = useAuthMode();
   // "tma" → /mini, "web" → /app. Same split the fetchers make below.
@@ -94,12 +102,12 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
 
   // Anyone in the group may edit or delete any record, so who entered it is
   // shown rather than enforced — attribution in place of a lock (see CLAUDE.md).
-  const recorder = initial?.createdBy != null
-    ? members.find((m) => m.id === initial.createdBy)
-    : undefined;
-  const recordedBy = recorder ? labelUser({ ...recorder, userId: recorder.id }, currentUserId) : null;
-  const recordedBySomeoneElse =
-    initial?.createdBy != null && initial.createdBy !== currentUserId;
+  const recorder =
+    initial?.createdBy != null ? members.find((m) => m.id === initial.createdBy) : undefined;
+  const recordedBy = recorder
+    ? labelUser({ ...recorder, userId: recorder.id }, currentUserId)
+    : null;
+  const recordedBySomeoneElse = initial?.createdBy != null && initial.createdBy !== currentUserId;
 
   // Only rendered once someone has actually edited the record — see ExpenseForm.
   const lastEditor = initial?.lastActivity
@@ -146,13 +154,15 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
   // the record's stored currency.
   useEffect(() => {
     const restored =
-      initial?.fxRate != null && initial.fxQuote === defaultCurrency && currency === initial.currency
+      initial?.fxRate != null &&
+      initial.fxQuote === defaultCurrency &&
+      currency === initial.currency
         ? String(initial.fxRate)
         : "";
     if (form.getValues("fxRate") !== restored) {
       form.setValue("fxRate", restored, { shouldValidate: true });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currency]);
 
   // Reference rate (group custom rate if set, else market rate as of the date).
@@ -214,7 +224,9 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
     if (!initial) return;
     setDeletePending(true);
     const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
-    const res = await fetchFn(`/api/groups/${groupId}/settlements/${initial.id}`, { method: "DELETE" });
+    const res = await fetchFn(`/api/groups/${groupId}/settlements/${initial.id}`, {
+      method: "DELETE",
+    });
     setDeletePending(false);
     if (!res.ok) {
       setDeleteError(deleteErrorMessage(res, "這筆還款記錄"));
@@ -245,9 +257,7 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
             )}
             <div>
               <h1 className="text-lg font-semibold">{isEdit ? "編輯還款記錄" : "新增還款記錄"}</h1>
-              {isEdit && (
-                <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>
-              )}
+              {isEdit && <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>}
             </div>
           </div>
           {isEdit && initial && (
@@ -385,7 +395,7 @@ export function SettlementForm({ groupId, defaultCurrency, currentUserId, member
                     />
                   </FormControl>
                   {rateInUse != null && total > 0 && (
-                    <p className="text-xs text-muted-foreground num">
+                    <p className="num text-xs text-muted-foreground">
                       ≈ {(total * rateInUse).toFixed(2)} {defaultCurrency} ·{" "}
                       {usingCustom
                         ? "此筆自訂匯率"

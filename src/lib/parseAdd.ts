@@ -45,17 +45,41 @@ export const ADD_USAGE = [
  * point into the original text.
  */
 const WIDTH_MAP: Record<string, string> = {
-  "０": "0", "１": "1", "２": "2", "３": "3", "４": "4",
-  "５": "5", "６": "6", "７": "7", "８": "8", "９": "9",
-  "，": ",", "．": ".",
-  "＋": "+", "－": "-", "−": "-", "–": "-", "—": "-",
-  "＊": "*", "×": "*", "✕": "*",
-  "／": "/", "÷": "/",
-  "（": "(", "）": ")",
-  "％": "%", "＄": "$", "＠": "@",
+  "０": "0",
+  "１": "1",
+  "２": "2",
+  "３": "3",
+  "４": "4",
+  "５": "5",
+  "６": "6",
+  "７": "7",
+  "８": "8",
+  "９": "9",
+  "，": ",",
+  "．": ".",
+  "＋": "+",
+  "－": "-",
+  "−": "-",
+  "–": "-",
+  "—": "-",
+  "＊": "*",
+  "×": "*",
+  "✕": "*",
+  "／": "/",
+  "÷": "/",
+  "（": "(",
+  "）": ")",
+  "％": "%",
+  "＄": "$",
+  "＠": "@",
   // Every flavour of space becomes a plain one — a pasted NBSP or a tab after
   // the amount must not make the whole command unreadable.
-  "　": " ", " ": " ", "\t": " ", " ": " ", " ": " ", " ": " ",
+  "　": " ",
+  " ": " ",
+  "\t": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
 };
 
 /** Map full-width/typographic characters to ASCII, preserving string length. */
@@ -133,7 +157,13 @@ function tokenize(src: string): Tok[] | null {
       i = j;
       // NB: "abc".includes("") is true, so an absent character must be excluded first.
       const mult = src[i];
-      const scale = !mult ? 1 : MULT_1E3.includes(mult) ? 1_000 : MULT_1E4.includes(mult) ? 10_000 : 1;
+      const scale = !mult
+        ? 1
+        : MULT_1E3.includes(mult)
+          ? 1_000
+          : MULT_1E4.includes(mult)
+            ? 10_000
+            : 1;
       if (scale !== 1) i++;
       toks.push({ t: "n", v: v * scale });
       continue;
@@ -370,10 +400,7 @@ export const parsedAddSchema = z.object({
 
 export type ParsedAdd = z.infer<typeof parsedAddSchema>;
 
-export function parseAddMessage(
-  text: string,
-  entities: readonly MessageEntity[] = [],
-): ParsedAdd {
+export function parseAddMessage(text: string, entities: readonly MessageEntity[] = []): ParsedAdd {
   const norm = normalizeWidth(text);
   const lines = norm.split("\n");
   const firstLine = lines[0];

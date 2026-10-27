@@ -54,9 +54,7 @@ export type RateLockPayload = {
 
 export function isRateLockPayload(value: unknown): value is RateLockPayload {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { kind?: unknown }).kind === "rateLock"
+    typeof value === "object" && value !== null && (value as { kind?: unknown }).kind === "rateLock"
   );
 }
 
@@ -134,7 +132,9 @@ function distributionUnchanged(
 
   return before.every((b) => {
     const a = afterById.get(b.user.userId);
-    return a !== undefined && Math.abs(share(b, beforeTotal) - share(a, afterTotal)) <= SHARE_EPSILON;
+    return (
+      a !== undefined && Math.abs(share(b, beforeTotal) - share(a, afterTotal)) <= SHARE_EPSILON
+    );
   });
 }
 

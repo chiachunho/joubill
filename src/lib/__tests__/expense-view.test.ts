@@ -79,7 +79,10 @@ describe("isSettlement", () => {
 
   it("treats a settlement's from/to as a payer/debtor so balances still net", () => {
     // Settlement A(1) → B(2) for 100: sole payer 1, sole debtor 2.
-    const s: ExpenseLike = { payers: [{ userId: 1, amount: 100 }], splits: [{ debtorId: 2, amount: 100 }] };
+    const s: ExpenseLike = {
+      payers: [{ userId: 1, amount: 100 }],
+      splits: [{ debtorId: 2, amount: 100 }],
+    };
     expect(expenseUserBalance(s, 1).net).toBe(100);
     expect(expenseUserBalance(s, 2).net).toBe(-100);
   });

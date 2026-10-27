@@ -27,9 +27,7 @@ export default function MiniHome() {
     if (data.activeExpenseId) {
       router.replace(`/mini/groups/${data.activeGroupId}/expenses/${data.activeExpenseId}/edit`);
     } else if (data.activeSettlementId) {
-      router.replace(
-        `/mini/groups/${data.activeGroupId}/settlements/${data.activeSettlementId}`,
-      );
+      router.replace(`/mini/groups/${data.activeGroupId}/settlements/${data.activeSettlementId}`);
     } else {
       router.replace(`/mini/groups/${data.activeGroupId}`);
     }
@@ -57,14 +55,16 @@ export default function MiniHome() {
           <Users className="size-6 text-muted-foreground" />
         </div>
         <p className="font-semibold">還沒有任何群組</p>
-        <p className="mt-1 text-sm text-muted-foreground">把揪帳 Bot 加進群組，輸入 /start，就這樣</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          把揪帳 Bot 加進群組，輸入 /start，就這樣
+        </p>
       </div>
     );
   }
 
   return (
     <div className="py-6">
-      <div className="relative flex items-center justify-center px-4 mb-6">
+      <div className="relative mb-6 flex items-center justify-center px-4">
         <p className="text-sm font-semibold text-foreground">揪帳</p>
         <Link
           href="/mini/settings"
@@ -73,8 +73,8 @@ export default function MiniHome() {
           <UserCircle className="size-4" />
         </Link>
       </div>
-      <p className="sect px-4 mb-3">我的群組</p>
-      <div className="mx-4 overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/50">
+      <p className="sect mb-3 px-4">我的群組</p>
+      <div className="mx-4 divide-y divide-border/50 overflow-hidden rounded-2xl bg-secondary/50">
         {groups.map((g) => (
           <Link
             key={g.id}

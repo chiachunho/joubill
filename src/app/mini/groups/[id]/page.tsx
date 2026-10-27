@@ -2,7 +2,18 @@
 
 import { startTransition, use, useEffect, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Check, HandCoins, Loader2, Plus, Settings, User, UserCircle, Users } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  Check,
+  HandCoins,
+  Loader2,
+  Plus,
+  Settings,
+  User,
+  UserCircle,
+  Users,
+} from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
@@ -34,7 +45,13 @@ type Profile = {
   username: string | null;
 };
 
-type ExpensePayer = { userId: number; firstName: string; lastName: string | null; username: string | null; amount: number };
+type ExpensePayer = {
+  userId: number;
+  firstName: string;
+  lastName: string | null;
+  username: string | null;
+  amount: number;
+};
 
 type ExpensesResponse = {
   expenses: Array<{
@@ -114,7 +131,9 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
     mutate: mutateBalance,
   } = useSWR<BalanceResponse>(`/api/groups/${id}/balance`);
 
-  const { data: avatars, error: avatarsError } = useSWR<AvatarsResponse>(`/api/groups/${id}/avatars`);
+  const { data: avatars, error: avatarsError } = useSWR<AvatarsResponse>(
+    `/api/groups/${id}/avatars`,
+  );
   if (avatarsError) console.error("[avatars]", avatarsError);
 
   const computedTransfers = useMemo<Transfer[]>(() => {
@@ -133,7 +152,9 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
   );
 
   const [pendingIdx, setPendingIdx] = useState<number | null>(null);
-  const [settleConfirm, setSettleConfirm] = useState<{ transfer: Transfer; idx: number } | null>(null);
+  const [settleConfirm, setSettleConfirm] = useState<{ transfer: Transfer; idx: number } | null>(
+    null,
+  );
   const [settleError, setSettleError] = useState<string | null>(null);
 
   // Expense-list view preferences, persisted in localStorage (shared with the Web App page).
@@ -257,7 +278,9 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
       {allSettled && (
         <div className="mx-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-center">
-          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">所有帳款已結清</p>
+          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+            所有帳款已結清
+          </p>
           <div className="mt-2 flex justify-center gap-4">
             <Link
               href={`/mini/groups/${id}/stats`}
@@ -282,7 +305,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
               統計
             </Link>
           </div>
-          <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
+          <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
             {balance.balances.map((b) => (
               <div key={b.userId} className="flex items-center gap-3 px-4 py-3">
                 <Avatar src={getPhoto(b.userId)} name={labelUser(b)} userId={b.userId} size="sm" />
@@ -337,7 +360,9 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                 <div className="mt-2.5 flex items-center justify-between">
                   <p className="num text-base font-semibold">
                     {fmt(t.amount)}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">{balance.currency}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {balance.currency}
+                    </span>
                   </p>
                   <button
                     disabled={pendingIdx === i}
@@ -383,10 +408,12 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
         {/* View controls: total/balance segmented toggle + "only mine" filter */}
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="inline-flex rounded-lg bg-secondary/50 p-0.5">
-            {([
-              ["total", "總額"],
-              ["balance", "淨額"],
-            ] as const).map(([mode, label]) => (
+            {(
+              [
+                ["total", "總額"],
+                ["balance", "淨額"],
+              ] as const
+            ).map(([mode, label]) => (
               <button
                 key={mode}
                 onClick={() => changeViewMode(mode)}
@@ -404,7 +431,9 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
             <button
               onClick={toggleOnlyMine}
               className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                onlyMine ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                onlyMine
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               <User className="size-3" />
@@ -424,7 +453,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
             {Array.from(expensesByMonth.entries()).map(([month, exps]) => (
               <div key={month}>
                 <p className="mb-2 text-xs font-medium text-muted-foreground">{month}</p>
-                <div className="overflow-hidden rounded-2xl bg-secondary/50 divide-y divide-border/40">
+                <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
                   {exps.map((e) => {
                     const day = new Date(e.spentAt).toISOString().slice(8, 10);
 
@@ -440,11 +469,25 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                           className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
                         >
                           <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                            <Avatar src={getPhoto(from?.userId ?? 0)} name={labelUser(from)} userId={from?.userId ?? 0} size="sm" />
-                            <span className="max-w-[60px] truncate text-sm">{labelUser(from, selfUserId)}</span>
+                            <Avatar
+                              src={getPhoto(from?.userId ?? 0)}
+                              name={labelUser(from)}
+                              userId={from?.userId ?? 0}
+                              size="sm"
+                            />
+                            <span className="max-w-[60px] truncate text-sm">
+                              {labelUser(from, selfUserId)}
+                            </span>
                             <ArrowRight className="size-3 shrink-0 text-muted-foreground/50" />
-                            <Avatar src={getPhoto(to?.userId ?? 0)} name={labelUser(to)} userId={to?.userId ?? 0} size="sm" />
-                            <span className="max-w-[60px] truncate text-sm">{labelUser(to, selfUserId)}</span>
+                            <Avatar
+                              src={getPhoto(to?.userId ?? 0)}
+                              name={labelUser(to)}
+                              userId={to?.userId ?? 0}
+                              size="sm"
+                            />
+                            <span className="max-w-[60px] truncate text-sm">
+                              {labelUser(to, selfUserId)}
+                            </span>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="inline-flex shrink-0 items-center rounded-lg bg-muted p-1 text-muted-foreground">
@@ -467,12 +510,16 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                               >
                                 {sbal.net > 0 ? "+" : ""}
                                 {fmt(sbal.net)}{" "}
-                                <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  {e.currency}
+                                </span>
                               </p>
                             ) : (
                               <p className="num text-sm font-semibold">
                                 {fmt(e.amount)}{" "}
-                                <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  {e.currency}
+                                </span>
                               </p>
                             )}
                             <p className="text-xs text-muted-foreground">{day} 日</p>
@@ -481,13 +528,14 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                       );
                     }
 
-                    const payerLabel = e.payers.length === 0
-                      ? "?"
-                      : e.payers.length === 1
-                        ? labelUser(e.payers[0], selfUserId)
-                        : e.payers.length === 2
-                          ? `${labelUser(e.payers[0], selfUserId)}、${labelUser(e.payers[1], selfUserId)}`
-                          : `${labelUser(e.payers[0], selfUserId)} +${e.payers.length - 1}`;
+                    const payerLabel =
+                      e.payers.length === 0
+                        ? "?"
+                        : e.payers.length === 1
+                          ? labelUser(e.payers[0], selfUserId)
+                          : e.payers.length === 2
+                            ? `${labelUser(e.payers[0], selfUserId)}、${labelUser(e.payers[1], selfUserId)}`
+                            : `${labelUser(e.payers[0], selfUserId)} +${e.payers.length - 1}`;
                     const bal = expenseUserBalance(e, selfUserId);
                     // Balance view: spell out 墊付 (what you fronted) and 我分 (your share)
                     // so the net on the right reads as 付 − 分. Avatars already show who paid.
@@ -551,12 +599,16 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                             >
                               {bal.net > 0 ? "+" : ""}
                               {fmt(bal.net)}{" "}
-                              <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                              <span className="text-xs font-normal text-muted-foreground">
+                                {e.currency}
+                              </span>
                             </p>
                           ) : (
                             <p className="num text-sm font-semibold">
                               {fmt(e.amount)}{" "}
-                              <span className="text-xs font-normal text-muted-foreground">{e.currency}</span>
+                              <span className="text-xs font-normal text-muted-foreground">
+                                {e.currency}
+                              </span>
                             </p>
                           )}
                           <p className="text-xs text-muted-foreground">{day} 日</p>
@@ -579,12 +631,15 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
       <ConfirmDialog
         open={settleConfirm !== null}
-        onOpenChange={(open) => { if (!open) setSettleConfirm(null); }}
+        onOpenChange={(open) => {
+          if (!open) setSettleConfirm(null);
+        }}
         title="確認已轉帳"
         description={
           settleConfirm && balance ? (
             <span>
-              {labelUser(settleConfirm.transfer.from, selfUserId)} → {labelUser(settleConfirm.transfer.to, selfUserId)}
+              {labelUser(settleConfirm.transfer.from, selfUserId)} →{" "}
+              {labelUser(settleConfirm.transfer.to, selfUserId)}
               <br />
               <span className="num font-semibold text-foreground">
                 {fmt(settleConfirm.transfer.amount)} {balance.currency}

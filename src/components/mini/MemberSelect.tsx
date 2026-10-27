@@ -10,7 +10,12 @@ import {
 } from "@/components/ui/select";
 import { labelMember } from "@/lib/label";
 
-type Member = { id: number; firstName: string | null; lastName?: string | null; username: string | null };
+type Member = {
+  id: number;
+  firstName: string | null;
+  lastName?: string | null;
+  username: string | null;
+};
 
 type Props = {
   value: string;
@@ -26,7 +31,7 @@ export function MemberSelect({ value, onValueChange, members, photos, placeholde
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger>
         {selected ? (
-          <span className="!flex items-center gap-2 min-w-0 overflow-hidden">
+          <span className="!flex min-w-0 items-center gap-2 overflow-hidden">
             <Avatar
               src={photos?.[selected.id] ?? null}
               name={labelMember(selected)}
@@ -43,12 +48,7 @@ export function MemberSelect({ value, onValueChange, members, photos, placeholde
         {members.map((m) => (
           <SelectItem key={m.id} value={String(m.id)} textValue={labelMember(m)}>
             <span className="flex items-center gap-2">
-              <Avatar
-                src={photos?.[m.id] ?? null}
-                name={labelMember(m)}
-                userId={m.id}
-                size="xs"
-              />
+              <Avatar src={photos?.[m.id] ?? null} name={labelMember(m)} userId={m.id} size="xs" />
               {labelMember(m)}
             </span>
           </SelectItem>

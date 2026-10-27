@@ -11,12 +11,12 @@
 
 ## Endpoints
 
-| 用途 | URL | Method |
-|------|-----|--------|
-| Authorization | `https://oauth.telegram.org/auth` | GET |
-| Token Exchange | `https://oauth.telegram.org/token` | POST |
-| JWKS | `https://oauth.telegram.org/.well-known/jwks.json` | GET |
-| Discovery | `https://oauth.telegram.org/.well-known/openid-configuration` | GET |
+| 用途           | URL                                                           | Method |
+| -------------- | ------------------------------------------------------------- | ------ |
+| Authorization  | `https://oauth.telegram.org/auth`                             | GET    |
+| Token Exchange | `https://oauth.telegram.org/token`                            | POST   |
+| JWKS           | `https://oauth.telegram.org/.well-known/jwks.json`            | GET    |
+| Discovery      | `https://oauth.telegram.org/.well-known/openid-configuration` | GET    |
 
 Discovery document **沒有 `userinfo_endpoint`** — 這是與一般 OIDC 最大的差異（見下方「踩雷點」）。
 
@@ -26,22 +26,22 @@ Discovery document **沒有 `userinfo_endpoint`** — 這是與一般 OIDC 最�
 
 **必填：**
 
-| 參數 | 說明 |
-|------|------|
-| `client_id` | BotFather 給的 Bot ID |
-| `redirect_uri` | 預先註冊的 callback URL |
-| `response_type` | 固定 `code` |
-| `scope` | 空白分隔（見下方 Scopes） |
-| `code_challenge` | code verifier 的 SHA256，Base64URL 編碼（PKCE） |
-| `code_challenge_method` | 固定 `S256` |
+| 參數                    | 說明                                            |
+| ----------------------- | ----------------------------------------------- |
+| `client_id`             | BotFather 給的 Bot ID                           |
+| `redirect_uri`          | 預先註冊的 callback URL                         |
+| `response_type`         | 固定 `code`                                     |
+| `scope`                 | 空白分隔（見下方 Scopes）                       |
+| `code_challenge`        | code verifier 的 SHA256，Base64URL 編碼（PKCE） |
+| `code_challenge_method` | 固定 `S256`                                     |
 
 **選填：**
 
-| 參數 | 說明 |
-|------|------|
+| 參數    | 說明                                                     |
+| ------- | -------------------------------------------------------- |
 | `state` | CSRF 防護隨機字串。**長度上限約 128 字元**（見踩雷點 1） |
-| `nonce` | 防 replay 的隨機字串 |
-| `lang` | UI 語言（如 `en`、`zh`） |
+| `nonce` | 防 replay 的隨機字串                                     |
+| `lang`  | UI 語言（如 `en`、`zh`）                                 |
 
 ---
 
@@ -52,13 +52,13 @@ Discovery document **沒有 `userinfo_endpoint`** — 這是與一般 OIDC 最�
 
 **必填 body：**
 
-| 參數 | 說明 |
-|------|------|
-| `grant_type` | 固定 `authorization_code` |
-| `code` | redirect 帶回的 authorization code |
-| `redirect_uri` | 必須與 authorization request 相同 |
-| `client_id` | Bot ID |
-| `code_verifier` | 原始 PKCE verifier |
+| 參數            | 說明                               |
+| --------------- | ---------------------------------- |
+| `grant_type`    | 固定 `authorization_code`          |
+| `code`          | redirect 帶回的 authorization code |
+| `redirect_uri`  | 必須與 authorization request 相同  |
+| `client_id`     | Bot ID                             |
+| `code_verifier` | 原始 PKCE verifier                 |
 
 **回應：**
 
@@ -75,12 +75,12 @@ Discovery document **沒有 `userinfo_endpoint`** — 這是與一般 OIDC 最�
 
 ## Scopes
 
-| Scope | 回傳的 claims | 備註 |
-|-------|--------------|------|
-| `openid` | `sub`, `iss`, `iat`, `exp` | 必填 |
-| `profile` | `name`, `preferred_username`, `picture` | 選填 |
-| `phone` | `phone_number` | 需使用者同意 |
-| `telegram:bot_access` | 無（啟用 bot 可私訊使用者） | 選填 |
+| Scope                 | 回傳的 claims                           | 備註         |
+| --------------------- | --------------------------------------- | ------------ |
+| `openid`              | `sub`, `iss`, `iat`, `exp`              | 必填         |
+| `profile`             | `name`, `preferred_username`, `picture` | 選填         |
+| `phone`               | `phone_number`                          | 需使用者同意 |
+| `telegram:bot_access` | 無（啟用 bot 可私訊使用者）             | 選填         |
 
 本專案使用 `openid profile`（不需要 email/phone；Telegram 本來就不給 email）。
 
@@ -97,11 +97,11 @@ Discovery document **沒有 `userinfo_endpoint`** — 這是與一般 OIDC 最�
   "sub": "<user_id>",
   "iat": 1700000000,
   "exp": 1700003600,
-  "id": 123456789,             // 數字型 user id
+  "id": 123456789, // 數字型 user id
   "name": "<full name>",
   "preferred_username": "<username>",
   "picture": "<profile photo url>",
-  "phone_number": "<verified number>"  // 僅 phone scope
+  "phone_number": "<verified number>", // 僅 phone scope
 }
 ```
 

@@ -3,9 +3,10 @@
 > 中文版：[DEPLOYMENT.zh-TW.md](DEPLOYMENT.zh-TW.md)
 
 Production runs on **Vercel** (frontend + bot webhook + API) + **Neon Postgres**
-+ **Telegram BotFather**, served from a **custom domain**.
-Assumes you already own: a Neon DB, a Vercel account, a Telegram bot, and a
-custom domain. The code is already pushed to GitHub.
+
+- **Telegram BotFather**, served from a **custom domain**.
+  Assumes you already own: a Neon DB, a Vercel account, a Telegram bot, and a
+  custom domain. The code is already pushed to GitHub.
 
 > Below, `splitbill.example.com` stands for your custom domain — substitute your own.
 > External steps only you can do are marked **🧑 manual**; the rest are local commands.
@@ -57,17 +58,17 @@ both **Production** and **Preview**):
 
 ### Required
 
-| Key | Value | Notes |
-| --- | --- | --- |
-| `TELEGRAM_BOT_TOKEN` | the token from BotFather | |
-| `TELEGRAM_WEBHOOK_SECRET` | a strong random string | **write it down** — step 8 needs the same value locally |
-| `TELEGRAM_MINI_APP_NAME` | the BotFather app short name (e.g. `splitbill`) | |
-| `TELEGRAM_STORAGE_CHAT_ID` | the private channel's chat_id (negative number) | see below |
-| `DATABASE_URL` | Neon **Pooled** connection string + `?sslmode=require` | use pooled, not direct |
-| `NEXT_PUBLIC_MINI_APP_URL` | `https://splitbill.example.com/mini` | **use the custom domain**, not `*.vercel.app` |
-| `AUTH_SECRET` | random string | signs Auth.js sessions; `openssl rand -base64 32` |
-| `AUTH_TELEGRAM_CLIENT_ID` | BotFather Web Login Client ID | from step 4 |
-| `AUTH_TELEGRAM_CLIENT_SECRET` | BotFather Web Login Client Secret | from step 4 |
+| Key                           | Value                                                  | Notes                                                   |
+| ----------------------------- | ------------------------------------------------------ | ------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`          | the token from BotFather                               |                                                         |
+| `TELEGRAM_WEBHOOK_SECRET`     | a strong random string                                 | **write it down** — step 8 needs the same value locally |
+| `TELEGRAM_MINI_APP_NAME`      | the BotFather app short name (e.g. `splitbill`)        |                                                         |
+| `TELEGRAM_STORAGE_CHAT_ID`    | the private channel's chat_id (negative number)        | see below                                               |
+| `DATABASE_URL`                | Neon **Pooled** connection string + `?sslmode=require` | use pooled, not direct                                  |
+| `NEXT_PUBLIC_MINI_APP_URL`    | `https://splitbill.example.com/mini`                   | **use the custom domain**, not `*.vercel.app`           |
+| `AUTH_SECRET`                 | random string                                          | signs Auth.js sessions; `openssl rand -base64 32`       |
+| `AUTH_TELEGRAM_CLIENT_ID`     | BotFather Web Login Client ID                          | from step 4                                             |
+| `AUTH_TELEGRAM_CLIENT_SECRET` | BotFather Web Login Client Secret                      | from step 4                                             |
 
 #### Create the receipt storage channel
 
@@ -83,15 +84,16 @@ as a store:
 
 ### Optional (GitHub / Google web login)
 
-| Key | Value |
-| --- | --- |
-| `AUTH_GITHUB_ID` | GitHub OAuth App Client ID |
+| Key                  | Value                          |
+| -------------------- | ------------------------------ |
+| `AUTH_GITHUB_ID`     | GitHub OAuth App Client ID     |
 | `AUTH_GITHUB_SECRET` | GitHub OAuth App Client Secret |
-| `AUTH_GOOGLE_ID` | Google OAuth Client ID |
-| `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret |
+| `AUTH_GOOGLE_ID`     | Google OAuth Client ID         |
+| `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret     |
 
 If these four are unset, the login page shows only the Telegram button. The
 GitHub / Google OAuth App Callback URLs are:
+
 - `https://splitbill.example.com/api/auth/callback/github`
 - `https://splitbill.example.com/api/auth/callback/google`
 
@@ -170,7 +172,7 @@ unrecorded. **Changing the `allowed_updates` list requires re-running this step*
 — it is stored server-side by Telegram, not read from the deploy.
 
 Admin rights are optional but buy one more thing: `getChatMember` is only
-guaranteed to answer correctly about *other* people while the bot is an
+guaranteed to answer correctly about _other_ people while the bot is an
 administrator, and a non-admin bot can report `left` for someone who really is a
 member. `/join` and `/add` therefore only enforce their "is this person actually
 in the chat" check when the bot is an admin (`canVerifyMembership` in
@@ -193,6 +195,7 @@ Opening the Mini App inside a group uses the BotFather-registered direct-link
 ## 10. Verify
 
 **Mini App (inside Telegram)**
+
 - Check the `getWebhookInfo` printed in step 8: `url` is the custom domain, `last_error_message` should be empty.
 - Add the bot to a Telegram group → `/start` → tap "Open Splitbill" → the Mini App loads and shows data.
 - Try `/add 100 lunch @someone` → the Mini App balance updates.
@@ -201,6 +204,7 @@ Opening the Mini App inside a group uses the BotFather-registered direct-link
 - Edit an expense in the Mini App → tap "Attach receipt photo" → pick an image → see the thumbnail (means upload + proxy work).
 
 **Web login**
+
 - Open `https://splitbill.example.com/login` → see the "Sign in with Telegram" button.
 - Tap it → redirect to Telegram OAuth → authorize → redirect back to `/app` → see the group list.
 - Tap a group → balances and the expense list render.

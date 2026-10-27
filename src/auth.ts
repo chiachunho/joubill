@@ -24,9 +24,7 @@ const TELEGRAM_ISSUER = "https://oauth.telegram.org";
 // Telegram has no UserInfo endpoint; claims live in the id_token. We verify
 // the token signature against Telegram's published JWKS. createRemoteJWKSet
 // lazily fetches and caches the keys on first use.
-const telegramJwks = createRemoteJWKSet(
-  new URL(`${TELEGRAM_ISSUER}/.well-known/jwks.json`),
-);
+const telegramJwks = createRemoteJWKSet(new URL(`${TELEGRAM_ISSUER}/.well-known/jwks.json`));
 
 /**
  * Telegram OAuth2 + PKCE provider.

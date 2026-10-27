@@ -50,17 +50,17 @@ Project → **Settings → Environment Variables**,以下所有變數都加（En
 
 ### 必填
 
-| Key | 值 | 備註 |
-| --- | --- | --- |
-| `TELEGRAM_BOT_TOKEN` | BotFather 給的 token | |
-| `TELEGRAM_WEBHOOK_SECRET` | 自訂的強隨機字串 | **要記下來**,步驟 8 本機要用同一個值 |
-| `TELEGRAM_MINI_APP_NAME` | BotFather 的 app short name（例:`splitbill`）| |
-| `TELEGRAM_STORAGE_CHAT_ID` | 私有頻道的 chat_id（負數）| 見下方說明 |
-| `DATABASE_URL` | Neon **Pooled** 連線字串 + `?sslmode=require` | 用 pooled,不要用 direct |
-| `NEXT_PUBLIC_MINI_APP_URL` | `https://splitbill.example.com/mini` | **填自訂網域**,不要填 `*.vercel.app` |
-| `AUTH_SECRET` | 隨機字串 | Auth.js 簽署 session 用。`openssl rand -base64 32` 生成 |
-| `AUTH_TELEGRAM_CLIENT_ID` | BotFather Web Login 的 Client ID | 步驟 4 取得 |
-| `AUTH_TELEGRAM_CLIENT_SECRET` | BotFather Web Login 的 Client Secret | 步驟 4 取得 |
+| Key                           | 值                                            | 備註                                                    |
+| ----------------------------- | --------------------------------------------- | ------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`          | BotFather 給的 token                          |                                                         |
+| `TELEGRAM_WEBHOOK_SECRET`     | 自訂的強隨機字串                              | **要記下來**,步驟 8 本機要用同一個值                    |
+| `TELEGRAM_MINI_APP_NAME`      | BotFather 的 app short name（例:`splitbill`） |                                                         |
+| `TELEGRAM_STORAGE_CHAT_ID`    | 私有頻道的 chat_id（負數）                    | 見下方說明                                              |
+| `DATABASE_URL`                | Neon **Pooled** 連線字串 + `?sslmode=require` | 用 pooled,不要用 direct                                 |
+| `NEXT_PUBLIC_MINI_APP_URL`    | `https://splitbill.example.com/mini`          | **填自訂網域**,不要填 `*.vercel.app`                    |
+| `AUTH_SECRET`                 | 隨機字串                                      | Auth.js 簽署 session 用。`openssl rand -base64 32` 生成 |
+| `AUTH_TELEGRAM_CLIENT_ID`     | BotFather Web Login 的 Client ID              | 步驟 4 取得                                             |
+| `AUTH_TELEGRAM_CLIENT_SECRET` | BotFather Web Login 的 Client Secret          | 步驟 4 取得                                             |
 
 #### 建立 Receipt Storage Channel
 
@@ -75,14 +75,15 @@ Project → **Settings → Environment Variables**,以下所有變數都加（En
 
 ### 選填（GitHub / Google OAuth 登入）
 
-| Key | 值 |
-| --- | --- |
-| `AUTH_GITHUB_ID` | GitHub OAuth App Client ID |
+| Key                  | 值                             |
+| -------------------- | ------------------------------ |
+| `AUTH_GITHUB_ID`     | GitHub OAuth App Client ID     |
 | `AUTH_GITHUB_SECRET` | GitHub OAuth App Client Secret |
-| `AUTH_GOOGLE_ID` | Google OAuth Client ID |
-| `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret |
+| `AUTH_GOOGLE_ID`     | Google OAuth Client ID         |
+| `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret     |
 
 沒設這四個則登入頁只顯示 Telegram 登入按鈕。GitHub / Google OAuth App 的 Callback URL 填:
+
 - `https://splitbill.example.com/api/auth/callback/github`
 - `https://splitbill.example.com/api/auth/callback/google`
 
@@ -156,6 +157,7 @@ pnpm bot:set-webhook https://splitbill.example.com
 ## 10. 驗證
 
 **Mini App（Telegram 內）**
+
 - 終端機看步驟 8 印出的 `getWebhookInfo`:`url` 是自訂網域、`last_error_message` 應為空。
 - 把 bot 拉進一個 Telegram 群組 → `/start` → 點「開啟 Splitbill」→ Mini App 正常載入、看得到資料。
 - 試 `/add 100 午餐 @someone` → Mini App 餘額有更新。
@@ -164,6 +166,7 @@ pnpm bot:set-webhook https://splitbill.example.com
 - Mini App 編輯支出 → 點「附上收據照片」→ 選圖 → 看到縮圖（代表上傳成功且 proxy 正常）。
 
 **Web 登入**
+
 - 開 `https://splitbill.example.com/login` → 看到「使用 Telegram 登入」按鈕。
 - 點按鈕 → 跳到 Telegram OAuth → 授權 → 跳回 `/app` → 看到群組列表。
 - 點一個群組 → 餘額、支出列表正常顯示。

@@ -17,13 +17,13 @@
 
 當 Telegram 主題未套用時，`globals.css` 的 `:root` 預設值使用以下品牌色：
 
-| 名稱 | HEX | CSS 變數 | 用途 |
-| --- | --- | --- | --- |
-| 揪綠 | `#2EBD8F` | `--primary` / `--ring` | 主行動按鈕、選中態 |
-| 帳金 | `#F5B731` | `--brand-gold` | 財務亮點（見下方說明） |
-| 深綠 | `#1F9D74` | — | 深色版揪綠，目前保留於 dark mode `--primary` 參考 |
-| 米白 | `#F2F0EB` | `--background` | 頁面底色 |
-| 墨黑 | `#1A1A1A` | `--foreground` | 主要文字 |
+| 名稱 | HEX       | CSS 變數               | 用途                                              |
+| ---- | --------- | ---------------------- | ------------------------------------------------- |
+| 揪綠 | `#2EBD8F` | `--primary` / `--ring` | 主行動按鈕、選中態                                |
+| 帳金 | `#F5B731` | `--brand-gold`         | 財務亮點（見下方說明）                            |
+| 深綠 | `#1F9D74` | —                      | 深色版揪綠，目前保留於 dark mode `--primary` 參考 |
+| 米白 | `#F2F0EB` | `--background`         | 頁面底色                                          |
+| 墨黑 | `#1A1A1A` | `--foreground`         | 主要文字                                          |
 
 #### 帳金 (`--brand-gold`) 使用規則
 
@@ -41,15 +41,15 @@
 
 ### 標準語義 class
 
-| 用途 | class | 說明 |
-| --- | --- | --- |
-| 頁面背景 | `bg-background` | 跟隨 TG `bg_color`；預設米白 |
-| 主要文字 | `text-foreground` | |
-| 次要 / 提示文字 | `text-muted-foreground` | 日期、說明、單位 |
-| 面板底色 | `bg-secondary/50` | grouped panel 專用(見 §5) |
-| 分隔線 | `divide-border/40`、`border-border` | |
-| 主行動 | `bg-primary text-primary-foreground` | 主按鈕、選中態；預設揪綠 |
-| 主色淡底 | `bg-primary/10 text-primary` | 次要 pill、icon tile |
+| 用途            | class                                | 說明                         |
+| --------------- | ------------------------------------ | ---------------------------- |
+| 頁面背景        | `bg-background`                      | 跟隨 TG `bg_color`；預設米白 |
+| 主要文字        | `text-foreground`                    |                              |
+| 次要 / 提示文字 | `text-muted-foreground`              | 日期、說明、單位             |
+| 面板底色        | `bg-secondary/50`                    | grouped panel 專用(見 §5)    |
+| 分隔線          | `divide-border/40`、`border-border`  |                              |
+| 主行動          | `bg-primary text-primary-foreground` | 主按鈕、選中態；預設揪綠     |
+| 主色淡底        | `bg-primary/10 text-primary`         | 次要 pill、icon tile         |
 
 **唯二允許的具名顏色** — 僅用於財務數字的正負,語意固定:
 
@@ -65,10 +65,10 @@
 
 圓角全部由 `--radius` 衍生(`globals.css` 定義為 `0.625rem` = 10px;`tailwind.config.ts` 把 `lg/md/sm` 綁到它)。**就兩個階層,不要再發明第三種:**
 
-| 階層 | class | 值 | 用在 |
-| --- | --- | --- | --- |
-| **容器 Container** | `rounded-2xl` | 16px | grouped panel、卡片、icon tile、大區塊 |
-| **控制元件 Control** | `rounded-lg` | 10px | 所有 button / input / select / pill / segmented toggle |
+| 階層                 | class         | 值   | 用在                                                   |
+| -------------------- | ------------- | ---- | ------------------------------------------------------ |
+| **容器 Container**   | `rounded-2xl` | 16px | grouped panel、卡片、icon tile、大區塊                 |
+| **控制元件 Control** | `rounded-lg`  | 10px | 所有 button / input / select / pill / segmented toggle |
 
 巢狀的內層(例如 segmented toggle 內的選項)用 `rounded-md`(8px),剛好對齊外層 `rounded-lg` + `p-0.5`。圓形(頭像、icon)用 `rounded-full`。
 
@@ -143,11 +143,11 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 
 ## 7. 三種狀態 States(每個資料頁都要有)
 
-| 狀態 | 做法 |
-| --- | --- |
+| 狀態        | 做法                                                                                                                                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Loading** | **不要用 spinner**。用頁面形狀的 skeleton —— [`skeletons.tsx`](../src/components/mini/skeletons.tsx) 已有對應每頁的 export。新頁面要新增對應 skeleton,沿用裡面的 `Skeleton` primitive 與 panel 形狀。 |
-| **Empty** | 置中、`text-sm text-muted-foreground`,視情況加一個 `size-14 rounded-2xl bg-secondary` 的 icon tile。 |
-| **Error** | 置中文案 + 細的 `text-xs text-muted-foreground/60` 錯誤明細。 |
+| **Empty**   | 置中、`text-sm text-muted-foreground`,視情況加一個 `size-14 rounded-2xl bg-secondary` 的 icon tile。                                                                                                  |
+| **Error**   | 置中文案 + 細的 `text-xs text-muted-foreground/60` 錯誤明細。                                                                                                                                         |
 
 ---
 
