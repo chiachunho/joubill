@@ -1,11 +1,15 @@
 /**
  * One-time migration: split groups.telegram_chat_id into chat_type + chat_id.
  *
- * Run BEFORE `pnpm db:push` when upgrading to the (chat_type, chat_id) schema:
- *   pnpm tsx scripts/migrate-group-chat.ts
- *   pnpm db:push
+ * Zero-downtime order — the script leaves the DB in a state both the old and the
+ * new code can run against, so the deploy can happen in between:
+ *   1. pnpm tsx scripts/migrate-group-chat.ts
+ *   2. deploy the new code
+ *   3. pnpm tsx scripts/migrate-group-chat.ts   (backfills groups the old code
+ *                                                created during step 2)
+ *   4. pnpm db:push                             (drops telegram_chat_id, adds the CHECK)
  *
- * The script is idempotent — running it twice is safe.
+ * The script is idempotent — running it any number of times is safe.
  */
 import { config } from "dotenv";
 
@@ -40,6 +44,18 @@ async function main() {
   await sql`ALTER TABLE groups ADD COLUMN IF NOT EXISTS chat_type varchar(16)`;
   await sql`ALTER TABLE groups ADD COLUMN IF NOT EXISTS chat_id text`;
 
+  // The new code never writes telegram_chat_id, so it can't stay NOT NULL; and its
+  // upsert (ON CONFLICT (chat_type, chat_id)) needs the unique constraint to exist
+  // before db:push would create it. Both are harmless to the old code.
+  await sql`ALTER TABLE groups ALTER COLUMN telegram_chat_id DROP NOT NULL`;
+  await sql`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'groups_chat') THEN
+        ALTER TABLE groups ADD CONSTRAINT groups_chat UNIQUE (chat_type, chat_id);
+      END IF;
+    END $$
+  `;
+
   // Only rows not migrated yet, so a re-run never overwrites a later edit.
   const result = await sql`
     UPDATE groups
@@ -49,7 +65,7 @@ async function main() {
   `;
 
   console.log(`Migrated ${result.length} group rows into (chat_type, chat_id).`);
-  console.log("Now run `pnpm db:push` to drop groups.telegram_chat_id and add the constraints.");
+  console.log("Deploy the new code, re-run this script, then `pnpm db:push` to drop groups.telegram_chat_id.");
 }
 
 main().catch((err) => {

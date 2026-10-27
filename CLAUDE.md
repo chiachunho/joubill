@@ -29,7 +29,7 @@ pnpm bot:set-commands   # tsx scripts/set-commands.ts (register the bot's slash-
 # One-time data migrations:
 pnpm tsx scripts/migrate-payers.ts       # (run BEFORE db:push) populate expense_payers from expenses.payer_id
 pnpm tsx scripts/migrate-settlements.ts  # (run BEFORE db:push) fold settlements into expenses(type='settlement'), then db:push drops the table
-pnpm tsx scripts/migrate-group-chat.ts   # (run BEFORE db:push) split groups.telegram_chat_id into chat_type + chat_id
+pnpm tsx scripts/migrate-group-chat.ts   # (run before the deploy, again after it, then db:push) split groups.telegram_chat_id into chat_type + chat_id
 pnpm db:migrate-identities               # (run AFTER db:push) backfill auth_identities from users.telegramId
 ```
 
