@@ -2,6 +2,7 @@ import { Composer } from "grammy";
 
 import { db } from "@/db";
 import { groupMembers, groups } from "@/db/schema";
+import { telegramChatColumns } from "@/lib/chat";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 
 import type { BotContext } from "../context";
@@ -36,11 +37,11 @@ registerUser.use(async (ctx, next) => {
     const [group] = await db
       .insert(groups)
       .values({
-        telegramChatId: ctx.chat.id,
+        ...telegramChatColumns(ctx.chat.id),
         title: ctx.chat.title,
       })
       .onConflictDoUpdate({
-        target: groups.telegramChatId,
+        target: [groups.chatType, groups.chatId],
         set: { title: ctx.chat.title, updatedAt: new Date() },
       })
       .returning();

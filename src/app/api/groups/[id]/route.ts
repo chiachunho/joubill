@@ -4,6 +4,7 @@ import { count, eq } from "drizzle-orm";
 import { getBot } from "@/bot";
 import { db } from "@/db";
 import { groupDeleteRequests, groupMembers, groups } from "@/db/schema";
+import { requireTelegramChatId } from "@/lib/chat";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { BTN } from "@/lib/buttons";
@@ -44,13 +45,14 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     username: user.username,
   });
   const bot = getBot();
+  const chatId = requireTelegramChatId(group);
 
   // Single member — delete immediately without requiring approval
   if (memberCount <= 1) {
     await bot.api
-      .sendMessage(group.telegramChatId, `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`)
+      .sendMessage(chatId, `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`)
       .catch(() => null);
-    await bot.api.leaveChat(group.telegramChatId).catch(() => null);
+    await bot.api.leaveChat(chatId).catch(() => null);
     await db.delete(groups).where(eq(groups.id, groupId));
     return NextResponse.json({ ok: true });
   }
@@ -77,7 +79,7 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
 
   const sent = await bot.api
     .sendMessage(
-      group.telegramChatId,
+      chatId,
       `${name} 申請刪除揪帳群組「${group.title}」，需要其他成員確認。\n\n同意後所有費用與結算紀錄將永久清除。`,
       {
         reply_markup: {

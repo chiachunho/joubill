@@ -29,6 +29,7 @@ pnpm bot:set-commands   # tsx scripts/set-commands.ts (register the bot's slash-
 # One-time data migrations:
 pnpm tsx scripts/migrate-payers.ts       # (run BEFORE db:push) populate expense_payers from expenses.payer_id
 pnpm tsx scripts/migrate-settlements.ts  # (run BEFORE db:push) fold settlements into expenses(type='settlement'), then db:push drops the table
+pnpm tsx scripts/migrate-group-chat.ts   # (run BEFORE db:push) split groups.telegram_chat_id into chat_type + chat_id
 pnpm db:migrate-identities               # (run AFTER db:push) backfill auth_identities from users.telegramId
 ```
 
@@ -201,7 +202,9 @@ Fetchers: Mini App pages use `tmaFetch` (`src/lib/tma-fetch.ts`, attaches the `t
 ### Database (`src/db/`)
 
 Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
-`users` → `groups` → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests` + `record_audit_log` + `user_beancount_configs` (per-user, per-group beancount account customisation; `UNIQUE(user_id, group_id)`, jsonb `person_accounts`).
+`users` → `groups` (identified by `(chat_type, chat_id)`, see below) → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests` + `record_audit_log` + `user_beancount_configs` (per-user, per-group beancount account customisation; `UNIQUE(user_id, group_id)`, jsonb `person_accounts`).
+
+**A group's chat is `(chat_type, chat_id)`**, not a Telegram-only column: `chat_type` is `'telegram'` today (room for other platforms), `chat_id` is text, both NULL together (`groups_chat_pair` CHECK) and `UNIQUE(chat_type, chat_id)`. **Never read or query these two columns directly — go through `src/lib/chat.ts`** (`telegramChatId(group)`, `requireTelegramChatId(group)`, `whereTelegramChat(id)`, `telegramChatColumns(id)`). A query that forgets `chat_type` doesn't error; it silently matches the wrong group once another platform issues the same id. `chatMigration` rewrites both columns when a chat is upgraded to a supergroup.
 
 **Multi-payer model**: An expense has one or more payers in `expense_payers` (who paid, how much each) and one or more debtors in `expense_splits` (who owes, how much each). Both tables reference `expenses.id` with `ON DELETE CASCADE`. `expense_payers` has a `UNIQUE(expense_id, payer_id)` constraint. Both sides must sum to `expenses.amount`.
 

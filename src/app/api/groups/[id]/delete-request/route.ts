@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getBot } from "@/bot";
 import { db } from "@/db";
 import { groupDeleteRequests, groups, users } from "@/db/schema";
+import { requireTelegramChatId } from "@/lib/chat";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { labelUser } from "@/lib/label";
@@ -105,7 +106,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   if (request.telegramMessageId) {
     await bot.api
       .editMessageText(
-        group.telegramChatId,
+        requireTelegramChatId(group),
         request.telegramMessageId,
         `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`,
       )
@@ -113,13 +114,13 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   } else {
     await bot.api
       .sendMessage(
-        group.telegramChatId,
+        requireTelegramChatId(group),
         `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`,
       )
       .catch(() => null);
   }
 
-  await bot.api.leaveChat(group.telegramChatId).catch(() => null);
+  await bot.api.leaveChat(requireTelegramChatId(group)).catch(() => null);
   await db.delete(groups).where(eq(groups.id, groupId));
 
   return NextResponse.json({ ok: true });
@@ -160,7 +161,7 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     const bot = getBot();
 
     await bot.api
-      .editMessageText(group.telegramChatId, request.telegramMessageId, `${name} ${action}。`, {
+      .editMessageText(requireTelegramChatId(group), request.telegramMessageId, `${name} ${action}。`, {
         reply_markup: { inline_keyboard: [] },
       })
       .catch(() => null);
