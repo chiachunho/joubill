@@ -65,7 +65,9 @@ async function main() {
   `;
 
   console.log(`Migrated ${result.length} group rows into (chat_type, chat_id).`);
-  console.log("Deploy the new code, re-run this script, then `pnpm db:push` to drop groups.telegram_chat_id.");
+  console.log(
+    "Deploy the new code, re-run this script, then `pnpm db:push` to drop groups.telegram_chat_id.",
+  );
 }
 
 main().catch((err) => {
