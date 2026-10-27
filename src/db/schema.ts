@@ -390,3 +390,12 @@ export type RecordAuditLog = typeof recordAuditLog.$inferSelect;
 export type NewRecordAuditLog = typeof recordAuditLog.$inferInsert;
 export type UserBeancountConfig = typeof userBeancountConfigs.$inferSelect;
 export type NewUserBeancountConfig = typeof userBeancountConfigs.$inferInsert;
+
+/**
+ * Applied data migrations (scripts/migrate.ts creates it with the same shape).
+ * Declared here only so `db:push` doesn't see an unknown table and drop it.
+ */
+export const schemaMigrations = pgTable("schema_migrations", {
+  id: text("id").primaryKey(),
+  appliedAt: timestamp("applied_at", { withTimezone: true }).notNull().defaultNow(),
+});
