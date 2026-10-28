@@ -45,7 +45,7 @@ jobs:
           # The deployment only carries a commit SHA, so the branch is whichever
           # remote branch points at it (the default branch is excluded).
           for branch in $(git branch -r --points-at "$SHA" | sed 's|^ *origin/||' | grep -v '^HEAD\|^dev$'); do
-            branch_id=$(curl -fsS -H "$auth" "$api/branches" \
+            branch_id=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" "$api/branches" \
               | jq -r --arg a "preview/$branch" --arg b "$branch" \
                 '.branches[] | select(.name == $a or .name == $b) | .id' | head -n 1)
             [ -n "$branch_id" ] && break
@@ -55,7 +55,7 @@ jobs:
             exit 1
           fi
           echo "Using Neon branch $branch_id for git branch $branch"
-          uri=$(curl -fsS -H "$auth" \
+          uri=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" \
             "$api/connection_uri?branch_id=$branch_id&database_name=neondb&role_name=neondb_owner&pooled=true" \
             | jq -r '.uri')
           echo "::add-mask::$uri"
