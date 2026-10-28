@@ -7,6 +7,7 @@ import {
   loadGroupMembers,
   loadSplitState,
   originOf,
+  pickerMembers,
   renderCard,
   type CardMode,
 } from "../expenseCard";
@@ -115,13 +116,17 @@ expensePanel.callbackQuery(/^exp:payt:(\d+):(\d+)$/, async (ctx) => {
   // group. The current payer is always allowed: they may have left since, and
   // the panel keeps listing them (see cardKeyboard, mode "payer").
   const members = await loadGroupMembers(card.expense.groupId);
-  const allowed = [...members, ...card.payers];
-  if (!allowed.some((m) => m.id === userId)) {
+  if (!pickerMembers(members, card.payers).some((m) => m.id === userId)) {
     await ctx.answerCallbackQuery({ text: "這個人不是此群組的成員", show_alert: true });
     return;
   }
 
-  await setExpensePayer(expenseId, card.expense.amount, userId, actorOf(ctx));
+  // The payer count is checked again under the record lock; a second payer added
+  // since the guard above makes this a no-op rather than a silent overwrite.
+  if (!(await setExpensePayer(expenseId, userId, actorOf(ctx)))) {
+    await ctx.answerCallbackQuery({ text: MULTI_PAYER_TOAST, show_alert: true });
+    return;
+  }
   await show(ctx, expenseId, "payer");
 });
 

@@ -43,20 +43,34 @@ export async function writeSplits(
 }
 
 /**
- * Make `payerId` the sole payer of an expense. Only offered when the expense
- * already has exactly one payer (`payerEditable`): with several, the button
- * would have to pick a single person and throw the others' amounts away.
+ * Make `payerId` the sole payer of an expense. Returns false, and changes
+ * nothing, when the expense no longer has exactly one payer.
+ *
+ * The caller's `payerEditable` check reads before the lock is taken, so it can
+ * be stale: a Mini App save can add a second payer in between, and the amount
+ * the caller holds can be out of date too. Both are read again under the lock,
+ * so the new payer row always carries the expense's current total.
  */
 export async function setExpensePayer(
   expenseId: number,
-  total: number,
   payerId: number,
   actor: Actor,
-) {
-  await logUpdated(null, expenseId, actor, async (tx) => {
+): Promise<boolean> {
+  return logUpdated(null, expenseId, actor, async (tx) => {
+    const [expense] = await tx
+      .select({ amount: expenses.amount })
+      .from(expenses)
+      .where(eq(expenses.id, expenseId));
+    const payers = await tx
+      .select({ id: expensePayers.id })
+      .from(expensePayers)
+      .where(eq(expensePayers.expenseId, expenseId));
+    if (!expense || payers.length !== 1) return false;
+
     await tx.delete(expensePayers).where(eq(expensePayers.expenseId, expenseId));
-    await tx.insert(expensePayers).values({ expenseId, payerId, amount: total.toFixed(2) });
+    await tx.insert(expensePayers).values({ expenseId, payerId, amount: expense.amount });
     await tx.update(expenses).set({ updatedAt: new Date() }).where(eq(expenses.id, expenseId));
+    return true;
   });
 }
 
@@ -67,44 +81,46 @@ export async function setExpensePayer(
  * keeps a Mini-App-entered exact or percent split intact.
  */
 export async function setExpenseAmount(expenseId: number, total: number, actor: Actor) {
-  const payers = await db
-    .select({ id: expensePayers.id, amount: expensePayers.amount })
-    .from(expensePayers)
-    .where(eq(expensePayers.expenseId, expenseId));
-
-  const payerAmounts = rescale(
-    payers.map((p) => n(p.amount)),
-    total,
-  );
-  const { entries, panelEditable } = await loadSplitState(expenseId);
-
-  const splitRows = panelEditable
-    ? splitRowsFor(expenseId, total, entries)
-    : await (async () => {
-        const rows = await db
-          .select({
-            debtorId: expenseSplits.debtorId,
-            amount: expenseSplits.amount,
-            shareType: expenseSplits.shareType,
-            splitValue: expenseSplits.splitValue,
-          })
-          .from(expenseSplits)
-          .where(eq(expenseSplits.expenseId, expenseId))
-          .orderBy(expenseSplits.id);
-        const scaled = rescale(
-          rows.map((r) => n(r.amount)),
-          total,
-        );
-        return rows.map((r, i) => ({
-          expenseId,
-          debtorId: r.debtorId,
-          amount: scaled[i].toFixed(2),
-          shareType: r.shareType,
-          splitValue: r.splitValue,
-        }));
-      })();
-
   await logUpdated(null, expenseId, actor, async (tx) => {
+    // Read under the lock, not before it: a 💳 誰付 change that commits in
+    // between adds a payer row this function would otherwise never rescale, and
+    // the payers would no longer sum to the new total.
+    const payers = await tx
+      .select({ id: expensePayers.id, amount: expensePayers.amount })
+      .from(expensePayers)
+      .where(eq(expensePayers.expenseId, expenseId));
+    const payerAmounts = rescale(
+      payers.map((p) => n(p.amount)),
+      total,
+    );
+    const { entries, panelEditable } = await loadSplitState(expenseId, tx);
+
+    const splitRows = panelEditable
+      ? splitRowsFor(expenseId, total, entries)
+      : await (async () => {
+          const rows = await tx
+            .select({
+              debtorId: expenseSplits.debtorId,
+              amount: expenseSplits.amount,
+              shareType: expenseSplits.shareType,
+              splitValue: expenseSplits.splitValue,
+            })
+            .from(expenseSplits)
+            .where(eq(expenseSplits.expenseId, expenseId))
+            .orderBy(expenseSplits.id);
+          const scaled = rescale(
+            rows.map((r) => n(r.amount)),
+            total,
+          );
+          return rows.map((r, i) => ({
+            expenseId,
+            debtorId: r.debtorId,
+            amount: scaled[i].toFixed(2),
+            shareType: r.shareType,
+            splitValue: r.splitValue,
+          }));
+        })();
+
     await tx
       .update(expenses)
       .set({ amount: total.toFixed(2), updatedAt: new Date() })
