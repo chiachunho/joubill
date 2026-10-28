@@ -13,13 +13,18 @@ const SESSION_COOKIE = "session";
 const SESSION_TTL_MS = 60 * 60 * 1000;
 
 export type Seeded = {
+  /** The signed-in user. Pays 300 of the seeded expense and owes 150 of it. */
   userId: number;
-  /** A group the user belongs to, with one expense recorded in it. */
   groupId: number;
   groupTitle: string;
+  /** Second group member who has no session. Owes 150 of the seeded expense. */
+  partnerId: number;
+  partnerName: string;
+  /** A user who is not a member of `groupId` at all. */
+  outsiderId: number;
   expenseId: number;
   expenseDescription: string;
-  /** A group the user does NOT belong to. */
+  /** A group the signed-in user does NOT belong to. */
   foreignGroupId: number;
   foreignGroupTitle: string;
   sessionToken: string;
@@ -36,52 +41,61 @@ function randomTelegramId(): number {
   return 900_000_000 + Math.floor(Math.random() * 100_000_000);
 }
 
+function randomChatId(): string {
+  return `-100${randomTelegramId()}`;
+}
+
 export function setSessionCookie(context: BrowserContext, url: string | undefined, token: string) {
   return context.addCookies([{ name: SESSION_COOKIE, value: token, url }]);
 }
 
 export const test = base.extend<{ seeded: Seeded; authedPage: Page }>({
-  // One user, two groups (one the user is in, one they are not), an expense in
-  // the first group, and two sessions (live and expired). Teardown removes all of
-  // it; deleting the groups cascades to members, expenses and their legs.
+  // Two members in one group, an outsider, a second group the user is not in,
+  // one 300 expense split 150/150 between the two members, and two sessions
+  // (live and expired). Teardown removes it all: deleting the groups cascades to
+  // members, expenses and their legs; then the users go.
   seeded: async ({}, use) => {
     const pool = new Pool({ connectionString: connectionString() });
     const db = drizzle(pool, { schema });
 
     const suffix = randomBytes(4).toString("hex");
-    const telegramId = randomTelegramId();
     const groupTitle = `E2E group ${suffix}`;
     const foreignGroupTitle = `E2E foreign ${suffix}`;
     const expenseDescription = `E2E dinner ${suffix}`;
+    const partnerName = `E2E partner ${suffix}`;
 
     const [user] = await db
       .insert(schema.users)
-      .values({ telegramId, firstName: `E2E ${suffix}` })
+      .values({ telegramId: randomTelegramId(), firstName: `E2E ${suffix}` })
       .returning();
+    const [partner] = await db
+      .insert(schema.users)
+      .values({ telegramId: randomTelegramId(), firstName: partnerName })
+      .returning();
+    const [outsider] = await db
+      .insert(schema.users)
+      .values({ telegramId: randomTelegramId(), firstName: `E2E outsider ${suffix}` })
+      .returning();
+
     const [group] = await db
       .insert(schema.groups)
-      .values({
-        chatType: "telegram",
-        chatId: `-100${randomTelegramId()}`,
-        title: groupTitle,
-      })
+      .values({ chatType: "telegram", chatId: randomChatId(), title: groupTitle })
       .returning();
     const [foreign] = await db
       .insert(schema.groups)
-      .values({
-        chatType: "telegram",
-        chatId: `-100${randomTelegramId()}`,
-        title: foreignGroupTitle,
-      })
+      .values({ chatType: "telegram", chatId: randomChatId(), title: foreignGroupTitle })
       .returning();
-    await db.insert(schema.groupMembers).values({ groupId: group.id, userId: user.id });
+    await db.insert(schema.groupMembers).values([
+      { groupId: group.id, userId: user.id },
+      { groupId: group.id, userId: partner.id },
+    ]);
 
     const [expense] = await db
       .insert(schema.expenses)
       .values({
         groupId: group.id,
         type: "expense",
-        amount: "320.00",
+        amount: "300.00",
         currency: "TWD",
         description: expenseDescription,
         createdBy: user.id,
@@ -89,10 +103,11 @@ export const test = base.extend<{ seeded: Seeded; authedPage: Page }>({
       .returning();
     await db
       .insert(schema.expensePayers)
-      .values({ expenseId: expense.id, payerId: user.id, amount: "320.00" });
-    await db
-      .insert(schema.expenseSplits)
-      .values({ expenseId: expense.id, debtorId: user.id, amount: "320.00" });
+      .values({ expenseId: expense.id, payerId: user.id, amount: "300.00" });
+    await db.insert(schema.expenseSplits).values([
+      { expenseId: expense.id, debtorId: user.id, amount: "150.00" },
+      { expenseId: expense.id, debtorId: partner.id, amount: "150.00" },
+    ]);
 
     const sessionToken = randomBytes(32).toString("hex");
     const expiredSessionToken = randomBytes(32).toString("hex");
@@ -110,6 +125,9 @@ export const test = base.extend<{ seeded: Seeded; authedPage: Page }>({
         userId: user.id,
         groupId: group.id,
         groupTitle,
+        partnerId: partner.id,
+        partnerName,
+        outsiderId: outsider.id,
         expenseId: expense.id,
         expenseDescription,
         foreignGroupId: foreign.id,
@@ -119,7 +137,9 @@ export const test = base.extend<{ seeded: Seeded; authedPage: Page }>({
       });
     } finally {
       await db.delete(schema.groups).where(inArray(schema.groups.id, [group.id, foreign.id]));
-      await db.delete(schema.users).where(eq(schema.users.id, user.id));
+      await db
+        .delete(schema.users)
+        .where(inArray(schema.users.id, [user.id, partner.id, outsider.id]));
       await pool.end();
     }
   },
