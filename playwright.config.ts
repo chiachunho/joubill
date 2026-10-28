@@ -12,7 +12,9 @@ export default defineConfig({
     ? [["list"], ["html", { open: "never" }], ["json", { outputFile: "test-results/results.json" }]]
     : "list",
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
+    // || rather than ??: the workflow passes an empty string when the deployment has no
+    // environment_url, and "" would make every navigation fail with a confusing error.
+    baseURL: process.env.E2E_BASE_URL || "http://localhost:3000",
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
