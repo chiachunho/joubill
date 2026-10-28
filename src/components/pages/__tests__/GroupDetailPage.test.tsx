@@ -49,6 +49,8 @@ function fakePlatform(basePath: "/mini" | "/app", request = vi.fn()): Platform {
     request: request as Platform["request"],
     useSelfPhoto: () => null,
     HeaderLeading: () => <span>leading</span>,
+    useBack: () => {},
+    BackLink: () => null,
   };
 }
 

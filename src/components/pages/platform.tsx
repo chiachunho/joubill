@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, UserCircle } from "lucide-react";
 
 import { tmaFetch } from "@/lib/tma-fetch";
+import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 import { webFetch } from "@/lib/web-fetch";
 
 /**
@@ -22,6 +24,13 @@ export type Platform = {
   useSelfPhoto: () => string | null;
   /** The top-left control of the group header. */
   HeaderLeading: ComponentType;
+  /**
+   * Sends the back action to `href` while the page is mounted. A hook: call it
+   * unconditionally at the top of the body, before any early return.
+   */
+  useBack: (href: string) => void;
+  /** The visible back link on this platform, if it has one. */
+  BackLink: ComponentType<{ href: string }>;
 };
 
 function useTelegramSelfPhoto(): string | null {
@@ -45,6 +54,23 @@ function MiniHeaderLeading() {
   );
 }
 
+function useMiniBack(href: string): void {
+  const router = useRouter();
+  const back = useCallback(() => router.push(href), [router, href]);
+  useTelegramBackButton(back);
+}
+
+// Telegram's own back button takes the place of a visible link.
+function MiniBackLink(): null {
+  return null;
+}
+
+function useNoSelfPhoto(): string | null {
+  return null;
+}
+
+function useNoBack(): void {}
+
 function WebHeaderLeading() {
   return (
     <Link
@@ -57,8 +83,16 @@ function WebHeaderLeading() {
   );
 }
 
-function useNoSelfPhoto(): string | null {
-  return null;
+function WebBackLink({ href }: { href: string }) {
+  return (
+    <Link
+      href={href}
+      className="mb-1 inline-flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ChevronLeft className="size-4" />
+      返回
+    </Link>
+  );
 }
 
 export const miniPlatform: Platform = {
@@ -66,6 +100,8 @@ export const miniPlatform: Platform = {
   request: tmaFetch,
   useSelfPhoto: useTelegramSelfPhoto,
   HeaderLeading: MiniHeaderLeading,
+  useBack: useMiniBack,
+  BackLink: MiniBackLink,
 };
 
 export const webPlatform: Platform = {
@@ -74,4 +110,6 @@ export const webPlatform: Platform = {
   // The Web App has no Telegram SDK, so the bot's avatar is the only photo source.
   useSelfPhoto: useNoSelfPhoto,
   HeaderLeading: WebHeaderLeading,
+  useBack: useNoBack,
+  BackLink: WebBackLink,
 };
