@@ -41,6 +41,7 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
           SHA: ${{ github.event.deployment.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -z "$NEON_PROJECT_ID" ]; then
             echo "::error::NEON_PROJECT_ID repo secret is empty"
@@ -48,9 +49,18 @@ jobs:
           fi
           api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID"
           auth="Authorization: Bearer $NEON_API_KEY"
-          # The deployment only carries a commit SHA, so the branch is whichever
-          # remote branch points at it (the default branch is excluded).
-          for branch in $(git branch -r --points-at "$SHA" | sed 's|^ *origin/||' | grep -v '^HEAD\|^dev$'); do
+          # The head branch of the open PR for this commit is the most reliable answer:
+          # it does not change when someone pushes again while the job runs.
+          pr_branch=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+            --jq '.[] | select(.state == "open") | .head.ref' 2>/dev/null | head -n 1 || true)
+          # Without a PR, fall back to the remote branches that point at the commit
+          # (the default branch is excluded). This reads refs fetched at checkout.
+          if [ -n "$pr_branch" ]; then
+            candidates="$pr_branch"
+          else
+            candidates=$(git branch -r --points-at "$SHA" | sed 's|^ *origin/||' | grep -v '^HEAD\|^dev$' || true)
+          fi
+          for branch in $candidates; do
             branch_id=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" "$api/branches" \
               | jq -r --arg a "preview/$branch" --arg b "$branch" \
                 '.branches[] | select(.name == $a or .name == $b) | .id' | head -n 1)
