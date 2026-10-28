@@ -52,6 +52,23 @@ test.describe("Balances and settle-up", () => {
     await expect(authedPage.getByText("-210.00", { exact: true })).toBeVisible();
   });
 
+  test("an expense entered in the form is split equally among members by default", async ({
+    authedPage,
+    seeded,
+  }) => {
+    // The form includes every member by default, so 90 paid by the user splits
+    // 45/45. The user goes from +150 to +195 (paid 390, owes 195); the partner
+    // goes from -150 to -195.
+    await authedPage.goto(`/app/groups/${seeded.groupId}/expenses/new`);
+    await authedPage.getByLabel("金額", { exact: true }).fill("90");
+    await authedPage.getByLabel("說明", { exact: true }).fill(`E2E snack ${Date.now()}`);
+    await authedPage.getByRole("button", { name: "儲存", exact: true }).click();
+
+    await expect(authedPage).toHaveURL(new RegExp(`/app/groups/${seeded.groupId}$`));
+    await expect(authedPage.getByText("+195.00", { exact: true })).toBeVisible();
+    await expect(authedPage.getByText("-195.00", { exact: true })).toBeVisible();
+  });
+
   test("API rejects an expense that splits to a user outside the group", async ({
     authedPage,
     seeded,
