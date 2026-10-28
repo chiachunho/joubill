@@ -43,6 +43,24 @@ export async function writeSplits(
 }
 
 /**
+ * Make `payerId` the sole payer of an expense. Only offered when the expense
+ * already has exactly one payer (`payerEditable`): with several, the button
+ * would have to pick a single person and throw the others' amounts away.
+ */
+export async function setExpensePayer(
+  expenseId: number,
+  total: number,
+  payerId: number,
+  actor: Actor,
+) {
+  await logUpdated(null, expenseId, actor, async (tx) => {
+    await tx.delete(expensePayers).where(eq(expensePayers.expenseId, expenseId));
+    await tx.insert(expensePayers).values({ expenseId, payerId, amount: total.toFixed(2) });
+    await tx.update(expenses).set({ updatedAt: new Date() }).where(eq(expenses.id, expenseId));
+  });
+}
+
+/**
  * Change an expense's total. Payer contributions are always rescaled
  * proportionally. Splits are recomputed from the share weights when the panel
  * owns them; otherwise each person's amount is scaled by the same factor, which

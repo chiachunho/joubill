@@ -104,7 +104,7 @@ export async function loadSplitState(expenseId: number): Promise<SplitState> {
 
 /* ── card rendering ───────────────────────────────────────────────────── */
 
-export type CardMode = "default" | "adjust" | "who" | "shares" | "currency";
+export type CardMode = "default" | "adjust" | "who" | "shares" | "currency" | "payer";
 
 type CardData = {
   expense: {
@@ -122,6 +122,11 @@ type CardData = {
   splits: Array<{ user: DbUser; amount: number; weight: number }>;
   /** False for Mini-App-entered exact/percent/adjustment splits — see PANEL_SHARE_TYPES. */
   panelEditable: boolean;
+  /**
+   * False when the expense has several payers. 💳 誰付 picks one person, so it
+   * would collapse per-payer contributions the same way the split controls would.
+   */
+  payerEditable: boolean;
 };
 
 export async function loadCard(expenseId: number): Promise<CardData | null> {
@@ -182,6 +187,7 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
     })),
     panelEditable:
       splitRows.length > 0 && splitRows.every((r) => PANEL_SHARE_TYPES.has(r.shareType)),
+    payerEditable: payerRows.length === 1,
   };
 }
 
@@ -236,6 +242,7 @@ const MODE_HINT: Partial<Record<CardMode, string>> = {
   who: "👥 點名字切換誰要分帳",
   shares: "⚖️ 點名字調整份數（×1 → ×2 → ×3 → ×4）",
   currency: "💱 選擇這筆的幣別",
+  payer: "💳 點名字選誰付了這筆",
 };
 
 async function cardText(card: CardData, mode: CardMode): Promise<string> {
@@ -296,6 +303,7 @@ async function cardKeyboard(
   }
 
   if (mode === "adjust") {
+    if (card.payerEditable) kb.text(BTN.payer, `exp:pay:${id}`).row();
     // 誰分 / 份數 recompute every share from weights, so they're only offered
     // when the panel owns the split — otherwise they'd flatten a custom one.
     if (card.panelEditable) {
@@ -328,6 +336,19 @@ async function cardKeyboard(
       .text(BTN.onlyMe, `exp:whome:${id}`)
       .row()
       .text(BTN.back, `exp:adj:${id}`);
+  }
+
+  if (mode === "payer") {
+    const members = await loadGroupMembers(card.expense.groupId);
+    const current = new Set(card.payers.map((p) => p.id));
+    // Same as 👥 誰分: whoever is already the payer stays listed after leaving the group.
+    const listed = [...members, ...card.payers.filter((p) => !members.some((m) => m.id === p.id))];
+    listed.forEach((m, i) => {
+      kb.text(`${current.has(m.id) ? "✅" : "⬜"} ${labelUser(m)}`, `exp:payt:${id}:${m.id}`);
+      if (i % 2 === 1) kb.row();
+    });
+    if (listed.length % 2 === 1) kb.row();
+    return kb.text(BTN.back, `exp:adj:${id}`);
   }
 
   if (mode === "shares") {
