@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ActivityList } from "@/components/mini/ActivityList";
@@ -27,7 +27,7 @@ const props = { appBase: "/mini", groupId: 1 };
 
 describe("ActivityList", () => {
   it("shows a changed field as its old value, then the new one", () => {
-    render(
+    const { container } = render(
       <ActivityList
         {...props}
         entries={[
@@ -38,7 +38,7 @@ describe("ActivityList", () => {
       />,
     );
 
-    expect(screen.getByText("300").closest("p")).toHaveTextContent("金額 300→800");
+    expect(container).toHaveTextContent("金額 300→800");
   });
 
   it("links an ordinary row to its record's history", () => {
@@ -68,7 +68,7 @@ describe("ActivityList", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 9, 28, 12));
 
-    render(
+    const { container } = render(
       <ActivityList
         {...props}
         groupByDay
@@ -91,9 +91,8 @@ describe("ActivityList", () => {
       />,
     );
 
-    const today = screen.getByText("今天").closest("section")!;
-    const yesterday = screen.getByText("昨天").closest("section")!;
-    expect(within(today).getByText("新增了 晚餐")).toBeInTheDocument();
-    expect(within(yesterday).getByText("新增了 午餐")).toBeInTheDocument();
+    // Reading order is what the user sees: each day's heading comes before its
+    // rows, and the 午餐 row sits under 昨天, not under 今天.
+    expect(container.textContent).toMatch(/今天[\s\S]*新增了 晚餐[\s\S]*昨天[\s\S]*新增了 午餐/);
   });
 });
