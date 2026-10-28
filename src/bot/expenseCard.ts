@@ -288,6 +288,15 @@ export function originOf(ctx: BotContext): CardOrigin {
   return { botUsername: ctx.me.username, chatId: ctx.chat?.id ?? 0 };
 }
 
+/**
+ * The people a 👥 / 💳 picker offers: the group's members, plus anyone already on
+ * the expense. Someone who has since left must stay pickable, or the picker could
+ * not show who is currently on the expense.
+ */
+function pickerMembers(members: DbUser[], onExpense: DbUser[]): DbUser[] {
+  return [...members, ...onExpense.filter((u) => !members.some((m) => m.id === u.id))];
+}
+
 async function cardKeyboard(
   origin: CardOrigin,
   card: CardData,
@@ -321,11 +330,10 @@ async function cardKeyboard(
   if (mode === "who") {
     const members = await loadGroupMembers(card.expense.groupId);
     const included = new Set(card.splits.map((s) => s.user.id));
-    // Anyone already on the expense stays listed even if they've since left.
-    const listed = [
-      ...members,
-      ...card.splits.map((s) => s.user).filter((u) => !members.some((m) => m.id === u.id)),
-    ];
+    const listed = pickerMembers(
+      members,
+      card.splits.map((s) => s.user),
+    );
     listed.forEach((m, i) => {
       kb.text(`${included.has(m.id) ? "✅" : "⬜"} ${labelUser(m)}`, `exp:whot:${id}:${m.id}`);
       if (i % 2 === 1) kb.row();
@@ -341,8 +349,7 @@ async function cardKeyboard(
   if (mode === "payer") {
     const members = await loadGroupMembers(card.expense.groupId);
     const current = new Set(card.payers.map((p) => p.id));
-    // Same as 👥 誰分: whoever is already the payer stays listed after leaving the group.
-    const listed = [...members, ...card.payers.filter((p) => !members.some((m) => m.id === p.id))];
+    const listed = pickerMembers(members, card.payers);
     listed.forEach((m, i) => {
       kb.text(`${current.has(m.id) ? "✅" : "⬜"} ${labelUser(m)}`, `exp:payt:${id}:${m.id}`);
       if (i % 2 === 1) kb.row();
