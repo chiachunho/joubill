@@ -23,7 +23,7 @@ const HELP_TEXT = [
   "只給某些人分：`/add 500 晚餐 @alice @bob`",
   "",
   `記完點訊息下方的 *${BTN.adjust}*：`,
-  `${BTN.who} · ${BTN.shares} · ${BTN.currency} · ${BTN.amount}`,
+  `${BTN.payer} · ${BTN.who} · ${BTN.shares} · ${BTN.currency} · ${BTN.amount}`,
   "",
   "*其他指令*",
   "`/list` — 最近支出",
