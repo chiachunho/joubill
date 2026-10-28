@@ -46,7 +46,7 @@ A single Next.js 15 (App Router) app serves five concerns simultaneously:
 4. **REST API** — Next.js route handlers at `/api/**` (shared by both frontends)
 5. **Help site** — public MDX pages at `/help/**` (no auth)
 
-The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **They do NOT share the top-level page components**, though: each route under `/mini/**` has a hand-maintained near-duplicate under `/app/**` (e.g. `src/app/mini/groups/[id]/page.tsx` vs `src/app/app/groups/[id]/page.tsx`), differing only in fetcher (`tmaFetch` vs `webFetch`), link prefixes (`/mini` vs `/app`), and a few imports. **When you change list/detail UI or page behaviour, apply the same change to both copies.** `pnpm check:page-pairs` flags a diff that touched one copy and not the other; the `page-pairs` job in `pr-check.yml` posts the same result as an advisory PR comment (it never fails the check, since some one-sided edits are intentional). The pairs are derived from the path, so a new page needs no entry anywhere. Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
+The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **The top-level page bodies are shared too**, in `src/components/pages/**`. Each route's `src/app/mini/**/page.tsx` and `src/app/app/**/page.tsx` is a thin wrapper that passes in a `Platform` (`src/components/pages/platform.tsx`: the base path for links, the authenticated fetcher, the viewer's self-photo hook and the header's leading control). Platform differences belong in that object, so a change to a shared body reaches both apps by construction. A route not yet moved there is still two hand-maintained copies, and its change must go into both. `pnpm check:page-pairs` flags a diff that touched one copy and not the other; the `page-pairs` job in `pr-check.yml` posts the same result as an advisory PR comment (it never fails the check, since some one-sided edits are intentional). The pairs are derived from the path, so a new page needs no entry anywhere. Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
 
 ### What to share, and what to leave duplicated
 
@@ -58,7 +58,7 @@ The Mini App and Web App share the same **lower-level building blocks** — `src
 
 **Leave it duplicated when sharing would cost more than the drift.** Three standing examples:
 
-- The `/mini` and `/app` page pairs are deliberately hand-maintained copies (see above) — they diverge on purpose and a shared abstraction would fight both.
+- The page bodies under `src/components/pages/**` are shared. The `/mini` and `/app` wrappers diverge only through the `Platform` they pass, which is the one place a difference between the two apps is allowed to live.
 - A callback toast with a **single** caller stays inline next to the condition it describes. `TOAST` in `src/lib/buttons.ts` only holds the ones with two or more callers; a message you have to open another file to read is worse than a repeated one.
 - Not every repeated block is the same idea. Two functions that happen to look alike today, for unrelated reasons, will need to diverge tomorrow — and un-sharing is harder than sharing.
 
