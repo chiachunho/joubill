@@ -200,14 +200,25 @@ async function main() {
   const previewUrl = env.PREVIEW_URL ?? "";
   const runUrl = env.RUN_URL ?? "";
 
-  const body = existsSync(RESULTS_PATH)
-    ? renderResults(
-        summarize(JSON.parse(readFileSync(RESULTS_PATH, "utf8"))),
-        sha,
-        previewUrl,
-        runUrl,
-      )
-    : renderIncomplete(incompleteReason(), sha, previewUrl, runUrl);
+  let body;
+  try {
+    body = existsSync(RESULTS_PATH)
+      ? renderResults(
+          summarize(JSON.parse(readFileSync(RESULTS_PATH, "utf8"))),
+          sha,
+          previewUrl,
+          runUrl,
+        )
+      : renderIncomplete(incompleteReason(), sha, previewUrl, runUrl);
+  } catch (err) {
+    // An unreadable report must still produce a comment, not a crash with no PR update.
+    body = renderIncomplete(
+      `The report could not be read: ${err.message}`,
+      sha,
+      previewUrl,
+      runUrl,
+    );
+  }
 
   if (env.DRY_RUN === "1") {
     console.log(body);

@@ -29,6 +29,9 @@ jobs:
           ref: ${{ github.event.deployment.sha }}
           # Full history so the remote branches that point at this commit are visible.
           fetch-depth: 0
+          # Keep the GITHUB_TOKEN out of .git/config. The steps after this run the pull
+          # request's own code (pnpm install, the tests), and this token can write to the PR.
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
