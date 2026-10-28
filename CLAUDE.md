@@ -26,6 +26,7 @@ pnpm db:generate    # Generate migration SQL (not normally needed)
 pnpm db:studio      # Drizzle Studio GUI
 pnpm bot:set-webhook    # tsx scripts/set-webhook.ts <https-domain>
 pnpm bot:set-commands   # tsx scripts/set-commands.ts (register the bot's slash-command menu)
+pnpm check:page-pairs   # warn when a diff edits one Mini App / Web App page copy and not the other (advisory; vs origin/dev by default)
 
 # One-time data migrations:
 pnpm tsx scripts/migrate-payers.ts       # (run BEFORE db:push) populate expense_payers from expenses.payer_id
@@ -45,7 +46,7 @@ A single Next.js 15 (App Router) app serves five concerns simultaneously:
 4. **REST API** — Next.js route handlers at `/api/**` (shared by both frontends)
 5. **Help site** — public MDX pages at `/help/**` (no auth)
 
-The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **They do NOT share the top-level page components**, though: each route under `/mini/**` has a hand-maintained near-duplicate under `/app/**` (e.g. `src/app/mini/groups/[id]/page.tsx` vs `src/app/app/groups/[id]/page.tsx`), differing only in fetcher (`tmaFetch` vs `webFetch`), link prefixes (`/mini` vs `/app`), and a few imports. **When you change list/detail UI or page behaviour, apply the same change to both copies.** Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
+The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **They do NOT share the top-level page components**, though: each route under `/mini/**` has a hand-maintained near-duplicate under `/app/**` (e.g. `src/app/mini/groups/[id]/page.tsx` vs `src/app/app/groups/[id]/page.tsx`), differing only in fetcher (`tmaFetch` vs `webFetch`), link prefixes (`/mini` vs `/app`), and a few imports. **When you change list/detail UI or page behaviour, apply the same change to both copies.** `pnpm check:page-pairs` flags a diff that touched one copy and not the other; the `page-pairs` job in `pr-check.yml` posts the same result as an advisory PR comment (it never fails the check, since some one-sided edits are intentional). The pairs are derived from the path, so a new page needs no entry anywhere. Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
 
 ### What to share, and what to leave duplicated
 
@@ -412,7 +413,7 @@ Things that bite, in priority order:
 
 ### Testing
 
-Vitest with `vite-tsconfig-paths`. Tests live in `src/lib/__tests__/`, `src/lib/auth/__tests__/` and `src/components/**/__tests__/`. Pure lib functions are the bulk of the unit tests; API routes and bot commands are not tested. The vitest config injects dummy env vars so modules that import `@/db` don't throw during test collection.
+Vitest with `vite-tsconfig-paths`. Tests live in `src/lib/__tests__/`, `src/lib/auth/__tests__/`, `src/components/**/__tests__/` and `scripts/__tests__/` (the `.mjs` tools under `scripts/`). Pure lib functions are the bulk of the unit tests; API routes and bot commands are not tested. The vitest config injects dummy env vars so modules that import `@/db` don't throw during test collection.
 
 **Component tests** (`*.test.tsx`) render shared components under jsdom: `environmentMatchGlobs` in `vitest.config.ts` runs `src/components/**` in jsdom and everything else in node, so lib tests don't pay jsdom's startup cost. `esbuild.jsx` is set to `automatic` because the tsconfig's `"jsx": "preserve"` otherwise makes every `.tsx` test fail with "React is not defined". Each such file imports `@testing-library/jest-dom/vitest` and calls `cleanup` itself, since vitest globals are off. Assert only what a user sees — text, link targets, whether an element or link exists, disabled state — never Tailwind classes or DOM structure, which break on every restyle. Cover the guards that fail silently (a link that must not exist, a grouping that quietly stops). Big forms such as `ExpenseForm` are not covered yet.
 

@@ -11,7 +11,7 @@ export default defineConfig({
     // Component tests render into a DOM; lib tests stay on node so the suite
     // doesn't pay jsdom's startup cost on every file.
     environmentMatchGlobs: [["src/components/**/*.test.tsx", "jsdom"]],
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "scripts/**/*.test.mjs"],
     // Dummy env so modules that import @/db (which calls serverEnv() at load)
     // don't throw. The neon-http client is lazy and never connects in unit tests.
     env: {

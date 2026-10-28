@@ -83,3 +83,32 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+
+  # Advisory only (issue #57): warns when a change edits one copy of a Mini App / Web App
+  # page pair and not the other. It never fails the check, because some one-sided edits
+  # are intentional.
+  page-pairs:
+    name: Page pairs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Posts the comment. A fork pull request gets a read-only token, so the comment step
+      # warns there instead of failing.
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          # The diff needs the base commit, which a shallow checkout does not have.
+          fetch-depth: 0
+          # This job runs the pull request's own script, so keep the token out of .git/config.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+      - run: node scripts/check-page-pairs.mjs ${{ github.event.pull_request.base.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
