@@ -1,0 +1,131 @@
+name: E2E (preview)
+
+# Runs after Vercel reports a successful Preview deployment for a commit.
+# GitHub only fires deployment_status from the default branch's workflow file,
+# so this takes effect once it is merged into dev.
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+  # Needed to post the results comment on the pull request.
+  pull-requests: write
+
+# Each run finds the existing results comment and edits it. Two runs at once would
+# both find none and post two, so queue them instead of running in parallel.
+concurrency:
+  group: e2e-preview
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: Playwright (/app)
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+          # Full history so the remote branches that point at this commit are visible.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      # The Neon Vercel integration gives each git branch its own database, and
+      # Vercel only exposes that URL as a sensitive value CI cannot read. So look
+      # the branch up through the Neon API instead, by the branch name the
+      # deployment was made from.
+      - name: Find this branch's Neon database
+        id: neon
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          SHA: ${{ github.event.deployment.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$NEON_PROJECT_ID" ]; then
+            echo "::error::NEON_PROJECT_ID repo secret is empty"
+            exit 1
+          fi
+          api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID"
+          auth="Authorization: Bearer $NEON_API_KEY"
+          # The head branch of the open PR for this commit is the most reliable answer:
+          # it does not change when someone pushes again while the job runs.
+          pr_branch=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+            --jq '.[] | select(.state == "open") | .head.ref' 2>/dev/null | head -n 1 || true)
+          # Without a PR, fall back to the remote branches that point at the commit
+          # (the default branch is excluded). This reads refs fetched at checkout.
+          if [ -n "$pr_branch" ]; then
+            candidates="$pr_branch"
+          else
+            candidates=$(git branch -r --points-at "$SHA" | sed 's|^ *origin/||' | grep -v '^HEAD\|^dev$' || true)
+          fi
+          for branch in $candidates; do
+            branch_id=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" "$api/branches" \
+              | jq -r --arg a "preview/$branch" --arg b "$branch" \
+                '.branches[] | select(.name == $a or .name == $b) | .id' | head -n 1)
+            [ -n "$branch_id" ] && break
+          done
+          if [ -z "$branch_id" ]; then
+            echo "::error::No Neon branch matches a remote branch at $SHA"
+            exit 1
+          fi
+          echo "Using Neon branch $branch_id for git branch $branch"
+          # Keep curl's own exit status: piping it straight into jq would hide a failed
+          # request and export an empty or "null" URL that only fails later in the tests.
+          body=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" \
+            "$api/connection_uri?branch_id=$branch_id&database_name=neondb&role_name=neondb_owner&pooled=true")
+          uri=$(jq -r '.uri // empty' <<<"$body")
+          if [ -z "$uri" ]; then
+            echo "::error::Neon returned no connection URI for branch $branch_id"
+            exit 1
+          fi
+          echo "::add-mask::$uri"
+          echo "E2E_DATABASE_URL=$uri" >> "$GITHUB_ENV"
+      # continue-on-error keeps the job running so the results comment is posted;
+      # the last step fails the job when this step failed.
+      - name: Run E2E against the preview
+        id: e2e
+        continue-on-error: true
+        env:
+          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+          CI: true
+        run: pnpm e2e
+      - name: Post E2E results to the pull request
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.deployment.sha }}
+          PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          E2E_OUTCOME: ${{ steps.e2e.outcome }}
+          NEON_OUTCOME: ${{ steps.neon.outcome }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        # Run the reporter from the default branch, not from this checkout. The checkout
+        # is the pull request's code, and this step holds a token that can write to the PR.
+        # Until the script is on the default branch there is nothing trusted to run, so the
+        # comment is skipped with a warning rather than failing the job.
+        run: |
+          script="$RUNNER_TEMP/e2e-pr-comment.mjs"
+          if git show "origin/$DEFAULT_BRANCH:scripts/e2e-pr-comment.mjs" > "$script" 2>/dev/null; then
+            node "$script"
+          else
+            echo "::warning::scripts/e2e-pr-comment.mjs is not on $DEFAULT_BRANCH yet, so the results comment was skipped."
+          fi
+      - name: Upload the Playwright report
+        if: steps.e2e.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Fail the job when E2E failed
+        if: steps.e2e.outcome == 'failure'
+        run: exit 1
