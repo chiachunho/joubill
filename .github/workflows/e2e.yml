@@ -33,7 +33,7 @@ jobs:
       - name: Find this branch's Neon database
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
           SHA: ${{ github.event.deployment.sha }}
         run: |
           if [ -z "$NEON_PROJECT_ID" ]; then
