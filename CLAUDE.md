@@ -164,6 +164,12 @@ design-system-styled React component in the **root-level** `mdx-components.tsx`
 `./mdx-components.tsx` explicitly, or Tailwind purges every class the docs rely
 on and the pages ship unstyled in production.
 
+The remark/rehype plugins are passed to `createMDX` **by package name**
+(`"remark-gfm"`, `"rehype-slug"`), not as imported functions: `pnpm dev`
+(Turbopack) serialises the loader options and fails on a function. Keep
+`@next/mdx` on the same major as `next` (both 15.x) — a mismatch fails Turbopack's
+config validation.
+
 `src/app/help/layout.tsx` holds the section list. **Adding a page means adding
 both `src/app/help/<slug>/page.mdx` and an entry in that `sections` array** —
 the array drives the sidebar, so a page without one is unreachable.

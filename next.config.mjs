@@ -1,7 +1,5 @@
 import { readFileSync } from "fs";
 import createMDX from "@next/mdx";
-import remarkGfm from "remark-gfm";
-import rehypeSlug from "rehype-slug";
 
 // The app version shown in Settings is the semver from package.json, bumped and
 // tagged (v<version>) by the dev→main release workflow
@@ -29,10 +27,15 @@ const nextConfig = {
   },
 };
 
+// Plugins are passed by package name, not imported. Turbopack (`pnpm dev`)
+// serialises the loader options, and a function is not serialisable — it fails
+// with "does not have serializable options". @next/mdx resolves the strings
+// from the project root itself, so the same config works under both Turbopack
+// and webpack (production build).
 const withMDX = createMDX({
   options: {
-    remarkPlugins: [remarkGfm],
-    rehypePlugins: [rehypeSlug],
+    remarkPlugins: ["remark-gfm"],
+    rehypePlugins: ["rehype-slug"],
   },
 });
 
