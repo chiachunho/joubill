@@ -7,7 +7,7 @@ import { ChevronLeft, UserCircle } from "lucide-react";
 
 import { tmaFetch } from "@/lib/tma-fetch";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
-import { webFetch } from "@/lib/web-fetch";
+import { tmaRawFetch, webFetch, webRawFetch } from "@/lib/web-fetch";
 
 /**
  * Everything that differs between the Mini App and the Web App page copies. A page
@@ -20,6 +20,8 @@ export type Platform = {
   basePath: "/mini" | "/app";
   /** Authenticated request: the `tma` initData header in the Mini App, the session cookie in the Web App. */
   request: <T>(path: string, init?: RequestInit) => Promise<T>;
+  /** The same request, returning the raw Response so the caller can check `res.ok` itself. */
+  rawRequest: (path: string, init?: RequestInit) => Promise<Response>;
   /** The viewer's own Telegram photo, used when the bot has none. A hook, so it may hold state. */
   useSelfPhoto: () => string | null;
   /** The top-left control of the group header. */
@@ -98,6 +100,7 @@ function WebBackLink({ href }: { href: string }) {
 export const miniPlatform: Platform = {
   basePath: "/mini",
   request: tmaFetch,
+  rawRequest: tmaRawFetch,
   useSelfPhoto: useTelegramSelfPhoto,
   HeaderLeading: MiniHeaderLeading,
   useBack: useMiniBack,
@@ -107,6 +110,7 @@ export const miniPlatform: Platform = {
 export const webPlatform: Platform = {
   basePath: "/app",
   request: webFetch,
+  rawRequest: webRawFetch,
   // The Web App has no Telegram SDK, so the bot's avatar is the only photo source.
   useSelfPhoto: useNoSelfPhoto,
   HeaderLeading: WebHeaderLeading,
