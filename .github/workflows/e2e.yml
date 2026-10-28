@@ -11,6 +11,12 @@ permissions:
   # Needed to post the results comment on the pull request.
   pull-requests: write
 
+# Each run finds the existing results comment and edits it. Two runs at once would
+# both find none and post two, so queue them instead of running in parallel.
+concurrency:
+  group: e2e-preview
+  cancel-in-progress: false
+
 jobs:
   e2e:
     name: Playwright (/app)
@@ -71,9 +77,15 @@ jobs:
             exit 1
           fi
           echo "Using Neon branch $branch_id for git branch $branch"
-          uri=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" \
-            "$api/connection_uri?branch_id=$branch_id&database_name=neondb&role_name=neondb_owner&pooled=true" \
-            | jq -r '.uri')
+          # Keep curl's own exit status: piping it straight into jq would hide a failed
+          # request and export an empty or "null" URL that only fails later in the tests.
+          body=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" \
+            "$api/connection_uri?branch_id=$branch_id&database_name=neondb&role_name=neondb_owner&pooled=true")
+          uri=$(jq -r '.uri // empty' <<<"$body")
+          if [ -z "$uri" ]; then
+            echo "::error::Neon returned no connection URI for branch $branch_id"
+            exit 1
+          fi
           echo "::add-mask::$uri"
           echo "E2E_DATABASE_URL=$uri" >> "$GITHUB_ENV"
       # continue-on-error keeps the job running so the results comment is posted;
@@ -94,7 +106,18 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           E2E_OUTCOME: ${{ steps.e2e.outcome }}
           NEON_OUTCOME: ${{ steps.neon.outcome }}
-        run: node scripts/e2e-pr-comment.mjs
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        # Run the reporter from the default branch, not from this checkout. The checkout
+        # is the pull request's code, and this step holds a token that can write to the PR.
+        # Until the script is on the default branch there is nothing trusted to run, so the
+        # comment is skipped with a warning rather than failing the job.
+        run: |
+          script="$RUNNER_TEMP/e2e-pr-comment.mjs"
+          if git show "origin/$DEFAULT_BRANCH:scripts/e2e-pr-comment.mjs" > "$script" 2>/dev/null; then
+            node "$script"
+          else
+            echo "::warning::scripts/e2e-pr-comment.mjs is not on $DEFAULT_BRANCH yet, so the results comment was skipped."
+          fi
       - name: Upload the Playwright report
         if: steps.e2e.outcome == 'failure'
         uses: actions/upload-artifact@v4

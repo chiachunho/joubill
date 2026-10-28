@@ -175,12 +175,17 @@ async function postOrUpdate(token, repo, sha, body) {
     return;
   }
 
-  const comments = await gh(
-    token,
-    "GET",
-    `/repos/${repo}/issues/${pull.number}/comments?per_page=100`,
-  );
-  const existing = comments.find((c) => c.user?.login === BOT_LOGIN && c.body?.includes(MARKER));
+  // Page through every comment: the marker comment can sit past the first 100.
+  let existing;
+  for (let page = 1; !existing; page += 1) {
+    const comments = await gh(
+      token,
+      "GET",
+      `/repos/${repo}/issues/${pull.number}/comments?per_page=100&page=${page}`,
+    );
+    existing = comments.find((c) => c.user?.login === BOT_LOGIN && c.body?.includes(MARKER));
+    if (comments.length < 100) break;
+  }
   if (existing) {
     await gh(token, "PATCH", `/repos/${repo}/issues/comments/${existing.id}`, { body });
     console.log(`Updated the E2E comment on #${pull.number}.`);
