@@ -22,6 +22,12 @@ test.describe("Balances and settle-up", () => {
   }) => {
     await authedPage.goto(`/app/groups/${seeded.groupId}`);
     await authedPage.getByRole("button", { name: "已轉" }).click();
+
+    // "已轉" opens a confirmation dialog first; the settlement is only saved once confirmed.
+    const dialog = authedPage.getByRole("dialog");
+    await expect(dialog.getByText("確認已轉帳")).toBeVisible();
+    await dialog.getByRole("button", { name: "已完成", exact: true }).click();
+
     await expect(authedPage.getByText("所有帳款已結清")).toBeVisible();
 
     await authedPage.reload();
