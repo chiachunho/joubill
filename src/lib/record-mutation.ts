@@ -1,7 +1,9 @@
 import { type Api } from "grammy";
 
+import { eq } from "drizzle-orm";
+
 import { db } from "@/db";
-import { recordAuditLog } from "@/db/schema";
+import { expenses, recordAuditLog } from "@/db/schema";
 import {
   deleterOf,
   loadNoticeRecord,
@@ -139,6 +141,17 @@ export async function logUpdated<T>(
   // as their own "after" — an audit log that misattributes changes is worse
   // than no audit log, since it reads as authoritative.
   const { result, before, after } = await db.transaction(async (tx) => {
+    // Serialise writers on the record's row before anything is read or deleted.
+    // Without this, two overlapping edits that each delete-then-insert the same
+    // child rows (say, two 💳 誰付 taps) can both survive: under READ COMMITTED,
+    // the second DELETE cannot see the first one's inserts, so each leaves its own
+    // payer at the full amount and the payers sum to twice the total. Now the
+    // second transaction waits here and then reads the first one's committed rows.
+    await tx
+      .select({ id: expenses.id })
+      .from(expenses)
+      .where(eq(expenses.id, recordId))
+      .for("update");
     const before = await loadNoticeRecord(recordId, tx);
     const result = await mutate(tx);
     const after = await loadNoticeRecord(recordId, tx);

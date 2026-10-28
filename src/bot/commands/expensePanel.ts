@@ -10,7 +10,7 @@ import {
   renderCard,
   type CardMode,
 } from "../expenseCard";
-import { setExpenseCurrency, writeSplits } from "../expenseEdits";
+import { setExpenseCurrency, setExpensePayer, writeSplits } from "../expenseEdits";
 import { actorOf } from "../actor";
 import { promptForExpenseField } from "./add";
 import type { BotContext } from "../context";
@@ -84,6 +84,45 @@ expensePanel.callbackQuery(/^exp:done:(\d+)$/, async (ctx) => {
   const expenseId = Number(ctx.match[1]);
   if (!(await guard(ctx, expenseId))) return;
   await show(ctx, expenseId, "default");
+});
+
+/* ── 💳 誰付 ──────────────────────────────────────────────────────────── */
+
+const MULTI_PAYER_TOAST = "這筆有多位付款人，請用 App 編輯";
+
+expensePanel.callbackQuery(/^exp:pay:(\d+)$/, async (ctx) => {
+  const expenseId = Number(ctx.match[1]);
+  const card = await guard(ctx, expenseId);
+  if (!card) return;
+  if (!card.payerEditable) {
+    await ctx.answerCallbackQuery({ text: MULTI_PAYER_TOAST, show_alert: true });
+    return;
+  }
+  await show(ctx, expenseId, "payer");
+});
+
+expensePanel.callbackQuery(/^exp:payt:(\d+):(\d+)$/, async (ctx) => {
+  const expenseId = Number(ctx.match[1]);
+  const userId = Number(ctx.match[2]);
+  const card = await guard(ctx, expenseId);
+  if (!card) return;
+  if (!card.payerEditable) {
+    await ctx.answerCallbackQuery({ text: MULTI_PAYER_TOAST, show_alert: true });
+    return;
+  }
+
+  // Callback data is attacker-controlled, so the new payer must belong to this
+  // group. The current payer is always allowed: they may have left since, and
+  // the panel keeps listing them (see cardKeyboard, mode "payer").
+  const members = await loadGroupMembers(card.expense.groupId);
+  const allowed = [...members, ...card.payers];
+  if (!allowed.some((m) => m.id === userId)) {
+    await ctx.answerCallbackQuery({ text: "這個人不是此群組的成員", show_alert: true });
+    return;
+  }
+
+  await setExpensePayer(expenseId, card.expense.amount, userId, actorOf(ctx));
+  await show(ctx, expenseId, "payer");
 });
 
 /* ── 👥 誰分 ──────────────────────────────────────────────────────────── */

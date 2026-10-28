@@ -20,6 +20,7 @@ export const BTN = {
   delete: "🗑 刪除",
 
   /* ⚙️ 調整 panel */
+  payer: "💳 誰付",
   who: "👥 誰分",
   shares: "⚖️ 份數",
   currency: "💱 幣別",
