@@ -80,9 +80,16 @@ export type SplitState = {
   panelEditable: boolean;
 };
 
-/** Current split entries (debtor + share weight) for an expense, in display order. */
-export async function loadSplitState(expenseId: number): Promise<SplitState> {
-  const rows = await db
+/**
+ * Current split entries (debtor + share weight) for an expense, in display order.
+ * Pass a transaction as `exec` when the result feeds a write, so it is read under
+ * that write's lock.
+ */
+export async function loadSplitState(
+  expenseId: number,
+  exec: Pick<typeof db, "select"> = db,
+): Promise<SplitState> {
+  const rows = await exec
     .select({
       debtorId: expenseSplits.debtorId,
       amount: expenseSplits.amount,
@@ -293,7 +300,7 @@ export function originOf(ctx: BotContext): CardOrigin {
  * the expense. Someone who has since left must stay pickable, or the picker could
  * not show who is currently on the expense.
  */
-function pickerMembers(members: DbUser[], onExpense: DbUser[]): DbUser[] {
+export function pickerMembers(members: DbUser[], onExpense: DbUser[]): DbUser[] {
   return [...members, ...onExpense.filter((u) => !members.some((m) => m.id === u.id))];
 }
 
