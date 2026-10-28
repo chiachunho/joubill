@@ -52,6 +52,11 @@ function fakePlatform(basePath: "/mini" | "/app", request = vi.fn()): Platform {
     HeaderLeading: () => <span>leading</span>,
     useBack: () => {},
     BackLink: () => null,
+    // Used only by the group list and personal settings bodies.
+    HomeHeader: () => null,
+    loginPath: null,
+    HelpAction: () => null,
+    AccountSection: () => null,
   };
 }
 

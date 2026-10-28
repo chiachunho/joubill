@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, UserCircle } from "lucide-react";
+import { ChevronLeft, LogOut, UserCircle } from "lucide-react";
 
+import { HELP_PATH, HELP_URL } from "@/lib/help-url";
 import { tmaFetch } from "@/lib/tma-fetch";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 import { tmaRawFetch, webFetch, webRawFetch } from "@/lib/web-fetch";
@@ -33,6 +34,14 @@ export type Platform = {
   useBack: (href: string) => void;
   /** The visible back link on this platform, if it has one. */
   BackLink: ComponentType<{ href: string }>;
+  /** The header above the group list, including the link to personal settings. */
+  HomeHeader: ComponentType;
+  /** Where an unauthenticated viewer is sent, or null to show the error instead. */
+  loginPath: string | null;
+  /** The "使用說明" row. The Mini App opens it in Telegram's browser; the Web App navigates. */
+  HelpAction: ComponentType<{ className: string; children: ReactNode }>;
+  /** Extra content at the foot of the personal settings page. The Web App has the sign-out button. */
+  AccountSection: ComponentType;
 };
 
 function useTelegramSelfPhoto(): string | null {
@@ -67,6 +76,42 @@ function MiniBackLink(): null {
   return null;
 }
 
+function MiniHomeHeader() {
+  return (
+    <>
+      <div className="relative mb-6 flex items-center justify-center px-4">
+        <p className="text-sm font-semibold text-foreground">揪帳</p>
+        <Link
+          href="/mini/settings"
+          className="absolute right-4 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <UserCircle className="size-4" />
+        </Link>
+      </div>
+      <p className="sect mb-3 px-4">我的群組</p>
+    </>
+  );
+}
+
+// Opens in Telegram's in-app browser rather than navigating the Mini App's own
+// webview: a plain <a> would replace the Mini App and lose its back button.
+function MiniHelpAction({ className, children }: { className: string; children: ReactNode }) {
+  const openHelp = useCallback(() => {
+    import("@twa-dev/sdk")
+      .then(({ default: WebApp }) => WebApp.openLink(HELP_URL))
+      .catch(() => window.open(HELP_URL, "_blank", "noopener"));
+  }, []);
+  return (
+    <button onClick={openHelp} className={className}>
+      {children}
+    </button>
+  );
+}
+
+function MiniAccountSection(): null {
+  return null;
+}
+
 function useNoSelfPhoto(): string | null {
   return null;
 }
@@ -97,6 +142,58 @@ function WebBackLink({ href }: { href: string }) {
   );
 }
 
+function WebHomeHeader() {
+  return (
+    <div className="mb-3 flex items-center justify-between px-4">
+      <p className="sect">我的群組</p>
+      <Link
+        href="/app/settings"
+        className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      >
+        <UserCircle className="size-4" />
+      </Link>
+    </div>
+  );
+}
+
+function WebHelpAction({ className, children }: { className: string; children: ReactNode }) {
+  return (
+    <Link href={HELP_PATH} className={className}>
+      {children}
+    </Link>
+  );
+}
+
+function WebAccountSection() {
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch {
+      // network error — redirect anyway; server session expires naturally
+    }
+    window.location.href = "/login";
+  }
+
+  return (
+    <section className="px-4">
+      <div className="overflow-hidden rounded-2xl bg-secondary/50">
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="flex w-full items-center gap-3 px-4 py-3 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+        >
+          <LogOut className="size-4" />
+          {loggingOut ? "登出中…" : "登出"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export const miniPlatform: Platform = {
   basePath: "/mini",
   request: tmaFetch,
@@ -105,6 +202,11 @@ export const miniPlatform: Platform = {
   HeaderLeading: MiniHeaderLeading,
   useBack: useMiniBack,
   BackLink: MiniBackLink,
+  HomeHeader: MiniHomeHeader,
+  // Telegram authenticates the Mini App from initData, so there is no login page to send anyone to.
+  loginPath: null,
+  HelpAction: MiniHelpAction,
+  AccountSection: MiniAccountSection,
 };
 
 export const webPlatform: Platform = {
@@ -116,4 +218,8 @@ export const webPlatform: Platform = {
   HeaderLeading: WebHeaderLeading,
   useBack: useNoBack,
   BackLink: WebBackLink,
+  HomeHeader: WebHomeHeader,
+  loginPath: "/login",
+  HelpAction: WebHelpAction,
+  AccountSection: WebAccountSection,
 };
