@@ -16,6 +16,7 @@ pnpm format:check   # Prettier (read-only; what PR check runs — keep the tree 
 
 pnpm test           # Run all tests once (vitest)
 pnpm test:watch     # Vitest watch mode
+pnpm e2e            # Playwright E2E against $E2E_BASE_URL (see Testing)
 # Run a single test file:
 pnpm vitest run src/lib/__tests__/settlement.test.ts
 
@@ -405,3 +406,5 @@ Things that bite, in priority order:
 ### Testing
 
 Vitest with `vite-tsconfig-paths`. Tests live in `src/lib/__tests__/` and `src/lib/auth/__tests__/`. Only pure lib functions are unit-tested; API routes and bot commands are not. The vitest config injects dummy env vars so modules that import `@/db` don't throw during test collection.
+
+**E2E (Playwright)** lives in `e2e/` and runs against an already-deployed site, never a local server. `pnpm e2e` reads `E2E_BASE_URL` (defaults to `http://localhost:3000`) and `E2E_DATABASE_URL`, the DB that site uses. Only `/app` is covered for now; `/mini` needs a signed initData and is not tested yet. Web login can't be automated, so `e2e/fixtures.ts` seeds a user, group and `sessions` row and sets the `session` cookie, then deletes them on teardown. In CI, `.github/workflows/e2e.yml` runs on every successful Vercel Preview deployment, using the commit Vercel built and the `E2E_DATABASE_URL` repo secret. Because each branch's preview has its own DB, that secret has to match the DB the preview under test uses.
