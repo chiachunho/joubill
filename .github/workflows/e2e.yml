@@ -24,10 +24,33 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      # The Neon Vercel integration gives each git branch its own database, and
+      # Vercel only exposes that URL as a sensitive value CI cannot read. So look
+      # the branch up through the Neon API instead, by the branch name the
+      # deployment was made from.
+      - name: Find this branch's Neon database
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          BRANCH: ${{ github.event.deployment.ref }}
+        run: |
+          api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID"
+          auth="Authorization: Bearer $NEON_API_KEY"
+          branch_id=$(curl -fsS -H "$auth" "$api/branches" \
+            | jq -r --arg a "preview/$BRANCH" --arg b "$BRANCH" \
+              '.branches[] | select(.name == $a or .name == $b) | .id' | head -n 1)
+          if [ -z "$branch_id" ]; then
+            echo "::error::No Neon branch named preview/$BRANCH or $BRANCH"
+            exit 1
+          fi
+          uri=$(curl -fsS -H "$auth" \
+            "$api/connection_uri?branch_id=$branch_id&database_name=neondb&role_name=neondb_owner&pooled=true" \
+            | jq -r '.uri')
+          echo "::add-mask::$uri"
+          echo "E2E_DATABASE_URL=$uri" >> "$GITHUB_ENV"
       - name: Run E2E against the preview
         env:
           E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
-          E2E_DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
           CI: true
         run: pnpm e2e
       - uses: actions/upload-artifact@v4
