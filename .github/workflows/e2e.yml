@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.deployment.sha }}
+          # Full history so the remote branches that point at this commit are visible.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -32,17 +34,27 @@ jobs:
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
-          BRANCH: ${{ github.event.deployment.ref }}
+          SHA: ${{ github.event.deployment.sha }}
         run: |
-          api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID"
-          auth="Authorization: Bearer $NEON_API_KEY"
-          branch_id=$(curl -fsS -H "$auth" "$api/branches" \
-            | jq -r --arg a "preview/$BRANCH" --arg b "$BRANCH" \
-              '.branches[] | select(.name == $a or .name == $b) | .id' | head -n 1)
-          if [ -z "$branch_id" ]; then
-            echo "::error::No Neon branch named preview/$BRANCH or $BRANCH"
+          if [ -z "$NEON_PROJECT_ID" ]; then
+            echo "::error::NEON_PROJECT_ID repo secret is empty"
             exit 1
           fi
+          api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID"
+          auth="Authorization: Bearer $NEON_API_KEY"
+          # The deployment only carries a commit SHA, so the branch is whichever
+          # remote branch points at it (the default branch is excluded).
+          for branch in $(git branch -r --points-at "$SHA" | sed 's|^ *origin/||' | grep -v '^HEAD\|^dev$'); do
+            branch_id=$(curl -fsS -H "$auth" "$api/branches" \
+              | jq -r --arg a "preview/$branch" --arg b "$branch" \
+                '.branches[] | select(.name == $a or .name == $b) | .id' | head -n 1)
+            [ -n "$branch_id" ] && break
+          done
+          if [ -z "$branch_id" ]; then
+            echo "::error::No Neon branch matches a remote branch at $SHA"
+            exit 1
+          fi
+          echo "Using Neon branch $branch_id for git branch $branch"
           uri=$(curl -fsS -H "$auth" \
             "$api/connection_uri?branch_id=$branch_id&database_name=neondb&role_name=neondb_owner&pooled=true" \
             | jq -r '.uri')
