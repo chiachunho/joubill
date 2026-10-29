@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SWRConfig } from "swr";
 
@@ -16,7 +16,15 @@ vi.mock("next/navigation", () => ({
 afterEach(() => {
   cleanup();
   mockReplace.mockClear();
+  vi.unstubAllGlobals();
 });
+
+// jsdom cannot navigate, so stand in for window.location and watch what is assigned to it.
+function stubLocation(path: string) {
+  const location = { href: path, pathname: path, search: "" };
+  vi.stubGlobal("location", location);
+  return location;
+}
 
 const GROUP = { id: 7, title: "週末旅行", defaultCurrency: "TWD" };
 
@@ -81,14 +89,17 @@ describe("GroupsHome", () => {
   );
 
   it("shows the Mini App its load error when the session check fails with 401", async () => {
+    const location = stubLocation("/mini");
     renderHome(miniPlatform, {}, "401 /api/me/groups");
     expect(await screen.findByText("無法載入群組")).toBeInTheDocument();
+    // Telegram authenticates the Mini App, so there is no login page to leave for.
+    expect(location.href).toBe("/mini");
   });
 
-  it("does not show a 401 on the web, which redirects to login instead", async () => {
+  it("sends the web to login on a 401, carrying this page, without flashing an error", async () => {
+    const location = stubLocation("/app");
     renderHome(webPlatform, {}, "401 /api/me/groups");
-    // Let the failed fetch settle before asserting that no error text appeared.
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await waitFor(() => expect(location.href).toBe("/login?next=%2Fapp"));
     expect(screen.queryByText("無法載入群組")).not.toBeInTheDocument();
   });
 });

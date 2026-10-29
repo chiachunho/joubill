@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, LogOut, UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
+import { WEB_LOGIN_PATH } from "@/lib/auth-redirect";
 import { HELP_PATH } from "@/lib/help-url";
 import { webFetch, webRawFetch } from "@/lib/web-fetch";
 
@@ -71,7 +72,7 @@ function WebAccountSection() {
     } catch {
       // network error — redirect anyway; server session expires naturally
     }
-    window.location.href = "/login";
+    window.location.href = WEB_LOGIN_PATH;
   }
 
   return (
@@ -100,7 +101,7 @@ export const webPlatform: Platform = {
   useBack: useNoBack,
   BackLink: WebBackLink,
   HomeHeader: WebHomeHeader,
-  loginPath: "/login",
+  loginPath: WEB_LOGIN_PATH,
   HelpAction: WebHelpAction,
   AccountSection: WebAccountSection,
 };

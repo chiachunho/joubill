@@ -2,12 +2,16 @@
 
 import { SWRConfig } from "swr";
 
+import { isUnauthorizedError, loginUrl, WEB_LOGIN_PATH } from "@/lib/auth-redirect";
 import { webFetcher } from "@/lib/web-fetch";
 
 function on401Redirect(error: unknown) {
-  if (typeof (error as Error)?.message === "string" && (error as Error).message.startsWith("401")) {
-    const next = encodeURIComponent(window.location.pathname + window.location.search);
-    window.location.href = `/login?next=${next}`;
+  if (isUnauthorizedError(error)) {
+    window.location.href = loginUrl(
+      WEB_LOGIN_PATH,
+      window.location.pathname,
+      window.location.search,
+    );
   }
 }
 

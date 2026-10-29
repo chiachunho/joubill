@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SWRConfig } from "swr";
 
 import { PersonalSettings } from "@/components/pages/PersonalSettings";
@@ -11,7 +11,15 @@ import { HELP_PATH } from "@/lib/help-url";
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
+
+// jsdom cannot navigate, so stand in for window.location and watch what is assigned to it.
+function stubLocation(path: string) {
+  const location = { href: path, pathname: path, search: "" };
+  vi.stubGlobal("location", location);
+  return location;
+}
 
 const PROFILE = { firstName: "小明", lastName: null, username: "xiaoming", photoUrl: null };
 
@@ -66,14 +74,17 @@ describe("PersonalSettings", () => {
   });
 
   it("shows the Mini App its load error when the profile request fails with 401", async () => {
+    const location = stubLocation("/mini/settings");
     renderSettings(miniPlatform, "401 /api/me/profile");
     expect(await screen.findByText("無法載入")).toBeInTheDocument();
+    // Telegram authenticates the Mini App, so there is no login page to leave for.
+    expect(location.href).toBe("/mini/settings");
   });
 
-  it("holds the loading state on the web for a 401, which redirects to login", async () => {
+  it("sends the web to login on a 401, carrying this page, without flashing an error", async () => {
+    const location = stubLocation("/app/settings");
     renderSettings(webPlatform, "401 /api/me/profile");
-    // Let the failed fetch settle before asserting that no error text appeared.
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await waitFor(() => expect(location.href).toBe("/login?next=%2Fapp%2Fsettings"));
     expect(screen.queryByText("無法載入")).not.toBeInTheDocument();
   });
 

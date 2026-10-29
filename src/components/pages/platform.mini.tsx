@@ -7,9 +7,8 @@ import { UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
 import { HELP_URL } from "@/lib/help-url";
-import { tmaFetch } from "@/lib/tma-fetch";
+import { tmaFetch, tmaRawFetch } from "@/lib/tma-fetch";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
-import { tmaRawFetch } from "@/lib/web-fetch";
 
 function useTelegramSelfPhoto(): string | null {
   const [photo, setPhoto] = useState<string | null>(null);
