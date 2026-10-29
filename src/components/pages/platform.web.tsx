@@ -103,5 +103,6 @@ export const webPlatform: Platform = {
   loginPath: WEB_LOGIN_PATH,
   HelpAction: WebHelpAction,
   canDownloadExport: true,
+  canCreateGroup: true,
   AccountSection: WebAccountSection,
 };

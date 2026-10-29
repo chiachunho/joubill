@@ -307,6 +307,27 @@ export const groupDeleteRequests = pgTable("group_delete_requests", {
 });
 
 /**
+ * Invite codes for joining a group from the web. A group has at most one live code:
+ * resetting revokes the current row and inserts a new one. Expired and revoked codes
+ * are indistinguishable from unknown ones to callers (see src/lib/invites.ts).
+ * The code is the only defence against guessing, so keep it long (see src/lib/invite.ts).
+ */
+export const groupInvites = pgTable("group_invites", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id")
+    .notNull()
+    .references(() => groups.id, { onDelete: "cascade" }),
+  code: varchar("code", { length: 16 }).notNull().unique(),
+  createdBy: integer("created_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** NULL = never expires. */
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
+/**
  * Who changed which record, when, and what it looked like before and after.
  *
  * This is the accounting that replaces the per-record owner lock: any group
@@ -336,7 +357,7 @@ export const recordAuditLog = pgTable(
     recordId: integer("record_id"),
     /** 'expense' | 'settlement' | 'group' */
     recordType: varchar("record_type", { length: 16 }).notNull(),
-    /** 'created' | 'updated' | 'deleted' | 'rate_locked' */
+    /** 'created' | 'updated' | 'deleted' | 'rate_locked' | 'member_joined' | 'invite_reset' */
     action: varchar("action", { length: 24 }).notNull(),
     actorId: integer("actor_id")
       .notNull()
@@ -392,6 +413,7 @@ export type NewUser = typeof users.$inferInsert;
 export type Group = typeof groups.$inferSelect;
 export type NewGroup = typeof groups.$inferInsert;
 export type GroupMember = typeof groupMembers.$inferSelect;
+export type GroupInvite = typeof groupInvites.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type NewExpense = typeof expenses.$inferInsert;
 export type ExpensePayer = typeof expensePayers.$inferSelect;

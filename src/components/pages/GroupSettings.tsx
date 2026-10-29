@@ -18,6 +18,7 @@ import {
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
+import { InviteSection } from "@/components/mini/InviteSection";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
@@ -257,6 +258,8 @@ export function GroupSettings({
           </Link>
         </div>
       </section>
+
+      <InviteSection groupId={id} />
 
       {/* 動態紀錄 — the way into the audit log. The group page header has no
           free slot (personal settings left, group settings right) and the

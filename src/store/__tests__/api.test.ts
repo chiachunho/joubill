@@ -333,3 +333,57 @@ describe("the expense list", () => {
     expect(state.data?.pages.flatMap((p) => p.expenses.map((e) => e.id))).toEqual([30, 10]);
   });
 });
+
+describe("invites and new groups", () => {
+  it("refetches the group list after creating a group", async () => {
+    const request = fakeRequest({
+      "/api/me/groups": { groups: [] },
+      "/api/groups": { id: 9 },
+    });
+    const store = makeStore(request);
+    store.dispatch(api.endpoints.getMe.initiate());
+    await settle();
+
+    await store.dispatch(
+      api.endpoints.createGroup.initiate({ title: "東京", defaultCurrency: "JPY" }),
+    );
+    await settle();
+
+    expect(reads(request, "/api/me/groups")).toBe(2);
+  });
+
+  it("refetches the members and the group list after joining", async () => {
+    const request = fakeRequest({
+      "/api/me/groups": { groups: [] },
+      "/api/groups/9/members": { members: [] },
+      "/api/invites/K7M2QX9PAB/accept": { groupId: 9 },
+    });
+    const store = makeStore(request);
+    store.dispatch(api.endpoints.getMe.initiate());
+    store.dispatch(api.endpoints.getMembers.initiate(9));
+    await settle();
+
+    await store.dispatch(api.endpoints.acceptInvite.initiate({ code: "K7M2QX9PAB" }));
+    await settle();
+
+    expect(reads(request, "/api/me/groups")).toBe(2);
+    expect(reads(request, "/api/groups/9/members")).toBe(2);
+  });
+
+  it("refetches the invite after a reset", async () => {
+    let code = "AAAAABBBBB";
+    const request = fakeRequest({
+      "/api/groups/9/invite": () => ({ code }),
+    });
+    const store = makeStore(request);
+    store.dispatch(api.endpoints.getInvite.initiate(9));
+    await settle();
+
+    code = "CCCCCDDDDD";
+    await store.dispatch(api.endpoints.resetInvite.initiate({ groupId: 9 }));
+    await settle();
+
+    const result = api.endpoints.getInvite.select(9)(store.getState());
+    expect(result.data).toEqual({ code: "CCCCCDDDDD" });
+  });
+});

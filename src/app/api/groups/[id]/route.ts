@@ -4,7 +4,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { getBot } from "@/bot";
 import { db } from "@/db";
 import { groupDeleteRequests, groupMembers, groups, users } from "@/db/schema";
-import { requireTelegramChatId } from "@/lib/chat";
+import { telegramChatId } from "@/lib/chat";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { BTN } from "@/lib/buttons";
@@ -47,15 +47,18 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     lastName: user.lastName,
     username: user.username,
   });
-  const bot = getBot();
-  const chatId = requireTelegramChatId(group);
+  // A group created on the web has no chat: nothing to announce and nothing to leave.
+  const chatId = telegramChatId(group);
+  const bot = chatId === null ? null : getBot();
 
   // Single member — delete immediately without requiring approval
   if (memberCount <= 1) {
-    await bot.api
-      .sendMessage(chatId, `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`)
-      .catch(() => null);
-    await bot.api.leaveChat(chatId).catch(() => null);
+    if (bot && chatId !== null) {
+      await bot.api
+        .sendMessage(chatId, `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`)
+        .catch(() => null);
+      await bot.api.leaveChat(chatId).catch(() => null);
+    }
     await db.delete(groups).where(eq(groups.id, groupId));
     return NextResponse.json({ ok: true });
   }
@@ -79,6 +82,11 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     .insert(groupDeleteRequests)
     .values({ groupId, requestedBy: user.id, expiresAt })
     .returning();
+
+  // The request lives in the DB; the other members approve it in the app.
+  if (!bot || chatId === null) {
+    return NextResponse.json({ pending: true, requestId: request.id });
+  }
 
   const sent = await bot.api
     .sendMessage(

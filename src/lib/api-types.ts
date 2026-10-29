@@ -170,3 +170,20 @@ export type DeleteRequestResponse = {
 
 /** `DELETE /api/groups/[id]` either deletes at once or opens a request for the others to approve. */
 export type DeleteGroupResponse = { ok?: boolean; pending?: boolean };
+
+/** GET/POST /api/groups/[id]/invite */
+export type InviteResponse = { code: string };
+
+/** POST /api/groups */
+export type CreateGroupResponse = { id: number };
+
+/** GET /api/invites/[code] */
+export type InvitePreviewResponse = {
+  groupId: number;
+  title: string;
+  memberCount: number;
+  alreadyMember: boolean;
+};
+
+/** POST /api/invites/[code]/accept */
+export type AcceptInviteResponse = { groupId: number };

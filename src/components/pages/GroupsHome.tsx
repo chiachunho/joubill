@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Users } from "lucide-react";
+import { ChevronRight, KeyRound, Plus, Users } from "lucide-react";
 
+import { Avatar } from "@/components/mini/Avatar";
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
@@ -51,6 +52,25 @@ export function GroupsHome({ platform }: { platform: Platform }) {
     <div className="py-6">
       <platform.HomeHeader />
 
+      {platform.canCreateGroup && (
+        <div className="mx-4 mb-3 grid grid-cols-2 gap-2">
+          <Link
+            href={`${platform.basePath}/groups/new`}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground transition-opacity active:opacity-80"
+          >
+            <Plus className="size-4" />
+            建立群組
+          </Link>
+          <Link
+            href={`${platform.basePath}/groups/join`}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent/40 active:bg-accent/60"
+          >
+            <KeyRound className="size-4" />
+            輸入邀請碼
+          </Link>
+        </div>
+      )}
+
       {groups.length === 0 ? (
         <div className="px-4 py-20 text-center">
           <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-secondary">
@@ -58,7 +78,9 @@ export function GroupsHome({ platform }: { platform: Platform }) {
           </div>
           <p className="font-semibold">還沒有任何群組</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            把 Bot 加進 Telegram 群組，輸入 /start 即可
+            {platform.canCreateGroup
+              ? "在這裡建立群組，或輸入邀請碼加入；也可以把 Bot 加進 Telegram 群組，輸入 /start"
+              : "把 Bot 加進 Telegram 群組，輸入 /start 即可"}
           </p>
         </div>
       ) : (
@@ -76,6 +98,9 @@ export function GroupsHome({ platform }: { platform: Platform }) {
                   alt={g.title}
                   className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
                 />
+              ) : platform.canCreateGroup ? (
+                // A group made on the web has no chat photo, so draw its initials.
+                <Avatar name={g.title} userId={g.id} />
               ) : (
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
                   <Users className="size-4 text-primary" />

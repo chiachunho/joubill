@@ -57,11 +57,50 @@ describe("ActivityList", () => {
       },
       {},
     ],
+    [
+      "a join belongs to the group, not to one row",
+      { action: "member_joined", recordId: null, recordType: "group" },
+      {},
+    ],
+    [
+      "an invite reset belongs to the group, not to one row",
+      { action: "invite_reset", recordId: null, recordType: "group" },
+      {},
+    ],
     ["the record's own history page is already where you are", {}, { linkRows: false }],
   ])("does not link a row when %s", (_, overrides, listProps) => {
     render(<ActivityList {...props} entries={[entry(overrides)]} {...listProps} />);
 
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("says who invited a member who joined", () => {
+    const { container } = render(
+      <ActivityList
+        {...props}
+        entries={[
+          entry({
+            action: "member_joined",
+            recordId: null,
+            recordType: "group",
+            groupEvent: { inviterName: "阿華" },
+          }),
+        ]}
+      />,
+    );
+
+    expect(container).toHaveTextContent("小明 加入了群組（由 阿華 邀請）");
+  });
+
+  it("describes an invite reset", () => {
+    const { container } = render(
+      <ActivityList
+        {...props}
+        entries={[entry({ action: "invite_reset", recordId: null, recordType: "group" })]}
+      />,
+    );
+
+    expect(container).toHaveTextContent("小明 重設了邀請碼");
   });
 
   it("groups rows under a heading per day", () => {

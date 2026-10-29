@@ -268,3 +268,11 @@ export const beancountConfigInputSchema = z.object({
 });
 
 export type BeancountConfigInput = z.infer<typeof beancountConfigInputSchema>;
+
+/** POST /api/groups body: a group created on the web (no chat). */
+export const groupCreateSchema = z.object({
+  title: z.string().trim().min(1, "請輸入群組名稱").max(50, "群組名稱最多 50 字"),
+  defaultCurrency: z.enum(SUPPORTED_CURRENCIES),
+});
+
+export type GroupCreateInput = z.infer<typeof groupCreateSchema>;

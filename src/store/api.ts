@@ -1,16 +1,20 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 
 import type {
+  AcceptInviteResponse,
   ActivityResponse,
   AvatarsResponse,
   BalanceResponse,
   BeancountConfigResponse,
+  CreateGroupResponse,
   DeleteGroupResponse,
   DeleteRequestResponse,
   EffectiveRateResponse,
   ExpenseDetail,
   ExpensesResponse,
   GroupPhotosResponse,
+  InvitePreviewResponse,
+  InviteResponse,
   MeResponse,
   MembersResponse,
   ProfileResponse,
@@ -55,6 +59,7 @@ const tagTypes = [
   "EffectiveRate",
   "Beancount",
   "DeleteRequest",
+  "Invite",
 ] as const;
 
 type Tag = { type: (typeof tagTypes)[number]; id: string };
@@ -103,6 +108,13 @@ const baseApi = createApi({
     getGroupPhotos: build.query<GroupPhotosResponse, void>({
       query: () => ({ url: "/api/me/groups/photos" }),
       providesTags: [tag("GroupPhotos", "LIST")],
+    }),
+    getInvite: build.query<InviteResponse, GroupId>({
+      query: (groupId) => ({ url: `/api/groups/${groupId}/invite` }),
+      providesTags: (_r, _e, groupId) => [tag("Invite", g(groupId))],
+    }),
+    getInvitePreview: build.query<InvitePreviewResponse, string>({
+      query: (code) => ({ url: `/api/invites/${encodeURIComponent(code)}` }),
     }),
     getProfile: build.query<ProfileResponse, void>({
       query: () => ({ url: "/api/me/profile" }),
@@ -364,6 +376,34 @@ const baseApi = createApi({
       invalidatesTags: (_r, _e, { groupId }) => derivedFromRatesTags(groupId),
     }),
 
+    // ---- creating and joining a group ------------------------------------------------
+    createGroup: build.mutation<CreateGroupResponse, { title: string; defaultCurrency: string }>({
+      query: (body) => ({ url: "/api/groups", method: "POST", body }),
+      invalidatesTags: [tag("Me", "LIST"), tag("GroupPhotos", "LIST")],
+    }),
+    resetInvite: build.mutation<InviteResponse, { groupId: GroupId }>({
+      query: ({ groupId }) => ({ url: `/api/groups/${groupId}/invite`, method: "POST" }),
+      // The old code is dead, and the feed gains an 重設了邀請碼 row.
+      invalidatesTags: (_r, _e, { groupId }) => [
+        tag("Invite", g(groupId)),
+        tag("Activity", g(groupId)),
+      ],
+    }),
+    acceptInvite: build.mutation<AcceptInviteResponse, { code: string }>({
+      query: ({ code }) => ({
+        url: `/api/invites/${encodeURIComponent(code)}/accept`,
+        method: "POST",
+      }),
+      // A new member changes every group-scoped list that names members or splits them.
+      invalidatesTags: (r) => [
+        tag("Me", "LIST"),
+        tag("GroupPhotos", "LIST"),
+        ...(r
+          ? [tag("Members", g(r.groupId)), ...ledgerTags(r.groupId), tag("Avatars", g(r.groupId))]
+          : []),
+      ],
+    }),
+
     // ---- deleting a group ----------------------------------------------------------
     deleteGroup: build.mutation<DeleteGroupResponse, { groupId: GroupId }>({
       query: ({ groupId }) => ({ url: `/api/groups/${groupId}`, method: "DELETE" }),
@@ -490,6 +530,8 @@ export const api = baseApi.injectEndpoints({
 export const {
   useGetMeQuery,
   useGetGroupPhotosQuery,
+  useGetInviteQuery,
+  useGetInvitePreviewQuery,
   useGetProfileQuery,
   useGetMembersQuery,
   useGetSettingsQuery,
@@ -520,6 +562,9 @@ export const {
   useDeleteRateMutation,
   usePutBeancountConfigMutation,
   useDeleteBeancountConfigMutation,
+  useCreateGroupMutation,
+  useResetInviteMutation,
+  useAcceptInviteMutation,
   useDeleteGroupMutation,
   useApproveDeleteRequestMutation,
   useCancelDeleteRequestMutation,

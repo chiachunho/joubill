@@ -16,6 +16,7 @@ import {
 import {
   diffRecords,
   type AuditSource,
+  type GroupEventPayload,
   type RateLockPayload,
   type RecordSnapshot,
 } from "@/lib/record-audit";
@@ -68,7 +69,7 @@ async function writeLog(entry: {
   action: string;
   actor: Actor;
   before: RecordSnapshot | null;
-  after: RecordSnapshot | RateLockPayload | null;
+  after: RecordSnapshot | RateLockPayload | GroupEventPayload | null;
 }): Promise<void> {
   try {
     await db.insert(recordAuditLog).values({
@@ -237,5 +238,35 @@ export async function logRateLock(
     actor,
     before: null,
     after: payload,
+  });
+}
+
+/** Logs someone joining through an invite; `inviter` is who made the code. */
+export async function logMemberJoined(
+  groupId: number,
+  actor: Actor,
+  inviter: { id: number; name: string },
+): Promise<void> {
+  await writeLog({
+    groupId,
+    recordId: null,
+    recordType: "group",
+    action: "member_joined",
+    actor,
+    before: null,
+    after: { kind: "memberJoined", inviterId: inviter.id, inviterName: inviter.name },
+  });
+}
+
+/** Logs the invite code being replaced (the old one stops working). */
+export async function logInviteReset(groupId: number, actor: Actor): Promise<void> {
+  await writeLog({
+    groupId,
+    recordId: null,
+    recordType: "group",
+    action: "invite_reset",
+    actor,
+    before: null,
+    after: { kind: "inviteReset" },
   });
 }
