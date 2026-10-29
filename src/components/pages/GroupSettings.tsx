@@ -2,12 +2,22 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowRightLeft, BookOpen, ChevronRight, Coins, History, Trash2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  BookOpen,
+  ChevronRight,
+  Coins,
+  History,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
+import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
 import {
@@ -26,6 +36,8 @@ type Member = {
   lastName: string | null;
   username: string | null;
   status: string;
+  /** Has a name but no account (added from the member list). */
+  isPlaceholder: boolean;
 };
 
 type MembersResponse = { members: Member[] };
@@ -67,6 +79,8 @@ export function GroupSettings({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<Member | null>(null);
   const [currencyPending, setCurrencyPending] = useState(false);
   const [pendingCurrency, setPendingCurrency] = useState<string | null>(null);
 
@@ -100,6 +114,25 @@ export function GroupSettings({
     } finally {
       setTogglingId(null);
     }
+  }
+
+  /** Resolves to an error message for the dialog, or null once saved. */
+  async function submitMemberName(
+    path: string,
+    method: "POST" | "PATCH",
+    name: string,
+  ): Promise<string | null> {
+    const res = await platform.rawRequest(path, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ firstName: name }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      return data.error ?? "儲存失敗，請再試一次";
+    }
+    await mutateMembers();
+    return null;
   }
 
   async function doDelete() {
@@ -286,6 +319,11 @@ export function GroupSettings({
                 <div className="min-w-0 flex-1">
                   <p className={`truncate text-sm ${isInactive ? "text-muted-foreground" : ""}`}>
                     {label}
+                    {member.isPlaceholder && (
+                      <span className="ml-1.5 rounded-lg bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        無帳號
+                      </span>
+                    )}
                   </p>
                   {isInactive && <p className="text-xs text-muted-foreground">已停用</p>}
                 </div>
@@ -301,6 +339,16 @@ export function GroupSettings({
                   >
                     {isInactive ? "停用中" : "啟用中"}
                   </button>
+                  {member.isPlaceholder && (
+                    <button
+                      onClick={() => setRenameTarget(member)}
+                      disabled={isToggling}
+                      aria-label="改名"
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-30"
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                  )}
                   <button
                     onClick={() => setDeleteTarget(member)}
                     disabled={isToggling}
@@ -312,6 +360,13 @@ export function GroupSettings({
               </div>
             );
           })}
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-primary transition-colors hover:bg-secondary"
+          >
+            <Plus className="size-4" />
+            新增成員（不需帳號）
+          </button>
         </div>
       </section>
 
@@ -345,6 +400,39 @@ export function GroupSettings({
         selfUserId={selfUserId}
         rawFetch={platform.rawRequest}
         redirectPath={platform.basePath}
+      />
+
+      <MemberNameDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        title="新增成員"
+        description="沒有帳號的成員也能當付款人或分攤者。"
+        confirmLabel="新增"
+        onSubmit={async (name) => {
+          const err = await submitMemberName(`/api/groups/${id}/members/placeholder`, "POST", name);
+          if (!err) setAddOpen(false);
+          return err;
+        }}
+      />
+
+      <MemberNameDialog
+        open={renameTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+        title="改名"
+        initialName={renameTarget?.firstName ?? ""}
+        confirmLabel="儲存"
+        onSubmit={async (name) => {
+          if (!renameTarget) return null;
+          const err = await submitMemberName(
+            `/api/groups/${id}/members/${renameTarget.id}`,
+            "PATCH",
+            name,
+          );
+          if (!err) setRenameTarget(null);
+          return err;
+        }}
       />
 
       <ConfirmDialog

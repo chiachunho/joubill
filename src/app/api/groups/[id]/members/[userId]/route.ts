@@ -3,18 +3,21 @@ import { and, count, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { expenses, expensePayers, expenseSplits, groupMembers } from "@/db/schema";
+import { expenses, expensePayers, expenseSplits, groupMembers, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { isDuplicateName, placeholderNameSchema } from "@/lib/placeholder";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string; userId: string }> };
 
-const patchSchema = z.object({
-  status: z.enum(["active", "inactive"]),
-});
+// Either toggle status (any member) or rename (placeholders only).
+const patchSchema = z.union([
+  z.object({ status: z.enum(["active", "inactive"]) }),
+  z.object({ firstName: placeholderNameSchema }),
+]);
 
 export const PATCH = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
@@ -30,6 +33,36 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
   const body = patchSchema.safeParse(await req.json());
   if (!body.success) {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
+  }
+
+  if ("firstName" in body.data) {
+    const rows = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        placeholderGroupId: users.placeholderGroupId,
+      })
+      .from(users)
+      .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
+      .where(eq(groupMembers.groupId, groupId));
+    const target = rows.find((m) => m.id === targetUserId);
+    if (!target) return NextResponse.json({ error: "member not found" }, { status: 404 });
+    // A real account's name belongs to its owner (it is refreshed from Telegram).
+    if (target.placeholderGroupId !== groupId) {
+      return NextResponse.json(
+        { error: "only placeholder members can be renamed" },
+        { status: 403 },
+      );
+    }
+    if (isDuplicateName(body.data.firstName, rows, targetUserId)) {
+      return NextResponse.json({ error: "名字已被群組成員使用" }, { status: 409 });
+    }
+    await db
+      .update(users)
+      .set({ firstName: body.data.firstName, updatedAt: new Date() })
+      .where(eq(users.id, targetUserId));
+    return NextResponse.json({ firstName: body.data.firstName });
   }
 
   const [updated] = await db
@@ -83,6 +116,11 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   await db
     .delete(groupMembers)
     .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, targetUserId)));
+
+  // A placeholder exists only for this group; with no records left, drop the row too.
+  await db
+    .delete(users)
+    .where(and(eq(users.id, targetUserId), eq(users.placeholderGroupId, groupId)));
 
   return NextResponse.json({ ok: true });
 });

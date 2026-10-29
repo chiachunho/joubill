@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   bigint,
   check,
   date,
@@ -28,6 +29,12 @@ export const users = pgTable("users", {
   languageCode: text("language_code"),
   email: text("email"),
   avatarUrl: text("avatar_url"),
+  /** Non-NULL = a member with a name but no account, belonging to exactly this group.
+   *  Such a row has no telegram_id, auth_identities or sessions, so no login path can
+   *  resolve to it; it is deleted together with its group. */
+  placeholderGroupId: integer("placeholder_group_id").references((): AnyPgColumn => groups.id, {
+    onDelete: "cascade",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

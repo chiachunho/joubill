@@ -2,7 +2,7 @@ import { Composer } from "grammy";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expenses, groupExchangeRates, groupMembers, groups } from "@/db/schema";
+import { expenses, groupExchangeRates, groupMembers, groups, users } from "@/db/schema";
 import { telegramChatColumns, whereTelegramChat } from "@/lib/chat";
 
 import type { BotContext } from "../context";
@@ -68,6 +68,14 @@ async function absorbGroup(fromId: number, intoId: number) {
       .values(members.map((m) => ({ groupId: intoId, userId: m.userId })))
       .onConflictDoNothing();
   }
+
+  // Placeholder members are owned by their group (placeholder_group_id cascades),
+  // so repoint them before the group row goes or they'd be deleted with it —
+  // taking their payer/split rows along.
+  await db
+    .update(users)
+    .set({ placeholderGroupId: intoId })
+    .where(eq(users.placeholderGroupId, fromId));
 
   const rates = await db
     .select()

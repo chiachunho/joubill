@@ -26,10 +26,16 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       lastName: users.lastName,
       username: users.username,
       status: groupMembers.status,
+      placeholderGroupId: users.placeholderGroupId,
     })
     .from(users)
     .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
     .where(eq(groupMembers.groupId, groupId));
 
-  return NextResponse.json({ members: rows });
+  return NextResponse.json({
+    members: rows.map(({ placeholderGroupId, ...m }) => ({
+      ...m,
+      isPlaceholder: placeholderGroupId !== null,
+    })),
+  });
 });
