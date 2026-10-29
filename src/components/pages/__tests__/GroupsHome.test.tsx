@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SWRConfig } from "swr";
 
 import { GroupsHome } from "@/components/pages/GroupsHome";
-import { miniPlatform, webPlatform, type Platform } from "@/components/pages/platform";
+import type { Platform } from "@/components/pages/platform";
+import { miniPlatform } from "@/components/pages/platform.mini";
+import { webPlatform } from "@/components/pages/platform.web";
 
 const mockReplace = vi.fn();
 vi.mock("next/navigation", () => ({

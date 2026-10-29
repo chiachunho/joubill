@@ -1,7 +1,7 @@
 "use client";
 
 import { GroupBeancountPage } from "@/components/pages/GroupBeancountPage";
-import { miniPlatform } from "@/components/pages/platform";
+import { miniPlatform } from "@/components/pages/platform.mini";
 
 export default function GroupBeancountSettingsPage({
   params,

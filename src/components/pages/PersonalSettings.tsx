@@ -5,6 +5,7 @@ import useSWR from "swr";
 
 import { PersonalSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
+import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 
 type ProfileResponse = {
   firstName: string;
@@ -17,8 +18,9 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
   platform.useBack(platform.basePath);
 
   const { data: profile, error } = useSWR<ProfileResponse>("/api/me/profile");
+  const redirectToLogin = useLoginRedirect(error, platform.loginPath);
 
-  if (error) {
+  if (error && !redirectToLogin) {
     return (
       <div className="px-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">無法載入</p>

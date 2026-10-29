@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { SWRConfig } from "swr";
 
 import { PersonalSettings } from "@/components/pages/PersonalSettings";
-import { miniPlatform, webPlatform, type Platform } from "@/components/pages/platform";
+import type { Platform } from "@/components/pages/platform";
+import { miniPlatform } from "@/components/pages/platform.mini";
+import { webPlatform } from "@/components/pages/platform.web";
 import { HELP_PATH } from "@/lib/help-url";
 
 afterEach(() => {
@@ -19,12 +21,16 @@ function withoutBackHook(platform: Platform): Platform {
   return { ...platform, useBack: () => {} };
 }
 
-function renderSettings(platform: Platform) {
+function renderSettings(platform: Platform, fetchError?: string) {
   return render(
     <SWRConfig
       value={{
         provider: () => new Map(),
-        fallback: { "/api/me/profile": PROFILE },
+        fallback: fetchError ? {} : { "/api/me/profile": PROFILE },
+        // A failing fetch surfaces as the SWR error the page reacts to.
+        fetcher: async () => {
+          throw new Error(fetchError ?? "unexpected fetch");
+        },
       }}
     >
       <PersonalSettings platform={withoutBackHook(platform)} />
@@ -57,5 +63,22 @@ describe("PersonalSettings", () => {
     renderSettings(miniPlatform);
     expect(screen.getByRole("button", { name: /使用說明/ })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /使用說明/ })).not.toBeInTheDocument();
+  });
+
+  it("shows the Mini App its load error when the profile request fails with 401", async () => {
+    renderSettings(miniPlatform, "401 /api/me/profile");
+    expect(await screen.findByText("無法載入")).toBeInTheDocument();
+  });
+
+  it("holds the loading state on the web for a 401, which redirects to login", async () => {
+    renderSettings(webPlatform, "401 /api/me/profile");
+    // Let the failed fetch settle before asserting that no error text appeared.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByText("無法載入")).not.toBeInTheDocument();
+  });
+
+  it("still shows a non-401 failure on the web", async () => {
+    renderSettings(webPlatform, "500 /api/me/profile");
+    expect(await screen.findByText("無法載入")).toBeInTheDocument();
   });
 });

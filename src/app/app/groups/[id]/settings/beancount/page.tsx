@@ -1,7 +1,7 @@
 "use client";
 
 import { GroupBeancountPage } from "@/components/pages/GroupBeancountPage";
-import { webPlatform } from "@/components/pages/platform";
+import { webPlatform } from "@/components/pages/platform.web";
 
 export default function AppGroupBeancountSettingsPage({
   params,

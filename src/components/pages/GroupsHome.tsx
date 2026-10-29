@@ -8,6 +8,7 @@ import useSWR from "swr";
 
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
+import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 
 type MyGroupsResponse = {
   groups: Array<{ id: number; title: string; defaultCurrency: string }>;
@@ -37,11 +38,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
     }
   }, [data, router, platform.basePath]);
 
-  const { loginPath } = platform;
-  const redirectToLogin = !!error && String(error).includes("401") && loginPath !== null;
-  useEffect(() => {
-    if (redirectToLogin && loginPath) window.location.href = loginPath;
-  }, [redirectToLogin, loginPath]);
+  const redirectToLogin = useLoginRedirect(error, platform.loginPath);
 
   if (error && !redirectToLogin) {
     return (

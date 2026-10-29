@@ -1,7 +1,7 @@
 "use client";
 
 import { GroupSettlementEditPage } from "@/components/pages/GroupSettlementEditPage";
-import { webPlatform } from "@/components/pages/platform";
+import { webPlatform } from "@/components/pages/platform.web";
 
 export default function AppEditSettlementPage({
   params,
