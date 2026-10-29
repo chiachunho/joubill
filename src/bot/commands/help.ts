@@ -29,6 +29,7 @@ const HELP_TEXT = [
   "`/list` — 最近支出",
   "`/balance` — 各人餘額",
   "`/settle` — 還款建議",
+  "`/export` — 匯出全部帳目（CSV）",
   "`/app` — 開啟 Mini App",
   "",
   "*把人加進揪帳*",

@@ -91,5 +91,6 @@ export const miniPlatform: Platform = {
   // Telegram authenticates the Mini App from initData, so there is no login page to send anyone to.
   loginPath: null,
   HelpAction: MiniHelpAction,
+  canDownloadExport: false,
   AccountSection: MiniAccountSection,
 };
