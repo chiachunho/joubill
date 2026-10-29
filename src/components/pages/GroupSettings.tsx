@@ -396,7 +396,7 @@ export function GroupSettings({
 
       <DangerZoneSection
         groupId={id}
-        membersCount={membersData.members.length}
+        membersCount={membersData.members.filter((m) => !m.isPlaceholder).length}
         selfUserId={selfUserId}
         rawFetch={platform.rawRequest}
         redirectPath={platform.basePath}

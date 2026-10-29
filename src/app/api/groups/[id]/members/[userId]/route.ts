@@ -113,14 +113,16 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     return NextResponse.json({ error: "has expenses", expenseCount }, { status: 409 });
   }
 
-  await db
-    .delete(groupMembers)
-    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, targetUserId)));
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, targetUserId)));
 
-  // A placeholder exists only for this group; with no records left, drop the row too.
-  await db
-    .delete(users)
-    .where(and(eq(users.id, targetUserId), eq(users.placeholderGroupId, groupId)));
+    // A placeholder exists only for this group; with no records left, drop the row too.
+    await tx
+      .delete(users)
+      .where(and(eq(users.id, targetUserId), eq(users.placeholderGroupId, groupId)));
+  });
 
   return NextResponse.json({ ok: true });
 });

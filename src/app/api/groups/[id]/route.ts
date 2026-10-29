@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { count, eq } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 
 import { getBot } from "@/bot";
 import { db } from "@/db";
-import { groupDeleteRequests, groupMembers, groups } from "@/db/schema";
+import { groupDeleteRequests, groupMembers, groups, users } from "@/db/schema";
 import { requireTelegramChatId } from "@/lib/chat";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
@@ -33,10 +33,13 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     return NextResponse.json({ error: "group not found" }, { status: 404 });
   }
 
+  // Members without an account can't approve a deletion request, so they must not
+  // count: a solo owner with a placeholder would otherwise be unable to delete.
   const [{ memberCount }] = await db
     .select({ memberCount: count() })
     .from(groupMembers)
-    .where(eq(groupMembers.groupId, groupId));
+    .innerJoin(users, eq(users.id, groupMembers.userId))
+    .where(and(eq(groupMembers.groupId, groupId), isNull(users.placeholderGroupId)));
 
   const { user } = auth;
   const name = labelUser({

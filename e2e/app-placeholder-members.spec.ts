@@ -11,7 +11,8 @@ test.describe("Members without an account", () => {
     await authedPage.getByLabel("名字").fill(name);
     await authedPage.getByRole("button", { name: "新增", exact: true }).click();
 
-    await expect(authedPage.getByText(name, { exact: true })).toBeVisible();
+    // The "無帳號" badge sits inside the same <p>, so match the name as a substring.
+    await expect(authedPage.getByText(name)).toBeVisible();
     await expect(authedPage.getByText("無帳號")).toBeVisible();
   });
 
