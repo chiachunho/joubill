@@ -1,45 +1,18 @@
 "use client";
 
 import { use, useMemo } from "react";
-import useSWR from "swr";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExpenseForm } from "@/components/mini/ExpenseForm";
 import { FormSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
-
-type Member = {
-  id: number;
-  firstName: string;
-  lastName: string | null;
-  username: string | null;
-  status?: string | null;
-};
-
-type ExpenseDetail = {
-  id: number;
-  createdBy: number | null;
-  createdAt: string | null;
-  lastActivity: { actorId: number | null; at: string } | null;
-  amount: number;
-  currency: string;
-  fxRate: number | null;
-  fxQuote: string | null;
-  description: string | null;
-  payers: Array<{ payerId: number; amount: number }>;
-  spentAt: string;
-  receiptFileIds: string[];
-  splits: Array<{ debtorId: number; amount: number; shareType: string }>;
-};
-
-type MeResponse = {
-  userId: number;
-  groups: Array<{ id: number; defaultCurrency: string }>;
-};
-
-type MembersResponse = { members: Member[] };
-
-type AvatarsResponse = { userPhotos: Record<number, string | null> };
+import { describeError } from "@/lib/api-error";
+import {
+  useGetAvatarsQuery,
+  useGetExpenseQuery,
+  useGetMeQuery,
+  useGetMembersQuery,
+} from "@/store/api";
 
 export function GroupExpenseEditPage({
   params,
@@ -52,12 +25,10 @@ export function GroupExpenseEditPage({
   const groupId = Number(id);
   const eid = Number(expenseId);
 
-  const { data: me, error: meError } = useSWR<MeResponse>("/api/me/groups");
-  const { data: ms, error: msError } = useSWR<MembersResponse>(`/api/groups/${groupId}/members`);
-  const { data: exp, error: expError } = useSWR<ExpenseDetail>(
-    `/api/groups/${groupId}/expenses/${eid}`,
-  );
-  const { data: avatars } = useSWR<AvatarsResponse>(`/api/groups/${groupId}/avatars`);
+  const { data: me, error: meError } = useGetMeQuery();
+  const { data: ms, error: msError } = useGetMembersQuery(groupId);
+  const { data: exp, error: expError } = useGetExpenseQuery({ groupId, expenseId: eid });
+  const { data: avatars } = useGetAvatarsQuery(groupId);
 
   const selfPhotoUrl = platform.useSelfPhoto();
 
@@ -74,7 +45,7 @@ export function GroupExpenseEditPage({
           <CardTitle>無法載入</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          {String(meError ?? msError ?? expError)}
+          {describeError(meError ?? msError ?? expError)}
         </CardContent>
       </Card>
     );

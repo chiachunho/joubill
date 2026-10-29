@@ -1,31 +1,18 @@
 "use client";
 
 import { use, useMemo } from "react";
-import useSWR from "swr";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettlementForm } from "@/components/mini/SettlementForm";
 import { FormSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
-
-type Member = { id: number; firstName: string; lastName: string | null; username: string | null };
-type MeResponse = { userId: number; groups: Array<{ id: number; defaultCurrency: string }> };
-type MembersResponse = { members: Member[] };
-type AvatarsResponse = { userPhotos: Record<number, string | null> };
-
-type SettlementDetail = {
-  id: number;
-  createdBy: number | null;
-  createdAt: string | null;
-  lastActivity: { actorId: number | null; at: string } | null;
-  amount: number;
-  currency: string;
-  fxRate: number | null;
-  fxQuote: string | null;
-  settledAt: string;
-  from: { userId: number };
-  to: { userId: number };
-};
+import { describeError } from "@/lib/api-error";
+import {
+  useGetAvatarsQuery,
+  useGetMeQuery,
+  useGetMembersQuery,
+  useGetSettlementQuery,
+} from "@/store/api";
 
 export function GroupSettlementEditPage({
   params,
@@ -38,12 +25,13 @@ export function GroupSettlementEditPage({
   const groupId = Number(id);
   const sid = Number(settlementId);
 
-  const { data: me, error: meError } = useSWR<MeResponse>("/api/me/groups");
-  const { data: ms, error: msError } = useSWR<MembersResponse>(`/api/groups/${groupId}/members`);
-  const { data: settlement, error: settlementError } = useSWR<SettlementDetail>(
-    `/api/groups/${groupId}/settlements/${sid}`,
-  );
-  const { data: avatars } = useSWR<AvatarsResponse>(`/api/groups/${groupId}/avatars`);
+  const { data: me, error: meError } = useGetMeQuery();
+  const { data: ms, error: msError } = useGetMembersQuery(groupId);
+  const { data: settlement, error: settlementError } = useGetSettlementQuery({
+    groupId,
+    settlementId: sid,
+  });
+  const { data: avatars } = useGetAvatarsQuery(groupId);
 
   const selfPhotoUrl = platform.useSelfPhoto();
 
@@ -60,7 +48,7 @@ export function GroupSettlementEditPage({
           <CardTitle>無法載入</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          {String(meError ?? msError ?? settlementError)}
+          {describeError(meError ?? msError ?? settlementError)}
         </CardContent>
       </Card>
     );

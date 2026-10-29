@@ -15,3 +15,31 @@ export function deleteErrorMessage(res: { status: number }, noun = "這筆紀錄
   if (res.status >= 500) return "伺服器暫時有問題，請稍後再試。";
   return "刪除失敗，請再試一次。";
 }
+
+/**
+ * What a failed API request looks like to the pages. `message` keeps the
+ * `${status} ${path}: ${body}` shape the old fetchers threw, which is what
+ * `isUnauthorizedError` (`src/lib/auth-redirect.ts`) reads the status from, so a
+ * 401 is still recognised whichever layer produced it. `status` is 0 when the
+ * request never got a response.
+ */
+export type ApiError = { status: number; data: unknown; message: string };
+
+/** The server's `{ error }` text for a failed request, or `fallback` when it sent none. */
+export function apiErrorText(error: unknown, fallback: string): string {
+  const data = (error as { data?: unknown } | null | undefined)?.data;
+  const text = (data as { error?: unknown } | null | undefined)?.error;
+  return typeof text === "string" && text !== "" ? text : fallback;
+}
+
+/** The HTTP status of a failed request, or undefined for anything that did not come from the server. */
+export function apiErrorStatus(error: unknown): number | undefined {
+  const status = (error as { status?: unknown } | null | undefined)?.status;
+  return typeof status === "number" ? status : undefined;
+}
+
+/** A one-line description of any load error, for the small grey line under "無法載入". */
+export function describeError(error: unknown): string {
+  const message = (error as { message?: unknown } | null | undefined)?.message;
+  return typeof message === "string" ? message : String(error);
+}

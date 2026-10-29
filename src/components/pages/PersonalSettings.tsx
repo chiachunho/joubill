@@ -1,30 +1,24 @@
 "use client";
 
 import { BookOpen, ChevronRight, User } from "lucide-react";
-import useSWR from "swr";
 
 import { PersonalSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
-
-type ProfileResponse = {
-  firstName: string;
-  lastName: string | null;
-  username: string | null;
-  photoUrl: string | null;
-};
+import { describeError } from "@/lib/api-error";
+import { useGetProfileQuery } from "@/store/api";
 
 export function PersonalSettings({ platform }: { platform: Platform }) {
   platform.useBack(platform.basePath);
 
-  const { data: profile, error } = useSWR<ProfileResponse>("/api/me/profile");
+  const { data: profile, error } = useGetProfileQuery();
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
 
   if (error && !redirectToLogin) {
     return (
       <div className="px-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{String(error)}</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
       </div>
     );
   }

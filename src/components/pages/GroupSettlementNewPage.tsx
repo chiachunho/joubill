@@ -1,17 +1,13 @@
 "use client";
 
 import { use, useMemo } from "react";
-import useSWR from "swr";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettlementForm } from "@/components/mini/SettlementForm";
 import { FormSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
-
-type Member = { id: number; firstName: string; lastName: string | null; username: string | null };
-type MeResponse = { userId: number; groups: Array<{ id: number; defaultCurrency: string }> };
-type MembersResponse = { members: Member[] };
-type AvatarsResponse = { userPhotos: Record<number, string | null> };
+import { describeError } from "@/lib/api-error";
+import { useGetAvatarsQuery, useGetMeQuery, useGetMembersQuery } from "@/store/api";
 
 export function GroupSettlementNewPage({
   params,
@@ -23,9 +19,9 @@ export function GroupSettlementNewPage({
   const { id } = use(params);
   const groupId = Number(id);
 
-  const { data: me, error: meError } = useSWR<MeResponse>("/api/me/groups");
-  const { data: ms, error: msError } = useSWR<MembersResponse>(`/api/groups/${groupId}/members`);
-  const { data: avatars } = useSWR<AvatarsResponse>(`/api/groups/${groupId}/avatars`);
+  const { data: me, error: meError } = useGetMeQuery();
+  const { data: ms, error: msError } = useGetMembersQuery(groupId);
+  const { data: avatars } = useGetAvatarsQuery(groupId);
 
   const selfPhotoUrl = platform.useSelfPhoto();
 
@@ -42,7 +38,7 @@ export function GroupSettlementNewPage({
           <CardTitle>無法載入</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          {String(meError ?? msError)}
+          {describeError(meError ?? msError)}
         </CardContent>
       </Card>
     );

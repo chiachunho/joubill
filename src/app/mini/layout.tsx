@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 
 import { AuthProvider } from "@/components/AuthProvider";
-import { SWRProvider } from "@/components/mini/SWRProvider";
+import { StoreProvider } from "@/components/mini/StoreProvider";
 import { TelegramApp } from "@/components/mini/TelegramApp";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -19,11 +19,11 @@ export default function MiniLayout({ children }: { children: React.ReactNode }) 
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       <AuthProvider mode="tma">
         <TelegramApp>
-          <SWRProvider>
+          <StoreProvider>
             <TooltipProvider delayDuration={200}>
               <main className="mx-auto min-h-screen max-w-xl pb-10">{children}</main>
             </TooltipProvider>
-          </SWRProvider>
+          </StoreProvider>
         </TelegramApp>
       </AuthProvider>
     </>

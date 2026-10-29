@@ -1,6 +1,6 @@
 /**
  * The Web App's rule for a session that is missing or expired, in one place. Both the
- * global SWR `onError` (`src/app/app/SWRProvider.tsx`) and the per-page
+ * store's 401 handler (`src/app/app/StoreProvider.tsx`) and the per-page
  * `useLoginRedirect` apply it, so they cannot disagree about what a 401 is or where it
  * leads.
  */
@@ -9,7 +9,7 @@
 export const WEB_LOGIN_PATH = "/login";
 
 /**
- * Whether a request failed with 401. The fetchers throw `${status} ${path}: ${body}`, so
+ * Whether a request failed with 401. A failed request's `message` is `${status} ${path}: ${body}`, so
  * the status is the message's prefix. A substring match would also catch an id in the path,
  * such as "403 /api/groups/401/stats".
  */

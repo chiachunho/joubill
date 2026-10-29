@@ -13,9 +13,12 @@ import type { ComponentType, ReactNode } from "react";
 export type Platform = {
   /** Prefix for in-app links: "/mini" or "/app". */
   basePath: "/mini" | "/app";
-  /** Authenticated request: the `tma` initData header in the Mini App, the session cookie in the Web App. */
-  request: <T>(path: string, init?: RequestInit) => Promise<T>;
-  /** The same request, returning the raw Response so the caller can check `res.ok` itself. */
+  /**
+   * An authenticated request returning the raw Response: the `tma` initData header in the
+   * Mini App, the session cookie in the Web App. Reads and edits of cached data go through
+   * the store instead (`src/store/api.ts`); this is for what the cache has no use for, such
+   * as the CSV export.
+   */
   rawRequest: (path: string, init?: RequestInit) => Promise<Response>;
   /** The viewer's own Telegram photo, used when the bot has none. A hook, so it may hold state. */
   useSelfPhoto: () => string | null;

@@ -7,7 +7,7 @@ import { UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
 import { HELP_URL } from "@/lib/help-url";
-import { tmaFetch, tmaRawFetch } from "@/lib/tma-fetch";
+import { tmaRawFetch } from "@/lib/tma-fetch";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
 function useTelegramSelfPhoto(): string | null {
@@ -81,7 +81,6 @@ function MiniAccountSection(): null {
 
 export const miniPlatform: Platform = {
   basePath: "/mini",
-  request: tmaFetch,
   rawRequest: tmaRawFetch,
   useSelfPhoto: useTelegramSelfPhoto,
   HeaderLeading: MiniHeaderLeading,

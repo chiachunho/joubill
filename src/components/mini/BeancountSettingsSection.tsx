@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, ExternalLink, Loader2 } from "lucide-react";
-import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { BeancountSettingsSkeleton } from "@/components/mini/skeletons";
@@ -10,6 +9,7 @@ import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { apiErrorText } from "@/lib/api-error";
 import { beancountAccountName, DEFAULT_BEANCOUNT_ACCOUNTS } from "@/lib/beancount";
 import { labelMember } from "@/lib/label";
 import {
@@ -19,6 +19,11 @@ import {
   BEANCOUNT_LEAF_RE,
   type BeancountConfigInput,
 } from "@/lib/zod";
+import {
+  useDeleteBeancountConfigMutation,
+  useGetBeancountConfigQuery,
+  usePutBeancountConfigMutation,
+} from "@/store/api";
 
 const BEANCOUNT_PROJECT_URL = "https://github.com/beancount/beancount";
 
@@ -47,13 +52,10 @@ type Member = {
 
 type Config = BeancountConfigInput;
 
-type ConfigResponse = { config: Config | null };
-
 type Props = {
   groupId: string;
-  /** Group members, from the host page's own members SWR call. */
+  /** Group members, from the host page's own members query. */
   members: Member[];
-  rawFetch: (url: string, init?: RequestInit) => Promise<Response>;
 };
 
 function Intro() {
@@ -81,10 +83,10 @@ function Intro() {
  * App and Web App each have a copy) — no internal heading, the page owns its
  * own `<h1>`. Apple Wi-Fi-style: a description + toggle card is always shown;
  * the account fields and per-member accounts only appear once the toggle is
- * on (`config !== null`). Auth is injected via `rawFetch`.
+ * on (`config !== null`).
  */
-export function BeancountSettingsSection({ groupId, members, rawFetch }: Props) {
-  const { data, error, mutate } = useSWR<ConfigResponse>(`/api/groups/${groupId}/beancount`);
+export function BeancountSettingsSection({ groupId, members }: Props) {
+  const { data, error } = useGetBeancountConfigQuery(groupId);
   const config = data?.config ?? null;
 
   if (error) {
@@ -101,30 +103,16 @@ export function BeancountSettingsSection({ groupId, members, rawFetch }: Props) 
 
   // `key` remounts Off/On only when the enabled state actually flips, not on
   // every background revalidation — that's what lets `On` seed its editable
-  // state once and keep it across a `mutate()` triggered by its own save.
+  // state once and keep it across the cache update its own save causes.
   return config === null ? (
-    <Off key="off" groupId={groupId} rawFetch={rawFetch} onChange={mutate} />
+    <Off key="off" groupId={groupId} />
   ) : (
-    <On
-      key="on"
-      groupId={groupId}
-      members={members}
-      rawFetch={rawFetch}
-      initial={config}
-      onChange={mutate}
-    />
+    <On key="on" groupId={groupId} members={members} initial={config} />
   );
 }
 
-function Off({
-  groupId,
-  rawFetch,
-  onChange,
-}: {
-  groupId: string;
-  rawFetch: Props["rawFetch"];
-  onChange: () => void;
-}) {
+function Off({ groupId }: { groupId: string }) {
+  const [putConfig] = usePutBeancountConfigMutation();
   const [enabling, setEnabling] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -133,21 +121,15 @@ function Off({
     setEnabling(true);
     setErr(null);
     try {
-      const res = await rawFetch(`/api/groups/${groupId}/beancount`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await putConfig({
+        groupId,
+        config: {
           expensesAccount: DEFAULT_BEANCOUNT_ACCOUNTS.expenses,
           cashAccount: DEFAULT_BEANCOUNT_ACCOUNTS.cash,
           receivablePrefix: DEFAULT_BEANCOUNT_ACCOUNTS.receivablePrefix,
           personAccounts: {},
-        }),
-      });
-      if (!res.ok) {
-        setErr("啟用失敗，請再試一次");
-        return;
-      }
-      await onChange();
+        },
+      }).unwrap();
     } catch {
       setErr("啟用失敗，請再試一次");
     } finally {
@@ -174,16 +156,14 @@ function Off({
 function On({
   groupId,
   members,
-  rawFetch,
   initial,
-  onChange,
 }: {
   groupId: string;
   members: Member[];
-  rawFetch: Props["rawFetch"];
   initial: Config;
-  onChange: () => void;
 }) {
+  const [putConfig] = usePutBeancountConfigMutation();
+  const [deleteConfig] = useDeleteBeancountConfigMutation();
   const [expensesAccount, setExpensesAccount] = useState(initial.expensesAccount);
   const [cashAccount, setCashAccount] = useState(initial.cashAccount);
   const [receivablePrefix, setReceivablePrefix] = useState(initial.receivablePrefix);
@@ -242,26 +222,19 @@ function On({
       if (v) cleaned[String(m.id)] = v;
     }
     try {
-      const res = await rawFetch(`/api/groups/${groupId}/beancount`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await putConfig({
+        groupId,
+        config: {
           expensesAccount: expensesAccount.trim(),
           cashAccount: cashAccount.trim(),
           receivablePrefix: receivablePrefix.trim(),
           personAccounts: cleaned,
-        }),
-      });
-      if (!res.ok) {
-        const d = (await res.json().catch(() => ({}))) as { error?: string };
-        setErr(d.error ?? "儲存失敗，請再試一次");
-        return;
-      }
-      await onChange();
+        },
+      }).unwrap();
       setJustSaved(true);
       savedTimer.current = setTimeout(() => setJustSaved(false), SAVED_FLAG_MS);
-    } catch {
-      setErr("儲存失敗，請再試一次");
+    } catch (e) {
+      setErr(apiErrorText(e, "儲存失敗，請再試一次"));
     } finally {
       setSaving(false);
     }
@@ -272,13 +245,8 @@ function On({
     setDisabling(true);
     setErr(null);
     try {
-      const res = await rawFetch(`/api/groups/${groupId}/beancount`, { method: "DELETE" });
-      if (!res.ok) {
-        setErr("停用失敗，請再試一次");
-        return;
-      }
+      await deleteConfig({ groupId }).unwrap();
       setConfirmOpen(false);
-      await onChange();
     } catch {
       setErr("停用失敗，請再試一次");
     } finally {

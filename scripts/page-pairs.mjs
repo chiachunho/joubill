@@ -23,7 +23,7 @@ export function counterpartOf(path) {
 // Returns one entry per one-sided edit:
 //   reason "unchanged": this side changed and the other copy is still there untouched.
 //   reason "missing":   a new page with no counterpart on the other side.
-// A path with no counterpart that was merely edited, such as app/SWRProvider.tsx, is
+// A path with no counterpart that was merely edited, such as app/StoreProvider.tsx, is
 // not reported: that file was never meant to have a mirror.
 export function findUnpairedChanges(changes, exists) {
   const changed = new Set(changes.map((change) => change.path));

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
-import useSWR, { mutate as globalMutate } from "swr";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,22 +21,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { apiErrorText } from "@/lib/api-error";
+import type { RateRow } from "@/lib/api-types";
 import { affectedCurrencyFor } from "@/lib/fx-shared";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
-
-type RateRow = { id: number; base: string; quote: string; rate: number; updatedAt: string };
-type RatesResponse = { defaultCurrency: string; rates: RateRow[] };
-type EffectiveResponse = {
-  marketRate: number | null;
-  affectedExpenses: number;
-  affectedSettlements: number;
-};
+import {
+  useDeleteRateMutation,
+  useGetEffectiveRateQuery,
+  useGetRatesQuery,
+  usePutRateMutation,
+} from "@/store/api";
 
 type Props = {
   groupId: string;
-  /** Group default currency from the page's settings SWR (stays in sync with the 預設貨幣 select). */
+  /** Group default currency from the page's settings query (stays in sync with the 預設貨幣 select). */
   defaultCurrency: string;
-  rawFetch: (url: string, init?: RequestInit) => Promise<Response>;
 };
 
 /** Trim a stored rate for display: 0.2200000000 → "0.22". */
@@ -54,10 +53,11 @@ function fmtAffected(expenses: number, settlements: number): string {
  * ALL expenses of the group in that currency (past and future). Renders as
  * the sole content of the 自訂匯率 settings sub-page (Mini App and Web App
  * each have a copy) — no internal heading, the page owns its own `<h1>`.
- * Auth is injected via `rawFetch`.
  */
-export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props) {
-  const { data, error, mutate } = useSWR<RatesResponse>(`/api/groups/${groupId}/rates`);
+export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
+  const { data, error } = useGetRatesQuery(groupId);
+  const [putRate] = usePutRateMutation();
+  const [deleteRate] = useDeleteRateMutation();
 
   const [base, setBase] = useState<string>("");
   const [rateInput, setRateInput] = useState("");
@@ -72,37 +72,26 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
   // Market reference + counts of existing records the new rate would re-convert.
-  // `isLoading` covers both the initial fetch and a key change rendered with
-  // keepPreviousData — saving must wait for the counts of the CURRENT currency,
-  // or the scope dialog could be skipped / show another currency's numbers.
-  const { data: reference, isLoading: referenceLoading } = useSWR<EffectiveResponse>(
-    base && base !== defaultCurrency
-      ? `/api/groups/${groupId}/rates/effective?base=${base}&counts=1`
-      : null,
+  // Saving must wait for the counts of the CURRENT currency (`currentData`, not the
+  // previous currency's `data` that stays on screen while a new one loads), or the
+  // scope dialog could be skipped / show another currency's numbers.
+  const { currentData: reference } = useGetEffectiveRateQuery(
+    base && base !== defaultCurrency ? { groupId, base, counts: true } : skipToken,
   );
-  const countsReady = !referenceLoading && reference !== undefined;
+  const countsReady = reference !== undefined;
   const affectedExpenses = reference?.affectedExpenses ?? 0;
   const affectedSettlements = reference?.affectedSettlements ?? 0;
   const affectedTotal = affectedExpenses + affectedSettlements;
 
   // Same counts for the rate being deleted (its records fall back to market rates).
   const deleteCurrency = deleteTarget ? affectedCurrencyFor(deleteTarget, defaultCurrency) : null;
-  const { data: deleteCounts, isLoading: deleteCountsLoading } = useSWR<EffectiveResponse>(
-    deleteCurrency
-      ? `/api/groups/${groupId}/rates/effective?base=${deleteCurrency}&counts=1`
-      : null,
+  const { currentData: deleteCounts } = useGetEffectiveRateQuery(
+    deleteCurrency ? { groupId, base: deleteCurrency, counts: true } : skipToken,
   );
-  const deleteCountsReady = !deleteCurrency || (!deleteCountsLoading && deleteCounts !== undefined);
+  const deleteCountsReady = !deleteCurrency || deleteCounts !== undefined;
   const deleteAffectedTotal = deleteCurrency
     ? (deleteCounts?.affectedExpenses ?? 0) + (deleteCounts?.affectedSettlements ?? 0)
     : 0;
-
-  // Balances, stats and expense fx pins are derived from these rates — refresh after a change.
-  function revalidateDerived() {
-    globalMutate(`/api/groups/${groupId}/balance`);
-    globalMutate(`/api/groups/${groupId}/stats`);
-    globalMutate(`/api/groups/${groupId}/expenses`);
-  }
 
   const parsedRate = parseFloat(rateInput);
   const canSave =
@@ -113,28 +102,19 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
     setSavingMode(mode);
     setErrMsg(null);
     try {
-      const res = await rawFetch(`/api/groups/${groupId}/rates`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          base,
-          quote: defaultCurrency,
-          rate: parsedRate,
-          lockExisting: mode === "lock",
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setErrMsg(data.error ?? "儲存失敗，請再試一次");
-        return;
-      }
+      // Saving invalidates the rates, the balances, the stats and every record's converted amount.
+      await putRate({
+        groupId,
+        base,
+        quote: defaultCurrency,
+        rate: parsedRate,
+        lockExisting: mode === "lock",
+      }).unwrap();
       setBase("");
       setRateInput("");
-      await mutate();
-      revalidateDerived();
       setConfirmOpen(false);
-    } catch {
-      setErrMsg("儲存失敗，請再試一次");
+    } catch (e) {
+      setErrMsg(apiErrorText(e, "儲存失敗，請再試一次"));
     } finally {
       setSavingMode(null);
     }
@@ -152,21 +132,15 @@ export function CustomRatesSection({ groupId, defaultCurrency, rawFetch }: Props
     setDeleteMode(mode);
     setErrMsg(null);
     try {
-      const lockParam = mode === "lock" ? "&lock=1" : "";
-      const res = await rawFetch(
-        `/api/groups/${groupId}/rates?base=${deleteTarget.base}&quote=${deleteTarget.quote}${lockParam}`,
-        { method: "DELETE" },
-      );
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setErrMsg(data.error ?? "刪除失敗，請再試一次");
-        return;
-      }
-      await mutate();
-      revalidateDerived();
+      await deleteRate({
+        groupId,
+        base: deleteTarget.base,
+        quote: deleteTarget.quote,
+        lock: mode === "lock",
+      }).unwrap();
       setDeleteTarget(null);
-    } catch {
-      setErrMsg("刪除失敗，請再試一次");
+    } catch (e) {
+      setErrMsg(apiErrorText(e, "刪除失敗，請再試一次"));
     } finally {
       setDeleteMode(null);
     }

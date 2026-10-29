@@ -14,7 +14,6 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -29,23 +28,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { MembersResponse } from "@/lib/api-types";
+import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
 import { labelMember, labelUser } from "@/lib/label";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
+import {
+  useAddPlaceholderMemberMutation,
+  useGetAvatarsQuery,
+  useGetMeQuery,
+  useGetMembersQuery,
+  useGetSettingsQuery,
+  useRemoveMemberMutation,
+  useRenameMemberMutation,
+  useUpdateGroupCurrencyMutation,
+  useUpdateMemberStatusMutation,
+} from "@/store/api";
 
-type Member = {
-  id: number;
-  firstName: string;
-  lastName: string | null;
-  username: string | null;
-  status: string;
-  /** Has a name but no account (added from the member list). */
-  isPlaceholder: boolean;
-};
-
-type MembersResponse = { members: Member[] };
-type SettingsResponse = { defaultCurrency: string };
-type AvatarsResponse = { groupPhoto: string | null; userPhotos: Record<number, string | null> };
-type MeResponse = { userId: number };
+type Member = MembersResponse["members"][number];
 
 export function GroupSettings({
   params,
@@ -59,22 +58,18 @@ export function GroupSettings({
   const backHref = `${platform.basePath}/groups/${id}`;
   platform.useBack(backHref);
 
-  const { data: me } = useSWR<MeResponse>("/api/me/groups");
+  const { data: me } = useGetMeQuery();
   const selfUserId = me?.userId;
 
-  const {
-    data: membersData,
-    error: membersError,
-    mutate: mutateMembers,
-  } = useSWR<MembersResponse>(`/api/groups/${id}/members`);
+  const { data: membersData, error: membersError } = useGetMembersQuery(id);
+  const { data: settings, error: settingsError } = useGetSettingsQuery(id);
+  const { data: avatars } = useGetAvatarsQuery(id);
 
-  const {
-    data: settings,
-    error: settingsError,
-    mutate: mutateSettings,
-  } = useSWR<SettingsResponse>(`/api/groups/${id}/settings`);
-
-  const { data: avatars } = useSWR<AvatarsResponse>(`/api/groups/${id}/avatars`);
+  const [addPlaceholderMember] = useAddPlaceholderMemberMutation();
+  const [renameMember] = useRenameMemberMutation();
+  const [removeMember] = useRemoveMemberMutation();
+  const [updateMemberStatus] = useUpdateMemberStatusMutation();
+  const [updateGroupCurrency] = useUpdateGroupCurrencyMutation();
 
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -94,27 +89,11 @@ export function GroupSettings({
     setTogglingId(member.id);
     setToggleError(null);
 
-    mutateMembers(
-      (prev) =>
-        prev
-          ? {
-              members: prev.members.map((m) =>
-                m.id === member.id ? { ...m, status: newStatus } : m,
-              ),
-            }
-          : prev,
-      { revalidate: false },
-    );
-
     try {
-      await platform.request(`/api/groups/${id}/members/${member.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      // The row flips at once; the mutation puts it back if the server refuses.
+      await updateMemberStatus({ groupId: id, userId: member.id, status: newStatus }).unwrap();
     } catch {
       setToggleError("更新失敗，請再試一次");
-      await mutateMembers();
     } finally {
       setTogglingId(null);
     }
@@ -122,21 +101,19 @@ export function GroupSettings({
 
   /** Resolves to an error message for the dialog, or null once saved. */
   async function submitMemberName(
-    path: string,
-    method: "POST" | "PATCH",
+    target: { userId: number } | null,
     name: string,
   ): Promise<string | null> {
-    const res = await platform.rawRequest(path, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ firstName: name }),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      return data.error ?? "儲存失敗，請再試一次";
+    try {
+      if (target) {
+        await renameMember({ groupId: id, userId: target.userId, firstName: name }).unwrap();
+      } else {
+        await addPlaceholderMember({ groupId: id, firstName: name }).unwrap();
+      }
+      return null;
+    } catch (e) {
+      return apiErrorText(e, "儲存失敗，請再試一次");
     }
-    await mutateMembers();
-    return null;
   }
 
   async function doDelete() {
@@ -145,26 +122,15 @@ export function GroupSettings({
     setDeleteLoading(true);
 
     try {
-      const res = await platform.rawRequest(`/api/groups/${id}/members/${target.id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (res.status === 409) {
-          setDeleteError(
-            `無法刪除：此成員有 ${(data as { expenseCount?: number }).expenseCount ?? "多筆"} 筆費用記錄，只能停用。`,
-          );
-        } else {
-          setDeleteError("刪除失敗，請再試一次");
-        }
-        return;
-      }
-
-      await mutateMembers();
+      await removeMember({ groupId: id, userId: target.id }).unwrap();
       setDeleteTarget(null);
-    } catch {
-      setDeleteError("刪除失敗，請再試一次");
+    } catch (e) {
+      if (apiErrorStatus(e) === 409) {
+        const count = (e as { data?: { expenseCount?: number } }).data?.expenseCount;
+        setDeleteError(`無法刪除：此成員有 ${count ?? "多筆"} 筆費用記錄，只能停用。`);
+      } else {
+        setDeleteError("刪除失敗，請再試一次");
+      }
     } finally {
       setDeleteLoading(false);
     }
@@ -213,19 +179,11 @@ export function GroupSettings({
   async function updateCurrency(currency: string) {
     if (currencyPending) return;
     setCurrencyPending(true);
-
-    mutateSettings((prev) => (prev ? { ...prev, defaultCurrency: currency } : prev), {
-      revalidate: false,
-    });
-
     try {
-      await platform.request(`/api/groups/${id}/settings`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ defaultCurrency: currency }),
-      });
+      // The select shows the new currency at once; the mutation puts it back on failure.
+      await updateGroupCurrency({ groupId: id, defaultCurrency: currency }).unwrap();
     } catch {
-      await mutateSettings();
+      // rolled back
     } finally {
       setCurrencyPending(false);
     }
@@ -236,7 +194,7 @@ export function GroupSettings({
     return (
       <div className="px-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{String(error)}</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
       </div>
     );
   }
@@ -484,7 +442,6 @@ export function GroupSettings({
         groupId={id}
         membersCount={membersData.members.filter((m) => !m.isPlaceholder).length}
         selfUserId={selfUserId}
-        rawFetch={platform.rawRequest}
         redirectPath={platform.basePath}
       />
 
@@ -495,7 +452,7 @@ export function GroupSettings({
         description="沒有帳號的成員也能當付款人或分攤者。"
         confirmLabel="新增"
         onSubmit={async (name) => {
-          const err = await submitMemberName(`/api/groups/${id}/members/placeholder`, "POST", name);
+          const err = await submitMemberName(null, name);
           if (!err) setAddOpen(false);
           return err;
         }}
@@ -511,11 +468,7 @@ export function GroupSettings({
         confirmLabel="儲存"
         onSubmit={async (name) => {
           if (!renameTarget) return null;
-          const err = await submitMemberName(
-            `/api/groups/${id}/members/${renameTarget.id}`,
-            "PATCH",
-            name,
-          );
+          const err = await submitMemberName({ userId: renameTarget.id }, name);
           if (!err) setRenameTarget(null);
           return err;
         }}

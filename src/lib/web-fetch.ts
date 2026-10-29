@@ -1,18 +1,6 @@
 "use client";
 
-export async function webFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = new Headers(init?.headers);
-  const res = await fetch(path, { ...init, credentials: "include", headers });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`${res.status} ${path}: ${body}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-export const webFetcher = (path: string) => webFetch(path);
-
-/** Like webFetch but returns the raw Response so callers can check res.ok themselves. */
+/** A request carrying the session cookie. Returns the raw Response. */
 export async function webRawFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   return fetch(path, { ...init, credentials: "include", headers });

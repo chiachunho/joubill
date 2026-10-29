@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, Loader2, Trash2 } from "lucide-react";
-import useSWR from "swr";
 
 import {
   Accordion,
@@ -12,44 +11,38 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
-
-type DeleteRequestResponse = {
-  request: {
-    id: number;
-    requestedBy: number;
-    requestedByName: string;
-    createdAt: string;
-    expiresAt: string;
-  } | null;
-};
+import {
+  useApproveDeleteRequestMutation,
+  useCancelDeleteRequestMutation,
+  useDeleteGroupMutation,
+  useGetDeleteRequestQuery,
+} from "@/store/api";
 
 type Props = {
   groupId: string;
   membersCount: number;
   selfUserId: number | undefined;
-  rawFetch: (url: string, init?: RequestInit) => Promise<Response>;
   redirectPath: string;
 };
 
-export function DangerZoneSection({
-  groupId,
-  membersCount,
-  selfUserId,
-  rawFetch,
-  redirectPath,
-}: Props) {
+export function DangerZoneSection({ groupId, membersCount, selfUserId, redirectPath }: Props) {
   const router = useRouter();
 
+  // Poll only while a request is pending, so the others' approval shows up without a reload.
+  const [polling, setPolling] = useState(false);
   const {
     data: deleteRequestData,
-    mutate: mutateDeleteRequest,
     error: deleteRequestError,
-  } = useSWR<DeleteRequestResponse>(`/api/groups/${groupId}/delete-request`, {
-    // Only poll while a request is pending; SWR v2 accepts a function here.
-    refreshInterval: (data) => (data?.request ? 10_000 : 0),
-  });
+    refetch: refetchDeleteRequest,
+  } = useGetDeleteRequestQuery(groupId, { pollingInterval: polling ? 10_000 : 0 });
+  const [deleteGroup] = useDeleteGroupMutation();
+  const [approveDeleteRequestMutation] = useApproveDeleteRequestMutation();
+  const [cancelDeleteRequestMutation] = useCancelDeleteRequestMutation();
 
   const pendingRequest = deleteRequestData?.request ?? null;
+  useEffect(() => {
+    setPolling(pendingRequest !== null);
+  }, [pendingRequest]);
   // `pendingRequest` and `selfUserId` come from two independent, unordered
   // fetches. Until both have resolved we can't yet tell whether there's an
   // actionable pending request, so we must not fall through to the collapsed
@@ -72,15 +65,10 @@ export function DangerZoneSection({
     setDeleteGroupLoading(true);
     setDeleteGroupError(null);
     try {
-      const res = await rawFetch(`/api/groups/${groupId}`, { method: "DELETE" });
-      if (!res.ok) {
-        setDeleteGroupError("刪除失敗，請再試一次");
-        return;
-      }
-      const data = (await res.json()) as { ok?: boolean; pending?: boolean };
+      const data = await deleteGroup({ groupId }).unwrap();
       if (data.pending) {
+        // Waiting on the others: the request now shows in this section.
         setDeleteGroupOpen(false);
-        await mutateDeleteRequest();
       } else {
         router.replace(redirectPath);
       }
@@ -95,15 +83,11 @@ export function DangerZoneSection({
     setApprovingDelete(true);
     setDeleteGroupError(null);
     try {
-      const res = await rawFetch(`/api/groups/${groupId}/delete-request`, { method: "POST" });
-      if (!res.ok) {
-        setDeleteGroupError("操作失敗，請再試一次");
-        await mutateDeleteRequest();
-        return;
-      }
+      await approveDeleteRequestMutation({ groupId }).unwrap();
       router.replace(redirectPath);
     } catch {
       setDeleteGroupError("操作失敗，請再試一次");
+      await refetchDeleteRequest();
     } finally {
       setApprovingDelete(false);
     }
@@ -113,11 +97,10 @@ export function DangerZoneSection({
     setCancellingDelete(true);
     setDeleteGroupError(null);
     try {
-      const res = await rawFetch(`/api/groups/${groupId}/delete-request`, { method: "DELETE" });
-      if (!res.ok) setDeleteGroupError("操作失敗，請再試一次");
-      await mutateDeleteRequest();
+      await cancelDeleteRequestMutation({ groupId }).unwrap();
     } catch {
       setDeleteGroupError("操作失敗，請再試一次");
+      await refetchDeleteRequest();
     } finally {
       setCancellingDelete(false);
     }
