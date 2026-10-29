@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Adapter, AdapterAccount, AdapterSession, AdapterUser } from "next-auth/adapters";
 
 import { db } from "@/db";
@@ -57,7 +57,11 @@ export const splitbillAdapter: Adapter = {
 
   async getUserByEmail(email) {
     if (!email) return null;
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    // A placeholder member (no account) must never be resolvable as a login.
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.email, email), isNull(users.placeholderGroupId)));
     return user ? toAdapterUser(user) : null;
   },
 
@@ -70,6 +74,7 @@ export const splitbillAdapter: Adapter = {
         and(
           eq(authIdentities.provider, provider),
           eq(authIdentities.providerUid, providerAccountId),
+          isNull(users.placeholderGroupId),
         ),
       );
     return row ? toAdapterUser(row.user) : null;
