@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { getBot } from "@/bot";
 import { db } from "@/db";
 import { expenseReceipts, expensePayers, expenseSplits, expenses, users } from "@/db/schema";
+import { EXPENSES_PAGE_SIZE, encodeExpenseCursor, parseExpenseCursor } from "@/lib/expense-cursor";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { resolveRecordFx } from "@/lib/fx";
@@ -25,7 +26,23 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
   await assertGroupMember(auth.user.id, groupId);
 
-  const expenseRows = await db
+  const rawCursor = new URL(req.url).searchParams.get("cursor");
+  const cursor = rawCursor != null ? parseExpenseCursor(rawCursor) : null;
+  if (rawCursor != null && !cursor) {
+    return NextResponse.json({ error: "invalid cursor" }, { status: 400 });
+  }
+
+  // The total covers every record in the group (expenses and settlements, as the
+  // list does) and is only needed once, so later pages skip the count.
+  const totalPromise = cursor
+    ? Promise.resolve(null)
+    : db
+        .select({ value: count() })
+        .from(expenses)
+        .where(eq(expenses.groupId, groupId))
+        .then(([r]) => r.value);
+
+  const fetched = await db
     .select({
       id: expenses.id,
       type: expenses.type,
@@ -37,14 +54,31 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       legacyReceiptFileId: expenses.receiptFileId,
       fxRate: expenses.fxRate,
       fxQuote: expenses.fxQuote,
+      // Full microsecond precision, which a JS Date would round off.
+      spentAtCursor: sql<string>`to_char(${expenses.spentAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
     })
     .from(expenses)
-    .where(eq(expenses.groupId, groupId))
-    .orderBy(desc(expenses.spentAt));
+    .where(
+      and(
+        eq(expenses.groupId, groupId),
+        cursor
+          ? sql`(${expenses.spentAt}, ${expenses.id}) < (${cursor.spentAt}::timestamptz, ${cursor.id})`
+          : undefined,
+      ),
+    )
+    .orderBy(desc(expenses.spentAt), desc(expenses.id))
+    .limit(EXPENSES_PAGE_SIZE + 1);
 
+  // One extra row says whether another page exists.
+  const expenseRows = fetched.slice(0, EXPENSES_PAGE_SIZE);
   if (expenseRows.length === 0) {
-    return NextResponse.json({ expenses: [] });
+    return NextResponse.json({ expenses: [], nextCursor: null, total: await totalPromise });
   }
+  const last = expenseRows[expenseRows.length - 1];
+  const nextCursor =
+    fetched.length > EXPENSES_PAGE_SIZE
+      ? encodeExpenseCursor({ spentAt: last.spentAtCursor, id: last.id })
+      : null;
 
   const expenseIds = expenseRows.map((e) => e.id);
 
@@ -102,6 +136,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
 
   return NextResponse.json({
+    nextCursor,
+    total: await totalPromise,
     expenses: expenseRows.map((e) => ({
       id: e.id,
       type: e.type,

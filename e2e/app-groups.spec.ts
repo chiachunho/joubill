@@ -1,3 +1,6 @@
+import { drizzle } from "drizzle-orm/neon-serverless";
+
+import * as schema from "../src/db/schema";
 import { expect, test } from "./fixtures";
 
 test.describe("Group list and group page", () => {
@@ -22,6 +25,41 @@ test.describe("Group list and group page", () => {
     await expect(
       authedPage.getByText(seeded.expenseDescription, { exact: true }).first(),
     ).toBeVisible();
+  });
+
+  test("group page loads older expenses as the list is scrolled", async ({
+    authedPage,
+    seeded,
+    dbPool,
+  }) => {
+    // 30 is the page size, so 35 more (36 with the seeded one) spill onto a second page.
+    const stamp = Date.now();
+    const base = Date.now() - 86_400_000;
+    const values = Array.from({ length: 35 }, (_, i) => ({
+      groupId: seeded.groupId,
+      type: "expense" as const,
+      amount: "10.00",
+      currency: "TWD",
+      description: `E2E page ${stamp} #${i}`,
+      createdBy: seeded.userId,
+      // Older than the seeded expense, one minute apart.
+      spentAt: new Date(base - i * 60_000),
+    }));
+    const db = drizzle(dbPool, { schema });
+    const rows = await db.insert(schema.expenses).values(values).returning();
+    await db
+      .insert(schema.expensePayers)
+      .values(rows.map((r) => ({ expenseId: r.id, payerId: seeded.userId, amount: "10.00" })));
+    await db
+      .insert(schema.expenseSplits)
+      .values(rows.map((r) => ({ expenseId: r.id, debtorId: seeded.userId, amount: "10.00" })));
+
+    await authedPage.goto(`/app/groups/${seeded.groupId}`);
+    await expect(authedPage.getByText(seeded.expenseDescription, { exact: true })).toBeVisible();
+    // The oldest row is past the first page until the list is scrolled to its end.
+    const oldest = authedPage.getByText(`E2E page ${stamp} #34`, { exact: true });
+    await authedPage.mouse.wheel(0, 100_000);
+    await expect(oldest).toBeVisible();
   });
 
   test("group page links to the new-expense and new-settlement forms", async ({

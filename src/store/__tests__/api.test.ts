@@ -54,7 +54,7 @@ describe("a failed request", () => {
 
 describe("record mutations", () => {
   const routes = {
-    "/api/groups/7/expenses": { expenses: [] },
+    "/api/groups/7/expenses": { expenses: [], nextCursor: null },
     "/api/groups/7/balance": { currency: "TWD", balances: [] },
     "/api/groups/7/stats?range=6m": { currency: "TWD" },
     "/api/groups/7/expenses/11": { id: 11 },
@@ -282,5 +282,54 @@ describe("the activity feed", () => {
     await store.dispatch(api.endpoints.getActivity.initiate({ groupId: 7, recordId: "11" }));
 
     expect(request).toHaveBeenCalledWith("/api/groups/7/activity?record=11", expect.anything());
+  });
+});
+
+describe("the expense list", () => {
+  const page1 = { expenses: [{ id: 3 }], nextCursor: "2026-03-04T05:06:07.123456Z_3", total: 2 };
+  const page2 = { expenses: [{ id: 1 }], nextCursor: null };
+  const routes = {
+    "/api/groups/7/expenses": page1,
+    "/api/groups/7/expenses?cursor=2026-03-04T05%3A06%3A07.123456Z_3": page2,
+    "/api/groups/7/balance": { currency: "TWD", balances: [] },
+    "/api/groups/7/stats?range=6m": { currency: "TWD" },
+  };
+
+  it("asks for each next page with the cursor the page before it returned", async () => {
+    const request = fakeRequest(routes);
+    const store = makeStore(request);
+
+    await store.dispatch(api.endpoints.getExpenses.initiate(7));
+    await store.dispatch(api.endpoints.getExpenses.initiate(7, { direction: "forward" }));
+    await settle();
+
+    const state = api.endpoints.getExpenses.select(7)(store.getState());
+    expect(state.data?.pages.flatMap((p) => p.expenses.map((e) => e.id))).toEqual([3, 1]);
+  });
+
+  it("refetches every loaded page after an edit, so a row on page 2 is not left stale", async () => {
+    let edited = false;
+    const request = fakeRequest({
+      ...routes,
+      "/api/groups/7/expenses": () => ({ ...page1, expenses: [{ id: edited ? 30 : 3 }] }),
+      "/api/groups/7/expenses?cursor=2026-03-04T05%3A06%3A07.123456Z_3": () => ({
+        ...page2,
+        expenses: [{ id: edited ? 10 : 1 }],
+      }),
+      "/api/groups/7/expenses/11": { ok: true },
+    });
+    const store = makeStore(request);
+    await store.dispatch(api.endpoints.getExpenses.initiate(7));
+    await store.dispatch(api.endpoints.getExpenses.initiate(7, { direction: "forward" }));
+    await settle();
+
+    edited = true;
+    await store.dispatch(
+      api.endpoints.updateExpense.initiate({ groupId: 7, expenseId: 11, body: {} }),
+    );
+    await settle();
+
+    const state = api.endpoints.getExpenses.select(7)(store.getState());
+    expect(state.data?.pages.flatMap((p) => p.expenses.map((e) => e.id))).toEqual([30, 10]);
   });
 });

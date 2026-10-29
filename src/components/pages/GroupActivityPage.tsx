@@ -5,8 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { History } from "lucide-react";
 
 import { ActivityList } from "@/components/mini/ActivityList";
+import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { ActivitySkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
+import { useAutoLoadMore } from "@/lib/use-auto-load-more";
 import { useGetActivityInfiniteQuery, useGetAvatarsQuery, useGetMeQuery } from "@/store/api";
 
 /**
@@ -40,16 +42,25 @@ export function GroupActivityPage({
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage,
+    isFetching,
   } = useGetActivityInfiniteQuery({ groupId: id, recordId });
   const pages = result?.pages;
 
   const entries = pages?.flatMap((p) => p.entries) ?? [];
   const hasMore = hasNextPage;
   const loadingMore = isFetchingNextPage;
+  const { sentinelRef, needsButton } = useAutoLoadMore({
+    hasMore,
+    loading: isFetching,
+    error,
+    loadedPages: pages?.length ?? 0,
+    onLoadMore: () => void fetchNextPage(),
+  });
   const { data: avatars } = useGetAvatarsQuery(id);
   const { data: me } = useGetMeQuery();
 
-  if (error) {
+  // A failed later page keeps the loaded feed; the footer offers the retry.
+  if (error && !pages) {
     return (
       <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
         <p className="text-sm text-muted-foreground">讀不到動態紀錄</p>
@@ -90,16 +101,13 @@ export function GroupActivityPage({
       )}
 
       {hasMore && (
-        <div className="px-4">
-          <button
-            type="button"
-            onClick={() => fetchNextPage()}
-            disabled={loadingMore}
-            className="w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-60"
-          >
-            {loadingMore ? "載入中…" : "載入更多"}
-          </button>
-        </div>
+        <LoadMoreFooter
+          sentinelRef={sentinelRef}
+          needsButton={needsButton}
+          loading={loadingMore}
+          onClick={() => void fetchNextPage()}
+          className="px-4"
+        />
       )}
     </div>
   );

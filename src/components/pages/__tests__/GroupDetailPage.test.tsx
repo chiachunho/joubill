@@ -30,6 +30,7 @@ const EXPENSES = {
       splits: [],
     },
   ],
+  nextCursor: null,
 };
 
 // The viewer (userId 1) owes Bob, so the single transfer has the viewer on the `from` side.
@@ -152,5 +153,26 @@ describe("GroupDetailPage", () => {
 
     await waitFor(() => expect(reads("/api/groups/7/balance")).toBeGreaterThan(1));
     expect(reads("/api/groups/7/expenses")).toBeGreaterThan(1);
+  });
+
+  it("offers 載入更多 only while the expense list has another page", async () => {
+    // jsdom has no IntersectionObserver, so the manual button is the fallback.
+    await renderPage(fakePlatform("/app"));
+    expect(screen.queryByRole("button", { name: "載入更多" })).toBeNull();
+    cleanup();
+
+    const more = { ...EXPENSES, nextCursor: "2026-07-10T04:00:00.000000Z_11" };
+    const request = pageRequest({
+      "/api/groups/7/expenses": more,
+      "/api/groups/7/expenses?cursor=2026-07-10T04%3A00%3A00.000000Z_11": {
+        expenses: [{ ...EXPENSES.expenses[0], id: 10, description: "早餐" }],
+        nextCursor: null,
+      },
+    });
+    await renderPage(fakePlatform("/app"), request);
+    fireEvent.click(await screen.findByRole("button", { name: "載入更多" }));
+
+    expect(await screen.findByText("早餐")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "載入更多" })).toBeNull();
   });
 });

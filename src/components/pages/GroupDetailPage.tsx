@@ -16,6 +16,7 @@ import {
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
@@ -31,12 +32,13 @@ import {
 import { describeError } from "@/lib/api-error";
 import { fmt, monthLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
+import { useAutoLoadMore } from "@/lib/use-auto-load-more";
 import { minimizeTransfers } from "@/lib/settlement-core";
 import {
   useCreateSettlementMutation,
   useGetAvatarsQuery,
   useGetBalanceQuery,
-  useGetExpensesQuery,
+  useGetExpensesInfiniteQuery,
   useGetMeQuery,
 } from "@/store/api";
 
@@ -70,11 +72,24 @@ export function GroupDetailPage({
 
   const selfPhotoUrl = platform.useSelfPhoto();
 
+  // Paged by cursor; the pages are stitched back into one list below.
   const {
-    data: expensesData,
+    data: expensesResult,
     error: expensesError,
     refetch: refetchExpenses,
-  } = useGetExpensesQuery(id);
+    hasNextPage: hasMoreExpenses,
+    fetchNextPage: fetchMoreExpenses,
+    isFetching: expensesFetching,
+    isFetchingNextPage: loadingMoreExpenses,
+  } = useGetExpensesInfiniteQuery(id);
+  const expensePages = expensesResult?.pages;
+  const { sentinelRef, needsButton } = useAutoLoadMore({
+    hasMore: hasMoreExpenses,
+    loading: expensesFetching,
+    error: expensesError,
+    loadedPages: expensePages?.length ?? 0,
+    onLoadMore: () => void fetchMoreExpenses(),
+  });
 
   const { data: balance, error: balanceError, refetch: refetchBalance } = useGetBalanceQuery(id);
 
@@ -162,7 +177,8 @@ export function GroupDetailPage({
     setPendingIdx(null);
   }
 
-  const error = expensesError ?? balanceError;
+  // A failed later page keeps the loaded list and surfaces as the footer's retry button.
+  const error = (!expensePages ? expensesError : undefined) ?? balanceError;
   if (error) {
     return (
       <div className="px-4 py-12 text-center">
@@ -173,16 +189,17 @@ export function GroupDetailPage({
   }
 
   // Wait for `me` too: balance view and the "only mine" filter depend on selfUserId.
-  if (!expensesData || !balance || !me) {
+  if (!expensePages || !balance || !me) {
     return <GroupPageSkeleton />;
   }
 
   // "Only mine" filter, then group by YYYY/MM
+  const allExpenses = expensePages.flatMap((p) => p.expenses);
   const visibleExpenses =
     onlyMine && selfUserId !== undefined
-      ? expensesData.expenses.filter((e) => isRelatedToUser(e, selfUserId))
-      : expensesData.expenses;
-  const expensesByMonth = new Map<string, typeof expensesData.expenses>();
+      ? allExpenses.filter((e) => isRelatedToUser(e, selfUserId))
+      : allExpenses;
+  const expensesByMonth = new Map<string, typeof allExpenses>();
   for (const e of visibleExpenses) {
     const m = monthLabel(e.spentAt);
     if (!expensesByMonth.has(m)) expensesByMonth.set(m, []);
@@ -329,7 +346,14 @@ export function GroupDetailPage({
       {/* Expenses */}
       <section className="px-4">
         <div className="mb-2.5 flex items-center justify-between">
-          <p className="sect">Expenses ({visibleExpenses.length})</p>
+          <p className="sect">
+            Expenses (
+            {onlyMine
+              ? // Filtered client-side over the loaded pages, so the count is a lower bound.
+                `${visibleExpenses.length}${hasMoreExpenses ? "+" : ""}`
+              : (expensePages[0]?.total ?? visibleExpenses.length)}
+            )
+          </p>
           <div className="flex items-center gap-1.5">
             <Link
               href={`${platform.basePath}/groups/${id}/settlements/new`}
@@ -388,7 +412,11 @@ export function GroupDetailPage({
         {visibleExpenses.length === 0 ? (
           <div className="rounded-2xl bg-secondary/50 px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground">
-              {onlyMine ? "沒有與你相關的支出" : "尚無支出記錄"}
+              {onlyMine
+                ? hasMoreExpenses
+                  ? "已載入的紀錄裡還沒有與你相關的支出"
+                  : "沒有與你相關的支出"
+                : "尚無支出記錄"}
             </p>
           </div>
         ) : (
@@ -563,6 +591,16 @@ export function GroupDetailPage({
               </div>
             ))}
           </div>
+        )}
+
+        {hasMoreExpenses && (
+          <LoadMoreFooter
+            sentinelRef={sentinelRef}
+            needsButton={needsButton}
+            loading={loadingMoreExpenses}
+            onClick={() => void fetchMoreExpenses()}
+            className="mt-4"
+          />
         )}
       </section>
 

@@ -75,7 +75,13 @@ export type ExpenseListItem = {
   splits: ExpenseSplit[];
 };
 
-export type ExpensesResponse = { expenses: ExpenseListItem[] };
+export type ExpensesResponse = {
+  expenses: ExpenseListItem[];
+  /** Opaque cursor for the next (older) page; null on the last one. */
+  nextCursor: string | null;
+  /** Every record in the group, expenses and settlements; sent with the first page only. */
+  total?: number | null;
+};
 
 export type BalanceResponse = {
   currency: string;
