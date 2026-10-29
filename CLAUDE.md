@@ -352,6 +352,14 @@ Surfaces: both record forms show 由 X 於 T 記錄 and, once edited, a tappable
 最後由 Y 於 T 修改; `/{mini,app}/groups/[id]/activity` is the group feed, and the
 same page with `?record=<id>` is one record's history.
 
+### CSV 匯出 (`src/lib/csv.ts` + `src/lib/export.ts`)
+
+A group's records (expenses **and** settlements, one row each) export as CSV through three entry points sharing `buildGroupExport`: the bot's `/export` (`sendDocument` into the chat), `GET /api/groups/[id]/export?format=csv` (the Web App's download, via `Platform.canDownloadExport`), and `POST /api/groups/[id]/export/send` (the settings row in both apps, which has the bot post the file in the group chat).
+
+- **The Mini App has no direct download on purpose**: `WebApp.downloadFile`/`openLink` take a URL Telegram fetches itself, so they cannot carry the `tma` header. Posting to the chat avoids a signed-URL scheme.
+- **換算金額 is kept at 4 decimals** (`FX_DP` in `export.ts`) and goes through `resolveRate`, the same chain `computeGroupBalances` uses. Rounding each row to 2 dp would let the column sum drift from `/balance`, which rounds once at the end.
+- `csv.ts` is pure and tested: UTF-8 BOM (Excel), CRLF, quoting, and a `'` prefix on text starting with `= + - @` because descriptions are user-controlled (formula injection). Timestamps are UTC since the schema has no group timezone.
+
 ### Beancount 匯出 (`src/lib/beancount.ts`)
 
 A single record (expense or settlement) can be copied as a beancount transaction via the **`Bean` icon button** in the top-right of the expense/settlement edit form header (`CopyBeancountButton`, edit mode only). The output is from the **personal-ledger perspective** of the current user (U):

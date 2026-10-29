@@ -34,6 +34,12 @@ export type Platform = {
   loginPath: string | null;
   /** The "使用說明" row. The Mini App opens it in Telegram's browser; the Web App navigates. */
   HelpAction: ComponentType<{ className: string; children: ReactNode }>;
+  /**
+   * Whether the browser can save the CSV itself. The Web App can; Telegram's webview
+   * cannot be handed an authenticated download, so the Mini App only offers sending
+   * the file to the group chat.
+   */
+  canDownloadExport: boolean;
   /** Extra content at the foot of the personal settings page. The Web App has the sign-out button. */
   AccountSection: ComponentType;
 };

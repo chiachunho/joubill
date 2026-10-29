@@ -56,6 +56,7 @@ function fakePlatform(basePath: "/mini" | "/app", request = vi.fn()): Platform {
     HomeHeader: () => null,
     loginPath: null,
     HelpAction: () => null,
+    canDownloadExport: false,
     AccountSection: () => null,
   };
 }

@@ -8,6 +8,7 @@ import { balanceCommand } from "./commands/balance";
 import { deleteExpenseCallback } from "./commands/deleteExpense";
 import { deleteGroupCallback } from "./commands/deleteGroupCallback";
 import { expensePanel } from "./commands/expensePanel";
+import { exportCommand } from "./commands/export";
 import { helpCommand } from "./commands/help";
 import { joinCommand } from "./commands/join";
 import { listCommand } from "./commands/list";
@@ -58,6 +59,7 @@ export function getBot(): Bot<BotContext> {
   bot.use(listCommand);
   bot.use(balanceCommand);
   bot.use(settleCommand);
+  bot.use(exportCommand);
 
   bot.catch((err) => {
     console.error("[bot] unhandled error:", err);

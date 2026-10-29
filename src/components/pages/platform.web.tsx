@@ -103,5 +103,6 @@ export const webPlatform: Platform = {
   HomeHeader: WebHomeHeader,
   loginPath: WEB_LOGIN_PATH,
   HelpAction: WebHelpAction,
+  canDownloadExport: true,
   AccountSection: WebAccountSection,
 };

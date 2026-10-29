@@ -7,7 +7,9 @@ import {
   BookOpen,
   ChevronRight,
   Coins,
+  Download,
   History,
+  Send,
   Pencil,
   Plus,
   Trash2,
@@ -83,6 +85,8 @@ export function GroupSettings({
   const [renameTarget, setRenameTarget] = useState<Member | null>(null);
   const [currencyPending, setCurrencyPending] = useState(false);
   const [pendingCurrency, setPendingCurrency] = useState<string | null>(null);
+  const [exportPending, setExportPending] = useState<"download" | "send" | null>(null);
+  const [exportMessage, setExportMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function toggleStatus(member: Member) {
     if (togglingId !== null) return;
@@ -163,6 +167,46 @@ export function GroupSettings({
       setDeleteError("刪除失敗，請再試一次");
     } finally {
       setDeleteLoading(false);
+    }
+  }
+
+  async function exportCsv(mode: "download" | "send") {
+    if (exportPending) return;
+    setExportPending(mode);
+    setExportMessage(null);
+    try {
+      if (mode === "send") {
+        const res = await platform.rawRequest(`/api/groups/${id}/export/send`, { method: "POST" });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          setExportMessage({ ok: false, text: data.error ?? "匯出失敗，請再試一次" });
+          return;
+        }
+        setExportMessage({ ok: true, text: "已傳送到群組" });
+        return;
+      }
+      const res = await platform.rawRequest(`/api/groups/${id}/export?format=csv`);
+      if (!res.ok) {
+        setExportMessage({ ok: false, text: "匯出失敗，請再試一次" });
+        return;
+      }
+      // The server names the file after the group; read it back from the header.
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const encoded = /filename\*=UTF-8''([^;]+)/.exec(disposition)?.[1];
+      const filename = encoded ? decodeURIComponent(encoded) : "export.csv";
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Revoking synchronously can cancel the download in Safari; give it a moment to start.
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch {
+      setExportMessage({ ok: false, text: "匯出失敗，請再試一次" });
+    } finally {
+      setExportPending(null);
     }
   }
 
@@ -291,6 +335,48 @@ export function GroupSettings({
             <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
           </Link>
         </div>
+      </section>
+
+      {/* 匯出 — one CSV of every record. The Web App can save it directly; Telegram's
+          webview can't take an authenticated download, so both apps can also have the
+          bot post the file in the group chat (the same file /export sends). */}
+      <section className="px-4">
+        <p className="sect mb-2.5">匯出</p>
+        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          {platform.canDownloadExport && (
+            <button
+              onClick={() => exportCsv("download")}
+              disabled={exportPending !== null}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50"
+            >
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Download className="size-3.5" />
+              </span>
+              <p className="min-w-0 flex-1 text-sm">
+                {exportPending === "download" ? "匯出中…" : "下載 CSV"}
+              </p>
+            </button>
+          )}
+          <button
+            onClick={() => exportCsv("send")}
+            disabled={exportPending !== null}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Send className="size-3.5" />
+            </span>
+            <p className="min-w-0 flex-1 text-sm">
+              {exportPending === "send" ? "傳送中…" : "匯出 CSV 到群組"}
+            </p>
+          </button>
+        </div>
+        {exportMessage && (
+          <p
+            className={`mt-2 px-1 text-xs ${exportMessage.ok ? "text-muted-foreground" : "text-destructive"}`}
+          >
+            {exportMessage.text}
+          </p>
+        )}
       </section>
 
       {/* 成員 */}
