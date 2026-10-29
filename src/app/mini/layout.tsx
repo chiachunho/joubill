@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 
 import { AuthProvider } from "@/components/AuthProvider";
-import { StoreProvider } from "@/components/mini/StoreProvider";
+import { StoreProvider } from "./StoreProvider";
 import { TelegramApp } from "@/components/mini/TelegramApp";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
