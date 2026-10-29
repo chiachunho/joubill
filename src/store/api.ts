@@ -120,8 +120,24 @@ const baseApi = createApi({
       query: (groupId) => ({ url: `/api/groups/${groupId}/avatars` }),
       providesTags: (_r, _e, groupId) => [tag("Avatars", g(groupId))],
     }),
-    getExpenses: build.query<ExpensesResponse, GroupId>({
-      query: (groupId) => ({ url: `/api/groups/${groupId}/expenses` }),
+    /**
+     * The group's records, newest first, a page at a time behind a `(spent_at, id)`
+     * cursor. Invalidating `Expenses` refetches every loaded page, so an edit to a
+     * row on page 2 shows up without the list resetting to page 1.
+     */
+    getExpenses: build.infiniteQuery<
+      ExpensesResponse,
+      GroupId,
+      /** The `nextCursor` of the page before; "" for the first page. */
+      string
+    >({
+      infiniteQueryOptions: {
+        initialPageParam: "",
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
+      },
+      query: ({ queryArg: groupId, pageParam }) => ({
+        url: `/api/groups/${groupId}/expenses${pageParam ? `?cursor=${encodeURIComponent(pageParam)}` : ""}`,
+      }),
       providesTags: (_r, _e, groupId) => [tag("Expenses", g(groupId))],
     }),
     getBalance: build.query<BalanceResponse, GroupId>({
@@ -478,7 +494,7 @@ export const {
   useGetMembersQuery,
   useGetSettingsQuery,
   useGetAvatarsQuery,
-  useGetExpensesQuery,
+  useGetExpensesInfiniteQuery,
   useGetBalanceQuery,
   useGetExpenseQuery,
   useGetSettlementQuery,
