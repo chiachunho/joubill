@@ -198,8 +198,11 @@ export function GroupSettings({
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      // Revoking synchronously can cancel the download in Safari; give it a moment to start.
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } catch {
       setExportMessage({ ok: false, text: "匯出失敗，請再試一次" });
     } finally {

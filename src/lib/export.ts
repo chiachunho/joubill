@@ -40,6 +40,9 @@ export type ExportRecord = {
   createdAt: Date;
 };
 
+/** Significant digits kept on 匯率: a fixed 4 dp would turn a VND→TWD 0.00123 into 0.0012. */
+const RATE_SIG = 6;
+
 function fixed(value: number): number {
   return Number(value.toFixed(FX_DP));
 }
@@ -54,7 +57,7 @@ export function exportRecordsToCsv(records: readonly ExportRecord[], quote: stri
     r.currency,
     fixed(r.amount * r.rate),
     quote,
-    fixed(r.rate),
+    Number(r.rate.toPrecision(RATE_SIG)),
     formatLegs(r.payers),
     formatLegs(r.splits),
     r.createdByName,
@@ -128,21 +131,34 @@ export async function buildGroupExport(
     splitsBy.set(s.expenseId, list);
   }
 
-  const records: ExportRecord[] = [];
-  for (const r of rows) {
-    records.push({
+  // Rows share (currency, pin, day) far more often than not, so resolve each distinct
+  // combination once and all of them concurrently instead of one round trip per row.
+  const rateCache = new Map<string, Promise<number>>();
+  const rateOf = (r: (typeof rows)[number]) => {
+    const key = [r.currency, r.fxRate, r.fxQuote, r.spentAt.toISOString().slice(0, 10)].join("|");
+    let rate = rateCache.get(key);
+    if (!rate) {
+      rate = resolveRate(r, quote, r.spentAt, overrides);
+      rateCache.set(key, rate);
+    }
+    return rate;
+  };
+  const rates = await Promise.all(rows.map(rateOf));
+
+  const records: ExportRecord[] = rows.map((r, i) => {
+    return {
       type: r.type,
       spentAt: r.spentAt,
       description: r.description,
       amount: n(r.amount),
       currency: r.currency,
-      rate: await resolveRate(r, quote, r.spentAt, overrides),
+      rate: rates[i],
       payers: payersBy.get(r.id) ?? [],
       splits: splitsBy.get(r.id) ?? [],
       createdByName: name(r.createdBy),
       createdAt: r.createdAt,
-    });
-  }
+    };
+  });
 
   return {
     filename: exportFilename(group.title, now),

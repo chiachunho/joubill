@@ -17,11 +17,10 @@ const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
  * so a negative amount isn't mistaken for a formula.
  */
 export function escapeCsvField(value: string): string {
-  const safe = FORMULA_TRIGGER.test(value) ? `'${value}` : value;
-  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+  return rawField(FORMULA_TRIGGER.test(value) ? `'${value}` : value);
 }
 
-/** A cell that is already known to be a plain number or timestamp: no formula guard. */
+/** Quoting only, no formula guard: for a cell already known to be a plain number or timestamp. */
 function rawField(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
@@ -61,11 +60,16 @@ export function formatUtcMinute(d: Date): string {
  */
 export function exportFilename(groupTitle: string, now: Date): string {
   const base =
-    groupTitle
-      // eslint-disable-next-line no-control-regex
-      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
-      .trim()
-      .slice(0, 60) || "group";
+    // Cut by code point, not UTF-16 unit: slicing through an emoji's surrogate pair leaves a
+    // lone surrogate, which makes `encodeURIComponent` in `contentDisposition` throw.
+    Array.from(
+      groupTitle
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
+        .trim(),
+    )
+      .slice(0, 60)
+      .join("") || "group";
   return `${base}-${now.toISOString().slice(0, 10)}.csv`;
 }
 

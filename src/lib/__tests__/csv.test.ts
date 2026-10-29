@@ -73,6 +73,10 @@ describe("exportFilename", () => {
   it("replaces characters illegal in filenames", () => {
     expect(exportFilename('a/b:c"d', now)).toBe("a_b_c_d-2026-10-29.csv");
   });
+  it("never cuts an emoji in half when truncating", () => {
+    const name = exportFilename("a".repeat(59) + "😀😀", now);
+    expect(() => encodeURIComponent(name)).not.toThrow();
+  });
   it("falls back when the title is blank", () => {
     expect(exportFilename("  ", now)).toBe("group-2026-10-29.csv");
   });
