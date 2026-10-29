@@ -266,7 +266,7 @@ The response has three sections, each answering a different question, and **two 
 
 `byPayer`'s "who paid" and `monthly`'s "member's share" are deliberately different tables (`expense_payers` vs `expense_splits`) — conflating them would silently misrepresent one or the other. The page's member list/photos come from the existing `GET /api/groups/[id]/members` and `/avatars` endpoints rather than being duplicated into this response.
 
-`DateRangeSelect` (`src/components/mini/DateRangeSelect.tsx`) and the view-as `MemberSelect` are shared components imported by both `/mini` and `/app` stats pages (which otherwise stay hand-maintained near-duplicates per the usual convention). `src/components/ui/calendar.tsx` gained `day_range_start` / `day_range_end` / `day_range_middle` classNames for the custom-range picker — `mode="range"` was previously unused in this codebase (only `mode="single"` in the expense/settlement date fields).
+`DateRangeSelect` (`src/components/mini/DateRangeSelect.tsx`) and the view-as `MemberSelect` are shared components used by the one shared stats page body (`src/components/pages/GroupStatsPage.tsx`) that both `/mini` and `/app` render. `src/components/ui/calendar.tsx` gained `day_range_start` / `day_range_end` / `day_range_middle` classNames for the custom-range picker — `mode="range"` was previously unused in this codebase (only `mode="single"` in the expense/settlement date fields).
 
 ### Receipt photos (`src/app/api/tg-photo/` and `src/app/api/tg-upload/`)
 

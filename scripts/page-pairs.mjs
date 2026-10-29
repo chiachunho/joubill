@@ -1,6 +1,7 @@
-// Pure rules for the Mini App / Web App page pairs (issue #57). CLAUDE.md keeps
-// src/app/mini/** and src/app/app/** as hand-maintained copies of the same pages, so an
-// edit to one side is easy to make without the other. check-page-pairs.mjs runs these
+// Pure rules for the Mini App / Web App page pairs (issue #57). The page bodies
+// now live once in src/components/pages/**, but the per-route files under
+// src/app/mini/** and src/app/app/** (page wrappers, layouts, loading skeletons) are
+// still one copy per app, so an edit to one side is easy to make without the other. check-page-pairs.mjs runs these
 // rules over a diff and reports the one-sided edits.
 //
 // The pairs are derived from the path, not listed by hand: a hand-kept table would only
@@ -71,8 +72,9 @@ export function renderComment(problems) {
     COMMENT_MARKER,
     "## ⚠️ Mini App / Web App page pairs",
     "",
-    "This pull request edits one copy of a page pair and not the other. The two copies are",
-    "maintained by hand, so the other side is probably missing the same change.",
+    "This pull request edits one copy of a page pair and not the other. These per-app files",
+    "(wrappers, layouts, loading skeletons) are kept in step by hand, so the other side is",
+    "probably missing the same change.",
     "",
     ...problems.map((problem) => `- ${describeProblem(problem)}`),
     "",
