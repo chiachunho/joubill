@@ -9,7 +9,7 @@ afterEach(() => {
 
 // jsdom cannot navigate, so stand in for window.location and watch what is assigned to it.
 function stubLocation() {
-  const location = { href: "/app" };
+  const location = { href: "/app", pathname: "/app/settings", search: "?a=1" };
   vi.stubGlobal("location", location);
   return location;
 }
@@ -19,7 +19,16 @@ describe("useLoginRedirect", () => {
     const location = stubLocation();
     const { result } = renderHook(() => useLoginRedirect(new Error("401 /api/me"), "/login"));
     expect(result.current).toBe(true);
-    expect(location.href).toBe("/login");
+    expect(location.href).toBe("/login?next=%2Fapp%2Fsettings%3Fa%3D1");
+  });
+
+  it("does not treat a 401 inside the request path as unauthorized", () => {
+    const location = stubLocation();
+    const { result } = renderHook(() =>
+      useLoginRedirect(new Error("403 /api/groups/401/stats"), "/login"),
+    );
+    expect(result.current).toBe(false);
+    expect(location.href).toBe("/app");
   });
 
   it("does nothing when the platform has no login path", () => {
