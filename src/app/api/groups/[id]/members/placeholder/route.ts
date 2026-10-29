@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { groupMembers, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { lockGroupMemberNames } from "@/lib/member-name-lock";
 import { isDuplicateName, placeholderNameSchema } from "@/lib/placeholder";
 
 export const runtime = "nodejs";
@@ -32,16 +33,15 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     );
   }
 
-  const existing = await db
-    .select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
-    .from(users)
-    .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
-    .where(eq(groupMembers.groupId, groupId));
-  if (isDuplicateName(body.data.firstName, existing)) {
-    return NextResponse.json({ error: "名字已被群組成員使用" }, { status: 409 });
-  }
-
   const member = await db.transaction(async (tx) => {
+    await lockGroupMemberNames(tx, groupId);
+    const existing = await tx
+      .select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
+      .from(users)
+      .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
+      .where(eq(groupMembers.groupId, groupId));
+    if (isDuplicateName(body.data.firstName, existing)) return null;
+
     const [user] = await tx
       .insert(users)
       .values({ firstName: body.data.firstName, placeholderGroupId: groupId })
@@ -49,6 +49,9 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     await tx.insert(groupMembers).values({ groupId, userId: user.id });
     return user;
   });
+  if (!member) {
+    return NextResponse.json({ error: "名字已被群組成員使用" }, { status: 409 });
+  }
 
   return NextResponse.json(
     {

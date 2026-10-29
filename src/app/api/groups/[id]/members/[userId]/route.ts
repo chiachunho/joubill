@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { expenses, expensePayers, expenseSplits, groupMembers, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { lockGroupMemberNames } from "@/lib/member-name-lock";
 import { isDuplicateName, placeholderNameSchema } from "@/lib/placeholder";
 
 export const runtime = "nodejs";
@@ -36,33 +37,43 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
   }
 
   if ("firstName" in body.data) {
-    const rows = await db
-      .select({
-        id: users.id,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        placeholderGroupId: users.placeholderGroupId,
-      })
-      .from(users)
-      .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
-      .where(eq(groupMembers.groupId, groupId));
-    const target = rows.find((m) => m.id === targetUserId);
-    if (!target) return NextResponse.json({ error: "member not found" }, { status: 404 });
-    // A real account's name belongs to its owner (it is refreshed from Telegram).
-    if (target.placeholderGroupId !== groupId) {
+    const newName = body.data.firstName;
+    const result = await db.transaction(async (tx) => {
+      await lockGroupMemberNames(tx, groupId);
+      const rows = await tx
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          placeholderGroupId: users.placeholderGroupId,
+        })
+        .from(users)
+        .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
+        .where(eq(groupMembers.groupId, groupId));
+      const target = rows.find((m) => m.id === targetUserId);
+      if (!target) return "not-found" as const;
+      // A real account's name belongs to its owner (it is refreshed from Telegram).
+      if (target.placeholderGroupId !== groupId) return "not-placeholder" as const;
+      if (isDuplicateName(newName, rows, targetUserId)) return "duplicate" as const;
+      await tx
+        .update(users)
+        .set({ firstName: newName, updatedAt: new Date() })
+        .where(eq(users.id, targetUserId));
+      return "ok" as const;
+    });
+    if (result === "not-found") {
+      return NextResponse.json({ error: "member not found" }, { status: 404 });
+    }
+    if (result === "not-placeholder") {
       return NextResponse.json(
         { error: "only placeholder members can be renamed" },
         { status: 403 },
       );
     }
-    if (isDuplicateName(body.data.firstName, rows, targetUserId)) {
+    if (result === "duplicate") {
       return NextResponse.json({ error: "名字已被群組成員使用" }, { status: 409 });
     }
-    await db
-      .update(users)
-      .set({ firstName: body.data.firstName, updatedAt: new Date() })
-      .where(eq(users.id, targetUserId));
-    return NextResponse.json({ firstName: body.data.firstName });
+    return NextResponse.json({ firstName: newName });
   }
 
   const [updated] = await db
