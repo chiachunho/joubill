@@ -41,15 +41,14 @@ export function GroupActivityPage({
     error,
     hasNextPage,
     fetchNextPage,
-    isFetchingNextPage,
+    refetch,
     isFetching,
   } = useGetActivityInfiniteQuery({ groupId: id, recordId });
   const pages = result?.pages;
 
   const entries = pages?.flatMap((p) => p.entries) ?? [];
   const hasMore = hasNextPage;
-  const loadingMore = isFetchingNextPage;
-  const { sentinelRef, needsButton } = useAutoLoadMore({
+  const { sentinelRef, loadMore, needsButton } = useAutoLoadMore({
     hasMore,
     loading: isFetching,
     error,
@@ -100,12 +99,12 @@ export function GroupActivityPage({
         />
       )}
 
-      {hasMore && (
+      {(hasMore || error) && (
         <LoadMoreFooter
           sentinelRef={sentinelRef}
-          needsButton={needsButton}
-          loading={loadingMore}
-          onClick={() => void fetchNextPage()}
+          needsButton={needsButton || !!error}
+          loading={isFetching}
+          onClick={() => (hasMore ? loadMore() : void refetch())}
           className="px-4"
         />
       )}

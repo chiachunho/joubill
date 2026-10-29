@@ -66,5 +66,13 @@ export function useAutoLoadMore({
   // Callback ref, so the effect sees the node when it mounts after the first load.
   const sentinelRef = useCallback((el: Element | null) => setNode(el), []);
 
-  return { sentinelRef, needsButton: hasMore && (!supported || !!error || capped) };
+  // A deliberate tap re-arms auto-loading, which the cap would otherwise withhold until
+  // the sentinel left view and came back.
+  const loadMore = useCallback(() => {
+    streak.current = 0;
+    setCapped(false);
+    onLoadMoreRef.current();
+  }, []);
+
+  return { sentinelRef, loadMore, needsButton: hasMore && (!supported || !!error || capped) };
 }

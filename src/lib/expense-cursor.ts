@@ -28,6 +28,14 @@ export function parseExpenseCursor(raw: string): ExpenseCursor | null {
   const spentAt = raw.slice(0, sep);
   const idText = raw.slice(sep + 1);
   if (!SPENT_AT_RE.test(spentAt) || !/^\d+$/.test(idText)) return null;
+  // The shape alone admits 2026-99-99 and Feb 31, which Postgres rejects with a 500.
+  const parsed = new Date(`${spentAt.slice(0, 23)}Z`);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 19) !== spentAt.slice(0, 19)
+  ) {
+    return null;
+  }
   const id = Number(idText);
   if (id > MAX_ID) return null;
   return { spentAt, id };

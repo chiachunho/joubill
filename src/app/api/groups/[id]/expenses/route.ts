@@ -34,15 +34,11 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 
   // The total covers every record in the group (expenses and settlements, as the
   // list does) and is only needed once, so later pages skip the count.
-  const totalPromise = cursor
-    ? Promise.resolve(null)
-    : db
-        .select({ value: count() })
-        .from(expenses)
-        .where(eq(expenses.groupId, groupId))
-        .then(([r]) => r.value);
+  const totalQuery = cursor
+    ? null
+    : db.select({ value: count() }).from(expenses).where(eq(expenses.groupId, groupId));
 
-  const fetched = await db
+  const pageQuery = db
     .select({
       id: expenses.id,
       type: expenses.type,
@@ -69,10 +65,14 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     .orderBy(desc(expenses.spentAt), desc(expenses.id))
     .limit(EXPENSES_PAGE_SIZE + 1);
 
+  // Together, so a failure in either is handled here rather than left dangling.
+  const [totalRows, fetched] = await Promise.all([totalQuery, pageQuery]);
+  const total = totalRows ? totalRows[0].value : null;
+
   // One extra row says whether another page exists.
   const expenseRows = fetched.slice(0, EXPENSES_PAGE_SIZE);
   if (expenseRows.length === 0) {
-    return NextResponse.json({ expenses: [], nextCursor: null, total: await totalPromise });
+    return NextResponse.json({ expenses: [], nextCursor: null, total });
   }
   const last = expenseRows[expenseRows.length - 1];
   const nextCursor =
@@ -137,7 +137,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 
   return NextResponse.json({
     nextCursor,
-    total: await totalPromise,
+    total,
     expenses: expenseRows.map((e) => ({
       id: e.id,
       type: e.type,

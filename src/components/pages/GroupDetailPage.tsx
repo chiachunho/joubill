@@ -80,10 +80,9 @@ export function GroupDetailPage({
     hasNextPage: hasMoreExpenses,
     fetchNextPage: fetchMoreExpenses,
     isFetching: expensesFetching,
-    isFetchingNextPage: loadingMoreExpenses,
   } = useGetExpensesInfiniteQuery(id);
   const expensePages = expensesResult?.pages;
-  const { sentinelRef, needsButton } = useAutoLoadMore({
+  const { sentinelRef, loadMore, needsButton } = useAutoLoadMore({
     hasMore: hasMoreExpenses,
     loading: expensesFetching,
     error: expensesError,
@@ -593,12 +592,13 @@ export function GroupDetailPage({
           </div>
         )}
 
-        {hasMoreExpenses && (
+        {/* Also on a failed refresh of a fully loaded list, so the stale rows come with a retry. */}
+        {(hasMoreExpenses || expensesError) && (
           <LoadMoreFooter
             sentinelRef={sentinelRef}
-            needsButton={needsButton}
-            loading={loadingMoreExpenses}
-            onClick={() => void fetchMoreExpenses()}
+            needsButton={needsButton || !!expensesError}
+            loading={expensesFetching}
+            onClick={() => (hasMoreExpenses ? loadMore() : void refetchExpenses())}
             className="mt-4"
           />
         )}

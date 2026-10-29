@@ -110,7 +110,12 @@ export const expenses = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("expenses_group_spent_idx").on(t.groupId, t.spentAt)],
+  (t) => [
+    index("expenses_group_spent_idx").on(t.groupId, t.spentAt),
+    // Matches the list's (spent_at DESC, id DESC) order and its cursor comparison, so a deep
+    // page seeks to the cursor instead of sorting the group's rows.
+    index("expenses_group_list_idx").on(t.groupId, t.spentAt.desc(), t.id.desc()),
+  ],
 );
 
 /** Per-payer contribution for an expense. Supports splitting payment across multiple people. */

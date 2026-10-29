@@ -58,8 +58,11 @@ test.describe("Group list and group page", () => {
     await expect(authedPage.getByText(seeded.expenseDescription, { exact: true })).toBeVisible();
     // The oldest row is past the first page until the list is scrolled to its end.
     const oldest = authedPage.getByText(`E2E page ${stamp} #34`, { exact: true });
-    await authedPage.mouse.wheel(0, 100_000);
-    await expect(oldest).toBeVisible();
+    // Re-scroll until it shows: the sentinel only loads once the first page has rendered.
+    await expect(async () => {
+      await authedPage.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await expect(oldest).toBeVisible({ timeout: 1_000 });
+    }).toPass();
   });
 
   test("group page links to the new-expense and new-settlement forms", async ({
