@@ -18,6 +18,7 @@
     "db:studio": "drizzle-kit studio",
     "bot:set-webhook": "tsx scripts/set-webhook.ts",
     "bot:set-commands": "tsx scripts/set-commands.ts",
+    "check:page-pairs": "node scripts/check-page-pairs.mjs",
     "db:migrate-identities": "tsx scripts/migrate-identities.ts",
     "test": "vitest run",
     "test:watch": "vitest",

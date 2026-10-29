@@ -52,7 +52,8 @@ import { n, splitEqual } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { useAuthMode } from "@/components/AuthProvider";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
-import { tmaRawFetch, webRawFetch } from "@/lib/web-fetch";
+import { tmaRawFetch } from "@/lib/tma-fetch";
+import { webRawFetch } from "@/lib/web-fetch";
 import { SUPPORTED_CURRENCIES, expenseFormSchema, type ExpenseFormValues } from "@/lib/zod";
 
 type Member = {

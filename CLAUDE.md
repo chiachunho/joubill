@@ -26,6 +26,7 @@ pnpm db:generate    # Generate migration SQL (not normally needed)
 pnpm db:studio      # Drizzle Studio GUI
 pnpm bot:set-webhook    # tsx scripts/set-webhook.ts <https-domain>
 pnpm bot:set-commands   # tsx scripts/set-commands.ts (register the bot's slash-command menu)
+pnpm check:page-pairs   # warn when a diff edits one Mini App / Web App page copy and not the other (advisory; vs origin/dev by default)
 
 # One-time data migrations:
 pnpm tsx scripts/migrate-payers.ts       # (run BEFORE db:push) populate expense_payers from expenses.payer_id
@@ -45,7 +46,7 @@ A single Next.js 15 (App Router) app serves five concerns simultaneously:
 4. **REST API** — Next.js route handlers at `/api/**` (shared by both frontends)
 5. **Help site** — public MDX pages at `/help/**` (no auth)
 
-The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **They do NOT share the top-level page components**, though: each route under `/mini/**` has a hand-maintained near-duplicate under `/app/**` (e.g. `src/app/mini/groups/[id]/page.tsx` vs `src/app/app/groups/[id]/page.tsx`), differing only in fetcher (`tmaFetch` vs `webFetch`), link prefixes (`/mini` vs `/app`), and a few imports. **When you change list/detail UI or page behaviour, apply the same change to both copies.** Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
+The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **The top-level page bodies are shared too**, in `src/components/pages/**`. Each route's `src/app/mini/**/page.tsx` and `src/app/app/**/page.tsx` is a thin wrapper that passes in a `Platform`. The type is `src/components/pages/platform.ts`; each app implements it in its own module (`platform.mini.tsx`, `platform.web.tsx`), and a wrapper imports only its own, so a route's bundle never carries the other app's fetchers or Telegram code. The `Platform` holds everything that legitimately differs between the apps: the base path for links, the authenticated fetchers, the viewer's self-photo hook, and the platform's chrome (header leading control, back navigation, the group-list header, the help row, the sign-out section, and where an unauthenticated viewer is sent, which a body acts on through `useLoginRedirect`: a 401 sends the web to `/login?next=…` and shows the Mini App its error; what counts as a 401 and where it leads live once in `src/lib/auth-redirect.ts`, used by both `useLoginRedirect` and the web's global SWR `onError`). Platform differences belong in that object, so a change to a shared body reaches both apps by construction. `pnpm check:page-pairs` flags a diff that touched one copy and not the other; the `page-pairs` job in `pr-check.yml` posts the same result as an advisory PR comment (it never fails the check, since some one-sided edits are intentional). The pairs are derived from the path, so a new page needs no entry anywhere. Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
 
 ### What to share, and what to leave duplicated
 
@@ -57,7 +58,7 @@ The Mini App and Web App share the same **lower-level building blocks** — `src
 
 **Leave it duplicated when sharing would cost more than the drift.** Three standing examples:
 
-- The `/mini` and `/app` page pairs are deliberately hand-maintained copies (see above) — they diverge on purpose and a shared abstraction would fight both.
+- The per-app files that are not page wrappers: the two `layout.tsx` files and the seven `loading.tsx` skeletons. The layouts mount different providers (the Mini App loads the Telegram script and `TelegramApp`; the Web App mounts `AuthProvider mode="web"` with `WebSWRProvider`), so they cannot be one file. Each `loading.tsx` is a one-line render of a skeleton that already lives in `src/components/mini/skeletons.tsx`. The route-to-skeleton mapping is per-route content, and Next.js needs one `loading.tsx` per route segment, so sharing would remove no files. Drift there shows as a briefly wrong placeholder, not a wrong result. A change to one of these goes into both copies, and `pnpm check:page-pairs` warns when only one side changes.
 - A callback toast with a **single** caller stays inline next to the condition it describes. `TOAST` in `src/lib/buttons.ts` only holds the ones with two or more callers; a message you have to open another file to read is worse than a repeated one.
 - Not every repeated block is the same idea. Two functions that happen to look alike today, for unrelated reasons, will need to diverge tomorrow — and un-sharing is harder than sharing.
 
@@ -265,7 +266,7 @@ The response has three sections, each answering a different question, and **two 
 
 `byPayer`'s "who paid" and `monthly`'s "member's share" are deliberately different tables (`expense_payers` vs `expense_splits`) — conflating them would silently misrepresent one or the other. The page's member list/photos come from the existing `GET /api/groups/[id]/members` and `/avatars` endpoints rather than being duplicated into this response.
 
-`DateRangeSelect` (`src/components/mini/DateRangeSelect.tsx`) and the view-as `MemberSelect` are shared components imported by both `/mini` and `/app` stats pages (which otherwise stay hand-maintained near-duplicates per the usual convention). `src/components/ui/calendar.tsx` gained `day_range_start` / `day_range_end` / `day_range_middle` classNames for the custom-range picker — `mode="range"` was previously unused in this codebase (only `mode="single"` in the expense/settlement date fields).
+`DateRangeSelect` (`src/components/mini/DateRangeSelect.tsx`) and the view-as `MemberSelect` are shared components used by the one shared stats page body (`src/components/pages/GroupStatsPage.tsx`) that both `/mini` and `/app` render. `src/components/ui/calendar.tsx` gained `day_range_start` / `day_range_end` / `day_range_middle` classNames for the custom-range picker — `mode="range"` was previously unused in this codebase (only `mode="single"` in the expense/settlement date fields).
 
 ### Receipt photos (`src/app/api/tg-photo/` and `src/app/api/tg-upload/`)
 
@@ -412,7 +413,7 @@ Things that bite, in priority order:
 
 ### Testing
 
-Vitest with `vite-tsconfig-paths`. Tests live in `src/lib/__tests__/`, `src/lib/auth/__tests__/` and `src/components/**/__tests__/`. Pure lib functions are the bulk of the unit tests; API routes and bot commands are not tested. The vitest config injects dummy env vars so modules that import `@/db` don't throw during test collection.
+Vitest with `vite-tsconfig-paths`. Tests live in `src/lib/__tests__/`, `src/lib/auth/__tests__/`, `src/components/**/__tests__/` and `scripts/__tests__/` (the `.mjs` tools under `scripts/`). Pure lib functions are the bulk of the unit tests; API routes and bot commands are not tested. The vitest config injects dummy env vars so modules that import `@/db` don't throw during test collection.
 
 **Component tests** (`*.test.tsx`) render shared components under jsdom: `environmentMatchGlobs` in `vitest.config.ts` runs `src/components/**` in jsdom and everything else in node, so lib tests don't pay jsdom's startup cost. `esbuild.jsx` is set to `automatic` because the tsconfig's `"jsx": "preserve"` otherwise makes every `.tsx` test fail with "React is not defined". Each such file imports `@testing-library/jest-dom/vitest` and calls `cleanup` itself, since vitest globals are off. Assert only what a user sees — text, link targets, whether an element or link exists, disabled state — never Tailwind classes or DOM structure, which break on every restyle. Cover the guards that fail silently (a link that must not exist, a grouping that quietly stops). Big forms such as `ExpenseForm` are not covered yet.
 

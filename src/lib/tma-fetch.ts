@@ -26,3 +26,11 @@ export async function tmaFetch<T>(path: string, init?: RequestInit): Promise<T> 
 }
 
 export const tmaFetcher = (path: string) => tmaFetch(path);
+
+/** The raw-Response form of tmaFetch: injects the Telegram Mini App Authorization header instead of cookies. */
+export async function tmaRawFetch(path: string, init?: RequestInit): Promise<Response> {
+  const { default: WebApp } = await import("@twa-dev/sdk");
+  const headers = new Headers(init?.headers);
+  headers.set("Authorization", `tma ${WebApp.initData}`);
+  return fetch(path, { ...init, headers });
+}

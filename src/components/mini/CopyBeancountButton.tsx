@@ -14,7 +14,8 @@ import {
   type BeancountRecord,
 } from "@/lib/beancount";
 import type { Profile } from "@/lib/label";
-import { tmaRawFetch, webRawFetch } from "@/lib/web-fetch";
+import { tmaRawFetch } from "@/lib/tma-fetch";
+import { webRawFetch } from "@/lib/web-fetch";
 import type { BeancountConfigInput } from "@/lib/zod";
 
 type ConfigResponse = { config: BeancountConfigInput | null };
