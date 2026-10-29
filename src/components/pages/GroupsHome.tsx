@@ -4,25 +4,17 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Users } from "lucide-react";
-import useSWR from "swr";
 
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
-
-type MyGroupsResponse = {
-  groups: Array<{ id: number; title: string; defaultCurrency: string }>;
-  activeGroupId: number | null;
-  activeExpenseId: number | null;
-  activeSettlementId: number | null;
-};
-
-type GroupPhotosResponse = { photos: Record<number, string | null> };
+import { describeError } from "@/lib/api-error";
+import { useGetGroupPhotosQuery, useGetMeQuery } from "@/store/api";
 
 export function GroupsHome({ platform }: { platform: Platform }) {
   const router = useRouter();
-  const { data, error } = useSWR<MyGroupsResponse>("/api/me/groups");
-  const { data: photosData } = useSWR<GroupPhotosResponse>("/api/me/groups/photos");
+  const { data, error } = useGetMeQuery();
+  const { data: photosData } = useGetGroupPhotosQuery();
 
   // A Telegram deep link (startapp) names a group, and maybe an expense or settlement in it.
   // Only the Mini App gets one: the endpoint leaves activeGroupId null on the web.
@@ -44,7 +36,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
     return (
       <div className="px-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">無法載入群組</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{String(error)}</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
       </div>
     );
   }

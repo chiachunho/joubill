@@ -3,17 +3,11 @@
 import { use } from "react";
 import { useSearchParams } from "next/navigation";
 import { History } from "lucide-react";
-import useSWR from "swr";
-import useSWRInfinite from "swr/infinite";
 
 import { ActivityList } from "@/components/mini/ActivityList";
 import { ActivitySkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
-import type { ActivityEntry } from "@/lib/record-history";
-
-type ActivityResponse = { entries: ActivityEntry[]; nextCursor: number | null };
-type AvatarsResponse = { userPhotos: Record<number, string | null> };
-type MeResponse = { userId: number };
+import { useGetActivityInfiniteQuery, useGetAvatarsQuery, useGetMeQuery } from "@/store/api";
 
 /**
  * The group's change log, or one record's.
@@ -37,28 +31,23 @@ export function GroupActivityPage({
     : `${platform.basePath}/groups/${id}/settings`;
   platform.useBack(backHref);
 
-  // Infinite rather than a single fetch: the feed is capped per page, so
-  // without this everything older than the first page is unreachable. A single
-  // record's history is short and always comes back whole (nextCursor null).
+  // Paged rather than a single fetch: the feed is capped per page, so without this
+  // everything older than the first page is unreachable. A single record's history
+  // is short and always comes back whole (nextCursor null).
   const {
-    data: pages,
+    data: result,
     error,
-    size,
-    setSize,
-    isValidating,
-  } = useSWRInfinite<ActivityResponse>((index, previous) => {
-    if (previous && previous.nextCursor == null) return null;
-    const cursor = index === 0 ? "" : `cursor=${previous!.nextCursor}`;
-    const record = recordId ? `record=${recordId}` : "";
-    const query = [record, cursor].filter(Boolean).join("&");
-    return `/api/groups/${id}/activity${query ? `?${query}` : ""}`;
-  });
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useGetActivityInfiniteQuery({ groupId: id, recordId });
+  const pages = result?.pages;
 
   const entries = pages?.flatMap((p) => p.entries) ?? [];
-  const hasMore = pages != null && pages[pages.length - 1]?.nextCursor != null;
-  const loadingMore = isValidating && pages != null && size > pages.length;
-  const { data: avatars } = useSWR<AvatarsResponse>(`/api/groups/${id}/avatars`);
-  const { data: me } = useSWR<MeResponse>("/api/me/groups");
+  const hasMore = hasNextPage;
+  const loadingMore = isFetchingNextPage;
+  const { data: avatars } = useGetAvatarsQuery(id);
+  const { data: me } = useGetMeQuery();
 
   if (error) {
     return (
@@ -104,7 +93,7 @@ export function GroupActivityPage({
         <div className="px-4">
           <button
             type="button"
-            onClick={() => setSize(size + 1)}
+            onClick={() => fetchNextPage()}
             disabled={loadingMore}
             className="w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-60"
           >

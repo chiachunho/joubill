@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import useSWR, { mutate } from "swr";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowLeft, Calendar as CalendarIcon, ChevronRight } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -31,14 +31,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuthMode } from "@/components/AuthProvider";
-import { deleteErrorMessage } from "@/lib/api-error";
+import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
 import { stampLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
-import { tmaRawFetch } from "@/lib/tma-fetch";
-import { webRawFetch } from "@/lib/web-fetch";
 import { SUPPORTED_CURRENCIES, settlementFormSchema, type SettlementFormValues } from "@/lib/zod";
+import {
+  useCreateSettlementMutation,
+  useDeleteSettlementMutation,
+  useGetEffectiveRateQuery,
+  useUpdateSettlementMutation,
+} from "@/store/api";
 
 type Member = {
   id: number;
@@ -167,11 +171,12 @@ export function SettlementForm({
   }, [currency]);
 
   // Reference rate (group custom rate if set, else market rate as of the date).
-  const { data: effectiveRate } = useSWR<{ rate: number | null; source: string | null }>(
-    isForeignCurrency
-      ? `/api/groups/${groupId}/rates/effective?base=${currency}&date=${ymd(settledDate)}`
-      : null,
+  const { data: effectiveRate } = useGetEffectiveRateQuery(
+    isForeignCurrency ? { groupId, base: currency, date: ymd(settledDate) } : skipToken,
   );
+  const [createSettlement] = useCreateSettlementMutation();
+  const [updateSettlement] = useUpdateSettlementMutation();
+  const [deleteSettlement] = useDeleteSettlementMutation();
 
   async function onSubmit(values: SettlementFormValues) {
     const body = {
@@ -186,34 +191,18 @@ export function SettlementForm({
       settledAt: dayToNoonUtcIso(values.settledDate),
     };
 
-    const url = isEdit
-      ? `/api/groups/${groupId}/settlements/${initial!.id}`
-      : `/api/groups/${groupId}/settlements`;
-
-    let res: Response;
-    if (mode === "web") {
-      res = await webRawFetch(url, {
-        method: isEdit ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+    try {
+      if (isEdit) {
+        await updateSettlement({ groupId, settlementId: initial!.id, body }).unwrap();
+      } else {
+        await createSettlement({ groupId, body }).unwrap();
+      }
+    } catch (e) {
+      form.setError("root", {
+        message: apiErrorText(e, `HTTP ${apiErrorStatus(e) ?? "error"}`),
       });
-    } else {
-      const { default: WebApp } = await import("@twa-dev/sdk");
-      res = await fetch(url, {
-        method: isEdit ? "PATCH" : "POST",
-        headers: { Authorization: `tma ${WebApp.initData}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-    }
-
-    if (!res.ok) {
-      const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-      form.setError("root", { message: parsed.error ?? `HTTP ${res.status}` });
       return;
     }
-    mutate(`/api/groups/${groupId}/settlements`);
-    mutate(`/api/groups/${groupId}/expenses`);
-    mutate(`/api/groups/${groupId}/balance`);
     router.push(back);
   }
 
@@ -224,18 +213,14 @@ export function SettlementForm({
   async function handleDelete() {
     if (!initial) return;
     setDeletePending(true);
-    const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
-    const res = await fetchFn(`/api/groups/${groupId}/settlements/${initial.id}`, {
-      method: "DELETE",
-    });
-    setDeletePending(false);
-    if (!res.ok) {
-      setDeleteError(deleteErrorMessage(res, "這筆還款記錄"));
+    try {
+      await deleteSettlement({ groupId, settlementId: initial.id }).unwrap();
+    } catch (e) {
+      setDeletePending(false);
+      setDeleteError(deleteErrorMessage({ status: apiErrorStatus(e) ?? 0 }, "這筆還款記錄"));
       return;
     }
-    mutate(`/api/groups/${groupId}/settlements`);
-    mutate(`/api/groups/${groupId}/expenses`);
-    mutate(`/api/groups/${groupId}/balance`);
+    setDeletePending(false);
     router.push(back);
   }
 

@@ -1,13 +1,13 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SWRConfig } from "swr";
 
 import { PersonalSettings } from "@/components/pages/PersonalSettings";
 import type { Platform } from "@/components/pages/platform";
 import { miniPlatform } from "@/components/pages/platform.mini";
 import { webPlatform } from "@/components/pages/platform.web";
 import { HELP_PATH } from "@/lib/help-url";
+import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 afterEach(() => {
   cleanup();
@@ -29,53 +29,49 @@ function withoutBackHook(platform: Platform): Platform {
   return { ...platform, useBack: () => {} };
 }
 
-function renderSettings(platform: Platform, fetchError?: string) {
+function renderSettings(platform: Platform, failure?: Failure) {
+  const request = fakeRequest({ "/api/me/profile": failure ?? PROFILE });
   return render(
-    <SWRConfig
-      value={{
-        provider: () => new Map(),
-        fallback: fetchError ? {} : { "/api/me/profile": PROFILE },
-        // A failing fetch surfaces as the SWR error the page reacts to.
-        fetcher: async () => {
-          throw new Error(fetchError ?? "unexpected fetch");
-        },
-      }}
-    >
+    <StoreWrapper request={request}>
       <PersonalSettings platform={withoutBackHook(platform)} />
-    </SWRConfig>,
+    </StoreWrapper>,
   );
 }
 
 describe("PersonalSettings", () => {
-  it("shows the profile name on either platform", () => {
+  it("shows the profile name on either platform", async () => {
     renderSettings(miniPlatform);
-    expect(screen.getByText("小明")).toBeInTheDocument();
+    expect(await screen.findByText("小明")).toBeInTheDocument();
   });
 
-  it("offers sign-out only on the web", () => {
+  it("offers sign-out only on the web", async () => {
     renderSettings(webPlatform);
-    expect(screen.getByRole("button", { name: "登出" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "登出" })).toBeInTheDocument();
   });
 
-  it("offers no sign-out in the Mini App, which signs in through Telegram", () => {
+  it("offers no sign-out in the Mini App, which signs in through Telegram", async () => {
     renderSettings(miniPlatform);
+    await screen.findByText("小明");
     expect(screen.queryByRole("button", { name: "登出" })).not.toBeInTheDocument();
   });
 
-  it("links the help row to the help page on the web", () => {
+  it("links the help row to the help page on the web", async () => {
     renderSettings(webPlatform);
-    expect(screen.getByRole("link", { name: /使用說明/ })).toHaveAttribute("href", HELP_PATH);
+    expect(await screen.findByRole("link", { name: /使用說明/ })).toHaveAttribute(
+      "href",
+      HELP_PATH,
+    );
   });
 
-  it("opens help as a button in the Mini App rather than a link that would replace the app", () => {
+  it("opens help as a button in the Mini App rather than a link that would replace the app", async () => {
     renderSettings(miniPlatform);
-    expect(screen.getByRole("button", { name: /使用說明/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /使用說明/ })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /使用說明/ })).not.toBeInTheDocument();
   });
 
   it("shows the Mini App its load error when the profile request fails with 401", async () => {
     const location = stubLocation("/mini/settings");
-    renderSettings(miniPlatform, "401 /api/me/profile");
+    renderSettings(miniPlatform, new Failure(401));
     expect(await screen.findByText("無法載入")).toBeInTheDocument();
     // Telegram authenticates the Mini App, so there is no login page to leave for.
     expect(location.href).toBe("/mini/settings");
@@ -83,13 +79,13 @@ describe("PersonalSettings", () => {
 
   it("sends the web to login on a 401, carrying this page, without flashing an error", async () => {
     const location = stubLocation("/app/settings");
-    renderSettings(webPlatform, "401 /api/me/profile");
+    renderSettings(webPlatform, new Failure(401));
     await waitFor(() => expect(location.href).toBe("/login?next=%2Fapp%2Fsettings"));
     expect(screen.queryByText("無法載入")).not.toBeInTheDocument();
   });
 
   it("still shows a non-401 failure on the web", async () => {
-    renderSettings(webPlatform, "500 /api/me/profile");
+    renderSettings(webPlatform, new Failure(500));
     expect(await screen.findByText("無法載入")).toBeInTheDocument();
   });
 });

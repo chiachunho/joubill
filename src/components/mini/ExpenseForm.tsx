@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
-import useSWR, { mutate } from "swr";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
@@ -44,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { deleteErrorMessage } from "@/lib/api-error";
+import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
 import { stampLabel } from "@/lib/format";
 import { labelMember, labelUser } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
@@ -55,6 +55,12 @@ import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 import { tmaRawFetch } from "@/lib/tma-fetch";
 import { webRawFetch } from "@/lib/web-fetch";
 import { SUPPORTED_CURRENCIES, expenseFormSchema, type ExpenseFormValues } from "@/lib/zod";
+import {
+  useCreateExpenseMutation,
+  useDeleteExpenseMutation,
+  useGetEffectiveRateQuery,
+  useUpdateExpenseMutation,
+} from "@/store/api";
 
 type Member = {
   id: number;
@@ -378,14 +384,15 @@ export function ExpenseForm(props: Props) {
   }, [currency]);
 
   // Reference rate for the FX field (group custom rate if set, else market rate
-  // as of the spend date). Uses the surrounding SWRProvider's fetcher, so it
-  // works in both the Mini App and the Web App.
+  // as of the spend date). Goes through the surrounding store, so it works in
+  // both the Mini App and the Web App.
   const isForeignCurrency = currency !== props.defaultCurrency;
-  const { data: effectiveRate } = useSWR<{ rate: number | null; source: string | null }>(
-    isForeignCurrency
-      ? `/api/groups/${groupId}/rates/effective?base=${currency}&date=${ymd(spentDate)}`
-      : null,
+  const { data: effectiveRate } = useGetEffectiveRateQuery(
+    isForeignCurrency ? { groupId, base: currency, date: ymd(spentDate) } : skipToken,
   );
+  const [createExpense] = useCreateExpenseMutation();
+  const [updateExpense] = useUpdateExpenseMutation();
+  const [deleteExpense] = useDeleteExpenseMutation();
 
   // Single mode: keep the lone payer's amount equal to the total.
   useEffect(() => {
@@ -404,7 +411,7 @@ export function ExpenseForm(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount, multiPayerMode]);
 
-  // Reconcile members that load/join after mount (e.g. SWR revalidation) into the
+  // Reconcile members that load/join after mount (e.g. a background refetch) into the
   // payer entries so they become selectable; existing entries keep their edited state.
   useEffect(() => {
     if (!multiPayerMode) return;
@@ -470,16 +477,6 @@ export function ExpenseForm(props: Props) {
   })();
   const allIncluded = participants.every((p) => p.included);
 
-  // Invalidate every SWR key affected by an expense create/edit/delete. The
-  // single-expense detail key must be included or re-opening the same record
-  // shows stale pre-edit data (revalidateOnFocus is off + dedupe).
-  function revalidateGroup() {
-    mutate(`/api/groups/${groupId}/expenses`);
-    mutate(`/api/groups/${groupId}/balance`);
-    mutate(`/api/groups/${groupId}/stats`);
-    if (initial) mutate(`/api/groups/${groupId}/expenses/${initial.id}`);
-  }
-
   async function onSubmit(values: ExpenseFormValues) {
     const initialSplits = initial?.splits ?? [];
     const initialShareType = initialSplits[0]?.shareType as
@@ -530,23 +527,20 @@ export function ExpenseForm(props: Props) {
       })),
     };
 
-    const url = isEdit
-      ? `/api/groups/${groupId}/expenses/${initial!.id}`
-      : `/api/groups/${groupId}/expenses`;
-
-    const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
-    const res = await fetchFn(url, {
-      method: isEdit ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-      form.setError("root", { message: parsed.error ?? `HTTP ${res.status}` });
+    // Saving invalidates the lists, balance, stats, activity and this record's detail
+    // (see `ledgerTags` in src/store/api.ts), so nothing here names a cache key.
+    try {
+      if (isEdit) {
+        await updateExpense({ groupId, expenseId: initial!.id, body }).unwrap();
+      } else {
+        await createExpense({ groupId, body }).unwrap();
+      }
+    } catch (e) {
+      form.setError("root", {
+        message: apiErrorText(e, `HTTP ${apiErrorStatus(e) ?? "error"}`),
+      });
       return;
     }
-    revalidateGroup();
     router.push(back);
   }
 
@@ -607,16 +601,14 @@ export function ExpenseForm(props: Props) {
   async function handleDelete() {
     if (!initial) return;
     setDeletePending(true);
-    const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
-    const res = await fetchFn(`/api/groups/${groupId}/expenses/${initial.id}`, {
-      method: "DELETE",
-    });
-    setDeletePending(false);
-    if (!res.ok) {
-      setDeleteError(deleteErrorMessage(res, "這筆支出"));
+    try {
+      await deleteExpense({ groupId, expenseId: initial.id }).unwrap();
+    } catch (e) {
+      setDeletePending(false);
+      setDeleteError(deleteErrorMessage({ status: apiErrorStatus(e) ?? 0 }, "這筆支出"));
       return;
     }
-    revalidateGroup();
+    setDeletePending(false);
     router.push(back);
   }
 

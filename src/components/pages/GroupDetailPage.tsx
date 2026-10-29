@@ -13,7 +13,6 @@ import {
   User,
   Users,
 } from "lucide-react";
-import useSWR from "swr";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -29,63 +28,23 @@ import {
   settlementParties,
   type ExpenseViewMode,
 } from "@/lib/expense-view";
+import { describeError } from "@/lib/api-error";
 import { fmt, monthLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { minimizeTransfers } from "@/lib/settlement-core";
-
-type MeResponse = {
-  userId: number;
-  groups: Array<{ id: number; title: string; defaultCurrency: string }>;
-};
+import {
+  useCreateSettlementMutation,
+  useGetAvatarsQuery,
+  useGetBalanceQuery,
+  useGetExpensesQuery,
+  useGetMeQuery,
+} from "@/store/api";
 
 type Profile = {
   userId: number;
   firstName: string | null;
   lastName: string | null;
   username: string | null;
-};
-
-type ExpensePayer = {
-  userId: number;
-  firstName: string;
-  lastName: string | null;
-  username: string | null;
-  amount: number;
-};
-
-type ExpensesResponse = {
-  expenses: Array<{
-    id: number;
-    type: "expense" | "settlement";
-    amount: number;
-    currency: string;
-    description: string | null;
-    spentAt: string;
-    payers: ExpensePayer[];
-    splits: Array<{
-      debtorId: number;
-      firstName: string;
-      lastName: string | null;
-      username: string | null;
-      amount: number;
-    }>;
-  }>;
-};
-
-type BalanceResponse = {
-  currency: string;
-  balances: Array<{
-    userId: number;
-    amount: number;
-    firstName: string | null;
-    lastName: string | null;
-    username: string | null;
-  }>;
-};
-
-type AvatarsResponse = {
-  groupPhoto: string | null;
-  userPhotos: Record<number, string | null>;
 };
 
 type Transfer = {
@@ -105,7 +64,7 @@ export function GroupDetailPage({
 }) {
   const { id } = use(params);
 
-  const { data: me } = useSWR<MeResponse>("/api/me/groups");
+  const { data: me } = useGetMeQuery();
   const selfUserId = me?.userId;
   const groupTitle = me?.groups.find((g) => g.id === Number(id))?.title ?? "";
 
@@ -114,19 +73,15 @@ export function GroupDetailPage({
   const {
     data: expensesData,
     error: expensesError,
-    mutate: mutateExpenses,
-  } = useSWR<ExpensesResponse>(`/api/groups/${id}/expenses`);
+    refetch: refetchExpenses,
+  } = useGetExpensesQuery(id);
 
-  const {
-    data: balance,
-    error: balanceError,
-    mutate: mutateBalance,
-  } = useSWR<BalanceResponse>(`/api/groups/${id}/balance`);
+  const { data: balance, error: balanceError, refetch: refetchBalance } = useGetBalanceQuery(id);
 
-  const { data: avatars, error: avatarsError } = useSWR<AvatarsResponse>(
-    `/api/groups/${id}/avatars`,
-  );
+  const { data: avatars, error: avatarsError } = useGetAvatarsQuery(id);
   if (avatarsError) console.error("[avatars]", avatarsError);
+
+  const [createSettlement] = useCreateSettlementMutation();
 
   const computedTransfers = useMemo<Transfer[]>(() => {
     if (!balance) return [];
@@ -189,20 +144,21 @@ export function GroupDetailPage({
     setPendingIdx(idx);
     startTransition(() => dropOptimisticTransfer(idx));
     try {
-      await platform.request(`/api/groups/${id}/settlements`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await createSettlement({
+        groupId: id,
+        body: {
           fromUserId: transfer.fromUserId,
           toUserId: transfer.toUserId,
           amount: transfer.amount,
           currency: balance.currency,
-        }),
-      });
+        },
+      }).unwrap();
     } catch {
       setSettleError("標記失敗，請再試一次");
     }
-    await Promise.all([mutateBalance(), mutateExpenses()]);
+    // A saved settlement already invalidated both; this holds the spinner until the new
+    // numbers are in, and after a failure puts back the transfer that was optimistically dropped.
+    await Promise.all([refetchBalance(), refetchExpenses()]);
     setPendingIdx(null);
   }
 
@@ -211,7 +167,7 @@ export function GroupDetailPage({
     return (
       <div className="px-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{String(error)}</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
       </div>
     );
   }

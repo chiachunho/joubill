@@ -1,8 +1,8 @@
 "use client";
 
 import { use, useMemo, useState } from "react";
+import { skipToken } from "@reduxjs/toolkit/query";
 import type { EChartsOption } from "echarts";
-import useSWR from "swr";
 
 import {
   DateRangeSelect,
@@ -13,48 +13,23 @@ import { EChart } from "@/components/mini/EChart";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { StatsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
+import { describeError } from "@/lib/api-error";
 import { fmt } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { labelUser } from "@/lib/label";
 import { customRangeToQueryBounds } from "@/lib/stats-core";
+import {
+  useGetAvatarsQuery,
+  useGetMeQuery,
+  useGetMembersQuery,
+  useGetStatsQuery,
+} from "@/store/api";
 
 // Tailwind's emerald-500 / rose-500 — the two design-system-sanctioned
 // financial-polarity colors (see docs/design-system.md). ECharts can't
 // consume Tailwind classes, so these mirror them as literal hex.
 const EMERALD = "#10b981";
 const ROSE = "#f43f5e";
-
-type MeResponse = {
-  userId: number;
-  groups: Array<{ id: number; title: string; defaultCurrency: string }>;
-};
-
-type MembersResponse = {
-  members: Array<{
-    id: number;
-    firstName: string | null;
-    lastName: string | null;
-    username: string | null;
-    status: string;
-  }>;
-};
-
-type AvatarsResponse = { groupPhoto: string | null; userPhotos: Record<number, string | null> };
-
-type StatsResponse = {
-  currency: string;
-  selectedUserId: number;
-  range: { key: string; from: string; to: string };
-  monthly: Array<{ month: string; groupTotal: number; memberShare: number }>;
-  netTrend: Array<{ date: string; net: number }>;
-  byPayer: Array<{
-    userId: number;
-    firstName: string;
-    lastName: string | null;
-    username: string | null;
-    total: number;
-  }>;
-};
 
 const FONT_FAMILY =
   'system-ui, -apple-system, "Segoe UI", "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
@@ -82,28 +57,28 @@ export function GroupStatsPage({
   const backHref = `${platform.basePath}/groups/${id}`;
   platform.useBack(backHref);
 
-  const { data: me } = useSWR<MeResponse>("/api/me/groups");
+  const { data: me } = useGetMeQuery();
   const selfUserId = me?.userId;
-  const { data: membersData } = useSWR<MembersResponse>(`/api/groups/${id}/members`);
-  const { data: avatars } = useSWR<AvatarsResponse>(`/api/groups/${id}/avatars`);
+  const { data: membersData } = useGetMembersQuery(id);
+  const { data: avatars } = useGetAvatarsQuery(id);
 
   const [selectedUserId, setSelectedUserId] = useState<number | undefined>(undefined);
   const [range, setRange] = useState<StatsRangeValue>({ key: "6m" });
 
-  const statsKey = useMemo(() => {
-    if (range.key === "custom" && (!range.from || !range.to)) return null;
-    const qs = new URLSearchParams();
-    if (selectedUserId !== undefined) qs.set("userId", String(selectedUserId));
-    qs.set("range", range.key);
-    if (range.key === "custom") {
-      const bounds = customRangeToQueryBounds(range);
-      qs.set("from", bounds.from!);
-      qs.set("to", bounds.to!);
-    }
-    return `/api/groups/${id}/stats?${qs.toString()}`;
+  // A custom range with no dates picked yet is not a request to make.
+  const statsArg = useMemo(() => {
+    if (range.key === "custom" && (!range.from || !range.to)) return skipToken;
+    const bounds = range.key === "custom" ? customRangeToQueryBounds(range) : null;
+    return {
+      groupId: id,
+      userId: selectedUserId,
+      range: range.key,
+      from: bounds?.from ?? undefined,
+      to: bounds?.to ?? undefined,
+    };
   }, [id, selectedUserId, range]);
 
-  const { data: stats, error } = useSWR<StatsResponse>(statsKey);
+  const { data: stats, error } = useGetStatsQuery(statsArg);
 
   const viewedUserId = selectedUserId ?? stats?.selectedUserId;
   const viewedMember = membersData?.members.find((m) => m.id === viewedUserId);
@@ -303,7 +278,7 @@ export function GroupStatsPage({
     return (
       <div className="px-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{String(error)}</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
       </div>
     );
   }

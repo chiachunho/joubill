@@ -27,7 +27,7 @@ describe("counterpartOf", () => {
   });
 
   it("returns null for paths outside both trees", () => {
-    expect(counterpartOf("src/components/mini/SWRProvider.tsx")).toBeNull();
+    expect(counterpartOf("src/components/mini/Avatar.tsx")).toBeNull();
     expect(counterpartOf("src/app/help/page.mdx")).toBeNull();
     // A sibling directory that only shares a prefix is not part of the tree.
     expect(counterpartOf("src/app/mini-preview/page.tsx")).toBeNull();
@@ -58,9 +58,9 @@ describe("findUnpairedChanges", () => {
   });
 
   it("does not report an edit to a file that has no counterpart", () => {
-    // app/SWRProvider.tsx is web-only: the Mini App takes its provider from components/.
-    const changes = [{ status: "M", path: "src/app/app/SWRProvider.tsx" }];
-    const exists = tree("src/app/app/SWRProvider.tsx", "src/components/mini/SWRProvider.tsx");
+    // A web-only helper: the Mini App has nothing to mirror it.
+    const changes = [{ status: "M", path: "src/app/app/web-only.tsx" }];
+    const exists = tree("src/app/app/web-only.tsx");
     expect(findUnpairedChanges(changes, exists)).toEqual([]);
   });
 

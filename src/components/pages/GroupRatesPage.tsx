@@ -1,13 +1,12 @@
 "use client";
 
 import { use } from "react";
-import useSWR from "swr";
 
 import { CustomRatesSection } from "@/components/mini/CustomRatesSection";
 import { SettingsSubpageSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
-
-type SettingsResponse = { defaultCurrency: string };
+import { describeError } from "@/lib/api-error";
+import { useGetSettingsQuery } from "@/store/api";
 
 export function GroupRatesPage({
   params,
@@ -21,13 +20,13 @@ export function GroupRatesPage({
   const backHref = `${platform.basePath}/groups/${id}/settings`;
   platform.useBack(backHref);
 
-  const { data: settings, error } = useSWR<SettingsResponse>(`/api/groups/${id}/settings`);
+  const { data: settings, error } = useGetSettingsQuery(id);
 
   if (error) {
     return (
       <div className="px-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{String(error)}</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
       </div>
     );
   }
@@ -43,11 +42,7 @@ export function GroupRatesPage({
         <h1 className="text-lg font-semibold">自訂匯率</h1>
       </div>
 
-      <CustomRatesSection
-        groupId={id}
-        defaultCurrency={settings.defaultCurrency}
-        rawFetch={platform.rawRequest}
-      />
+      <CustomRatesSection groupId={id} defaultCurrency={settings.defaultCurrency} />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { ChevronLeft, LogOut, UserCircle } from "lucide-react";
 import type { Platform } from "@/components/pages/platform";
 import { WEB_LOGIN_PATH } from "@/lib/auth-redirect";
 import { HELP_PATH } from "@/lib/help-url";
-import { webFetch, webRawFetch } from "@/lib/web-fetch";
+import { webRawFetch } from "@/lib/web-fetch";
 
 function useNoSelfPhoto(): string | null {
   return null;
@@ -93,7 +93,6 @@ function WebAccountSection() {
 
 export const webPlatform: Platform = {
   basePath: "/app",
-  request: webFetch,
   rawRequest: webRawFetch,
   // The Web App has no Telegram SDK, so the bot's avatar is the only photo source.
   useSelfPhoto: useNoSelfPhoto,

@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import { Bean, Check } from "lucide-react";
-import useSWR from "swr";
 
-import { useAuthMode } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -14,11 +12,7 @@ import {
   type BeancountRecord,
 } from "@/lib/beancount";
 import type { Profile } from "@/lib/label";
-import { tmaRawFetch } from "@/lib/tma-fetch";
-import { webRawFetch } from "@/lib/web-fetch";
-import type { BeancountConfigInput } from "@/lib/zod";
-
-type ConfigResponse = { config: BeancountConfigInput | null };
+import { useGetBeancountConfigQuery, useLazyGetEffectiveRateQuery } from "@/store/api";
 
 type Member = {
   id: number;
@@ -69,10 +63,10 @@ export function CopyBeancountButton({
   groupId,
   defaultCurrency,
 }: Props) {
-  const mode = useAuthMode();
   const [copied, setCopied] = useState(false);
   // The feature is opt-in per (user, group): no config row → button stays hidden.
-  const { data } = useSWR<ConfigResponse>(`/api/groups/${groupId}/beancount`);
+  const { data } = useGetBeancountConfigQuery(groupId);
+  const [fetchEffectiveRate] = useLazyGetEffectiveRateQuery();
 
   // Resolve the rate to convert the record into the group default currency,
   // mirroring fx.ts priority: per-record pin → group/market (via the effective
@@ -84,14 +78,11 @@ export function CopyBeancountButton({
     }
     const date = new Date(record.spentAt).toISOString().slice(0, 10);
     try {
-      const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
-      const res = await fetchFn(
-        `/api/groups/${groupId}/rates/effective?base=${record.currency}&date=${date}`,
-      );
-      if (res.ok) {
-        const data = (await res.json()) as { rate: number | null };
-        return { quote: defaultCurrency, rate: typeof data.rate === "number" ? data.rate : null };
-      }
+      const data = await fetchEffectiveRate(
+        { groupId, base: record.currency, date },
+        true,
+      ).unwrap();
+      return { quote: defaultCurrency, rate: typeof data.rate === "number" ? data.rate : null };
     } catch {
       // network/parse failure → fall through to "rate unavailable"
     }
