@@ -26,9 +26,7 @@ export function DeleteRequestBanner({
   redirectPath: string;
 }) {
   const router = useRouter();
-  const { data, refetch } = useGetDeleteRequestQuery(groupId, {
-    pollingInterval: 60_000,
-  });
+  const { data, refetch } = useGetDeleteRequestQuery(groupId);
   const [approve] = useApproveDeleteRequestMutation();
   const [reject] = useCancelDeleteRequestMutation();
   const [busy, setBusy] = useState<"approve" | "reject" | null>(null);

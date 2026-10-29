@@ -5,7 +5,8 @@ import { db } from "@/db";
 import { groupMembers } from "@/db/schema";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { findActiveInvite, INVITE_NOT_FOUND } from "@/lib/invites";
+import { INVITE_NOT_FOUND } from "@/lib/invite";
+import { findActiveInvite } from "@/lib/invites";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

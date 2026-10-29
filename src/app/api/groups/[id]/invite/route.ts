@@ -11,7 +11,11 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
-/** The group's live invite code, issuing one if it has none (older groups). */
+/**
+ * The group's live invite code, or `{ code: null }` for one that has none yet (every group made
+ * before invites existed). A read never creates one: whoever presses 產生邀請碼 is the inviter
+ * on record, not whoever happened to open the settings page.
+ */
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const groupId = Number((await params).id);
@@ -20,13 +24,11 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
   await assertGroupMember(auth.user.id, groupId);
 
-  const invite =
-    (await currentInvite(groupId)) ??
-    (await db.transaction((tx) => rotateInvite(tx, groupId, auth.user.id)));
-  return NextResponse.json({ code: invite.code });
+  const invite = await currentInvite(groupId);
+  return NextResponse.json({ code: invite?.code ?? null });
 });
 
-/** Revokes the current code and issues a new one. */
+/** Issues a code, revoking the current one if there is one. */
 export const POST = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const groupId = Number((await params).id);
@@ -35,7 +37,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   }
   await assertGroupMember(auth.user.id, groupId);
 
-  const invite = await db.transaction((tx) => rotateInvite(tx, groupId, auth.user.id));
-  await logInviteReset(groupId, { userId: auth.user.id, source: "app" });
+  const { invite, revoked } = await db.transaction((tx) => rotateInvite(tx, groupId, auth.user.id));
+  // A first code is not a "reset"; only replacing a live one belongs in the feed.
+  if (revoked > 0) await logInviteReset(groupId, { userId: auth.user.id, source: "app" });
   return NextResponse.json({ code: invite.code });
 });

@@ -98,13 +98,9 @@ export function GroupsHome({ platform }: { platform: Platform }) {
                   alt={g.title}
                   className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
                 />
-              ) : platform.canCreateGroup ? (
-                // A group made on the web has no chat photo, so draw its initials.
-                <Avatar name={g.title} userId={g.id} />
               ) : (
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <Users className="size-4 text-primary" />
-                </div>
+                // No photo (a web group has no chat, a Telegram group may not have set one).
+                <Avatar name={g.title} userId={g.id} />
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{g.title}</p>

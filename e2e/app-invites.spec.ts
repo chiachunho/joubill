@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-serverless";
 
 import * as schema from "../src/db/schema";
@@ -55,7 +55,7 @@ test.describe("Creating groups and joining by invite", () => {
     baseURL,
   }) => {
     const db = drizzle(dbPool, { schema });
-    const first = await authedPage.request.get(`/api/groups/${seeded.groupId}/invite`);
+    const first = await authedPage.request.post(`/api/groups/${seeded.groupId}/invite`);
     const { code: oldCode } = await first.json();
 
     const { context, page } = await outsiderPage(browser, baseURL, dbPool, seeded.outsiderId);
@@ -92,7 +92,7 @@ test.describe("Creating groups and joining by invite", () => {
     browser,
     baseURL,
   }) => {
-    const res = await authedPage.request.get(`/api/groups/${seeded.groupId}/invite`);
+    const res = await authedPage.request.post(`/api/groups/${seeded.groupId}/invite`);
     const { code } = await res.json();
     const dashed = `${code.slice(0, 5)}-${code.slice(5)}`.toLowerCase();
 
@@ -106,6 +106,58 @@ test.describe("Creating groups and joining by invite", () => {
     } finally {
       await context.close();
     }
+  });
+
+  test("two accepts in a row log one join", async ({
+    authedPage,
+    seeded,
+    dbPool,
+    browser,
+    baseURL,
+  }) => {
+    const db = drizzle(dbPool, { schema });
+    const { code } = await (
+      await authedPage.request.post(`/api/groups/${seeded.groupId}/invite`)
+    ).json();
+
+    const { context, page } = await outsiderPage(browser, baseURL, dbPool, seeded.outsiderId);
+    try {
+      const accept = () => page.request.post(`/api/invites/${code}/accept`);
+      await Promise.all([accept(), accept()]);
+
+      const rows = await db
+        .select()
+        .from(schema.recordAuditLog)
+        .where(eq(schema.recordAuditLog.groupId, seeded.groupId));
+      expect(rows.filter((r) => r.action === "member_joined")).toHaveLength(1);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("resetting at the same time still leaves one live code", async ({
+    authedPage,
+    seeded,
+    dbPool,
+  }) => {
+    const db = drizzle(dbPool, { schema });
+    await Promise.all([
+      authedPage.request.post(`/api/groups/${seeded.groupId}/invite`),
+      authedPage.request.post(`/api/groups/${seeded.groupId}/invite`),
+    ]);
+
+    const live = await db
+      .select()
+      .from(schema.groupInvites)
+      .where(
+        and(eq(schema.groupInvites.groupId, seeded.groupId), isNull(schema.groupInvites.revokedAt)),
+      );
+    expect(live).toHaveLength(1);
+  });
+
+  test("reading an invite never creates one", async ({ authedPage, seeded }) => {
+    const res = await authedPage.request.get(`/api/groups/${seeded.groupId}/invite`);
+    expect((await res.json()).code).toBeNull();
   });
 
   test("an unknown code gets the same answer as a revoked one", async ({ authedPage }) => {

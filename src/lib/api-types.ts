@@ -172,7 +172,8 @@ export type DeleteRequestResponse = {
 export type DeleteGroupResponse = { ok?: boolean; pending?: boolean };
 
 /** GET/POST /api/groups/[id]/invite */
-export type InviteResponse = { code: string };
+/** `code` is null for a group that has not had one issued yet. */
+export type InviteResponse = { code: string | null };
 
 /** POST /api/groups */
 export type CreateGroupResponse = { id: number };

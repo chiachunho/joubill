@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   INVITE_ALPHABET,
+  INVITE_NOT_FOUND,
+  decodeInviteParam,
   INVITE_CODE_LENGTH,
   formatInviteCode,
   generateInviteCode,
@@ -62,5 +64,25 @@ describe("inviteLink / parseInviteCode", () => {
 
   it("accepts a bare code", () => {
     expect(parseInviteCode("K7M2Q-X9PAB")).toBe("K7M2QX9PAB");
+  });
+});
+
+describe("malformed input", () => {
+  it.each(["%", "%zz", "%E0%A4%A"])("decodeInviteParam answers null for %s", (bad) => {
+    expect(decodeInviteParam(bad)).toBeNull();
+  });
+
+  it("decodes an ordinary parameter", () => {
+    expect(decodeInviteParam("K7M2Q-X9PAB")).toBe("K7M2Q-X9PAB");
+    expect(decodeInviteParam("K7M2Q%2DX9PAB")).toBe("K7M2Q-X9PAB");
+  });
+
+  it("parseInviteCode does not throw on a broken link", () => {
+    expect(parseInviteCode("https://x.example/join/%zz")).toBeNull();
+    expect(parseInviteCode("https://x.example/join/%")).toBeNull();
+  });
+
+  it("has one 404 answer", () => {
+    expect(INVITE_NOT_FOUND).toEqual({ status: 404, error: "邀請碼無效或已失效" });
   });
 });

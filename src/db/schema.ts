@@ -14,6 +14,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 
@@ -312,20 +313,29 @@ export const groupDeleteRequests = pgTable("group_delete_requests", {
  * are indistinguishable from unknown ones to callers (see src/lib/invites.ts).
  * The code is the only defence against guessing, so keep it long (see src/lib/invite.ts).
  */
-export const groupInvites = pgTable("group_invites", {
-  id: serial("id").primaryKey(),
-  groupId: integer("group_id")
-    .notNull()
-    .references(() => groups.id, { onDelete: "cascade" }),
-  code: varchar("code", { length: 16 }).notNull().unique(),
-  createdBy: integer("created_by")
-    .notNull()
-    .references(() => users.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  /** NULL = never expires. */
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
-  revokedAt: timestamp("revoked_at", { withTimezone: true }),
-});
+export const groupInvites = pgTable(
+  "group_invites",
+  {
+    id: serial("id").primaryKey(),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    code: varchar("code", { length: 16 }).notNull().unique(),
+    createdBy: integer("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** NULL = never expires. */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    // At most one live code per group, enforced here rather than trusted to the callers.
+    uniqueIndex("group_invites_one_live_idx")
+      .on(t.groupId)
+      .where(sql`${t.revokedAt} IS NULL`),
+  ],
+);
 
 /**
  * Who changed which record, when, and what it looked like before and after.

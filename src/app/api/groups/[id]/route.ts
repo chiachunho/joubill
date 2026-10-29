@@ -49,11 +49,11 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   });
   // A group created on the web has no chat: nothing to announce and nothing to leave.
   const chatId = telegramChatId(group);
-  const bot = chatId === null ? null : getBot();
 
   // Single member — delete immediately without requiring approval
   if (memberCount <= 1) {
-    if (bot && chatId !== null) {
+    if (chatId !== null) {
+      const bot = getBot();
       await bot.api
         .sendMessage(chatId, `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`)
         .catch(() => null);
@@ -83,33 +83,32 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     .values({ groupId, requestedBy: user.id, expiresAt })
     .returning();
 
-  // The request lives in the DB; the other members approve it in the app.
-  if (!bot || chatId === null) {
-    return NextResponse.json({ pending: true, requestId: request.id });
-  }
-
-  const sent = await bot.api
-    .sendMessage(
-      chatId,
-      `${name} 申請刪除揪帳群組「${group.title}」，需要其他成員確認。\n\n同意後所有費用與結算紀錄將永久清除。`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: BTN.approveDeleteGroup, callback_data: `approve_del:${request.id}` },
-              { text: BTN.rejectDeleteGroup, callback_data: `cancel_del:${request.id}` },
+  // The request lives in the DB; the other members approve it in the app (and, for a group
+  // with a chat, on the message below).
+  if (chatId !== null) {
+    const sent = await getBot()
+      .api.sendMessage(
+        chatId,
+        `${name} 申請刪除揪帳群組「${group.title}」，需要其他成員確認。\n\n同意後所有費用與結算紀錄將永久清除。`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: BTN.approveDeleteGroup, callback_data: `approve_del:${request.id}` },
+                { text: BTN.rejectDeleteGroup, callback_data: `cancel_del:${request.id}` },
+              ],
             ],
-          ],
+          },
         },
-      },
-    )
-    .catch(() => null);
+      )
+      .catch(() => null);
 
-  if (sent) {
-    await db
-      .update(groupDeleteRequests)
-      .set({ telegramMessageId: sent.message_id })
-      .where(eq(groupDeleteRequests.id, request.id));
+    if (sent) {
+      await db
+        .update(groupDeleteRequests)
+        .set({ telegramMessageId: sent.message_id })
+        .where(eq(groupDeleteRequests.id, request.id));
+    }
   }
 
   return NextResponse.json({ pending: true, requestId: request.id });

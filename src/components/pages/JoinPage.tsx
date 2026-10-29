@@ -10,10 +10,10 @@ import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiErrorStatus, apiErrorText } from "@/lib/api-error";
-import { normalizeInviteCode } from "@/lib/invite";
+import { decodeInviteParam, INVITE_NOT_FOUND, normalizeInviteCode } from "@/lib/invite";
 import { useAcceptInviteMutation, useGetInvitePreviewQuery } from "@/store/api";
 
-const INVALID = "邀請碼無效或已失效";
+const INVALID = INVITE_NOT_FOUND.error;
 
 /**
  * /join/<code>: what a shared link opens. Not signed in → the store's 401 handling sends the
@@ -27,10 +27,10 @@ export function JoinPage({
   platform: Platform;
 }) {
   const router = useRouter();
-  const raw = decodeURIComponent(use(params).code);
-  const code = normalizeInviteCode(raw);
+  const raw = decodeInviteParam(use(params).code);
+  const code = raw === null ? null : normalizeInviteCode(raw);
 
-  const { data, error } = useGetInvitePreviewQuery(code ?? "", { skip: !code });
+  const { data, error, refetch } = useGetInvitePreviewQuery(code ?? "", { skip: !code });
   const [accept, { isLoading: joining, error: joinError }] = useAcceptInviteMutation();
   const redirecting = useLoginRedirect(error ?? joinError, platform.loginPath);
 
@@ -46,8 +46,9 @@ export function JoinPage({
 
   if (redirecting) return null;
 
-  // Any 4xx reads the same on purpose: an unknown, revoked and expired code are not told apart.
-  const notFound = !code || (error && apiErrorStatus(error) !== 401);
+  // Unknown, revoked, expired and malformed codes read the same on purpose. Only a 404 means
+  // that: a server error or a dropped connection says nothing about the code, so it can retry.
+  const notFound = !code || (error && apiErrorStatus(error) === INVITE_NOT_FOUND.status);
   if (notFound) {
     return (
       <div className="px-4 py-16 text-center">
@@ -56,6 +57,18 @@ export function JoinPage({
         <Link href={platform.basePath} className="mt-6 inline-block text-sm text-primary">
           回首頁
         </Link>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="px-4 py-16 text-center">
+        <p className="font-semibold">載入失敗</p>
+        <p className="mt-1 text-sm text-muted-foreground">請檢查網路後再試一次</p>
+        <Button className="mt-6" variant="secondary" onClick={() => refetch()}>
+          重試
+        </Button>
       </div>
     );
   }

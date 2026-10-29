@@ -67,6 +67,18 @@ describe("JoinPage", () => {
     expect(await screen.findByText("邀請碼無效或已失效")).toBeInTheDocument();
   });
 
+  it("offers a retry, not an invalid-code verdict, when the server fails", async () => {
+    renderJoin({ [`/api/invites/${CODE}`]: new Failure(500) });
+
+    expect(await screen.findByRole("button", { name: "重試" })).toBeInTheDocument();
+    expect(screen.queryByText("邀請碼無效或已失效")).not.toBeInTheDocument();
+  });
+
+  it("treats a malformed link parameter as an invalid code instead of crashing", async () => {
+    renderJoin({}, "%zz");
+    expect(await screen.findByText("邀請碼無效或已失效")).toBeInTheDocument();
+  });
+
   it("sends a signed-out viewer to login, carrying the join link", async () => {
     const location = { href: `/join/${CODE}`, pathname: `/join/${CODE}`, search: "" };
     vi.stubGlobal("location", location);

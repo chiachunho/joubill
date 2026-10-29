@@ -4,12 +4,7 @@ import { db } from "@/db";
 import { groupInvites, groups, type GroupInvite } from "@/db/schema";
 import { generateInviteCode, normalizeInviteCode } from "@/lib/invite";
 
-/**
- * The one answer for every invite code that can't be used — never issued, revoked
- * or expired. Callers must not tell these apart: a different reply per cause would
- * let someone probe which codes exist. Every route returns this same status + text.
- */
-export const INVITE_NOT_FOUND = { status: 404, error: "邀請碼無效或已失效" } as const;
+export { INVITE_NOT_FOUND } from "@/lib/invite";
 
 type Executor = Pick<typeof db, "select" | "insert" | "update">;
 
@@ -52,29 +47,27 @@ export async function currentInvite(groupId: number, ex: Executor = db) {
 }
 
 /**
- * Revokes the group's live code (if any) and issues a fresh one, so a group only
- * ever has one valid code. A unique-key collision is astronomically unlikely at
- * 50 bits but cheap to retry.
+ * Revokes the group's live code (if any) and issues a fresh one, so a group only ever has one
+ * valid code. The `groups` row is locked first, which serialises two members resetting (or
+ * creating the first code) at once; the partial unique index on `group_invites` is the backstop.
+ * `revoked` is how many codes this replaced, 0 for a group's first. Must run in a transaction.
  */
 export async function rotateInvite(
-  ex: Pick<typeof db, "insert" | "update">,
+  tx: Pick<typeof db, "select" | "insert" | "update">,
   groupId: number,
   userId: number,
-): Promise<GroupInvite> {
-  await ex
+): Promise<{ invite: GroupInvite; revoked: number }> {
+  await tx.select({ id: groups.id }).from(groups).where(eq(groups.id, groupId)).for("update");
+
+  const revoked = await tx
     .update(groupInvites)
     .set({ revokedAt: new Date() })
-    .where(and(eq(groupInvites.groupId, groupId), isNull(groupInvites.revokedAt)));
+    .where(and(eq(groupInvites.groupId, groupId), isNull(groupInvites.revokedAt)))
+    .returning({ id: groupInvites.id });
 
-  for (let attempt = 0; ; attempt++) {
-    try {
-      const [row] = await ex
-        .insert(groupInvites)
-        .values({ groupId, code: generateInviteCode(), createdBy: userId })
-        .returning();
-      return row;
-    } catch (err) {
-      if (attempt >= 2) throw err;
-    }
-  }
+  const [invite] = await tx
+    .insert(groupInvites)
+    .values({ groupId, code: generateInviteCode(), createdBy: userId })
+    .returning();
+  return { invite, revoked: revoked.length };
 }

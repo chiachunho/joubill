@@ -42,8 +42,26 @@ export function inviteLink(origin: string, code: string): string {
   return `${origin}/join/${code}`;
 }
 
+/** `decodeURIComponent` that answers null instead of throwing on a malformed `%` sequence. */
+export function decodeInviteParam(s: string): string | null {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return null;
+  }
+}
+
 /** Reads the code back out of a `/join/<code>` link or a bare code. */
 export function parseInviteCode(input: string): string | null {
   const m = input.trim().match(/\/join\/([^/?#\s]+)/);
-  return normalizeInviteCode(m ? decodeURIComponent(m[1]) : input);
+  if (!m) return normalizeInviteCode(input);
+  const decoded = decodeInviteParam(m[1]);
+  return decoded === null ? null : normalizeInviteCode(decoded);
 }
+
+/**
+ * The one answer for every invite code that can't be used — never issued, malformed, revoked
+ * or expired. Callers must not tell these apart: a different reply per cause would let someone
+ * probe which codes exist. Lives here, not in invites.ts, so the join page can show the same text.
+ */
+export const INVITE_NOT_FOUND = { status: 404, error: "邀請碼無效或已失效" } as const;

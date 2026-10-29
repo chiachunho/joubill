@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { groupMembers, users } from "@/db/schema";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { findActiveInvite, INVITE_NOT_FOUND } from "@/lib/invites";
+import { INVITE_NOT_FOUND } from "@/lib/invite";
+import { findActiveInvite } from "@/lib/invites";
 import { labelUser } from "@/lib/label";
 import { logMemberJoined } from "@/lib/record-mutation";
 
@@ -25,21 +26,19 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     );
   }
 
-  const [before] = await db
-    .select({ status: groupMembers.status })
-    .from(groupMembers)
-    .where(and(eq(groupMembers.groupId, invite.groupId), eq(groupMembers.userId, auth.user.id)));
-
-  await db
+  // One statement decides whether this call changed anything: a second tap or tab finds the
+  // member already active, gets no row back, and so doesn't log a second "joined".
+  const changed = await db
     .insert(groupMembers)
     .values({ groupId: invite.groupId, userId: auth.user.id, status: "active" })
     .onConflictDoUpdate({
       target: [groupMembers.groupId, groupMembers.userId],
       set: { status: "active" },
-    });
+      setWhere: sql`${groupMembers.status} <> 'active'`,
+    })
+    .returning({ userId: groupMembers.userId });
 
-  // Re-accepting a link you already used is a no-op, not a second "joined" row.
-  if (before?.status !== "active") {
+  if (changed.length > 0) {
     const [inviter] = await db
       .select({ firstName: users.firstName, lastName: users.lastName, username: users.username })
       .from(users)

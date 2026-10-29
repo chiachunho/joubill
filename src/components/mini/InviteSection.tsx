@@ -41,14 +41,15 @@ export function InviteSection({ groupId }: { groupId: string }) {
     }
   }
 
-  async function reset() {
+  // Issuing the first code and replacing a live one are the same request; only the latter asks first.
+  async function issue() {
     try {
       await resetInvite({ groupId }).unwrap();
       setConfirmReset(false);
       setMessage(null);
     } catch (e) {
       setConfirmReset(false);
-      setMessage(apiErrorText(e, "重設失敗"));
+      setMessage(apiErrorText(e, code ? "重設失敗" : "產生失敗"));
     }
   }
 
@@ -62,7 +63,7 @@ export function InviteSection({ groupId }: { groupId: string }) {
           </span>
           <span className="text-sm">邀請碼</span>
           <span className="num ml-auto text-sm font-semibold tracking-wider">
-            {code ? formatInviteCode(code) : error ? "無法載入" : "載入中…"}
+            {code ? formatInviteCode(code) : error ? "無法載入" : data ? "尚未產生" : "載入中…"}
           </span>
         </div>
         <div className="grid grid-cols-2 gap-2 border-t border-border/40 p-3">
@@ -93,16 +94,19 @@ export function InviteSection({ groupId }: { groupId: string }) {
             </button>
           )}
         </div>
-        <button
-          onClick={() => setConfirmReset(true)}
-          disabled={!code || resetting}
-          className="flex w-full items-center gap-3 border-t border-border/40 px-4 py-3 text-left text-sm transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50"
-        >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <RefreshCw className="size-3.5" />
-          </span>
-          重設邀請碼
-        </button>
+        {/* Only once the read has answered: before that the label would claim there is no code. */}
+        {data && (
+          <button
+            onClick={() => (code ? setConfirmReset(true) : issue())}
+            disabled={resetting}
+            className="flex w-full items-center gap-3 border-t border-border/40 px-4 py-3 text-left text-sm transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <RefreshCw className="size-3.5" />
+            </span>
+            {code ? "重設邀請碼" : "產生邀請碼"}
+          </button>
+        )}
       </div>
       <p className="mt-2 px-1 text-xs text-muted-foreground">
         {message ?? "任何拿到連結或邀請碼的人都能加入。重設後，舊的連結和邀請碼會立即失效。"}
@@ -115,7 +119,7 @@ export function InviteSection({ groupId }: { groupId: string }) {
         description="舊的連結和邀請碼會立即失效，已經加入的成員不受影響。"
         confirmLabel="重設"
         loading={resetting}
-        onConfirm={reset}
+        onConfirm={issue}
       />
     </section>
   );
