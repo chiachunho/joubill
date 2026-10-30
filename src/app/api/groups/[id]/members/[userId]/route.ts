@@ -43,6 +43,7 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
       const rows = await tx
         .select({
           id: users.id,
+          displayName: users.displayName,
           firstName: users.firstName,
           lastName: users.lastName,
           placeholderGroupId: users.placeholderGroupId,

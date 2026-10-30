@@ -77,7 +77,12 @@ function mentionRequester(ctx: BotContext): string {
   return from.username
     ? "@" + from.username
     : mention(
-        labelUser({ firstName: from.first_name, lastName: from.last_name ?? null, username: null }),
+        labelUser({
+          displayName: ctx.dbUser?.displayName ?? null,
+          firstName: from.first_name,
+          lastName: from.last_name ?? null,
+          username: null,
+        }),
         from.id,
       );
 }
@@ -183,7 +188,9 @@ export async function handleAddParsed(
     if (entity.type !== "text_mention" || !entity.user || entity.user.is_bot) continue;
     namesByTelegramId.set(
       entity.user.id,
+      // Telegram's own name: it only names someone who couldn't be added, who may have no row.
       labelUser({
+        displayName: null,
         firstName: entity.user.first_name,
         lastName: entity.user.last_name ?? null,
         username: entity.user.username ?? null,

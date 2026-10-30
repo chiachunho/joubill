@@ -48,6 +48,11 @@ export const DELETE = withAuth(
       await tx
         .delete(authIdentities)
         .where(and(eq(authIdentities.userId, auth.user.id), eq(authIdentities.provider, provider)));
+      // An avatar chosen from this login falls back to automatic rather than pointing at nothing.
+      await tx
+        .update(users)
+        .set({ avatarSource: null, updatedAt: new Date() })
+        .where(and(eq(users.id, auth.user.id), eq(users.avatarSource, provider)));
       return null;
     });
     if (failure) return failure;

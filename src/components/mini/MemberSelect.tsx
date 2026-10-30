@@ -8,10 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { labelMember } from "@/lib/label";
+import { memberLabels } from "@/lib/label";
 
 type Member = {
   id: number;
+  displayName: string | null;
   firstName: string | null;
   lastName?: string | null;
   username: string | null;
@@ -27,6 +28,10 @@ type Props = {
 
 export function MemberSelect({ value, onValueChange, members, photos, placeholder }: Props) {
   const selected = members.find((m) => String(m.id) === value);
+  // Display names are free text, so two members can read the same; the picker must not offer
+  // two identical rows.
+  const labels = memberLabels(members);
+  const label = (m: Member) => labels.get(m.id) ?? "?";
   return (
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger>
@@ -34,11 +39,11 @@ export function MemberSelect({ value, onValueChange, members, photos, placeholde
           <span className="!flex min-w-0 items-center gap-2 overflow-hidden">
             <Avatar
               src={photos?.[selected.id] ?? null}
-              name={labelMember(selected)}
+              name={label(selected)}
               userId={selected.id}
               size="xs"
             />
-            <span className="truncate">{labelMember(selected)}</span>
+            <span className="truncate">{label(selected)}</span>
           </span>
         ) : (
           <SelectValue placeholder={placeholder} />
@@ -46,10 +51,10 @@ export function MemberSelect({ value, onValueChange, members, photos, placeholde
       </SelectTrigger>
       <SelectContent>
         {members.map((m) => (
-          <SelectItem key={m.id} value={String(m.id)} textValue={labelMember(m)}>
+          <SelectItem key={m.id} value={String(m.id)} textValue={label(m)}>
             <span className="flex items-center gap-2">
-              <Avatar src={photos?.[m.id] ?? null} name={labelMember(m)} userId={m.id} size="xs" />
-              {labelMember(m)}
+              <Avatar src={photos?.[m.id] ?? null} name={label(m)} userId={m.id} size="xs" />
+              {label(m)}
             </span>
           </SelectItem>
         ))}

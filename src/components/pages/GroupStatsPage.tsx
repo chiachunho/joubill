@@ -88,6 +88,7 @@ export function GroupStatsPage({
     ? labelUser(
         {
           userId: viewedMember.id,
+          displayName: viewedMember.displayName,
           firstName: viewedMember.firstName,
           lastName: viewedMember.lastName,
           username: viewedMember.username,

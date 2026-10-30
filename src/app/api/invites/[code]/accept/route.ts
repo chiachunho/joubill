@@ -84,7 +84,12 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
 
   if (changed.length > 0) {
     const [inviter] = await db
-      .select({ firstName: users.firstName, lastName: users.lastName, username: users.username })
+      .select({
+        displayName: users.displayName,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        username: users.username,
+      })
       .from(users)
       .where(eq(users.id, invite.createdBy));
     await logMemberJoined(

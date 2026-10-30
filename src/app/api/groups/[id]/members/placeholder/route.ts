@@ -36,7 +36,12 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   const member = await db.transaction(async (tx) => {
     await lockGroupMemberNames(tx, groupId);
     const existing = await tx
-      .select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
+      .select({
+        id: users.id,
+        displayName: users.displayName,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
       .from(users)
       .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
       .where(eq(groupMembers.groupId, groupId));

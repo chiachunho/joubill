@@ -22,6 +22,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const rows = await db
     .select({
       id: users.id,
+      displayName: users.displayName,
       firstName: users.firstName,
       lastName: users.lastName,
       username: users.username,

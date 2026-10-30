@@ -20,6 +20,7 @@ import type {
   MergePreviewResponse,
   MembersResponse,
   ProfileResponse,
+  ProfileUpdate,
   IdentitiesResponse,
   RatesResponse,
   SettingsResponse,
@@ -69,6 +70,21 @@ const tagTypes = [
 type Tag = { type: (typeof tagTypes)[number]; id: string };
 
 const tag = (type: Tag["type"], id: string): Tag => ({ type, id });
+
+/**
+ * Every cached read that shows a person's name or picture, in every group (a bare type
+ * invalidates all of its ids). A profile change reaches all of a person's groups at once, and
+ * the viewer can't know which groups' caches hold them, so this is deliberately wide.
+ */
+const peopleTags = [
+  "Members",
+  "Avatars",
+  "Expenses",
+  "Balance",
+  "Stats",
+  "Activity",
+  "DeleteRequest",
+] as const satisfies readonly Tag["type"][];
 
 /** What any create / edit / delete of an expense or settlement changes. */
 function ledgerTags(groupId: GroupId): Tag[] {
@@ -431,7 +447,12 @@ const baseApi = createApi({
         url: `/api/me/identities/${encodeURIComponent(provider)}`,
         method: "DELETE",
       }),
-      invalidatesTags: [tag("Identities", "ME")],
+      // Unlinking the login the avatar came from moves it back to automatic.
+      invalidatesTags: [tag("Identities", "ME"), tag("Profile", "ME"), "Avatars"],
+    }),
+    updateProfile: build.mutation<ProfileResponse, ProfileUpdate>({
+      query: (body) => ({ url: "/api/me/profile", method: "PATCH", body }),
+      invalidatesTags: [tag("Profile", "ME"), ...peopleTags],
     }),
     // No tags: the page reloads after a merge, since the session may now be another user's.
     mergeAccounts: build.mutation<
@@ -605,6 +626,7 @@ export const {
   useGetInviteQuery,
   useGetInvitePreviewQuery,
   useGetProfileQuery,
+  useUpdateProfileMutation,
   useGetIdentitiesQuery,
   useUnlinkIdentityMutation,
   useGetAccountMergePreviewQuery,

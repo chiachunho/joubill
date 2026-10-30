@@ -346,6 +346,7 @@ export function GroupSettings({
             const label = labelUser(
               {
                 userId: member.id,
+                displayName: member.displayName,
                 firstName: member.firstName,
                 lastName: member.lastName,
                 username: member.username,

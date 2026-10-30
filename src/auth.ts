@@ -6,6 +6,7 @@ import Line from "next-auth/providers/line";
 
 import { splitbillAdapter } from "@/lib/auth/nextAuthAdapter";
 import { SESSION_COOKIE } from "@/lib/auth";
+import { syncIdentityProfile } from "@/lib/auth/identity-profile";
 import { mergeRedirect } from "@/lib/auth/merge-ticket";
 import { githubEnabled, googleEnabled, lineEnabled } from "@/lib/auth/providers";
 
@@ -134,6 +135,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: {
     signIn: "/login",
+  },
+  events: {
+    // Fires after a sign-in, a new account and a link alike, with the account already stored, so
+    // the identity row exists and `user.id` is the account it belongs to (issue #101).
+    async signIn({ user, account, profile }) {
+      if (!account || account.type === "credentials" || !user.id) return;
+      await syncIdentityProfile(
+        Number(user.id),
+        account.provider,
+        account.providerAccountId,
+        profile as Record<string, unknown> | undefined,
+      );
+    },
   },
   callbacks: {
     // A login that belongs to another account, used while signed in, goes to the merge

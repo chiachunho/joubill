@@ -45,6 +45,7 @@ function openExternal(url: string) {
 
 type Member = {
   id: number;
+  displayName: string | null;
   firstName: string | null;
   lastName?: string | null;
   username: string | null;
@@ -325,6 +326,7 @@ function On({
             const value = personAccounts[key] ?? "";
             const auto = beancountAccountName({
               userId: m.id,
+              displayName: m.displayName,
               firstName: m.firstName,
               lastName: m.lastName ?? null,
               username: m.username,

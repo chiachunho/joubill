@@ -54,6 +54,7 @@ export function isSettlement(e: { type?: string }): boolean {
 /** A from/to party for a settlement row, shaped for `labelUser` / `Avatar`. */
 export type SettlementParty = {
   userId: number;
+  displayName: string | null;
   firstName: string | null;
   lastName: string | null;
   username: string | null;
@@ -66,12 +67,14 @@ export type SettlementParty = {
 export function settlementParties(e: {
   payers: {
     userId: number;
+    displayName: string | null;
     firstName: string | null;
     lastName: string | null;
     username: string | null;
   }[];
   splits: {
     debtorId: number;
+    displayName: string | null;
     firstName: string | null;
     lastName: string | null;
     username: string | null;
@@ -81,10 +84,22 @@ export function settlementParties(e: {
   const s = e.splits[0];
   return {
     from: p
-      ? { userId: p.userId, firstName: p.firstName, lastName: p.lastName, username: p.username }
+      ? {
+          userId: p.userId,
+          displayName: p.displayName,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          username: p.username,
+        }
       : null,
     to: s
-      ? { userId: s.debtorId, firstName: s.firstName, lastName: s.lastName, username: s.username }
+      ? {
+          userId: s.debtorId,
+          displayName: s.displayName,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          username: s.username,
+        }
       : null,
   };
 }

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { displayName } from "@/lib/profile";
+
 export const PLACEHOLDER_NAME_MAX = 30;
 
 /** The name of a member who has no account. Trimmed; whitespace runs collapse. */
@@ -19,12 +21,11 @@ export function nameKey(name: string): string {
  */
 export function isDuplicateName(
   name: string,
-  members: { id: number; firstName: string; lastName: string | null }[],
+  members: { id: number; displayName: string | null; firstName: string; lastName: string | null }[],
   exceptUserId?: number,
 ): boolean {
   const key = nameKey(name);
   return members.some(
-    (m) =>
-      m.id !== exceptUserId && nameKey([m.firstName, m.lastName].filter(Boolean).join(" ")) === key,
+    (m) => m.id !== exceptUserId && nameKey(displayName({ ...m, username: null })) === key,
   );
 }

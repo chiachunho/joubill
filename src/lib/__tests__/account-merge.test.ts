@@ -111,6 +111,8 @@ describe("mergedProfileFields", () => {
     username: null,
     lastName: null,
     languageCode: null,
+    displayName: null,
+    avatarSource: null,
   };
 
   it("fills only what the kept account lacks", () => {
@@ -120,6 +122,15 @@ describe("mergedProfileFields", () => {
         { ...empty, telegramId: 42, email: "other@example.com", avatarUrl: "https://x/p.jpg" },
       ),
     ).toEqual({ telegramId: 42, avatarUrl: "https://x/p.jpg" });
+  });
+
+  it("carries over a chosen name and avatar only when the kept account has none", () => {
+    expect(
+      mergedProfileFields(
+        { ...empty, displayName: "阿明" },
+        { ...empty, displayName: "小明", avatarSource: "google" },
+      ),
+    ).toEqual({ avatarSource: "google" });
   });
 
   it("changes nothing when the kept account has it all", () => {
@@ -132,6 +143,8 @@ describe("mergedProfileFields", () => {
           username: "c",
           lastName: "d",
           languageCode: "zh",
+          displayName: "A",
+          avatarSource: "line",
         },
         {
           telegramId: null,
@@ -140,6 +153,8 @@ describe("mergedProfileFields", () => {
           username: "z",
           lastName: "w",
           languageCode: "en",
+          displayName: null,
+          avatarSource: null,
         },
       ),
     ).toEqual({});
