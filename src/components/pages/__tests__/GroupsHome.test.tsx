@@ -30,7 +30,12 @@ const GROUP = { id: 7, title: "週末旅行", defaultCurrency: "TWD" };
 
 function renderHome(
   platform: Platform,
-  me: { groups?: unknown[]; activeGroupId?: number; activeExpenseId?: number } = {},
+  me: {
+    groups?: unknown[];
+    activeGroupId?: number;
+    activeExpenseId?: number;
+    activeInviteCode?: string;
+  } = {},
   failure?: Failure,
 ) {
   const request = fakeRequest({
@@ -39,6 +44,7 @@ function renderHome(
       activeGroupId: null,
       activeExpenseId: null,
       activeSettlementId: null,
+      activeInviteCode: null,
       ...me,
     },
     "/api/me/groups/photos": { photos: {} },
@@ -92,6 +98,16 @@ describe("GroupsHome", () => {
       renderHome(platform, { groups: [GROUP], activeGroupId: 7, activeExpenseId: 11 });
       await waitFor(() =>
         expect(mockReplace).toHaveBeenCalledWith(`${platform.basePath}/groups/7/expenses/11/edit`),
+      );
+    },
+  );
+
+  it.each([miniPlatform, webPlatform])(
+    "sends a join deep link to the invite preview under the platform's base path (%#)",
+    async (platform) => {
+      renderHome(platform, { activeInviteCode: "K7M2QX9PAB" });
+      await waitFor(() =>
+        expect(mockReplace).toHaveBeenCalledWith(`${platform.basePath}/join/K7M2QX9PAB`),
       );
     },
   );

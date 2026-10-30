@@ -20,6 +20,11 @@ export function GroupsHome({ platform }: { platform: Platform }) {
   // A Telegram deep link (startapp) names a group, and maybe an expense or settlement in it.
   // Only the Mini App gets one: the endpoint leaves activeGroupId null on the web.
   useEffect(() => {
+    // A join link names an invite, not a group: the preview decides what happens next.
+    if (data?.activeInviteCode && !data.activeGroupId) {
+      router.replace(`${platform.basePath}/join/${data.activeInviteCode}`);
+      return;
+    }
     if (!data?.activeGroupId) return;
     const group = `${platform.basePath}/groups/${data.activeGroupId}`;
     if (data.activeExpenseId) {
@@ -44,7 +49,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
 
   if (!data) return <GroupsListSkeleton />;
 
-  if (data.activeGroupId) return null;
+  if (data.activeGroupId || data.activeInviteCode) return null;
 
   const { groups } = data;
 

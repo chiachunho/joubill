@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { expenseLink, groupLink, parseStartParam, settlementLink } from "@/lib/deep-link";
+import { generateInviteCode } from "@/lib/invite";
+
+import { expenseLink, groupLink, joinLink, parseStartParam, settlementLink } from "@/lib/deep-link";
 
 const BOT = "splitbill_bot";
 /** Group chat ids are negative — the most common way a naive pattern breaks. */
@@ -26,12 +28,14 @@ describe("builders", () => {
 describe("round trip", () => {
   it("parses back what groupLink builds", () => {
     expect(parseStartParam(startParamOf(groupLink(BOT, CHAT)))).toEqual({
+      kind: "group",
       telegramChatId: CHAT,
     });
   });
 
   it("parses back what expenseLink builds", () => {
     expect(parseStartParam(startParamOf(expenseLink(BOT, CHAT, 7)))).toEqual({
+      kind: "group",
       telegramChatId: CHAT,
       record: { kind: "expense", id: 7 },
     });
@@ -39,13 +43,23 @@ describe("round trip", () => {
 
   it("parses back what settlementLink builds", () => {
     expect(parseStartParam(startParamOf(settlementLink(BOT, CHAT, 7)))).toEqual({
+      kind: "group",
       telegramChatId: CHAT,
       record: { kind: "settlement", id: 7 },
     });
   });
 
+  it("parses back what joinLink builds", () => {
+    const code = generateInviteCode();
+    expect(startParamOf(joinLink(BOT, code))).toBe(`join_${code}`);
+    expect(parseStartParam(startParamOf(joinLink(BOT, code)))).toEqual({ kind: "join", code });
+  });
+
   it("survives a positive chat id too", () => {
-    expect(parseStartParam(startParamOf(groupLink(BOT, 555)))).toEqual({ telegramChatId: 555 });
+    expect(parseStartParam(startParamOf(groupLink(BOT, 555)))).toEqual({
+      kind: "group",
+      telegramChatId: 555,
+    });
   });
 });
 
@@ -61,11 +75,16 @@ describe("parseStartParam rejects what it should", () => {
     ["group_123_exp_4_extra", "trailing junk"],
     ["nonsense", "unrelated payload"],
     ["123", "bare number"],
+    ["join_", "no code"],
+    ["join_K7M2Q", "code too short"],
+    ["join_K7M2QX9PABC", "code too long"],
+    ["join_K7M2Q-X9PA", "dash inside the code"],
+    ["join_K7M2QX9PAB_x", "trailing junk after the code"],
   ])("returns null for %j (%s)", (raw: string | null | undefined, _why: string) => {
     expect(parseStartParam(raw)).toBeNull();
   });
 
   it("does not treat a group-only link as a record link", () => {
-    expect(parseStartParam(`group_${CHAT}`)?.record).toBeUndefined();
+    expect(parseStartParam(`group_${CHAT}`)).toEqual({ kind: "group", telegramChatId: CHAT });
   });
 });

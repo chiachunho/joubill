@@ -18,6 +18,8 @@ export type MeResponse = {
   activeGroupId: number | null;
   activeExpenseId: number | null;
   activeSettlementId: number | null;
+  /** Set by a `join_<code>` deep link; always null on the web. */
+  activeInviteCode: string | null;
 };
 
 export type GroupPhotosResponse = { photos: Record<number, string | null> };
@@ -180,7 +182,11 @@ export type DeleteGroupResponse = { ok?: boolean; pending?: boolean };
 
 /** GET/POST /api/groups/[id]/invite */
 /** `code` is null for a group that has not had one issued yet. */
-export type InviteResponse = { code: string | null };
+export type InviteResponse = {
+  code: string | null;
+  /** The t.me link that opens the Mini App on this invite; null without a code or bot username. */
+  miniLink: string | null;
+};
 
 /** POST /api/groups */
 export type CreateGroupResponse = { id: number };

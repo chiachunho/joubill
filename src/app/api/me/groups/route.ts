@@ -28,5 +28,6 @@ export const GET = withAuth(async (req: Request) => {
     activeGroupId: auth.groupFromParam?.id ?? null,
     activeExpenseId: auth.expenseFromParam ?? null,
     activeSettlementId: auth.settlementFromParam ?? null,
+    activeInviteCode: auth.inviteFromParam ?? null,
   });
 });

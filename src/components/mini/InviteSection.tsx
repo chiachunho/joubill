@@ -13,15 +13,18 @@ export function InviteSection({ groupId }: { groupId: string }) {
   const { data, error } = useGetInviteQuery(groupId);
   const [resetInvite, { isLoading: resetting }] = useResetInviteMutation();
   const [confirmReset, setConfirmReset] = useState(false);
-  const [copied, setCopied] = useState<"link" | "code" | null>(null);
+  const [copied, setCopied] = useState<"link" | "mini" | "code" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const code = data?.code;
   const link = code ? inviteLink(window.location.origin, code) : null;
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-  async function copy(kind: "link" | "code") {
-    const text = kind === "link" ? link : code && formatInviteCode(code);
+  const miniLink = data?.miniLink ?? null;
+
+  async function copy(kind: "link" | "mini" | "code") {
+    const text =
+      kind === "link" ? link : kind === "mini" ? miniLink : code && formatInviteCode(code);
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -32,10 +35,10 @@ export function InviteSection({ groupId }: { groupId: string }) {
     }
   }
 
-  async function share() {
-    if (!link) return;
+  async function share(url: string | null) {
+    if (!url) return;
     try {
-      await navigator.share({ title: "加入揪帳群組", url: link });
+      await navigator.share({ title: "加入揪帳群組", url });
     } catch {
       // The person dismissed the share sheet; nothing to report.
     }
@@ -73,8 +76,17 @@ export function InviteSection({ groupId }: { groupId: string }) {
             className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50"
           >
             {copied === "link" ? <Check className="size-4" /> : <Copy className="size-4" />}
-            {copied === "link" ? "已複製" : "複製連結"}
+            {copied === "link" ? "已複製" : "複製網頁連結"}
           </button>
+          {miniLink && (
+            <button
+              onClick={() => copy("mini")}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40"
+            >
+              {copied === "mini" ? <Check className="size-4" /> : <Copy className="size-4" />}
+              {copied === "mini" ? "已複製" : "複製 Telegram 連結"}
+            </button>
+          )}
           <button
             onClick={() => copy("code")}
             disabled={!code}
@@ -85,12 +97,21 @@ export function InviteSection({ groupId }: { groupId: string }) {
           </button>
           {canShare && (
             <button
-              onClick={share}
+              onClick={() => share(link)}
               disabled={!link}
-              className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50"
             >
               <Share2 className="size-4" />
-              分享…
+              分享網頁連結
+            </button>
+          )}
+          {canShare && miniLink && (
+            <button
+              onClick={() => share(miniLink)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40"
+            >
+              <Share2 className="size-4" />
+              分享 Telegram 連結
             </button>
           )}
         </div>

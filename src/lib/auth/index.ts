@@ -19,6 +19,8 @@ export type Auth = {
   expenseFromParam?: number;
   /** Internal settlement ID from start_param "group_<chatId>_stl_<settlementId>". */
   settlementFromParam?: number;
+  /** Normalised invite code from a `join_<code>` start param. */
+  inviteFromParam?: string;
 };
 
 export const SESSION_COOKIE = "session";
@@ -77,7 +79,11 @@ export async function getAuth(req: Request): Promise<Auth> {
     // The payload shape lives in src/lib/deep-link.ts, next to the builders the
     // bot uses — a parser that drifts from them fails silently.
     const startParam = parseStartParam(verified.startParam);
-    if (startParam) {
+    let inviteFromParam: string | undefined;
+    // A join link only carries the code onward. Joining happens when the person confirms the
+    // preview, never here, so opening a link can't add anyone to a group.
+    if (startParam?.kind === "join") inviteFromParam = startParam.code;
+    if (startParam?.kind === "group") {
       const [g] = await db
         .select()
         .from(groups)
@@ -111,7 +117,7 @@ export async function getAuth(req: Request): Promise<Auth> {
         }
       }
     }
-    return { user, groupFromParam, expenseFromParam, settlementFromParam };
+    return { user, groupFromParam, expenseFromParam, settlementFromParam, inviteFromParam };
   }
 
   // Path 2: web session cookie
