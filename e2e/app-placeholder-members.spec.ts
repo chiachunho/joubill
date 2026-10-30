@@ -53,9 +53,10 @@ test.describe("Members without an account", () => {
 
     await expect(authedPage.getByText(name)).toHaveCount(0);
 
-    // The group feed says who took the name.
+    // The viewer merged it into the partner, so the feed names the target rather than
+    // saying the viewer "claimed" it.
     await authedPage.goto(`/app/groups/${seeded.groupId}/activity`);
-    await expect(authedPage.getByText(`認領了 ${name}`)).toBeVisible();
+    await expect(authedPage.getByText(`把 ${name} 合併到 ${seeded.partnerName}`)).toBeVisible();
   });
 
   test("the API refuses to merge a real member or into a placeholder", async ({
