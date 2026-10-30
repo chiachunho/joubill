@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, KeyRound, Link2, Lock } from "lucide-react";
+import { ChevronRight, KeyRound, Link2, Lock, UserCheck } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { dayLabel, stampLabel } from "@/lib/format";
@@ -41,6 +41,10 @@ type Props = {
 
 function ChangeLine({ entry }: { entry: ActivityEntry }) {
   if (entry.rateLock) return <>{rateLockImpact(entry.rateLock)}</>;
+
+  if (entry.groupEvent?.claimedCount != null) {
+    return <>{entry.groupEvent.claimedCount} 筆紀錄改記在他名下</>;
+  }
 
   if (entry.changes?.length) {
     return (
@@ -106,12 +110,15 @@ function Row({
     <>
       {entry.action === "rate_locked" ||
       entry.action === "invite_reset" ||
-      entry.action === "chat_linked" ? (
+      entry.action === "chat_linked" ||
+      entry.action === "member_claimed" ? (
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
           {entry.action === "rate_locked" ? (
             <Lock className="size-3.5" />
           ) : entry.action === "chat_linked" ? (
             <Link2 className="size-3.5" />
+          ) : entry.action === "member_claimed" ? (
+            <UserCheck className="size-3.5" />
           ) : (
             <KeyRound className="size-3.5" />
           )}

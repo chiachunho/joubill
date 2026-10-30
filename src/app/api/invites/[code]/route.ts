@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, count, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { groupMembers } from "@/db/schema";
+import { groupMembers, users } from "@/db/schema";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { INVITE_NOT_FOUND } from "@/lib/invite";
@@ -33,10 +33,32 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     .from(groupMembers)
     .where(and(eq(groupMembers.groupId, invite.groupId), eq(groupMembers.userId, auth.user.id)));
 
+  const alreadyMember = mine?.status === "active";
+
+  // Name-only members the visitor might be ("你是下面其中一位嗎？"). Only ids and names; a
+  // joined member has no use for the list.
+  const placeholders = alreadyMember
+    ? []
+    : await db
+        .select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
+        .from(users)
+        .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
+        .where(
+          and(
+            eq(groupMembers.groupId, invite.groupId),
+            eq(users.placeholderGroupId, invite.groupId),
+          ),
+        )
+        .orderBy(users.id);
+
   return NextResponse.json({
     groupId: invite.groupId,
     title: invite.groupTitle,
     memberCount,
-    alreadyMember: mine?.status === "active",
+    alreadyMember,
+    placeholders: placeholders.map((p) => ({
+      id: p.id,
+      name: [p.firstName, p.lastName].filter(Boolean).join(" "),
+    })),
   });
 });

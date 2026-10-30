@@ -52,7 +52,13 @@ export type ActivityEntry = {
     settlements: number;
   };
   /** 'member_joined': who made the invite the member used. 'chat_linked': the chat it was bound to. */
-  groupEvent?: { inviterName?: string; chatTitle?: string };
+  groupEvent?: {
+    inviterName?: string;
+    chatTitle?: string;
+    claimedName?: string;
+    claimedCount?: number;
+    claimerName?: string;
+  };
 };
 
 type Row = {
@@ -131,6 +137,12 @@ function toEntry(row: Row): ActivityEntry {
       entry.groupEvent = { inviterName: row.after.inviterName };
     } else if (row.after.kind === "chatLinked") {
       entry.groupEvent = { chatTitle: row.after.chatTitle };
+    } else if (row.after.kind === "memberClaimed") {
+      entry.groupEvent = {
+        claimedName: row.after.placeholderName,
+        claimedCount: row.after.recordIds.length,
+        ...(row.actorId !== row.after.claimerId ? { claimerName: row.after.claimerName } : {}),
+      };
     }
     return entry;
   }
@@ -185,6 +197,10 @@ export async function loadRecordHistory(
         eq(recordAuditLog.groupId, groupId),
         or(
           eq(recordAuditLog.recordId, recordId),
+          and(
+            eq(recordAuditLog.action, "member_claimed"),
+            sql`${recordAuditLog.after}->'recordIds' @> ${JSON.stringify(recordId)}::jsonb`,
+          ),
           and(
             eq(recordAuditLog.action, "rate_locked"),
             // Two separate fragments joined by drizzle's `or`, which parenthesises

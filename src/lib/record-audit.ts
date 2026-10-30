@@ -17,7 +17,8 @@ export type AuditAction =
   | "rate_locked"
   | "member_joined"
   | "invite_reset"
-  | "chat_linked";
+  | "chat_linked"
+  | "member_claimed";
 export type AuditSource = "bot" | "app";
 
 /**
@@ -68,17 +69,33 @@ export function isRateLockPayload(value: unknown): value is RateLockPayload {
 /**
  * Group-level membership events (`recordType: 'group'`, no record id).
  * `memberJoined` names who invited the member, captured as the name was then;
- * `chatLinked` names the Telegram chat a web group was bound to.
+ * `chatLinked` names the Telegram chat a web group was bound to;
+ * `memberClaimed` records a placeholder being merged into a real account. Its
+ * `recordIds` are the records that were rewritten, so a single record's history
+ * can explain why a name on it changed (`loadRecordHistory` matches them with `@>`).
  */
 export type GroupEventPayload =
   | { kind: "memberJoined"; inviterId: number; inviterName: string }
   | { kind: "inviteReset" }
-  | { kind: "chatLinked"; chatTitle: string };
+  | { kind: "chatLinked"; chatTitle: string }
+  | {
+      kind: "memberClaimed";
+      placeholderId: number;
+      placeholderName: string;
+      claimerId: number;
+      claimerName: string;
+      recordIds: number[];
+    };
 
 export function isGroupEventPayload(value: unknown): value is GroupEventPayload {
   const kind =
     typeof value === "object" && value !== null ? (value as { kind?: unknown }).kind : undefined;
-  return kind === "memberJoined" || kind === "inviteReset" || kind === "chatLinked";
+  return (
+    kind === "memberJoined" ||
+    kind === "inviteReset" ||
+    kind === "chatLinked" ||
+    kind === "memberClaimed"
+  );
 }
 
 /** Whether a rate lock rewrote this particular record. */
@@ -282,7 +299,14 @@ export type HeadingInput = {
   recordLabel?: string | null;
   changes?: ChangedField[];
   rateLock?: { base: string; rate: number | null } | null;
-  groupEvent?: { inviterName?: string; chatTitle?: string } | null;
+  groupEvent?: {
+    inviterName?: string;
+    chatTitle?: string;
+    claimedName?: string;
+    claimedCount?: number;
+    /** Set when someone other than the claimer did the merge. */
+    claimerName?: string;
+  } | null;
 };
 
 /**
@@ -315,6 +339,11 @@ export function changeHeading(entry: HeadingInput, withRecordName: boolean): str
       return entry.groupEvent?.chatTitle
         ? `綁定了 Telegram 群組（${entry.groupEvent.chatTitle}）`
         : "綁定了 Telegram 群組";
+    case "member_claimed":
+      if (!entry.groupEvent?.claimedName) return "認領了無帳號成員";
+      return entry.groupEvent.claimerName
+        ? `把 ${entry.groupEvent.claimedName} 合併到 ${entry.groupEvent.claimerName}`
+        : `認領了 ${entry.groupEvent.claimedName}`;
     case "rate_locked": {
       if (!entry.rateLock) return "鎖定了匯率";
       const rate = entry.rateLock.rate != null ? ` ${entry.rateLock.rate}` : "";

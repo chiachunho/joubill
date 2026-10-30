@@ -287,3 +287,36 @@ export async function logChatLinked(
     after: { kind: "chatLinked", chatTitle },
   });
 }
+
+/**
+ * Logs a placeholder being merged into a real account. Call it after the merge
+ * transaction commits; `recordIds` are every expense and settlement rewritten.
+ */
+export async function logMemberClaimed(
+  groupId: number,
+  actor: Actor,
+  claim: {
+    placeholderId: number;
+    placeholderName: string;
+    claimerId: number;
+    claimerName: string;
+    recordIds: number[];
+  },
+): Promise<void> {
+  await writeLog({
+    groupId,
+    recordId: null,
+    recordType: "group",
+    action: "member_claimed",
+    actor,
+    before: null,
+    after: {
+      kind: "memberClaimed",
+      placeholderId: claim.placeholderId,
+      placeholderName: claim.placeholderName,
+      claimerId: claim.claimerId,
+      claimerName: claim.claimerName,
+      recordIds: claim.recordIds,
+    },
+  });
+}

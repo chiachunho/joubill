@@ -16,6 +16,7 @@ import type {
   InvitePreviewResponse,
   InviteResponse,
   MeResponse,
+  MergePreviewResponse,
   MembersResponse,
   ProfileResponse,
   IdentitiesResponse,
@@ -341,6 +342,42 @@ const baseApi = createApi({
         ...ledgerTags(groupId),
       ],
     }),
+    // What claiming this placeholder would take. Not cached across opens: the dialog needs
+    // the numbers as they are when it asks, and `Members` invalidation drops it anyway.
+    getMergePreview: build.query<
+      MergePreviewResponse,
+      { groupId: GroupId; userId: number; intoUserId: number }
+    >({
+      query: ({ groupId, userId, intoUserId }) => ({
+        url: `/api/groups/${groupId}/members/${userId}/merge?intoUserId=${intoUserId}`,
+      }),
+      keepUnusedDataFor: 0,
+    }),
+    mergeMember: build.mutation<
+      { ok: true; recordCount: number; removed: number },
+      {
+        groupId: GroupId;
+        userId: number;
+        intoUserId: number;
+        selfSettlements?: "delete" | "keep";
+      }
+    >({
+      query: ({ groupId, userId, intoUserId, selfSettlements }) => ({
+        url: `/api/groups/${groupId}/members/${userId}/merge`,
+        method: "POST",
+        body: { intoUserId, ...(selfSettlements ? { selfSettlements } : {}) },
+      }),
+      // Every record now names a different person; the placeholder is gone, and the log
+      // gains a row. The beancount config's per-member accounts were re-keyed too.
+      invalidatesTags: (_r, _e, { groupId }) => [
+        tag("Members", g(groupId)),
+        tag("Avatars", g(groupId)),
+        tag("Expense", g(groupId)),
+        tag("Settlement", g(groupId)),
+        tag("Beancount", g(groupId)),
+        ...ledgerTags(groupId),
+      ],
+    }),
     removeMember: build.mutation<unknown, { groupId: GroupId; userId: number }>({
       query: ({ groupId, userId }) => ({
         url: `/api/groups/${groupId}/members/${userId}`,
@@ -404,10 +441,14 @@ const baseApi = createApi({
         tag("Activity", g(groupId)),
       ],
     }),
-    acceptInvite: build.mutation<AcceptInviteResponse, { code: string }>({
-      query: ({ code }) => ({
+    acceptInvite: build.mutation<
+      AcceptInviteResponse,
+      { code: string; placeholderUserId?: number }
+    >({
+      query: ({ code, placeholderUserId }) => ({
         url: `/api/invites/${encodeURIComponent(code)}/accept`,
         method: "POST",
+        ...(placeholderUserId !== undefined ? { body: { placeholderUserId } } : {}),
       }),
       // A new member changes every group-scoped list that names members or splits them.
       invalidatesTags: (r) => [
@@ -572,6 +613,8 @@ export const {
   useDeleteSettlementMutation,
   useAddPlaceholderMemberMutation,
   useRenameMemberMutation,
+  useGetMergePreviewQuery,
+  useMergeMemberMutation,
   useRemoveMemberMutation,
   useUpdateMemberStatusMutation,
   useUpdateGroupCurrencyMutation,

@@ -197,6 +197,18 @@ export type InvitePreviewResponse = {
   title: string;
   memberCount: number;
   alreadyMember: boolean;
+  /** Name-only members the visitor can claim; empty once they have joined. */
+  placeholders: { id: number; name: string }[];
+};
+
+/** GET /api/groups/[id]/members/[userId]/merge */
+export type MergePreviewResponse = {
+  expenses: number;
+  settlements: number;
+  /** Of `settlements`, how many run between the two people and would read "A → A". */
+  selfSettlements: number;
+  /** The placeholder's net position per record currency (paid − owed). */
+  net: Record<string, number>;
 };
 
 /** POST /api/invites/[code]/accept */
