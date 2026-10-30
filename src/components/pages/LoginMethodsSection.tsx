@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KeyRound, Link2, Unlink } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import type { Platform } from "@/components/pages/platform";
+import { MERGE_TICKET_NOT_FOUND } from "@/lib/account-merge";
 import { apiErrorText } from "@/lib/api-error";
 import { isInAppBrowser } from "@/lib/in-app-browser";
 import {
@@ -26,6 +27,14 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
   const [unlink, { isLoading: unlinking }] = useUnlinkIdentityMutation();
   const [confirming, setConfirming] = useState<LoginProvider | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // The merge page (/app/settings/merge) sends people back here with the outcome.
+  useEffect(() => {
+    const merge = new URLSearchParams(window.location.search).get("merge");
+    if (merge === "done") setNotice("已合併，兩個帳號原本的登入方式現在都會登入這個帳號。");
+    else if (merge === "expired") setMessage(MERGE_TICKET_NOT_FOUND);
+  }, []);
 
   if (!data) return null;
 
@@ -86,7 +95,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
       </div>
       <p className="mt-2 px-1 text-xs text-muted-foreground">
         {platform.linkIdentity
-          ? "先把其他登入方式連結到這個帳號，之後用它登入才會看到原本的群組。"
+          ? "先把其他登入方式連結到這個帳號，之後用它登入才會看到原本的群組。如果那個登入方式已經屬於你的另一個帳號，會讓你選擇把兩個帳號合併。"
           : "要連結其他登入方式，請用瀏覽器開啟網頁版，在個人設定裡操作。"}
       </p>
       {googleBlocked && addable.includes("google") && (
@@ -94,6 +103,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
           Google 不允許在 App 內建瀏覽器登入，請用瀏覽器開啟這個頁面再連結。
         </p>
       )}
+      {notice && <p className="mt-2 px-1 text-xs text-primary">{notice}</p>}
       {message && <p className="mt-2 px-1 text-xs text-destructive">{message}</p>}
 
       <ConfirmDialog

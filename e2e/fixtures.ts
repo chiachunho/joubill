@@ -45,11 +45,55 @@ function randomChatId(): string {
   return `-100${randomTelegramId()}`;
 }
 
+/**
+ * Two accounts of one person (issue #99): a web-first Google account that is signed in, and a
+ * Telegram account that already has groups. Seeding the ticket stands in for the OAuth round
+ * trip the `signIn` callback would have recorded.
+ */
+export type MergePair = {
+  webUserId: number;
+  webName: string;
+  tgUserId: number;
+  tgName: string;
+  /** Both accounts are members; a 300 expense paid by the Telegram account, split 150/150. */
+  sharedGroupId: number;
+  sharedGroupTitle: string;
+  expenseId: number;
+  /** Only the web account is a member. */
+  webGroupTitle: string;
+  /** Only the Telegram account is a member. */
+  tgGroupTitle: string;
+  /** The web account's session. */
+  sessionToken: string;
+  /** Held by the web account: proof it also owns the Telegram account. */
+  ticket: string;
+  /** Held by the Telegram account, so useless to the web account's session. */
+  foreignTicket: string;
+};
+
 export function setSessionCookie(context: BrowserContext, url: string | undefined, token: string) {
   return context.addCookies([{ name: SESSION_COOKIE, value: token, url }]);
 }
 
-export const test = base.extend<{ seeded: Seeded; authedPage: Page }, { dbPool: Pool }>({
+export function setMergeTicketCookie(context: BrowserContext, baseURL: string, ticket: string) {
+  // Scoped to the merge API, as the signIn callback sets it.
+  const url = new URL(baseURL);
+  return context.addCookies([
+    {
+      name: "merge_ticket",
+      value: ticket,
+      domain: url.hostname,
+      path: "/api/me/merge",
+      secure: url.protocol === "https:",
+      httpOnly: true,
+    },
+  ]);
+}
+
+export const test = base.extend<
+  { seeded: Seeded; authedPage: Page; mergePair: MergePair },
+  { dbPool: Pool }
+>({
   // One pool per worker rather than per test: every test opens a connection otherwise.
   dbPool: [
     async ({}, use) => {
@@ -157,6 +201,112 @@ export const test = base.extend<{ seeded: Seeded; authedPage: Page }, { dbPool: 
         expiredSessionToken,
       });
     } finally {
+      if (groupIds.length) {
+        await db.delete(schema.groups).where(inArray(schema.groups.id, groupIds));
+      }
+      if (userIds.length) {
+        await db.delete(schema.users).where(inArray(schema.users.id, userIds));
+      }
+    }
+  },
+
+  mergePair: async ({ dbPool }, use) => {
+    const db = drizzle(dbPool, { schema });
+    const userIds: number[] = [];
+    const groupIds: number[] = [];
+
+    try {
+      const suffix = randomBytes(4).toString("hex");
+      const webName = `E2E web ${suffix}`;
+      const tgName = `E2E tg ${suffix}`;
+      const telegramId = randomTelegramId();
+
+      const [web] = await db
+        .insert(schema.users)
+        .values({ firstName: webName, email: `e2e-${suffix}@example.com` })
+        .returning();
+      userIds.push(web.id);
+      const [tg] = await db
+        .insert(schema.users)
+        .values({ telegramId, firstName: tgName })
+        .returning();
+      userIds.push(tg.id);
+      await db.insert(schema.authIdentities).values([
+        { userId: web.id, provider: "google", providerUid: `e2e-google-${suffix}` },
+        { userId: tg.id, provider: "telegram", providerUid: String(telegramId) },
+      ]);
+
+      const [shared] = await db
+        .insert(schema.groups)
+        .values({ chatType: "telegram", chatId: randomChatId(), title: `E2E shared ${suffix}` })
+        .returning();
+      groupIds.push(shared.id);
+      const [webGroup] = await db
+        .insert(schema.groups)
+        .values({ title: `E2E web group ${suffix}` })
+        .returning();
+      groupIds.push(webGroup.id);
+      const [tgGroup] = await db
+        .insert(schema.groups)
+        .values({ chatType: "telegram", chatId: randomChatId(), title: `E2E tg group ${suffix}` })
+        .returning();
+      groupIds.push(tgGroup.id);
+      await db.insert(schema.groupMembers).values([
+        { groupId: shared.id, userId: web.id },
+        { groupId: shared.id, userId: tg.id },
+        { groupId: webGroup.id, userId: web.id },
+        { groupId: tgGroup.id, userId: tg.id },
+      ]);
+
+      const [expense] = await db
+        .insert(schema.expenses)
+        .values({
+          groupId: shared.id,
+          type: "expense",
+          amount: "300.00",
+          currency: "TWD",
+          description: `E2E merge dinner ${suffix}`,
+          createdBy: web.id,
+        })
+        .returning();
+      await db
+        .insert(schema.expensePayers)
+        .values({ expenseId: expense.id, payerId: tg.id, amount: "300.00" });
+      await db.insert(schema.expenseSplits).values([
+        { expenseId: expense.id, debtorId: web.id, amount: "150.00" },
+        { expenseId: expense.id, debtorId: tg.id, amount: "150.00" },
+      ]);
+
+      const sessionToken = randomBytes(32).toString("hex");
+      await db.insert(schema.sessions).values({
+        id: sessionToken,
+        userId: web.id,
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+      });
+      const ticket = randomBytes(32).toString("base64url");
+      const foreignTicket = randomBytes(32).toString("base64url");
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      await db.insert(schema.accountMergeTickets).values([
+        { id: ticket, userId: web.id, otherUserId: tg.id, provider: "telegram", expiresAt },
+        { id: foreignTicket, userId: tg.id, otherUserId: web.id, provider: "google", expiresAt },
+      ]);
+
+      await use({
+        webUserId: web.id,
+        webName,
+        tgUserId: tg.id,
+        tgName,
+        sharedGroupId: shared.id,
+        sharedGroupTitle: shared.title,
+        expenseId: expense.id,
+        webGroupTitle: webGroup.title,
+        tgGroupTitle: tgGroup.title,
+        sessionToken,
+        ticket,
+        foreignTicket,
+      });
+    } finally {
+      // Groups first: expenses (and their created_by) go with them, so the users can follow.
       if (groupIds.length) {
         await db.delete(schema.groups).where(inArray(schema.groups.id, groupIds));
       }

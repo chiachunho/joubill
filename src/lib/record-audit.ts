@@ -18,7 +18,8 @@ export type AuditAction =
   | "member_joined"
   | "invite_reset"
   | "chat_linked"
-  | "member_claimed";
+  | "member_claimed"
+  | "account_merged";
 export type AuditSource = "bot" | "app";
 
 /**
@@ -85,6 +86,14 @@ export type GroupEventPayload =
       claimerId: number;
       claimerName: string;
       recordIds: number[];
+    }
+  | {
+      kind: "accountMerged";
+      absorbedId: number;
+      absorbedName: string;
+      keptId: number;
+      keptName: string;
+      recordIds: number[];
     };
 
 export function isGroupEventPayload(value: unknown): value is GroupEventPayload {
@@ -94,7 +103,8 @@ export function isGroupEventPayload(value: unknown): value is GroupEventPayload 
     kind === "memberJoined" ||
     kind === "inviteReset" ||
     kind === "chatLinked" ||
-    kind === "memberClaimed"
+    kind === "memberClaimed" ||
+    kind === "accountMerged"
   );
 }
 
@@ -344,6 +354,10 @@ export function changeHeading(entry: HeadingInput, withRecordName: boolean): str
       return entry.groupEvent.claimerName
         ? `把 ${entry.groupEvent.claimedName} 合併到 ${entry.groupEvent.claimerName}`
         : `認領了 ${entry.groupEvent.claimedName}`;
+    case "account_merged":
+      return entry.groupEvent?.claimedName
+        ? `把帳號 ${entry.groupEvent.claimedName} 併入自己的帳號`
+        : "合併了兩個帳號";
     case "rate_locked": {
       if (!entry.rateLock) return "鎖定了匯率";
       const rate = entry.rateLock.rate != null ? ` ${entry.rateLock.rate}` : "";

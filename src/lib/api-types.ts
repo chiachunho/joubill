@@ -38,6 +38,35 @@ export type IdentitiesResponse = {
   enabled: string[];
 };
 
+/** One side of `GET /api/me/merge`. */
+export type AccountMergeSide = {
+  userId: number;
+  name: string;
+  photoUrl: string | null;
+  /** Login methods on this account. */
+  providers: string[];
+  groupCount: number;
+  /** Expenses and settlements this account pays or owes in. */
+  recordCount: number;
+  /** The account the viewer is signed in as right now. */
+  isCurrent: boolean;
+};
+
+export type AccountMergePreview = {
+  /** The signed-in account first, then the one just proven by OAuth. */
+  accounts: [AccountMergeSide, AccountMergeSide];
+  /** Which account the page preselects to keep. */
+  suggestedKeepId: number;
+  /** Why these two can't be merged, or null when they can. */
+  blocked: string | null;
+  /** Groups both accounts are members of; they become one member there. */
+  sharedGroups: { id: number; title: string }[];
+  /** Groups the merged account will be in. */
+  totalGroups: number;
+  /** Settlements between the two accounts, which would read "A → A" afterwards. */
+  selfSettlements: number;
+};
+
 export type Member = {
   id: number;
   firstName: string;

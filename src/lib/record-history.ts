@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { recordAuditLog, users } from "@/db/schema";
@@ -143,6 +143,11 @@ function toEntry(row: Row): ActivityEntry {
         claimedCount: row.after.recordIds.length,
         ...(row.actorId !== row.after.claimerId ? { claimerName: row.after.claimerName } : {}),
       };
+    } else if (row.after.kind === "accountMerged") {
+      entry.groupEvent = {
+        claimedName: row.after.absorbedName,
+        claimedCount: row.after.recordIds.length,
+      };
     }
     return entry;
   }
@@ -198,7 +203,7 @@ export async function loadRecordHistory(
         or(
           eq(recordAuditLog.recordId, recordId),
           and(
-            eq(recordAuditLog.action, "member_claimed"),
+            inArray(recordAuditLog.action, ["member_claimed", "account_merged"]),
             sql`${recordAuditLog.after}->'recordIds' @> ${JSON.stringify(recordId)}::jsonb`,
           ),
           and(

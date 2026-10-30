@@ -320,3 +320,29 @@ export async function logMemberClaimed(
     },
   });
 }
+
+/**
+ * Logs two accounts becoming one, once per group the absorbed account was in. Call it after
+ * the merge transaction commits; `recordIds` are that group's rewritten records.
+ */
+export async function logAccountMerged(
+  groupId: number,
+  actor: Actor,
+  merge: {
+    absorbedId: number;
+    absorbedName: string;
+    keptId: number;
+    keptName: string;
+    recordIds: number[];
+  },
+): Promise<void> {
+  await writeLog({
+    groupId,
+    recordId: null,
+    recordType: "group",
+    action: "account_merged",
+    actor,
+    before: null,
+    after: { kind: "accountMerged", ...merge },
+  });
+}

@@ -21,6 +21,7 @@ import {
   validateMerge,
   type MergeCheck,
   type MergeExpenseMeta,
+  type MergePlan,
   type MergePayerRow,
   type MergeSplitRow,
   type MergeSummary,
@@ -29,7 +30,7 @@ import { labelUser } from "@/lib/label";
 import { n } from "@/lib/money";
 
 type Executor = Pick<typeof db, "select" | "selectDistinct">;
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** Everything the planner needs: the placeholder's expenses, with all their payer and split rows. */
 export async function loadMergeData(
@@ -96,70 +97,11 @@ export async function loadMergeData(
   };
 }
 
-async function loadPair(ex: Executor, fromId: number, toId: number) {
-  const rows = await ex
-    .select({
-      id: users.id,
-      placeholderGroupId: users.placeholderGroupId,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      username: users.username,
-    })
-    .from(users)
-    .where(inArray(users.id, [fromId, toId]));
-  return {
-    from: rows.find((r) => r.id === fromId),
-    to: rows.find((r) => r.id === toId),
-  };
-}
-
-/** What a merge would take, for the confirm dialog. Writes nothing. */
-export async function previewMerge(
-  groupId: number,
-  fromId: number,
-  toId: number,
-): Promise<{ check: MergeCheck; summary: MergeSummary | null }> {
-  const { from, to } = await loadPair(db, fromId, toId);
-  const check = validateMerge(groupId, from, to);
-  if (!check.ok) return { check, summary: null };
-  const data = await loadMergeData(db, groupId, fromId);
-  return { check, summary: summariseMerge({ fromId, toId, ...data }) };
-}
-
-export type MergeResult =
-  | {
-      ok: true;
-      placeholderName: string;
-      claimerName: string;
-      recordIds: number[];
-      /** Settlements between the two people that were kept (`keep`) or are about to be deleted (`delete`). */
-      selfSettlementIds: number[];
-    }
-  | { ok: false; status: 400 | 403 | 404; error: string };
-
 /**
- * Fold `fromUserId` (this group's placeholder) into `toUserId` (a real account).
- * Runs inside the caller's transaction; log the audit row after it commits.
- *
- * Settlements between the two people become "A → A". They are returned, not deleted here: deleting
- * a record has to go through `logDeleted` (audit row + chat tombstone), which opens its own
- * transaction, so the caller does it after this one commits when the merger chose `delete`.
+ * Writes a `planMerge` result: payer and split rows of `from` become `toUserId`'s. Shared by
+ * claiming a placeholder and by merging two accounts (`account-merge-db.ts`).
  */
-export async function mergeUserInto(
-  tx: Tx,
-  groupId: number,
-  fromUserId: number,
-  toUserId: number,
-): Promise<MergeResult> {
-  await lockGroupMemberNames(tx, groupId);
-
-  const { from, to } = await loadPair(tx, fromUserId, toUserId);
-  const check = validateMerge(groupId, from, to);
-  if (!check.ok) return check;
-
-  const data = await loadMergeData(tx, groupId, fromUserId, { lock: true });
-  const plan = planMerge({ fromId: fromUserId, toId: toUserId, ...data });
-
+export async function applyMergePlan(tx: Tx, plan: MergePlan, toUserId: number): Promise<void> {
   // Each list below is one statement, not one per row: a placeholder with hundreds of
   // records would otherwise hold the group lock for hundreds of round trips.
   if (plan.payerRepoint.length > 0) {
@@ -237,6 +179,73 @@ export async function mergeUserInto(
       from (values ${values}) as v(id, share_type, split_value)
       where s.id = v.id`);
   }
+}
+
+async function loadPair(ex: Executor, fromId: number, toId: number) {
+  const rows = await ex
+    .select({
+      id: users.id,
+      placeholderGroupId: users.placeholderGroupId,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      username: users.username,
+    })
+    .from(users)
+    .where(inArray(users.id, [fromId, toId]));
+  return {
+    from: rows.find((r) => r.id === fromId),
+    to: rows.find((r) => r.id === toId),
+  };
+}
+
+/** What a merge would take, for the confirm dialog. Writes nothing. */
+export async function previewMerge(
+  groupId: number,
+  fromId: number,
+  toId: number,
+): Promise<{ check: MergeCheck; summary: MergeSummary | null }> {
+  const { from, to } = await loadPair(db, fromId, toId);
+  const check = validateMerge(groupId, from, to);
+  if (!check.ok) return { check, summary: null };
+  const data = await loadMergeData(db, groupId, fromId);
+  return { check, summary: summariseMerge({ fromId, toId, ...data }) };
+}
+
+export type MergeResult =
+  | {
+      ok: true;
+      placeholderName: string;
+      claimerName: string;
+      recordIds: number[];
+      /** Settlements between the two people that were kept (`keep`) or are about to be deleted (`delete`). */
+      selfSettlementIds: number[];
+    }
+  | { ok: false; status: 400 | 403 | 404; error: string };
+
+/**
+ * Fold `fromUserId` (this group's placeholder) into `toUserId` (a real account).
+ * Runs inside the caller's transaction; log the audit row after it commits.
+ *
+ * Settlements between the two people become "A → A". They are returned, not deleted here: deleting
+ * a record has to go through `logDeleted` (audit row + chat tombstone), which opens its own
+ * transaction, so the caller does it after this one commits when the merger chose `delete`.
+ */
+export async function mergeUserInto(
+  tx: Tx,
+  groupId: number,
+  fromUserId: number,
+  toUserId: number,
+): Promise<MergeResult> {
+  await lockGroupMemberNames(tx, groupId);
+
+  const { from, to } = await loadPair(tx, fromUserId, toUserId);
+  const check = validateMerge(groupId, from, to);
+  if (!check.ok) return check;
+
+  const data = await loadMergeData(tx, groupId, fromUserId, { lock: true });
+  const plan = planMerge({ fromId: fromUserId, toId: toUserId, ...data });
+
+  await applyMergePlan(tx, plan, toUserId);
 
   // The real account keeps its own membership row; otherwise it takes the placeholder's place.
   await tx
