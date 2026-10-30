@@ -30,7 +30,12 @@ const GROUP = { id: 7, title: "週末旅行", defaultCurrency: "TWD" };
 
 function renderHome(
   platform: Platform,
-  me: { groups?: unknown[]; activeGroupId?: number; activeExpenseId?: number } = {},
+  me: {
+    groups?: unknown[];
+    activeGroupId?: number;
+    activeExpenseId?: number;
+    activeInviteCode?: string;
+  } = {},
   failure?: Failure,
 ) {
   const request = fakeRequest({
@@ -39,6 +44,7 @@ function renderHome(
       activeGroupId: null,
       activeExpenseId: null,
       activeSettlementId: null,
+      activeInviteCode: null,
       ...me,
     },
     "/api/me/groups/photos": { photos: {} },
@@ -95,6 +101,30 @@ describe("GroupsHome", () => {
       );
     },
   );
+
+  it.each([miniPlatform, webPlatform])(
+    "sends a join deep link to the invite preview under the platform's base path (%#)",
+    async (platform) => {
+      const code = `JOIN${platform.basePath === "/mini" ? "MINI" : "WEBB"}0`;
+      renderHome(platform, { activeInviteCode: code });
+      await waitFor(() =>
+        expect(mockReplace).toHaveBeenCalledWith(`${platform.basePath}/join/${code}`),
+      );
+    },
+  );
+
+  it("redirects to a join link once, then lets the group list show", async () => {
+    const code = "ONCEONLY00";
+    const first = renderHome(miniPlatform, { activeInviteCode: code, groups: [GROUP] });
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith(`/mini/join/${code}`));
+    first.unmount();
+    mockReplace.mockClear();
+
+    // 回首頁 from the invite page: the same start param is still in initData.
+    renderHome(miniPlatform, { activeInviteCode: code, groups: [GROUP] });
+    expect(await screen.findByText(GROUP.title)).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
 
   it("shows the Mini App its load error when the session check fails with 401", async () => {
     const location = stubLocation("/mini");

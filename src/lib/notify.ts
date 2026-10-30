@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { BTN } from "@/lib/buttons";
 import { telegramChatId } from "@/lib/chat";
+import { botUsername } from "@/lib/bot-username";
 import { settlementLink } from "@/lib/deep-link";
 import { n } from "@/lib/money";
 import { type RecordSnapshot } from "@/lib/record-audit";
@@ -71,20 +72,6 @@ export type LoadedNotice = {
    */
   record: RecordSnapshot;
 };
-
-/** Cached across invocations in the same lambda — the username never changes. */
-let cachedBotUsername: string | undefined;
-
-async function botUsername(api: Api): Promise<string | null> {
-  if (cachedBotUsername) return cachedBotUsername;
-  try {
-    const me = await api.getMe();
-    cachedBotUsername = me.username;
-    return cachedBotUsername;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Loads everything needed to render one record's message.

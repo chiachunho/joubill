@@ -160,6 +160,24 @@ test.describe("Creating groups and joining by invite", () => {
     expect((await res.json()).code).toBeNull();
   });
 
+  test("the invite carries a Telegram link only when the bot can build one", async ({
+    authedPage,
+    seeded,
+  }) => {
+    const res = await authedPage.request.post(`/api/groups/${seeded.groupId}/invite`);
+    expect(res.ok()).toBe(true);
+    const { code, miniLink } = await res.json();
+    // The preview's bot token may be a dummy, in which case there is no username to build from;
+    // either way the code must come back and the link must be absent or point at this code.
+    if (miniLink !== null) expect(miniLink).toContain(`startapp=join_${code}`);
+
+    await authedPage.goto(`/app/groups/${seeded.groupId}/settings`);
+    await expect(authedPage.getByRole("button", { name: "複製網頁連結" })).toBeVisible();
+    const telegramButton = authedPage.getByRole("button", { name: "複製 Telegram 連結" });
+    if (miniLink !== null) await expect(telegramButton).toBeVisible();
+    else await expect(telegramButton).toHaveCount(0);
+  });
+
   test("an unknown code gets the same answer as a revoked one", async ({ authedPage }) => {
     await authedPage.goto("/join/0000000000");
     await expect(authedPage.getByText(INVALID)).toBeVisible();
