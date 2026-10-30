@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
-import { authIdentities } from "@/db/schema";
+import { authIdentities, users } from "@/db/schema";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { canUnlink, isLoginProvider } from "@/lib/identities";
@@ -23,27 +23,34 @@ export const DELETE = withAuth(
       return NextResponse.json({ error: "未知的登入方式" }, { status: 400 });
     }
 
-    const rows = await db
-      .select({ provider: authIdentities.provider })
-      .from(authIdentities)
-      .where(eq(authIdentities.userId, auth.user.id));
-    const linked = rows.map((r) => r.provider);
-    if (!linked.includes(provider)) {
-      return NextResponse.json({ error: "沒有綁定這個登入方式" }, { status: 404 });
-    }
+    // Locking the user row serialises two unlinks at once: each would otherwise see two
+    // methods and delete its own, leaving the account with none.
+    const failure = await db.transaction(async (tx) => {
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, auth.user.id)).for("update");
+      const rows = await tx
+        .select({ provider: authIdentities.provider })
+        .from(authIdentities)
+        .where(eq(authIdentities.userId, auth.user.id));
+      const linked = rows.map((r) => r.provider);
+      if (!linked.includes(provider)) {
+        return NextResponse.json({ error: "沒有綁定這個登入方式" }, { status: 404 });
+      }
 
-    const verdict = canUnlink(
-      provider,
-      // Count distinct methods, not rows, so two rows of one provider can't pass for two methods.
-      [...new Set(linked)],
-    );
-    if (!verdict.ok) {
-      return NextResponse.json({ error: REASON_TEXT[verdict.reason] }, { status: 409 });
-    }
+      const verdict = canUnlink(
+        provider,
+        // Count distinct methods, not rows, so two rows of one provider can't pass for two methods.
+        [...new Set(linked)],
+      );
+      if (!verdict.ok) {
+        return NextResponse.json({ error: REASON_TEXT[verdict.reason] }, { status: 409 });
+      }
 
-    await db
-      .delete(authIdentities)
-      .where(and(eq(authIdentities.userId, auth.user.id), eq(authIdentities.provider, provider)));
+      await tx
+        .delete(authIdentities)
+        .where(and(eq(authIdentities.userId, auth.user.id), eq(authIdentities.provider, provider)));
+      return null;
+    });
+    if (failure) return failure;
     return NextResponse.json({ ok: true });
   },
 );

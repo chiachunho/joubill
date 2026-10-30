@@ -4,5 +4,5 @@
  */
 export function isInAppBrowser(userAgent: string | null | undefined): boolean {
   if (!userAgent) return false;
-  return /\bLine\/|\bTelegram|\bTelegramBot\b/i.test(userAgent);
+  return /\bLine\/|\bTelegram/i.test(userAgent);
 }

@@ -99,7 +99,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ...(githubEnabled ? [GitHub({ allowDangerousEmailAccountLinking: true })] : []),
     ...(googleEnabled ? [Google({ allowDangerousEmailAccountLinking: true })] : []),
     ...(lineEnabled
-      ? [Line({ clientId: process.env.AUTH_LINE_ID, clientSecret: process.env.AUTH_LINE_SECRET })]
+      ? [
+          Line({
+            clientId: process.env.AUTH_LINE_ID,
+            clientSecret: process.env.AUTH_LINE_SECRET,
+            // Drop LINE's email: it is unverified, and the user row would keep it, letting a
+            // later Google/GitHub sign-in with that address auto-link into the LINE-created
+            // account (a pre-registration takeover). "" is stored as NULL by the adapter.
+            profile(profile) {
+              return {
+                id: profile.sub,
+                name: profile.name,
+                email: "",
+                image: profile.picture,
+              };
+            },
+          }),
+        ]
       : []),
   ],
   // Use "session" as the cookie name so our existing resolveSession() picks
