@@ -12,9 +12,9 @@ const CARD = "還沒有其他成員";
 /** Creates a web group with the signed-in user as its only member; returns its id. */
 async function createSoloGroup(page: Page): Promise<number> {
   const res = await page.request.post("/api/groups", {
-    data: { title: `E2E solo ${randomBytes(4).toString("hex")}` },
+    data: { title: `E2E solo ${randomBytes(4).toString("hex")}`, defaultCurrency: "TWD" },
   });
-  expect(res.ok()).toBe(true);
+  expect(res.status(), await res.text()).toBe(201);
   const { id } = await res.json();
   return id as number;
 }
