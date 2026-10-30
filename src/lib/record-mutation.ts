@@ -270,3 +270,20 @@ export async function logInviteReset(groupId: number, actor: Actor): Promise<voi
     after: { kind: "inviteReset" },
   });
 }
+
+/** Logs a web group being bound to a Telegram chat; the title is captured as it was then. */
+export async function logChatLinked(
+  groupId: number,
+  actor: Actor,
+  chatTitle: string,
+): Promise<void> {
+  await writeLog({
+    groupId,
+    recordId: null,
+    recordType: "group",
+    action: "chat_linked",
+    actor,
+    before: null,
+    after: { kind: "chatLinked", chatTitle },
+  });
+}

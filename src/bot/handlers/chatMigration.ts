@@ -24,8 +24,11 @@ import type { BotContext } from "../context";
  */
 export const chatMigration = new Composer<BotContext>();
 
-async function hasRecords(groupId: number): Promise<boolean> {
-  const [row] = await db
+/** `db` or a transaction handle. */
+type Executor = Pick<typeof db, "select" | "insert" | "update" | "delete">;
+
+export async function hasRecords(groupId: number, ex: Executor = db): Promise<boolean> {
+  const [row] = await ex
     .select({ id: expenses.id })
     .from(expenses)
     .where(eq(expenses.groupId, groupId))
@@ -37,8 +40,17 @@ async function hasRecords(groupId: number): Promise<boolean> {
  * Fold `fromId` into `intoId` and drop it. Only ever called for a group with no
  * expenses, so there are no balances to reconcile — but it may still have
  * collected members and rates, which a plain cascade delete would throw away.
+ *
+ * `keepSurvivorCurrency` is for `/link`, where the survivor is the real ledger (a
+ * web group someone set up) and the absorbed row is the one auto-created for the
+ * chat, still on the TWD default: copying its currency across would be backwards.
+ * `ex` lets the caller run the whole fold inside its own transaction.
  */
-async function absorbGroup(fromId: number, intoId: number) {
+export async function absorbGroup(
+  fromId: number,
+  intoId: number,
+  { ex = db, keepSurvivorCurrency = false }: { ex?: Executor; keepSurvivorCurrency?: boolean } = {},
+) {
   // Carry the configured default currency across. The surviving row is usually
   // one registerUser auto-created seconds ago, so it still holds the TWD default
   // while the absorbed row is the one someone actually set up — without this, a
@@ -46,24 +58,24 @@ async function absorbGroup(fromId: number, intoId: number) {
   // goes dormant. Only when the survivor has no records of its own: otherwise
   // its currency is what existing balances were converted against, and
   // overwriting it would restate them.
-  const [from] = await db
+  const [from] = await ex
     .select({ defaultCurrency: groups.defaultCurrency })
     .from(groups)
     .where(eq(groups.id, fromId));
-  if (from && !(await hasRecords(intoId))) {
-    await db
+  if (!keepSurvivorCurrency && from && !(await hasRecords(intoId, ex))) {
+    await ex
       .update(groups)
       .set({ defaultCurrency: from.defaultCurrency, updatedAt: new Date() })
       .where(eq(groups.id, intoId));
   }
 
-  const members = await db
+  const members = await ex
     .select({ userId: groupMembers.userId })
     .from(groupMembers)
     .where(eq(groupMembers.groupId, fromId));
 
   if (members.length > 0) {
-    await db
+    await ex
       .insert(groupMembers)
       .values(members.map((m) => ({ groupId: intoId, userId: m.userId })))
       .onConflictDoNothing();
@@ -72,12 +84,12 @@ async function absorbGroup(fromId: number, intoId: number) {
   // Placeholder members are owned by their group (placeholder_group_id cascades),
   // so repoint them before the group row goes or they'd be deleted with it —
   // taking their payer/split rows along.
-  await db
+  await ex
     .update(users)
     .set({ placeholderGroupId: intoId })
     .where(eq(users.placeholderGroupId, fromId));
 
-  const rates = await db
+  const rates = await ex
     .select()
     .from(groupExchangeRates)
     .where(eq(groupExchangeRates.groupId, fromId));
@@ -86,7 +98,7 @@ async function absorbGroup(fromId: number, intoId: number) {
     // onConflictDoNothing keeps the surviving group's own rate for a pair it
     // already defines: its existing expenses were converted at that rate, and
     // overwriting it would silently restate settled balances.
-    await db
+    await ex
       .insert(groupExchangeRates)
       .values(
         rates.map((r) => ({
@@ -102,7 +114,7 @@ async function absorbGroup(fromId: number, intoId: number) {
 
   // group_delete_requests is deliberately not carried over — a pending deletion
   // vote against a chat id that no longer exists shouldn't outlive the merge.
-  await db.delete(groups).where(eq(groups.id, fromId));
+  await ex.delete(groups).where(eq(groups.id, fromId));
 }
 
 async function migrateGroupChatId(oldChatId: number, newChatId: number) {

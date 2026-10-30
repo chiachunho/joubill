@@ -11,6 +11,7 @@ import { expensePanel } from "./commands/expensePanel";
 import { exportCommand } from "./commands/export";
 import { helpCommand } from "./commands/help";
 import { joinCommand } from "./commands/join";
+import { linkCommand } from "./commands/link";
 import { listCommand } from "./commands/list";
 import { receiptUploadHandler } from "./commands/receiptUpload";
 import { settleCommand } from "./commands/settle";
@@ -54,6 +55,7 @@ export function getBot(): Bot<BotContext> {
   bot.use(startCommand);
   bot.use(helpCommand);
   bot.use(joinCommand);
+  bot.use(linkCommand);
   bot.use(addCommand);
   bot.use(appCommand);
   bot.use(listCommand);

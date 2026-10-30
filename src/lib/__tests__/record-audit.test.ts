@@ -282,6 +282,23 @@ describe("changeHeading", () => {
   });
 });
 
+describe("changeHeading chat_linked", () => {
+  it("names the chat the group was bound to", () => {
+    expect(
+      changeHeading(
+        { action: "chat_linked", recordType: "group", groupEvent: { chatTitle: "日本行" } },
+        true,
+      ),
+    ).toBe("綁定了 Telegram 群組（日本行）");
+  });
+
+  it("still reads without a title", () => {
+    expect(changeHeading({ action: "chat_linked", recordType: "group" }, true)).toBe(
+      "綁定了 Telegram 群組",
+    );
+  });
+});
+
 describe("rateLockImpact", () => {
   it("leaves out a kind that nothing happened to", () => {
     expect(rateLockImpact({ expenses: 12, settlements: 3 })).toBe("影響 12 筆支出 · 3 筆轉帳");

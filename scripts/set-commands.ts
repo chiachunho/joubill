@@ -35,6 +35,7 @@ const groupCommands = [
   { command: "settle", description: "最少還款建議" },
   { command: "export", description: "匯出全部帳目（CSV）" },
   { command: "join", description: "把人加進揪帳（回覆對方訊息再打 /join）" },
+  { command: "link", description: "把網頁建立的群組綁到這個聊天室（/link 邀請碼）" },
   { command: "app", description: "開啟揪帳 Mini App" },
   { command: "help", description: "指令說明" },
 ];
