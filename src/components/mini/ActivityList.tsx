@@ -111,13 +111,14 @@ function Row({
       {entry.action === "rate_locked" ||
       entry.action === "invite_reset" ||
       entry.action === "chat_linked" ||
-      entry.action === "member_claimed" ? (
+      entry.action === "member_claimed" ||
+      entry.action === "account_merged" ? (
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
           {entry.action === "rate_locked" ? (
             <Lock className="size-3.5" />
           ) : entry.action === "chat_linked" ? (
             <Link2 className="size-3.5" />
-          ) : entry.action === "member_claimed" ? (
+          ) : entry.action === "member_claimed" || entry.action === "account_merged" ? (
             <UserCheck className="size-3.5" />
           ) : (
             <KeyRound className="size-3.5" />

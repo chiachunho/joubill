@@ -388,3 +388,14 @@ describe("changeHeading member_claimed", () => {
     expect(isGroupEventPayload(payload)).toBe(true);
   });
 });
+
+describe("changeHeading account_merged", () => {
+  it("names the account that was folded in", () => {
+    expect(
+      changeHeading(
+        { action: "account_merged", recordType: "group", groupEvent: { claimedName: "Mei Chen" } },
+        true,
+      ),
+    ).toBe("把帳號 Mei Chen 併入自己的帳號");
+  });
+});

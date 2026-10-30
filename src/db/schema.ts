@@ -290,6 +290,27 @@ export const sessions = pgTable("sessions", {
 });
 
 /**
+ * Proof that the signed-in `user_id` just completed an OAuth sign-in that belongs to
+ * `other_user_id`, so the two accounts may be merged (`src/lib/account-merge-db.ts`).
+ * Written by the Auth.js `signIn` callback; its id travels only in the httpOnly
+ * `merge_ticket` cookie. Short-lived and single-use: `consumed_at` is set by the merge.
+ */
+export const accountMergeTickets = pgTable("account_merge_tickets", {
+  id: text("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  otherUserId: integer("other_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  /** The login method that proved ownership of `other_user_id`. */
+  provider: text("provider").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+});
+
+/**
  * Pending group deletion request. Required when group has >1 member — a second member
  * must approve before the group is deleted. One row per group (enforced by unique on groupId).
  */
@@ -367,7 +388,7 @@ export const recordAuditLog = pgTable(
     recordId: integer("record_id"),
     /** 'expense' | 'settlement' | 'group' */
     recordType: varchar("record_type", { length: 16 }).notNull(),
-    /** 'created' | 'updated' | 'deleted' | 'rate_locked' | 'member_joined' | 'invite_reset' | 'chat_linked' | 'member_claimed' */
+    /** 'created' | 'updated' | 'deleted' | 'rate_locked' | 'member_joined' | 'invite_reset' | 'chat_linked' | 'member_claimed' | 'account_merged' */
     action: varchar("action", { length: 24 }).notNull(),
     actorId: integer("actor_id")
       .notNull()

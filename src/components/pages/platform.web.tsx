@@ -94,8 +94,9 @@ function WebAccountSection() {
 }
 
 function linkIdentity(provider: LoginProvider): void {
-  // With a session, Auth.js links the new account to the signed-in user (or fails with
-  // OAuthAccountNotLinked if it belongs to someone else) instead of creating a user.
+  // With a session, Auth.js links the new account to the signed-in user instead of creating
+  // one. If it belongs to another account, the signIn callback sends the person to
+  // /app/settings/merge to confirm merging the two (src/lib/auth/merge-ticket.ts).
   void signIn(provider, { callbackUrl: "/app/settings" });
 }
 
@@ -113,5 +114,6 @@ export const webPlatform: Platform = {
   canDownloadExport: true,
   soloInviteHint: "把連結傳給對方就能加入。對方也可以在「我的群組」按「輸入邀請碼」，貼上邀請碼。",
   linkIdentity,
+  openInBrowser: null,
   AccountSection: WebAccountSection,
 };

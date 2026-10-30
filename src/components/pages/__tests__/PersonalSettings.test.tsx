@@ -93,6 +93,18 @@ describe("PersonalSettings", () => {
     expect(screen.queryByText("無法載入")).not.toBeInTheDocument();
   });
 
+  it("points the Mini App at the merge instructions, which the web reaches through linking", async () => {
+    renderSettings(miniPlatform);
+    expect(await screen.findByRole("link", { name: /合併另一個帳號/ })).toHaveAttribute(
+      "href",
+      "/mini/settings/merge",
+    );
+    cleanup();
+    renderSettings(webPlatform);
+    await screen.findByText("小明");
+    expect(screen.queryByRole("link", { name: /合併另一個帳號/ })).not.toBeInTheDocument();
+  });
+
   it("still shows a non-401 failure on the web", async () => {
     renderSettings(webPlatform, new Failure(500));
     expect(await screen.findByText("無法載入")).toBeInTheDocument();

@@ -1,6 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 
 import type {
+  AccountMergePreview,
   AcceptInviteResponse,
   ActivityResponse,
   AvatarsResponse,
@@ -126,6 +127,11 @@ const baseApi = createApi({
     getIdentities: build.query<IdentitiesResponse, void>({
       query: () => ({ url: "/api/me/identities" }),
       providesTags: [tag("Identities", "ME")],
+    }),
+    // The ticket rides in an httpOnly cookie; this is read once, on the confirm page.
+    getAccountMergePreview: build.query<AccountMergePreview, void>({
+      query: () => ({ url: "/api/me/merge" }),
+      keepUnusedDataFor: 0,
     }),
     getMembers: build.query<MembersResponse, GroupId>({
       query: (groupId) => ({ url: `/api/groups/${groupId}/members` }),
@@ -427,6 +433,16 @@ const baseApi = createApi({
       }),
       invalidatesTags: [tag("Identities", "ME")],
     }),
+    // No tags: the page reloads after a merge, since the session may now be another user's.
+    mergeAccounts: build.mutation<
+      { ok: true; keptUserId: number; groups: number; records: number },
+      { keepUserId: number; selfSettlements: "keep" | "delete" }
+    >({
+      query: (body) => ({ url: "/api/me/merge", method: "POST", body }),
+    }),
+    cancelAccountMerge: build.mutation<unknown, void>({
+      query: () => ({ url: "/api/me/merge", method: "DELETE" }),
+    }),
 
     // ---- creating and joining a group ------------------------------------------------
     createGroup: build.mutation<CreateGroupResponse, { title: string; defaultCurrency: string }>({
@@ -591,6 +607,9 @@ export const {
   useGetProfileQuery,
   useGetIdentitiesQuery,
   useUnlinkIdentityMutation,
+  useGetAccountMergePreviewQuery,
+  useMergeAccountsMutation,
+  useCancelAccountMergeMutation,
   useGetMembersQuery,
   useGetSettingsQuery,
   useGetAvatarsQuery,

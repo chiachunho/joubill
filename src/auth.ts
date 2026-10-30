@@ -6,6 +6,7 @@ import Line from "next-auth/providers/line";
 
 import { splitbillAdapter } from "@/lib/auth/nextAuthAdapter";
 import { SESSION_COOKIE } from "@/lib/auth";
+import { mergeRedirect } from "@/lib/auth/merge-ticket";
 import { githubEnabled, googleEnabled, lineEnabled } from "@/lib/auth/providers";
 
 export { githubEnabled, googleEnabled, lineEnabled };
@@ -135,6 +136,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
+    // A login that belongs to another account, used while signed in, goes to the merge
+    // confirm page (issue #99) instead of failing with OAuthAccountNotLinked.
+    async signIn({ account }) {
+      if (!account || account.type === "credentials") return true;
+      return (await mergeRedirect(account.provider, account.providerAccountId)) ?? true;
+    },
     redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       try {
