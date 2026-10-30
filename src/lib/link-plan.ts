@@ -5,7 +5,11 @@
  * a stranger holding a valid code must get exactly the answer a wrong code gets,
  * so `not_found` is decided before anything that would reveal the group exists.
  */
-export type LinkRefusal = "not_found" | "already_linked" | "both_have_records";
+export type LinkRefusal =
+  | "not_found"
+  | "already_linked"
+  | "chat_already_linked"
+  | "both_have_records";
 
 export type LinkPlan = { ok: true; absorb: boolean } | { ok: false; reason: LinkRefusal };
 
@@ -16,11 +20,16 @@ export function planLink(input: {
   senderIsMember: boolean;
   /** The web group already points at a chat. */
   targetHasChat: boolean;
-  /** The row `registerUser` made for this chat, or null when it is the web group itself. */
-  chatGroup: { hasRecords: boolean } | null;
+  /**
+   * The row this chat already resolves to, or null when it is the web group itself.
+   * `wasLinked` marks a web group an earlier `/link` bound here: a real group, not the
+   * empty row `registerUser` made, so it must never be folded away.
+   */
+  chatGroup: { hasRecords: boolean; wasLinked: boolean } | null;
 }): LinkPlan {
   if (!input.codeValid || !input.senderIsMember) return { ok: false, reason: "not_found" };
   if (input.targetHasChat) return { ok: false, reason: "already_linked" };
+  if (input.chatGroup?.wasLinked) return { ok: false, reason: "chat_already_linked" };
   if (input.chatGroup?.hasRecords) return { ok: false, reason: "both_have_records" };
   return { ok: true, absorb: input.chatGroup !== null };
 }

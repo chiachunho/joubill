@@ -83,7 +83,8 @@ linkCommand.command("link", async (ctx) => {
       chatGroup: isChatGroupItself
         ? null
         : {
-            hasRecords: (await hasRecords(chatGroup.id, tx)) || (await wasLinked(chatGroup.id, tx)),
+            hasRecords: await hasRecords(chatGroup.id, tx),
+            wasLinked: await wasLinked(chatGroup.id, tx),
           },
     });
     if (!plan.ok) return plan;
@@ -103,6 +104,8 @@ linkCommand.command("link", async (ctx) => {
   if (!outcome.ok) {
     if (outcome.reason === "not_found") {
       await notFound();
+    } else if (outcome.reason === "chat_already_linked") {
+      await ctx.reply("這個聊天室已經綁定了另一個群組，不能再綁定。");
     } else if (outcome.reason === "already_linked") {
       await ctx.reply("這個群組已經綁定了一個 Telegram 聊天室，不能再綁定。");
     } else {

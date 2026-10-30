@@ -6,7 +6,7 @@ const base = {
   codeValid: true,
   senderIsMember: true,
   targetHasChat: false,
-  chatGroup: { hasRecords: false },
+  chatGroup: { hasRecords: false, wasLinked: false },
 };
 
 describe("planLink", () => {
@@ -40,9 +40,16 @@ describe("planLink", () => {
   });
 
   it("refuses when the chat already has its own expenses", () => {
-    expect(planLink({ ...base, chatGroup: { hasRecords: true } })).toEqual({
+    expect(planLink({ ...base, chatGroup: { hasRecords: true, wasLinked: false } })).toEqual({
       ok: false,
       reason: "both_have_records",
+    });
+  });
+
+  it("refuses a chat that an earlier /link already bound, even with no expenses", () => {
+    expect(planLink({ ...base, chatGroup: { hasRecords: false, wasLinked: true } })).toEqual({
+      ok: false,
+      reason: "chat_already_linked",
     });
   });
 });
