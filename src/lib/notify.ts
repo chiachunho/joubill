@@ -288,8 +288,16 @@ export async function sendRecordNotice(api: Api, recordId: number): Promise<void
  * An expense card is re-rendered in `default` mode, so a card someone had left
  * open on the ⚙️ panel collapses back to the summary view. That is intended:
  * the panel's state is a UI mode, not part of the record.
+ *
+ * `repost: false` only ever edits: with no message, or one Telegram won't edit, it does
+ * nothing. A bulk refresh (a member merge) must not post a first message for every old
+ * record it happens to touch.
  */
-export async function updateRecordNotice(api: Api, recordId: number): Promise<void> {
+export async function updateRecordNotice(
+  api: Api,
+  recordId: number,
+  { repost = true }: { repost?: boolean } = {},
+): Promise<void> {
   try {
     const loaded = await loadNoticeRecord(recordId);
     if (!loaded || loaded.chatId === null) return;
@@ -310,6 +318,7 @@ export async function updateRecordNotice(api: Api, recordId: number): Promise<vo
         if (isNotModified(err)) return;
       }
     }
+    if (!repost) return;
 
     const sent = await api.sendMessage(chatId, rendered.text, {
       parse_mode: "HTML",

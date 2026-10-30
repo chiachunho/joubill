@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -9,6 +9,7 @@ import { expenses } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { mergeUserInto, previewMerge } from "@/lib/member-merge-db";
+import { refreshClaimedNotices } from "@/lib/claim-notices";
 import { logDeleted, logMemberClaimed } from "@/lib/record-mutation";
 
 export const runtime = "nodejs";
@@ -79,7 +80,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   );
 
   // After the merge commits, so each deletion is audited and tombstoned like any other.
-  let removed = 0;
+  const removedIds: number[] = [];
   if (body.data.selfSettlements === "delete") {
     for (const recordId of result.selfSettlementIds) {
       await logDeleted(
@@ -91,8 +92,15 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
           await tx.delete(expenses).where(eq(expenses.id, recordId));
         },
       );
-      removed += 1;
+      removedIds.push(recordId);
     }
   }
-  return NextResponse.json({ ok: true, recordCount: result.recordIds.length, removed });
+  // Their cards still name the placeholder; edit them once the response is on its way.
+  after(() => refreshClaimedNotices(getBot().api, result.recordIds, removedIds));
+
+  return NextResponse.json({
+    ok: true,
+    recordCount: result.recordIds.length,
+    removed: removedIds.length,
+  });
 });

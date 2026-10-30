@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -9,6 +9,8 @@ import { withAuth } from "@/lib/auth/route";
 import { INVITE_NOT_FOUND } from "@/lib/invite";
 import { findActiveInvite } from "@/lib/invites";
 import { labelUser } from "@/lib/label";
+import { getBot } from "@/bot";
+import { refreshClaimedNotices } from "@/lib/claim-notices";
 import { mergeUserInto, type MergeResult } from "@/lib/member-merge-db";
 import { logMemberClaimed, logMemberJoined } from "@/lib/record-mutation";
 
@@ -104,6 +106,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
         recordIds: claim.recordIds,
       },
     );
+    const claimed = claim;
+    after(() => refreshClaimedNotices(getBot().api, claimed.recordIds));
   }
 
   return NextResponse.json({ groupId: invite.groupId });

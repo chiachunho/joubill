@@ -1,4 +1,4 @@
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -160,32 +160,82 @@ export async function mergeUserInto(
   const data = await loadMergeData(tx, groupId, fromUserId, { lock: true });
   const plan = planMerge({ fromId: fromUserId, toId: toUserId, ...data });
 
+  // Each list below is one statement, not one per row: a placeholder with hundreds of
+  // records would otherwise hold the group lock for hundreds of round trips.
   if (plan.payerRepoint.length > 0) {
     await tx
       .update(expensePayers)
       .set({ payerId: toUserId })
       .where(inArray(expensePayers.id, plan.payerRepoint));
   }
-  for (const m of plan.payerMerge) {
-    await tx.delete(expensePayers).where(eq(expensePayers.id, m.deleteId));
-    await tx
-      .update(expensePayers)
-      .set({ amount: m.amount.toFixed(2) })
-      .where(eq(expensePayers.id, m.keepId));
+  if (plan.payerMerge.length > 0) {
+    await tx.delete(expensePayers).where(
+      inArray(
+        expensePayers.id,
+        plan.payerMerge.map((m) => m.deleteId),
+      ),
+    );
+    const values = sql.join(
+      plan.payerMerge.map((m) => sql`(${m.keepId}::int, ${m.amount.toFixed(2)}::numeric)`),
+      sql`, `,
+    );
+    await tx.execute(sql`
+      update expense_payers as p set amount = v.amount
+      from (values ${values}) as v(id, amount)
+      where p.id = v.id`);
   }
 
   if (plan.splitDelete.length > 0) {
     await tx.delete(expenseSplits).where(inArray(expenseSplits.id, plan.splitDelete));
   }
-  for (const u of plan.splitUpdates) {
-    const set: Partial<typeof expenseSplits.$inferInsert> = {};
-    if (u.debtorId !== undefined) set.debtorId = u.debtorId;
-    if (u.amount !== undefined) set.amount = u.amount.toFixed(2);
-    if (u.shareType !== undefined) set.shareType = u.shareType;
-    if (u.splitValue !== undefined) {
-      set.splitValue = u.splitValue === null ? null : String(u.splitValue);
-    }
-    await tx.update(expenseSplits).set(set).where(eq(expenseSplits.id, u.id));
+  const repoints = plan.splitUpdates.filter((u) => u.debtorId !== undefined);
+  if (repoints.length > 0) {
+    await tx
+      .update(expenseSplits)
+      .set({ debtorId: toUserId })
+      .where(
+        inArray(
+          expenseSplits.id,
+          repoints.map((u) => u.id),
+        ),
+      );
+  }
+  // Merged rows carry their own summed amount; the rest only change kind.
+  const merged = plan.splitUpdates.filter((u) => u.amount !== undefined);
+  if (merged.length > 0) {
+    const values = sql.join(
+      merged.map(
+        (u) =>
+          sql`(${u.id}::int, ${u.amount!.toFixed(2)}::numeric, ${u.shareType}::text, ${
+            u.splitValue == null ? null : String(u.splitValue)
+          }::numeric)`,
+      ),
+      sql`, `,
+    );
+    await tx.execute(sql`
+      update expense_splits as s
+      set amount = v.amount, share_type = v.share_type, split_value = v.split_value
+      from (values ${values}) as v(id, amount, share_type, split_value)
+      where s.id = v.id`);
+  }
+  const retyped = plan.splitUpdates.filter(
+    (u) => u.debtorId === undefined && u.amount === undefined,
+  );
+  if (retyped.length > 0) {
+    const values = sql.join(
+      retyped.map(
+        (u) =>
+          sql`(${u.id}::int, ${u.shareType}::text, ${
+            u.splitValue == null ? null : String(u.splitValue)
+          }::numeric)`,
+      ),
+      sql`, `,
+    );
+    await tx.execute(sql`
+      update expense_splits as s
+      set share_type = v.share_type, split_value = v.split_value
+      from (values ${values}) as v(id, share_type, split_value)
+      where s.id = v.id`);
   }
 
   // The real account keeps its own membership row; otherwise it takes the placeholder's place.
