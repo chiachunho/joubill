@@ -1,0 +1,101 @@
+"use client";
+
+import { useState } from "react";
+import { KeyRound, Link2, Unlink } from "lucide-react";
+
+import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import type { Platform } from "@/components/pages/platform";
+import { apiErrorText } from "@/lib/api-error";
+import {
+  canUnlink,
+  isLoginProvider,
+  linkableNow,
+  PROVIDER_LABEL,
+  type LoginProvider,
+} from "@/lib/identities";
+import { useGetIdentitiesQuery, useUnlinkIdentityMutation } from "@/store/api";
+
+/**
+ * 個人設定的「登入方式」: the login methods on this account, with link / unlink. Linking is
+ * what lets someone who started in Telegram sign in with Google later and still see their
+ * groups; a Google login that wasn't linked first would be a brand-new, empty account.
+ */
+export function LoginMethodsSection({ platform }: { platform: Platform }) {
+  const { data } = useGetIdentitiesQuery();
+  const [unlink, { isLoading: unlinking }] = useUnlinkIdentityMutation();
+  const [confirming, setConfirming] = useState<LoginProvider | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  if (!data) return null;
+
+  const linked = data.linked.filter(isLoginProvider);
+  const addable = platform.linkIdentity ? linkableNow(data.enabled, data.linked) : [];
+
+  async function confirmUnlink() {
+    if (!confirming) return;
+    try {
+      await unlink({ provider: confirming }).unwrap();
+      setMessage(null);
+    } catch (e) {
+      setMessage(apiErrorText(e, "解除連結失敗"));
+    }
+    setConfirming(null);
+  }
+
+  return (
+    <section className="px-4">
+      <p className="sect mb-2.5">登入方式</p>
+      <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+        {linked.map((provider) => {
+          const verdict = canUnlink(provider, data.linked);
+          return (
+            <div key={provider} className="flex items-center gap-3 px-4 py-3">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <KeyRound className="size-3.5 text-primary" />
+              </div>
+              <span className="flex-1 text-sm">{PROVIDER_LABEL[provider]}</span>
+              {platform.linkIdentity && verdict.ok && (
+                <button
+                  onClick={() => setConfirming(provider)}
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <Unlink className="size-3.5" />
+                  解除連結
+                </button>
+              )}
+            </div>
+          );
+        })}
+        {addable.map((provider) => (
+          <button
+            key={provider}
+            onClick={() => platform.linkIdentity?.(provider)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
+          >
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <Link2 className="size-3.5 text-primary" />
+            </div>
+            <span className="flex-1 text-sm">連結 {PROVIDER_LABEL[provider]}</span>
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 px-1 text-xs text-muted-foreground">
+        {platform.linkIdentity
+          ? "先把其他登入方式連結到這個帳號，之後用它登入才會看到原本的群組。"
+          : "要連結其他登入方式，請用瀏覽器開啟網頁版，在個人設定裡操作。"}
+      </p>
+      {message && <p className="mt-2 px-1 text-xs text-destructive">{message}</p>}
+
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => !open && setConfirming(null)}
+        title={`解除 ${confirming ? PROVIDER_LABEL[confirming] : ""} 連結？`}
+        description="解除後就不能再用它登入這個帳號。你的群組與紀錄不受影響。"
+        confirmLabel="解除連結"
+        variant="destructive"
+        loading={unlinking}
+        onConfirm={confirmUnlink}
+      />
+    </section>
+  );
+}

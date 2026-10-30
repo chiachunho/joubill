@@ -29,6 +29,13 @@ export type ProfileResponse = {
   photoUrl: string | null;
 };
 
+export type IdentitiesResponse = {
+  /** Providers linked to this account. */
+  linked: string[];
+  /** Providers configured on this deployment (Telegram is always among them). */
+  enabled: string[];
+};
+
 export type Member = {
   id: number;
   firstName: string;

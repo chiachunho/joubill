@@ -1,13 +1,18 @@
+import { headers } from "next/headers";
 import { SessionProvider } from "next-auth/react";
 
-import { githubEnabled, googleEnabled } from "@/auth";
+import { githubEnabled, googleEnabled, lineEnabled } from "@/auth";
 import { Logo } from "@/components/Logo";
 import { OAuthButtons } from "@/components/OAuthButtons";
+import { isInAppBrowser } from "@/lib/in-app-browser";
+import { loginErrorMessage } from "@/lib/identities";
 
-type Props = { searchParams: Promise<{ next?: string }> };
+type Props = { searchParams: Promise<{ next?: string; error?: string }> };
 
 export default async function LoginPage({ searchParams }: Props) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
+  const errorMessage = loginErrorMessage(error);
+  const inAppBrowser = isInAppBrowser((await headers()).get("user-agent"));
   const callbackUrl = next && next.startsWith("/") && !next.startsWith("//") ? next : "/app";
 
   return (
@@ -20,11 +25,21 @@ export default async function LoginPage({ searchParams }: Props) {
             <p className="text-sm text-muted-foreground">選個方式登入，就這樣。</p>
           </div>
         </div>
+        {errorMessage && (
+          <p
+            role="alert"
+            className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            {errorMessage}
+          </p>
+        )}
         <SessionProvider>
           <OAuthButtons
             callbackUrl={callbackUrl}
             showGithub={githubEnabled}
             showGoogle={googleEnabled}
+            showLine={lineEnabled}
+            inAppBrowser={inAppBrowser}
           />
         </SessionProvider>
       </div>

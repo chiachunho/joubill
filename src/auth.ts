@@ -2,9 +2,13 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
+import Line from "next-auth/providers/line";
 
 import { splitbillAdapter } from "@/lib/auth/nextAuthAdapter";
 import { SESSION_COOKIE } from "@/lib/auth";
+import { githubEnabled, googleEnabled, lineEnabled } from "@/lib/auth/providers";
+
+export { githubEnabled, googleEnabled, lineEnabled };
 
 interface TelegramOIDCProfile {
   // OIDC subject — a per-bot pairwise identifier, NOT the Telegram user id.
@@ -81,9 +85,6 @@ const TelegramOIDC = {
   },
 };
 
-export const githubEnabled = !!(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET);
-export const googleEnabled = !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: splitbillAdapter,
   session: { strategy: "database" },
@@ -91,8 +92,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     TelegramOIDC,
     // Both GitHub and Google verify email before sharing it, so auto-linking is safe.
     // Each provider is only registered when its credential env vars are present.
+    // LINE deliberately has NO allowDangerousEmailAccountLinking: its email is a separate
+    // permission the user may refuse and LINE does not promise it is verified, so matching on
+    // it would let someone take over an account by registering its address. LINE joins an
+    // existing account only through the settings page (signed in), never by email.
     ...(githubEnabled ? [GitHub({ allowDangerousEmailAccountLinking: true })] : []),
     ...(googleEnabled ? [Google({ allowDangerousEmailAccountLinking: true })] : []),
+    ...(lineEnabled
+      ? [Line({ clientId: process.env.AUTH_LINE_ID, clientSecret: process.env.AUTH_LINE_SECRET })]
+      : []),
   ],
   // Use "session" as the cookie name so our existing resolveSession() picks
   // up Auth.js-created sessions without any changes to API route auth.

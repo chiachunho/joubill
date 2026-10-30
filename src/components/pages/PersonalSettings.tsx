@@ -2,6 +2,7 @@
 
 import { BookOpen, ChevronRight, User } from "lucide-react";
 
+import { LoginMethodsSection } from "@/components/pages/LoginMethodsSection";
 import { PersonalSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
@@ -56,6 +57,8 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
           </div>
         </div>
       </section>
+
+      <LoginMethodsSection platform={platform} />
 
       <section className="px-4">
         <p className="sect mb-2.5">關於</p>

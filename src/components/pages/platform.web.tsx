@@ -2,11 +2,13 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { ChevronLeft, LogOut, UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
 import { WEB_LOGIN_PATH } from "@/lib/auth-redirect";
 import { HELP_PATH } from "@/lib/help-url";
+import type { LoginProvider } from "@/lib/identities";
 import { webRawFetch } from "@/lib/web-fetch";
 
 function useNoSelfPhoto(): string | null {
@@ -91,6 +93,12 @@ function WebAccountSection() {
   );
 }
 
+function linkIdentity(provider: LoginProvider): void {
+  // With a session, Auth.js links the new account to the signed-in user (or fails with
+  // OAuthAccountNotLinked if it belongs to someone else) instead of creating a user.
+  void signIn(provider, { callbackUrl: "/app/settings" });
+}
+
 export const webPlatform: Platform = {
   basePath: "/app",
   rawRequest: webRawFetch,
@@ -103,5 +111,6 @@ export const webPlatform: Platform = {
   loginPath: WEB_LOGIN_PATH,
   HelpAction: WebHelpAction,
   canDownloadExport: true,
+  linkIdentity,
   AccountSection: WebAccountSection,
 };

@@ -1,5 +1,7 @@
 import type { ComponentType, ReactNode } from "react";
 
+import type { LoginProvider } from "@/lib/identities";
+
 /**
  * Everything that differs between the Mini App and the Web App page copies. A page
  * body under `src/components/pages` takes one of these and nothing else platform
@@ -43,6 +45,13 @@ export type Platform = {
    * the file to the group chat.
    */
   canDownloadExport: boolean;
+  /**
+   * Starts linking another login method to the signed-in account, or null where it can't be
+   * done. OAuth can't run inside Telegram's webview, so the Mini App has none and only lists
+   * what is linked; the Web App re-runs that provider's sign-in, which Auth.js binds to the
+   * current session's user.
+   */
+  linkIdentity: ((provider: LoginProvider) => void) | null;
   /** Extra content at the foot of the personal settings page. The Web App has the sign-out button. */
   AccountSection: ComponentType;
 };

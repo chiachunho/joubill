@@ -18,6 +18,7 @@ import type {
   MeResponse,
   MembersResponse,
   ProfileResponse,
+  IdentitiesResponse,
   RatesResponse,
   SettingsResponse,
   SettlementDetail,
@@ -45,6 +46,7 @@ const g = (groupId: GroupId) => String(groupId);
 const tagTypes = [
   "Me",
   "Profile",
+  "Identities",
   "GroupPhotos",
   "Members",
   "Settings",
@@ -119,6 +121,10 @@ const baseApi = createApi({
     getProfile: build.query<ProfileResponse, void>({
       query: () => ({ url: "/api/me/profile" }),
       providesTags: [tag("Profile", "ME")],
+    }),
+    getIdentities: build.query<IdentitiesResponse, void>({
+      query: () => ({ url: "/api/me/identities" }),
+      providesTags: [tag("Identities", "ME")],
     }),
     getMembers: build.query<MembersResponse, GroupId>({
       query: (groupId) => ({ url: `/api/groups/${groupId}/members` }),
@@ -376,6 +382,15 @@ const baseApi = createApi({
       invalidatesTags: (_r, _e, { groupId }) => derivedFromRatesTags(groupId),
     }),
 
+    // ---- login methods ---------------------------------------------------------------
+    unlinkIdentity: build.mutation<unknown, { provider: string }>({
+      query: ({ provider }) => ({
+        url: `/api/me/identities/${encodeURIComponent(provider)}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: [tag("Identities", "ME")],
+    }),
+
     // ---- creating and joining a group ------------------------------------------------
     createGroup: build.mutation<CreateGroupResponse, { title: string; defaultCurrency: string }>({
       query: (body) => ({ url: "/api/groups", method: "POST", body }),
@@ -533,6 +548,8 @@ export const {
   useGetInviteQuery,
   useGetInvitePreviewQuery,
   useGetProfileQuery,
+  useGetIdentitiesQuery,
+  useUnlinkIdentityMutation,
   useGetMembersQuery,
   useGetSettingsQuery,
   useGetAvatarsQuery,

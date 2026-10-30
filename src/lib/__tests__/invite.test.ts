@@ -58,6 +58,10 @@ describe("inviteLink / parseInviteCode", () => {
     expect(parseInviteCode(inviteLink("https://x.example", code))).toBe(code);
   });
 
+  it("asks LINE to open the link in an external browser", () => {
+    expect(inviteLink("https://x.example", "K7M2QX9PAB")).toContain("openExternalBrowser=1");
+  });
+
   it("accepts a link with a formatted code, query and hash", () => {
     expect(parseInviteCode("https://x.example/join/K7M2Q-X9PAB?a=1#b")).toBe("K7M2QX9PAB");
   });

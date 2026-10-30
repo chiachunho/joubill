@@ -91,5 +91,6 @@ export const miniPlatform: Platform = {
   loginPath: null,
   HelpAction: MiniHelpAction,
   canDownloadExport: false,
+  linkIdentity: null,
   AccountSection: MiniAccountSection,
 };

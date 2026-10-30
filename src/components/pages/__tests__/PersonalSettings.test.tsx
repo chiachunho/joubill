@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PersonalSettings } from "@/components/pages/PersonalSettings";
@@ -29,8 +29,17 @@ function withoutBackHook(platform: Platform): Platform {
   return { ...platform, useBack: () => {} };
 }
 
-function renderSettings(platform: Platform, failure?: Failure) {
-  const request = fakeRequest({ "/api/me/profile": failure ?? PROFILE });
+const IDENTITIES = { linked: ["telegram"], enabled: ["telegram", "line", "google"] };
+
+function renderSettings(
+  platform: Platform,
+  failure?: Failure,
+  identities: { linked: string[]; enabled: string[] } = IDENTITIES,
+) {
+  const request = fakeRequest({
+    "/api/me/profile": failure ?? PROFILE,
+    "/api/me/identities": identities,
+  });
   return render(
     <StoreWrapper request={request}>
       <PersonalSettings platform={withoutBackHook(platform)} />
@@ -87,5 +96,42 @@ describe("PersonalSettings", () => {
   it("still shows a non-401 failure on the web", async () => {
     renderSettings(webPlatform, new Failure(500));
     expect(await screen.findByText("無法載入")).toBeInTheDocument();
+  });
+
+  describe("login methods", () => {
+    const withLink = (linkIdentity: Platform["linkIdentity"]): Platform => ({
+      ...webPlatform,
+      linkIdentity,
+    });
+
+    it("offers to link each enabled provider that is not linked yet, and calls linkIdentity", async () => {
+      const linkIdentity = vi.fn();
+      renderSettings(withLink(linkIdentity));
+      fireEvent.click(await screen.findByRole("button", { name: /連結 Google/ }));
+      expect(linkIdentity).toHaveBeenCalledWith("google");
+      expect(screen.getByRole("button", { name: /連結 LINE/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /連結 GitHub/ })).not.toBeInTheDocument();
+    });
+
+    it("does not offer to unlink the only login method", async () => {
+      renderSettings(withLink(vi.fn()));
+      await screen.findByRole("button", { name: /連結 Google/ });
+      expect(screen.queryByRole("button", { name: /解除連結/ })).not.toBeInTheDocument();
+    });
+
+    it("offers to unlink a non-Telegram method once there is another", async () => {
+      renderSettings(withLink(vi.fn()), undefined, {
+        linked: ["telegram", "google"],
+        enabled: ["telegram", "google"],
+      });
+      expect(await screen.findByRole("button", { name: /解除連結/ })).toBeInTheDocument();
+    });
+
+    it("only lists the methods in the Mini App, which cannot run OAuth", async () => {
+      renderSettings(miniPlatform);
+      await screen.findByText("登入方式");
+      expect(screen.getByText("Telegram")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /連結/ })).not.toBeInTheDocument();
+    });
   });
 });

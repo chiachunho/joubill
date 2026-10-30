@@ -82,7 +82,7 @@ as a store:
    - Or via the Bot API: send a message, then read `channel_post.chat.id` from `https://api.telegram.org/bot<TOKEN>/getUpdates`.
 4. Put that `chat_id` into `TELEGRAM_STORAGE_CHAT_ID`.
 
-### Optional (GitHub / Google web login)
+### Optional (GitHub / Google / LINE web login)
 
 | Key                  | Value                          |
 | -------------------- | ------------------------------ |
@@ -90,12 +90,28 @@ as a store:
 | `AUTH_GITHUB_SECRET` | GitHub OAuth App Client Secret |
 | `AUTH_GOOGLE_ID`     | Google OAuth Client ID         |
 | `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret     |
+| `AUTH_LINE_ID`       | LINE Login channel ID          |
+| `AUTH_LINE_SECRET`   | LINE Login channel secret      |
 
-If these four are unset, the login page shows only the Telegram button. The
-GitHub / Google OAuth App Callback URLs are:
+A provider shows up on the login page only when both of its values are set; with none
+set, only the Telegram button appears. The Callback URLs are:
 
 - `https://splitbill.example.com/api/auth/callback/github`
 - `https://splitbill.example.com/api/auth/callback/google`
+- `https://splitbill.example.com/api/auth/callback/line`
+
+**Google**: Google Cloud Console → APIs & Services → Credentials → Create credentials →
+OAuth client ID → Web application. Add the callback URL under _Authorized redirect URIs_.
+Configure the OAuth consent screen first if the project has none.
+
+**LINE**: [LINE Developers Console](https://developers.line.biz/console/) → create a
+Provider → create a **LINE Login** channel → under _LINE Login_ turn on the web app type and
+add the callback URL. The channel ID and secret are on the _Basic settings_ tab. Publish
+the channel (status _Published_) or only its admins/testers can sign in. Email permission
+is not needed: LINE accounts are deliberately never matched by email.
+
+A person who signed in with Telegram and later uses Google or LINE gets a **new, empty
+account** unless they first link that method from 個人設定 → 登入方式 while signed in.
 
 Generate random strings with:
 
