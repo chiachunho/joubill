@@ -39,13 +39,17 @@ export function JoinPage({
   async function join() {
     if (!code) return;
     try {
+      // Only claim a name the preview still lists; a stale pick would refuse the whole join.
+      const claim = data?.placeholders.some((p) => p.id === claimId) ? claimId : null;
       const { groupId } = await accept({
         code,
-        ...(claimId !== null ? { placeholderUserId: claimId } : {}),
+        ...(claim !== null ? { placeholderUserId: claim } : {}),
       }).unwrap();
       router.replace(`${platform.basePath}/groups/${groupId}`);
     } catch {
-      // Shown below from the mutation's error.
+      // The error is shown below. Re-read the list: the name picked may have been claimed
+      // or removed since this page loaded, and the preview is not otherwise invalidated.
+      refetch();
     }
   }
 

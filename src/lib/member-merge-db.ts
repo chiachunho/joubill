@@ -31,7 +31,12 @@ type Executor = Pick<typeof db, "select" | "selectDistinct">;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** Everything the planner needs: the placeholder's expenses, with all their payer and split rows. */
-export async function loadMergeData(ex: Executor, groupId: number, fromId: number) {
+export async function loadMergeData(
+  ex: Executor,
+  groupId: number,
+  fromId: number,
+  { lock = false }: { lock?: boolean } = {},
+) {
   const touching = await ex
     .selectDistinct({ id: expenses.id })
     .from(expenses)
@@ -50,6 +55,16 @@ export async function loadMergeData(ex: Executor, groupId: number, fromId: numbe
       payers: [] as MergePayerRow[],
       splits: [] as MergeSplitRow[],
     };
+  }
+
+  if (lock) {
+    // Same lock `logUpdated` takes, and taken *before* the legs are read: an edit replaces
+    // payers and splits wholesale, so legs read ahead of the lock could name rows already gone.
+    await ex
+      .select({ id: expenses.id })
+      .from(expenses)
+      .where(inArray(expenses.id, ids))
+      .for("update");
   }
 
   const [metaRows, payerRows, splitRows] = await Promise.all([
@@ -130,17 +145,8 @@ export async function mergeUserInto(
   const check = validateMerge(groupId, from, to);
   if (!check.ok) return check;
 
-  const data = await loadMergeData(tx, groupId, fromUserId);
+  const data = await loadMergeData(tx, groupId, fromUserId, { lock: true });
   const plan = planMerge({ fromId: fromUserId, toId: toUserId, ...data });
-
-  if (plan.recordIds.length > 0) {
-    // Same lock `logUpdated` takes, so a concurrent edit finishes before we rewrite its legs.
-    await tx
-      .select({ id: expenses.id })
-      .from(expenses)
-      .where(inArray(expenses.id, plan.recordIds))
-      .for("update");
-  }
 
   if (plan.payerRepoint.length > 0) {
     await tx

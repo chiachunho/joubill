@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   changeHeading,
-  claimTouches,
   diffRecords,
   isGroupEventPayload,
   isRateLockPayload,
@@ -377,7 +376,7 @@ describe("changeHeading member_claimed", () => {
     ).toBe("把 小明 合併到 Amy");
   });
 
-  it("is recognised as a group event and a record's touch", () => {
+  it("is recognised as a group event", () => {
     const payload = {
       kind: "memberClaimed" as const,
       placeholderId: 3,
@@ -387,7 +386,5 @@ describe("changeHeading member_claimed", () => {
       recordIds: [7, 9],
     };
     expect(isGroupEventPayload(payload)).toBe(true);
-    expect(claimTouches(payload, 9)).toBe(true);
-    expect(claimTouches(payload, 8)).toBe(false);
   });
 });

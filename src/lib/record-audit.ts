@@ -72,7 +72,7 @@ export function isRateLockPayload(value: unknown): value is RateLockPayload {
  * `chatLinked` names the Telegram chat a web group was bound to;
  * `memberClaimed` records a placeholder being merged into a real account. Its
  * `recordIds` are the records that were rewritten, so a single record's history
- * can explain why a name on it changed (see `claimTouches`).
+ * can explain why a name on it changed (`loadRecordHistory` matches them with `@>`).
  */
 export type GroupEventPayload =
   | { kind: "memberJoined"; inviterId: number; inviterName: string }
@@ -96,14 +96,6 @@ export function isGroupEventPayload(value: unknown): value is GroupEventPayload 
     kind === "chatLinked" ||
     kind === "memberClaimed"
   );
-}
-
-/** Whether a claim rewrote this particular record. */
-export function claimTouches(
-  payload: Extract<GroupEventPayload, { kind: "memberClaimed" }>,
-  recordId: number,
-): boolean {
-  return payload.recordIds.includes(recordId);
 }
 
 /** Whether a rate lock rewrote this particular record. */

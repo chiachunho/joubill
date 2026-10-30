@@ -42,7 +42,6 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
 
   // One statement decides whether this call changed anything: a second tap or tab finds the
   // member already active, gets no row back, and so doesn't log a second "joined".
-  let claim: Extract<MergeResult, { ok: true }> | null = null;
   // A refused claim throws so the transaction rolls the join back with it.
   class ClaimRefused extends Error {
     constructor(
@@ -53,8 +52,9 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     }
   }
   let changed: { userId: number }[];
+  let claim: Extract<MergeResult, { ok: true }> | null;
   try {
-    changed = await db.transaction(async (tx) => {
+    ({ changed, claim } = await db.transaction(async (tx) => {
       const rows = await tx
         .insert(groupMembers)
         .values({ groupId: invite.groupId, userId: auth.user.id, status: "active" })
@@ -65,13 +65,14 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
         })
         .returning({ userId: groupMembers.userId });
 
+      let claim: Extract<MergeResult, { ok: true }> | null = null;
       if (placeholderUserId !== undefined) {
         const merged = await mergeUserInto(tx, invite.groupId, placeholderUserId, auth.user.id);
         if (!merged.ok) throw new ClaimRefused(merged.status, merged.error);
         claim = merged;
       }
-      return rows;
-    });
+      return { changed: rows, claim };
+    }));
   } catch (err) {
     if (err instanceof ClaimRefused) {
       return NextResponse.json({ error: err.message }, { status: err.status });
@@ -91,17 +92,16 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     );
   }
 
-  const claimed = claim as Extract<MergeResult, { ok: true }> | null;
-  if (claimed && placeholderUserId !== undefined) {
+  if (claim && placeholderUserId !== undefined) {
     await logMemberClaimed(
       invite.groupId,
       { userId: auth.user.id, source: "app" },
       {
         placeholderId: placeholderUserId,
-        placeholderName: claimed.placeholderName,
+        placeholderName: claim.placeholderName,
         claimerId: auth.user.id,
-        claimerName: claimed.claimerName,
-        recordIds: claimed.recordIds,
+        claimerName: claim.claimerName,
+        recordIds: claim.recordIds,
       },
     );
   }

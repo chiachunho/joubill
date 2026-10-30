@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, count, eq, isNotNull } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { groupMembers, users } from "@/db/schema";
@@ -35,8 +35,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 
   const alreadyMember = mine?.status === "active";
 
-  // Name-only members the visitor might be ("你是下面其中一位嗎？"). Only names and how many
-  // records each carries; a joined member has no use for the list.
+  // Name-only members the visitor might be ("你是下面其中一位嗎？"). Only ids and names; a
+  // joined member has no use for the list.
   const placeholders = alreadyMember
     ? []
     : await db
@@ -47,7 +47,6 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
           and(
             eq(groupMembers.groupId, invite.groupId),
             eq(users.placeholderGroupId, invite.groupId),
-            isNotNull(users.placeholderGroupId),
           ),
         )
         .orderBy(users.id);

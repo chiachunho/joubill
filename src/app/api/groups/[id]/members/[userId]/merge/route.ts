@@ -24,8 +24,9 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const { id, userId } = await params;
   const groupId = Number(id);
   const fromId = Number(userId);
-  const toId = Number(new URL(req.url).searchParams.get("intoUserId"));
-  if (![groupId, fromId, toId].every(Number.isFinite)) {
+  const intoParam = new URL(req.url).searchParams.get("intoUserId");
+  const toId = Number(intoParam);
+  if (!intoParam || ![groupId, fromId, toId].every(Number.isFinite)) {
     return NextResponse.json({ error: "invalid id" }, { status: 400 });
   }
   await assertGroupMember(auth.user.id, groupId);
