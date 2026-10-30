@@ -17,11 +17,17 @@ export function isLoginProvider(value: string): value is LoginProvider {
 }
 
 /**
- * Providers a signed-in person can attach from the settings page. Telegram is excluded:
- * its identity must agree with `users.telegram_id`, which the bot and the Mini App key on,
- * and the web flow would link the identity without setting that column.
+ * Providers a signed-in person can attach from the settings page. Linking Telegram also sets
+ * `users.telegram_id` (the adapter's `linkAccount`), which the bot and the Mini App key on. It
+ * only works when no other account owns that Telegram id; if one does, Auth.js refuses with
+ * OAuthAccountNotLinked, since joining two real accounts needs a merge (issue #99).
  */
-export const LINKABLE_PROVIDERS: readonly LoginProvider[] = ["line", "google", "github"];
+export const LINKABLE_PROVIDERS: readonly LoginProvider[] = [
+  "telegram",
+  "line",
+  "google",
+  "github",
+];
 
 export type UnlinkVerdict = { ok: true } | { ok: false; reason: "last" | "telegram" };
 
@@ -48,7 +54,7 @@ export function linkableNow(
 export function loginErrorMessage(code: string | undefined): string | null {
   if (!code) return null;
   if (code === "OAuthAccountNotLinked") {
-    return "這個登入方式已經屬於另一個帳號，不會自動合併。請改用原本的登入方式登入。";
+    return "這個登入方式已經屬於另一個帳號，不會自動合併。請改用那個帳號原本的登入方式登入，再到個人設定連結其他方式。";
   }
   return "登入失敗，請再試一次。";
 }

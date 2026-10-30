@@ -42,6 +42,7 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
             <img
               src={profile.photoUrl}
               alt={displayName}
+              referrerPolicy="no-referrer"
               className="size-12 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
             />
           ) : (

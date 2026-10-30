@@ -50,7 +50,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 
   const [memberRows, groupRows] = await Promise.all([
     db
-      .select({ userId: users.id, telegramId: users.telegramId })
+      .select({ userId: users.id, telegramId: users.telegramId, avatarUrl: users.avatarUrl })
       .from(users)
       .innerJoin(groupMembers, eq(groupMembers.userId, users.id))
       .where(eq(groupMembers.groupId, groupId)),
@@ -64,15 +64,17 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const userPhotos: Record<number, string | null> = {};
 
   const memberResults = await Promise.allSettled(
-    memberRows.map(async ({ userId, telegramId }) => {
-      if (!telegramId) return { userId, url: null };
+    memberRows.map(async ({ userId, telegramId, avatarUrl }) => {
+      // Members without a Telegram photo (a Google / LINE / GitHub account, or no photo set)
+      // use the picture their login provider gave.
+      if (!telegramId) return { userId, url: avatarUrl };
       try {
         const photos = await tgApi.getUserProfilePhotos(telegramId, { limit: 1 });
-        if (!photos.total_count || !photos.photos[0]?.[0]) return { userId, url: null };
+        if (!photos.total_count || !photos.photos[0]?.[0]) return { userId, url: avatarUrl };
         const url = await getFileUrl(tgApi, photos.photos[0][0].file_id);
         return { userId, url };
       } catch {
-        return { userId, url: null };
+        return { userId, url: avatarUrl };
       }
     }),
   );
