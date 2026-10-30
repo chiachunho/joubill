@@ -43,11 +43,6 @@ export type Platform = {
    * the file to the group chat.
    */
   canDownloadExport: boolean;
-  /**
-   * Whether this app offers creating a group and joining by code. Only the Web App does: in
-   * Telegram a group is the chat the bot was added to.
-   */
-  canCreateGroup: boolean;
   /** Extra content at the foot of the personal settings page. The Web App has the sign-out button. */
   AccountSection: ComponentType;
 };

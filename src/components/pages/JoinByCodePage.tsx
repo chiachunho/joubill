@@ -11,6 +11,7 @@ import { parseInviteCode } from "@/lib/invite";
 /** 輸入邀請碼: takes a code or a pasted link and continues to the shared join page. */
 export function JoinByCodePage({ platform }: { platform: Platform }) {
   const router = useRouter();
+  platform.useBack(platform.basePath);
   const [value, setValue] = useState("");
   const [invalid, setInvalid] = useState(false);
 
@@ -21,7 +22,7 @@ export function JoinByCodePage({ platform }: { platform: Platform }) {
       setInvalid(true);
       return;
     }
-    router.push(`/join/${code}`);
+    router.push(`${platform.basePath}/join/${code}`);
   }
 
   return (

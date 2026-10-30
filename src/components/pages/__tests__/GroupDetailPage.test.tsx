@@ -61,7 +61,6 @@ function fakePlatform(basePath: "/mini" | "/app"): Platform {
     loginPath: null,
     HelpAction: () => null,
     canDownloadExport: false,
-    canCreateGroup: false,
     AccountSection: () => null,
   };
 }

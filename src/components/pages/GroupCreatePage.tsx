@@ -21,6 +21,7 @@ import { useCreateGroupMutation } from "@/store/api";
 /** 建立群組: a group with no Telegram chat, and the creator as its first member. */
 export function GroupCreatePage({ platform }: { platform: Platform }) {
   const router = useRouter();
+  platform.useBack(platform.basePath);
   const [title, setTitle] = useState("");
   const [currency, setCurrency] = useState("TWD");
   const [createGroup, { isLoading, error }] = useCreateGroupMutation();

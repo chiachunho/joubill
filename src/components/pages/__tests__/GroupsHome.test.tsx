@@ -62,36 +62,29 @@ describe("GroupsHome", () => {
     },
   );
 
-  it("tells an empty Mini App list to add the bot from Telegram", async () => {
-    renderHome(miniPlatform, { groups: [] });
-    expect(
-      await screen.findByText("把 Bot 加進 Telegram 群組，輸入 /start 即可"),
-    ).toBeInTheDocument();
-  });
+  it.each([miniPlatform, webPlatform])(
+    "tells an empty list about every way to get a group (%#)",
+    async (platform) => {
+      renderHome(platform, { groups: [] });
+      expect(await screen.findByText(/在這裡建立群組，或輸入邀請碼加入/)).toBeInTheDocument();
+      expect(screen.getByText(/輸入 \/start/)).toBeInTheDocument();
+    },
+  );
 
-  it("tells an empty Web list about both ways to get a group", async () => {
-    renderHome(webPlatform, { groups: [] });
-    expect(await screen.findByText(/在這裡建立群組，或輸入邀請碼加入/)).toBeInTheDocument();
-    expect(screen.getByText(/輸入 \/start/)).toBeInTheDocument();
-  });
-
-  it("offers creating a group and entering a code on the web only", async () => {
-    renderHome(webPlatform, { groups: [GROUP] });
-    expect(await screen.findByRole("link", { name: "建立群組" })).toHaveAttribute(
-      "href",
-      "/app/groups/new",
-    );
-    expect(screen.getByRole("link", { name: "輸入邀請碼" })).toHaveAttribute(
-      "href",
-      "/app/groups/join",
-    );
-    cleanup();
-
-    renderHome(miniPlatform, { groups: [GROUP] });
-    await screen.findByRole("link", { name: /週末旅行/ });
-    expect(screen.queryByRole("link", { name: "建立群組" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "輸入邀請碼" })).not.toBeInTheDocument();
-  });
+  it.each([miniPlatform, webPlatform])(
+    "offers creating a group and entering a code under the platform's own base path (%#)",
+    async (platform) => {
+      renderHome(platform, { groups: [GROUP] });
+      expect(await screen.findByRole("link", { name: "建立群組" })).toHaveAttribute(
+        "href",
+        `${platform.basePath}/groups/new`,
+      );
+      expect(screen.getByRole("link", { name: "輸入邀請碼" })).toHaveAttribute(
+        "href",
+        `${platform.basePath}/groups/join`,
+      );
+    },
+  );
 
   it.each([miniPlatform, webPlatform])(
     "opens a Telegram deep link's expense under the platform's own base path (%#)",
