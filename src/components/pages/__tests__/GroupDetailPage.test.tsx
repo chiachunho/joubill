@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { GroupDetailPage } from "@/components/pages/GroupDetailPage";
 import type { Platform } from "@/components/pages/platform";
-import { fakeRequest, StoreWrapper } from "@/store/test-utils";
+import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
@@ -62,6 +62,7 @@ function fakePlatform(basePath: "/mini" | "/app"): Platform {
     HelpAction: () => null,
     canDownloadExport: false,
     linkIdentity: null,
+    soloInviteHint: `hint for ${basePath}`,
     AccountSection: () => null,
   };
 }
@@ -204,6 +205,172 @@ describe("GroupDetailPage", () => {
     it("leaves the requester's own request to the settings page", async () => {
       await renderPage(fakePlatform("/app"), pageRequest(REQUEST(1)));
       expect(screen.queryByText("Bob 申請刪除此群組")).not.toBeInTheDocument();
+    });
+  });
+  describe("a group with only the viewer", () => {
+    const ALONE = {
+      members: [
+        {
+          id: 1,
+          firstName: "Alice",
+          lastName: null,
+          username: null,
+          status: "active",
+          isPlaceholder: false,
+        },
+      ],
+    };
+    const WITH_GHOST = {
+      members: [
+        ...ALONE.members,
+        {
+          id: 5,
+          firstName: "小明",
+          lastName: null,
+          username: null,
+          status: "active",
+          isPlaceholder: true,
+        },
+      ],
+    };
+    const INVITE = { code: "K7M2QX9PAB", miniLink: null };
+
+    function soloRequest(extra: Parameters<typeof fakeRequest>[0] = {}) {
+      return pageRequest({
+        "/api/groups/7/balance": { currency: "TWD", balances: [] },
+        "/api/groups/7/members": ALONE,
+        "/api/groups/7/invite": INVITE,
+        ...extra,
+      });
+    }
+
+    async function renderSolo(platform: Platform, request = soloRequest()) {
+      const params = Object.assign(Promise.resolve({ id: "7" }), {
+        status: "fulfilled" as const,
+        value: { id: "7" },
+      });
+      render(
+        <TooltipProvider>
+          <StoreWrapper request={request}>
+            <GroupDetailPage params={params} platform={platform} />
+          </StoreWrapper>
+        </TooltipProvider>,
+      );
+      await screen.findByText("Expenses", { exact: false });
+    }
+
+    it("shows the card, with both ways to add people, instead of 所有帳款已結清", async () => {
+      await renderSolo(
+        fakePlatform("/app"),
+        soloRequest({ "/api/groups/7/expenses": { expenses: [], nextCursor: null, total: 0 } }),
+      );
+
+      expect(await screen.findByText("還沒有其他成員")).toBeInTheDocument();
+      expect(await screen.findByText("K7M2Q-X9PAB")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "新增沒有帳號的成員" })).toBeInTheDocument();
+      expect(screen.queryByText("所有帳款已結清")).not.toBeInTheDocument();
+      expect(screen.getByText("先加入成員，再記第一筆支出")).toBeInTheDocument();
+    });
+
+    it("still shows the card when the group already has expenses", async () => {
+      await renderSolo(fakePlatform("/app"));
+      expect(await screen.findByText("還沒有其他成員")).toBeInTheDocument();
+      expect(screen.getByText("午餐")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /支出/ })).toBeInTheDocument();
+    });
+
+    it("has no card, and keeps 所有帳款已結清, once a second member exists", async () => {
+      await renderSolo(fakePlatform("/app"), soloRequest({ "/api/groups/7/members": WITH_GHOST }));
+
+      expect(await screen.findByText("所有帳款已結清")).toBeInTheDocument();
+      expect(screen.queryByText("還沒有其他成員")).not.toBeInTheDocument();
+    });
+
+    it("does not look up members when balances already show someone else", async () => {
+      const request = pageRequest();
+      await renderPage(fakePlatform("/app"), request);
+      expect(request.mock.calls.some(([path]) => path === "/api/groups/7/members")).toBe(false);
+      expect(screen.queryByText("還沒有其他成員")).not.toBeInTheDocument();
+    });
+
+    it("offers 產生邀請碼 for an old group and never issues one on read", async () => {
+      const request = soloRequest({ "/api/groups/7/invite": { code: null, miniLink: null } });
+      await renderSolo(fakePlatform("/app"), request);
+
+      expect(await screen.findByRole("button", { name: "產生邀請碼" })).toBeInTheDocument();
+      expect(
+        request.mock.calls.some(
+          ([path, init]) => path === "/api/groups/7/invite" && init?.method === "POST",
+        ),
+      ).toBe(false);
+    });
+
+    it("does not offer to reset a live code from the card", async () => {
+      await renderSolo(fakePlatform("/app"));
+      await screen.findByText("K7M2Q-X9PAB");
+      expect(screen.queryByRole("button", { name: "重設邀請碼" })).not.toBeInTheDocument();
+    });
+
+    it("shows each platform's own invite hint", async () => {
+      await renderSolo(fakePlatform("/mini"));
+      expect(await screen.findByText("hint for /mini")).toBeInTheDocument();
+      cleanup();
+      await renderSolo(fakePlatform("/app"));
+      expect(await screen.findByText("hint for /app")).toBeInTheDocument();
+      expect(screen.queryByText("hint for /mini")).not.toBeInTheDocument();
+    });
+
+    it("counts an inactive member as a member: no card, because they can be switched back on", async () => {
+      const inactive = {
+        members: [
+          { ...WITH_GHOST.members[1], status: "inactive", isPlaceholder: false },
+          ...ALONE.members,
+        ],
+      };
+      await renderSolo(fakePlatform("/app"), soloRequest({ "/api/groups/7/members": inactive }));
+
+      expect(await screen.findByText("所有帳款已結清")).toBeInTheDocument();
+      expect(screen.queryByText("還沒有其他成員")).not.toBeInTheDocument();
+    });
+
+    it("makes the card disappear right after a member without an account is added", async () => {
+      let members = ALONE;
+      const request = soloRequest({
+        "/api/groups/7/members": () => members,
+        "/api/groups/7/members/placeholder": (init) => {
+          expect(JSON.parse(init!.body as string)).toEqual({ firstName: "小明" });
+          members = WITH_GHOST;
+          return { id: 5 };
+        },
+      });
+      await renderSolo(fakePlatform("/app"), request);
+
+      fireEvent.click(await screen.findByRole("button", { name: "新增沒有帳號的成員" }));
+      fireEvent.change(screen.getByLabelText("名字"), { target: { value: "小明" } });
+      fireEvent.click(screen.getByRole("button", { name: "新增" }));
+
+      await waitFor(() => expect(screen.queryByText("還沒有其他成員")).not.toBeInTheDocument());
+      expect(await screen.findByText("所有帳款已結清")).toBeInTheDocument();
+    });
+
+    it("shows the server's error when the name is taken", async () => {
+      const request = soloRequest({
+        "/api/groups/7/members/placeholder": new Failure(409, { error: "名字已被群組成員使用" }),
+      });
+      await renderSolo(fakePlatform("/app"), request);
+
+      fireEvent.click(await screen.findByRole("button", { name: "新增沒有帳號的成員" }));
+      fireEvent.change(screen.getByLabelText("名字"), { target: { value: "小明" } });
+      fireEvent.click(screen.getByRole("button", { name: "新增" }));
+
+      expect(await screen.findByText("名字已被群組成員使用")).toBeInTheDocument();
+      expect(screen.getByText("還沒有其他成員")).toBeInTheDocument();
+    });
+
+    it.each(["/mini", "/app"] as const)("links to settings under %s", async (basePath) => {
+      await renderSolo(fakePlatform(basePath));
+      const link = await screen.findByRole("link", { name: /到群組設定/ });
+      expect(link).toHaveAttribute("href", `${basePath}/groups/7/settings`);
     });
   });
 });

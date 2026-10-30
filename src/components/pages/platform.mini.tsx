@@ -91,6 +91,8 @@ export const miniPlatform: Platform = {
   loginPath: null,
   HelpAction: MiniHelpAction,
   canDownloadExport: false,
+  soloInviteHint:
+    "對方在 Telegram 點連結可能會跳到外部瀏覽器。也可以把邀請碼傳給對方，請他在 Mini App 的「輸入邀請碼」貼上。",
   linkIdentity: null,
   AccountSection: MiniAccountSection,
 };
