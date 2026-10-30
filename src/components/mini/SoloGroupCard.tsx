@@ -12,7 +12,15 @@ import { InviteActions } from "@/components/mini/InviteActions";
  * "all settled" banner: both ways to add people without a trip to 群組設定.
  * It has no dismiss: it goes away when a second member exists.
  */
-export function SoloGroupCard({ groupId, basePath }: { groupId: string; basePath: string }) {
+export function SoloGroupCard({
+  groupId,
+  basePath,
+  inviteHint,
+}: {
+  groupId: string;
+  basePath: string;
+  inviteHint: string;
+}) {
   const [addOpen, setAddOpen] = useState(false);
 
   return (
@@ -28,7 +36,7 @@ export function SoloGroupCard({ groupId, basePath }: { groupId: string; basePath
           groupId={groupId}
           allowReset={false}
           className="overflow-hidden rounded-lg border border-border/40"
-          hint="對方點連結可能會在外部瀏覽器開啟。也可以把邀請碼傳給對方，請他在 Mini App 的「輸入邀請碼」貼上。"
+          hint={inviteHint}
         />
       </div>
 

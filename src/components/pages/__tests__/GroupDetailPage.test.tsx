@@ -62,6 +62,7 @@ function fakePlatform(basePath: "/mini" | "/app"): Platform {
     HelpAction: () => null,
     canDownloadExport: false,
     linkIdentity: null,
+    soloInviteHint: `hint for ${basePath}`,
     AccountSection: () => null,
   };
 }
@@ -308,6 +309,28 @@ describe("GroupDetailPage", () => {
       await renderSolo(fakePlatform("/app"));
       await screen.findByText("K7M2Q-X9PAB");
       expect(screen.queryByRole("button", { name: "重設邀請碼" })).not.toBeInTheDocument();
+    });
+
+    it("shows each platform's own invite hint", async () => {
+      await renderSolo(fakePlatform("/mini"));
+      expect(await screen.findByText("hint for /mini")).toBeInTheDocument();
+      cleanup();
+      await renderSolo(fakePlatform("/app"));
+      expect(await screen.findByText("hint for /app")).toBeInTheDocument();
+      expect(screen.queryByText("hint for /mini")).not.toBeInTheDocument();
+    });
+
+    it("counts an inactive member as a member: no card, because they can be switched back on", async () => {
+      const inactive = {
+        members: [
+          { ...WITH_GHOST.members[1], status: "inactive", isPlaceholder: false },
+          ...ALONE.members,
+        ],
+      };
+      await renderSolo(fakePlatform("/app"), soloRequest({ "/api/groups/7/members": inactive }));
+
+      expect(await screen.findByText("所有帳款已結清")).toBeInTheDocument();
+      expect(screen.queryByText("還沒有其他成員")).not.toBeInTheDocument();
     });
 
     it("makes the card disappear right after a member without an account is added", async () => {

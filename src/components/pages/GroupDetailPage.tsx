@@ -97,9 +97,12 @@ export function GroupDetailPage({
 
   // Balances only list people whose net is non-zero, so a group with several members and
   // no balances is rare but possible; a lone member always has none. Only then is the
-  // roster worth a request. A failed read just means no card.
-  const { data: members, isLoading: membersLoading } = useGetMembersQuery(id, {
+  // roster worth a request. A failed read just means no card. Always re-read on mount: the
+  // card is a claim that nobody else is here, and a cached roster from a few seconds ago
+  // may predate someone joining.
+  const { data: members, isFetching: membersFetching } = useGetMembersQuery(id, {
     skip: !balance || balance.balances.length > 0,
+    refetchOnMountOrArgChange: true,
   });
 
   const { data: avatars, error: avatarsError } = useGetAvatarsQuery(id);
@@ -220,11 +223,14 @@ export function GroupDetailPage({
   const onlyMember =
     allSettled &&
     selfUserId !== undefined &&
+    !membersFetching &&
     !!members &&
+    // Inactive members are still members (they can be switched back on in 群組設定), so
+    // a group whose only others are inactive is not "alone".
     members.members.every((m) => m.id === selfUserId);
-  // While the roster loads we can't tell the two apart; show neither rather than flash
+  // Until the roster is current we can't tell the two apart; show neither rather than flash
   // the banner and swap it for the card.
-  const showSettled = allSettled && !onlyMember && !membersLoading;
+  const showSettled = allSettled && !onlyMember && !membersFetching;
 
   return (
     <div className="space-y-6 py-4">
@@ -256,7 +262,13 @@ export function GroupDetailPage({
 
       <DeleteRequestBanner groupId={id} selfUserId={selfUserId} redirectPath={platform.basePath} />
 
-      {onlyMember && <SoloGroupCard groupId={id} basePath={platform.basePath} />}
+      {onlyMember && (
+        <SoloGroupCard
+          groupId={id}
+          basePath={platform.basePath}
+          inviteHint={platform.soloInviteHint}
+        />
+      )}
 
       {showSettled && (
         <div className="mx-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-center">
