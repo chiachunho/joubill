@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowDown, ArrowUp, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ExternalLink, Loader2 } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
 import type { AccountMergeSide } from "@/lib/api-types";
@@ -24,23 +25,64 @@ import {
   useMergeAccountsMutation,
 } from "@/store/api";
 
-const SETTINGS = "/app/settings";
-
 function providerList(providers: string[]): string {
   return providers.map((p) => (isLoginProvider(p) ? PROVIDER_LABEL[p] : p)).join("、") || "—";
 }
 
 /**
- * The confirm page for merging two accounts (issue #99), reached only from the Auth.js
- * `signIn` callback after the signed-in person completed another account's OAuth sign-in.
- * Web App only: OAuth can't run inside Telegram's webview, so there is no Mini App copy.
+ * Merging two accounts (issue #99). On the web this is the confirm page the Auth.js `signIn`
+ * callback sends people to after they completed another account's OAuth sign-in. The merge
+ * starts with that sign-in, which can't run inside Telegram's webview, so the Mini App's copy
+ * explains the steps and opens the Web App in the browser instead.
  */
-export function AccountMergePage() {
+export function AccountMergePage({ platform }: { platform: Platform }) {
+  platform.useBack(`${platform.basePath}/settings`);
+  return platform.openInBrowser ? (
+    <MergeOnWeb openInBrowser={platform.openInBrowser} />
+  ) : (
+    <MergeConfirm platform={platform} />
+  );
+}
+
+function MergeOnWeb({ openInBrowser }: { openInBrowser: (path: string) => void }) {
+  return (
+    <div className="space-y-6 py-4">
+      <div className="px-4">
+        <h1 className="text-lg font-semibold">合併帳號</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          如果你另外用 Google、LINE 或 GitHub
+          登入過，建立了另一個帳號，可以把它併進這個帳號。合併要在網頁版操作，因為那些登入方式無法在
+          Telegram 裡完成授權。
+        </p>
+      </div>
+      <section className="px-4">
+        <p className="sect mb-2.5">步驟</p>
+        <ol className="list-decimal space-y-2 rounded-2xl bg-secondary/50 py-3 pl-9 pr-4 text-sm">
+          <li>在瀏覽器開啟網頁版，用 Telegram 登入。</li>
+          <li>到「個人設定 → 登入方式」，連結另一個帳號用的登入方式。</li>
+          <li>系統會發現它屬於你的另一個帳號，請你確認是否合併。</li>
+        </ol>
+        <p className="mt-2 px-1 text-xs text-muted-foreground">
+          合併後兩個帳號的群組和紀錄都在同一個帳號底下，無法還原。
+        </p>
+      </section>
+      <div className="px-4">
+        <Button className="w-full rounded-lg" onClick={() => openInBrowser("/app/settings")}>
+          <ExternalLink className="size-4" />
+          在瀏覽器開啟網頁版
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function MergeConfirm({ platform }: { platform: Platform }) {
+  const SETTINGS = `${platform.basePath}/settings`;
   const router = useRouter();
   const { data, error } = useGetAccountMergePreviewQuery(undefined, {
     refetchOnMountOrArgChange: true,
   });
-  const redirectingToLogin = useLoginRedirect(error, "/login");
+  const redirectingToLogin = useLoginRedirect(error, platform.loginPath);
   const [merge, { isLoading: merging }] = useMergeAccountsMutation();
   const [cancel, { isLoading: cancelling }] = useCancelAccountMergeMutation();
   const [picked, setPicked] = useState<number | null>(null);
@@ -53,7 +95,7 @@ export function AccountMergePage() {
   const expired = apiErrorStatus(error) === 404;
   useEffect(() => {
     if (expired) router.replace(`${SETTINGS}?merge=expired`);
-  }, [expired, router]);
+  }, [expired, router, SETTINGS]);
 
   if (error && !redirectingToLogin && !expired) {
     return (

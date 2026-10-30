@@ -12,4 +12,9 @@ export const HELP_PATH = "/help";
  * (an inline-keyboard `url` button can't take a path), and the Mini App needs
  * one too because `WebApp.openLink` opens an external browser.
  */
-export const HELP_URL = new URL(HELP_PATH, clientEnv.NEXT_PUBLIC_MINI_APP_URL).toString();
+export const HELP_URL = appUrl(HELP_PATH);
+
+/** Absolute URL of any path on this app, for links that must leave Telegram's webview. */
+export function appUrl(path: string): string {
+  return new URL(path, clientEnv.NEXT_PUBLIC_MINI_APP_URL).toString();
+}

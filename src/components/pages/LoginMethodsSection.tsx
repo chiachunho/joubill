@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KeyRound, Link2, Unlink } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, KeyRound, Link2, Merge, Unlink } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import type { Platform } from "@/components/pages/platform";
@@ -79,6 +80,19 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
             </div>
           );
         })}
+        {platform.openInBrowser && (
+          // The Mini App can't run OAuth, so merging starts on the web; this page says how.
+          <Link
+            href={`${platform.basePath}/settings/merge`}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
+          >
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <Merge className="size-3.5 text-primary" />
+            </div>
+            <span className="flex-1 text-sm">合併另一個帳號</span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
+          </Link>
+        )}
         {addable.map((provider) => (
           <button
             key={provider}

@@ -53,6 +53,12 @@ export type Platform = {
    */
   linkIdentity: ((provider: LoginProvider) => void) | null;
   /**
+   * Opens a path of the Web App in the system browser, or null where the page already is the
+   * Web App. The Mini App uses it to send people to the web for what only works there, such
+   * as merging two accounts (it starts with an OAuth sign-in).
+   */
+  openInBrowser: ((path: string) => void) | null;
+  /**
    * What the one-person group card tells the inviter about handing the invite over. The
    * Mini App's link opens outside Telegram's webview for the recipient, so it points at the
    * code; the Web App has no such caveat.

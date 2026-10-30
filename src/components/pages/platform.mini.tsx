@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
-import { HELP_URL } from "@/lib/help-url";
+import { appUrl, HELP_URL } from "@/lib/help-url";
 import { tmaRawFetch } from "@/lib/tma-fetch";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
@@ -75,6 +75,13 @@ function MiniHelpAction({ className, children }: { className: string; children: 
 }
 
 // Telegram supplies the identity, so there is nothing to sign out of.
+function openInBrowser(path: string): void {
+  const url = appUrl(path);
+  import("@twa-dev/sdk")
+    .then(({ default: WebApp }) => WebApp.openLink(url))
+    .catch(() => window.open(url, "_blank", "noopener"));
+}
+
 function MiniAccountSection(): null {
   return null;
 }
@@ -94,5 +101,6 @@ export const miniPlatform: Platform = {
   soloInviteHint:
     "對方在 Telegram 點連結可能會跳到外部瀏覽器。也可以把邀請碼傳給對方，請他在 Mini App 的「輸入邀請碼」貼上。",
   linkIdentity: null,
+  openInBrowser,
   AccountSection: MiniAccountSection,
 };
