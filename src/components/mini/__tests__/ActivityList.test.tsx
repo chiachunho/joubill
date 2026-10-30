@@ -67,6 +67,11 @@ describe("ActivityList", () => {
       { action: "invite_reset", recordId: null, recordType: "group" },
       {},
     ],
+    [
+      "a chat link belongs to the group, not to one row",
+      { action: "chat_linked", recordId: null, recordType: "group" },
+      {},
+    ],
     ["the record's own history page is already where you are", {}, { linkRows: false }],
   ])("does not link a row when %s", (_, overrides, listProps) => {
     render(<ActivityList {...props} entries={[entry(overrides)]} {...listProps} />);
@@ -101,6 +106,24 @@ describe("ActivityList", () => {
     );
 
     expect(container).toHaveTextContent("小明 重設了邀請碼");
+  });
+
+  it("names the chat a group was bound to", () => {
+    const { container } = render(
+      <ActivityList
+        {...props}
+        entries={[
+          entry({
+            action: "chat_linked",
+            recordId: null,
+            recordType: "group",
+            groupEvent: { chatTitle: "日本行" },
+          }),
+        ]}
+      />,
+    );
+
+    expect(container).toHaveTextContent("小明 綁定了 Telegram 群組（日本行）");
   });
 
   it("groups rows under a heading per day", () => {

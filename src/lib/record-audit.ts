@@ -16,7 +16,8 @@ export type AuditAction =
   | "deleted"
   | "rate_locked"
   | "member_joined"
-  | "invite_reset";
+  | "invite_reset"
+  | "chat_linked";
 export type AuditSource = "bot" | "app";
 
 /**
@@ -66,16 +67,18 @@ export function isRateLockPayload(value: unknown): value is RateLockPayload {
 
 /**
  * Group-level membership events (`recordType: 'group'`, no record id).
- * `memberJoined` names who invited the member, captured as the name was then.
+ * `memberJoined` names who invited the member, captured as the name was then;
+ * `chatLinked` names the Telegram chat a web group was bound to.
  */
 export type GroupEventPayload =
   | { kind: "memberJoined"; inviterId: number; inviterName: string }
-  | { kind: "inviteReset" };
+  | { kind: "inviteReset" }
+  | { kind: "chatLinked"; chatTitle: string };
 
 export function isGroupEventPayload(value: unknown): value is GroupEventPayload {
   const kind =
     typeof value === "object" && value !== null ? (value as { kind?: unknown }).kind : undefined;
-  return kind === "memberJoined" || kind === "inviteReset";
+  return kind === "memberJoined" || kind === "inviteReset" || kind === "chatLinked";
 }
 
 /** Whether a rate lock rewrote this particular record. */
@@ -279,7 +282,7 @@ export type HeadingInput = {
   recordLabel?: string | null;
   changes?: ChangedField[];
   rateLock?: { base: string; rate: number | null } | null;
-  groupEvent?: { inviterName?: string } | null;
+  groupEvent?: { inviterName?: string; chatTitle?: string } | null;
 };
 
 /**
@@ -308,6 +311,10 @@ export function changeHeading(entry: HeadingInput, withRecordName: boolean): str
         : "加入了群組";
     case "invite_reset":
       return "重設了邀請碼";
+    case "chat_linked":
+      return entry.groupEvent?.chatTitle
+        ? `綁定了 Telegram 群組（${entry.groupEvent.chatTitle}）`
+        : "綁定了 Telegram 群組";
     case "rate_locked": {
       if (!entry.rateLock) return "鎖定了匯率";
       const rate = entry.rateLock.rate != null ? ` ${entry.rateLock.rate}` : "";
