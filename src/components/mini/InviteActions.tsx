@@ -119,7 +119,7 @@ export function InviteActions({
             <button
               onClick={() => share(link)}
               disabled={!link}
-              className={`${miniLink ? "" : "col-span-2 "}inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50`}
+              className={`${miniLink ? "" : "col-span-2"}inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50`}
             >
               <Share2 className="size-4" />
               分享網頁連結
