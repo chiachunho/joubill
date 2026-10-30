@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { JoinSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { apiErrorStatus, apiErrorText } from "@/lib/api-error";
 import { decodeInviteParam, INVITE_NOT_FOUND, normalizeInviteCode } from "@/lib/invite";
 import { useAcceptInviteMutation, useGetInvitePreviewQuery } from "@/store/api";
@@ -73,15 +73,7 @@ export function JoinPage({
     );
   }
 
-  if (!data) {
-    return (
-      <div className="flex flex-col items-center gap-3 px-4 py-16">
-        <Skeleton className="size-14 rounded-full" />
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-3.5 w-24" />
-      </div>
-    );
-  }
+  if (!data) return <JoinSkeleton />;
 
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
