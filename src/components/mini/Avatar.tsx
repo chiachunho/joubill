@@ -40,6 +40,7 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
       <img
         src={src}
         alt={name}
+        referrerPolicy="no-referrer"
         className={`${sizeClass} shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10`}
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = "none";

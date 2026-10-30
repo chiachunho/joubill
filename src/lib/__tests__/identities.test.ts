@@ -20,8 +20,12 @@ describe("canUnlink", () => {
 });
 
 describe("linkableNow", () => {
-  it("offers enabled providers that are not linked, never Telegram", () => {
+  it("offers enabled providers that are not linked", () => {
     expect(linkableNow(["telegram", "line", "google"], ["telegram", "google"])).toEqual(["line"]);
+  });
+
+  it("offers Telegram to an account that signed in without it", () => {
+    expect(linkableNow(["telegram", "google"], ["google"])).toEqual(["telegram"]);
   });
 
   it("offers nothing for a provider the deployment has not configured", () => {

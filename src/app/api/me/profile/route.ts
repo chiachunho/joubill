@@ -22,10 +22,13 @@ async function getUserPhotoUrl(api: Api, telegramId: number): Promise<string | n
 
 export const GET = withAuth(async (req: Request) => {
   const auth = await getAuth(req);
-  const { firstName, lastName, username, telegramId } = auth.user;
+  const { firstName, lastName, username, telegramId, avatarUrl } = auth.user;
   const { TELEGRAM_BOT_TOKEN: token } = serverEnv();
 
-  const photoUrl = telegramId ? await getUserPhotoUrl(new Api(token), telegramId) : null;
+  // The bot's Telegram photo first; a Google / LINE / GitHub account has none, and falls back
+  // to the picture the provider gave at sign-in.
+  const photoUrl =
+    (telegramId ? await getUserPhotoUrl(new Api(token), telegramId) : null) ?? avatarUrl ?? null;
 
   return NextResponse.json({ firstName, lastName, username, photoUrl });
 });

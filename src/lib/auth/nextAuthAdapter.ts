@@ -99,20 +99,32 @@ export const splitbillAdapter: Adapter = {
   },
 
   async linkAccount(account: AdapterAccount) {
-    await db
-      .insert(authIdentities)
-      .values({
-        userId: Number(account.userId),
-        provider: account.provider,
-        providerUid: account.providerAccountId,
-        accessToken: account.access_token ?? null,
-        refreshToken: account.refresh_token ?? null,
-        expiresAt: account.expires_at ?? null,
-        tokenType: account.token_type ?? null,
-        scope: account.scope ?? null,
-        idToken: account.id_token ?? null,
-      })
-      .onConflictDoNothing();
+    const userId = Number(account.userId);
+    await db.transaction(async (tx) => {
+      // The bot and the Mini App find a person by users.telegram_id, not by auth_identities, so
+      // a Telegram identity without it would leave them seeing a different user. Set it first:
+      // if another user already holds this id the unique index rejects it and nothing is linked.
+      if (account.provider === "telegram") {
+        await tx
+          .update(users)
+          .set({ telegramId: Number(account.providerAccountId), updatedAt: new Date() })
+          .where(and(eq(users.id, userId), isNull(users.telegramId)));
+      }
+      await tx
+        .insert(authIdentities)
+        .values({
+          userId,
+          provider: account.provider,
+          providerUid: account.providerAccountId,
+          accessToken: account.access_token ?? null,
+          refreshToken: account.refresh_token ?? null,
+          expiresAt: account.expires_at ?? null,
+          tokenType: account.token_type ?? null,
+          scope: account.scope ?? null,
+          idToken: account.id_token ?? null,
+        })
+        .onConflictDoNothing();
+    });
   },
 
   async createSession({ sessionToken, userId, expires }) {
