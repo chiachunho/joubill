@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { getBot } from "@/bot";
 import { db } from "@/db";
 import { groupDeleteRequests, groups, users } from "@/db/schema";
-import { requireTelegramChatId } from "@/lib/chat";
+import { telegramChatId } from "@/lib/chat";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { labelUser } from "@/lib/label";
@@ -101,26 +101,18 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     lastName: user.lastName,
     username: user.username,
   });
-  const bot = getBot();
-
-  if (request.telegramMessageId) {
-    await bot.api
-      .editMessageText(
-        requireTelegramChatId(group),
-        request.telegramMessageId,
-        `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`,
-      )
-      .catch(() => null);
-  } else {
-    await bot.api
-      .sendMessage(
-        requireTelegramChatId(group),
-        `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`,
-      )
-      .catch(() => null);
+  // A group created on the web has no chat to tell or leave.
+  const chatId = telegramChatId(group);
+  if (chatId !== null) {
+    const bot = getBot();
+    const text = `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`;
+    if (request.telegramMessageId) {
+      await bot.api.editMessageText(chatId, request.telegramMessageId, text).catch(() => null);
+    } else {
+      await bot.api.sendMessage(chatId, text).catch(() => null);
+    }
+    await bot.api.leaveChat(chatId).catch(() => null);
   }
-
-  await bot.api.leaveChat(requireTelegramChatId(group)).catch(() => null);
   await db.delete(groups).where(eq(groups.id, groupId));
 
   return NextResponse.json({ ok: true });
@@ -150,7 +142,8 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   const isRequester = request.requestedBy === auth.user.id;
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
 
-  if (request.telegramMessageId && group) {
+  const chatId = group ? telegramChatId(group) : null;
+  if (request.telegramMessageId && chatId !== null) {
     const { user } = auth;
     const name = labelUser({
       firstName: user.firstName,
@@ -161,14 +154,9 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     const bot = getBot();
 
     await bot.api
-      .editMessageText(
-        requireTelegramChatId(group),
-        request.telegramMessageId,
-        `${name} ${action}。`,
-        {
-          reply_markup: { inline_keyboard: [] },
-        },
-      )
+      .editMessageText(chatId, request.telegramMessageId, `${name} ${action}。`, {
+        reply_markup: { inline_keyboard: [] },
+      })
       .catch(() => null);
   }
 

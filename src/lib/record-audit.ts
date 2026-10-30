@@ -10,7 +10,13 @@ import { type NoticeLeg, type NoticeRecord } from "@/lib/record-notice";
  * `src/lib/record-mutation.ts`.
  */
 
-export type AuditAction = "created" | "updated" | "deleted" | "rate_locked";
+export type AuditAction =
+  | "created"
+  | "updated"
+  | "deleted"
+  | "rate_locked"
+  | "member_joined"
+  | "invite_reset";
 export type AuditSource = "bot" | "app";
 
 /**
@@ -56,6 +62,20 @@ export function isRateLockPayload(value: unknown): value is RateLockPayload {
   return (
     typeof value === "object" && value !== null && (value as { kind?: unknown }).kind === "rateLock"
   );
+}
+
+/**
+ * Group-level membership events (`recordType: 'group'`, no record id).
+ * `memberJoined` names who invited the member, captured as the name was then.
+ */
+export type GroupEventPayload =
+  | { kind: "memberJoined"; inviterId: number; inviterName: string }
+  | { kind: "inviteReset" };
+
+export function isGroupEventPayload(value: unknown): value is GroupEventPayload {
+  const kind =
+    typeof value === "object" && value !== null ? (value as { kind?: unknown }).kind : undefined;
+  return kind === "memberJoined" || kind === "inviteReset";
 }
 
 /** Whether a rate lock rewrote this particular record. */
@@ -259,6 +279,7 @@ export type HeadingInput = {
   recordLabel?: string | null;
   changes?: ChangedField[];
   rateLock?: { base: string; rate: number | null } | null;
+  groupEvent?: { inviterName?: string } | null;
 };
 
 /**
@@ -281,6 +302,12 @@ export function changeHeading(entry: HeadingInput, withRecordName: boolean): str
       return withRecordName ? `新增了 ${named}` : `新增了${kind}`;
     case "deleted":
       return withRecordName ? `刪除了 ${named}` : `刪除了${kind}`;
+    case "member_joined":
+      return entry.groupEvent?.inviterName
+        ? `加入了群組（由 ${entry.groupEvent.inviterName} 邀請）`
+        : "加入了群組";
+    case "invite_reset":
+      return "重設了邀請碼";
     case "rate_locked": {
       if (!entry.rateLock) return "鎖定了匯率";
       const rate = entry.rateLock.rate != null ? ` ${entry.rateLock.rate}` : "";

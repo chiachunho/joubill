@@ -4,7 +4,7 @@ import { Api } from "grammy";
 
 import { db } from "@/db";
 import { groupMembers, groups } from "@/db/schema";
-import { requireTelegramChatId } from "@/lib/chat";
+import { telegramChatId } from "@/lib/chat";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { serverEnv } from "@/lib/env";
@@ -36,8 +36,11 @@ export const GET = withAuth(async (req: Request) => {
 
   const results = await Promise.allSettled(
     rows.map(async ({ id, ...group }) => {
+      // No chat (a group made on the web) means no photo; the UI draws initials.
+      const chatId = telegramChatId(group);
+      if (chatId === null) return { id, url: null };
       try {
-        const chat = await tgApi.getChat(requireTelegramChatId(group));
+        const chat = await tgApi.getChat(chatId);
         const photo = (chat as { photo?: { big_file_id: string } }).photo;
         if (!photo?.big_file_id) return { id, url: null };
         const file = await tgApi.getFile(photo.big_file_id);

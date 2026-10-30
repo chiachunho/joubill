@@ -16,6 +16,7 @@ import {
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { DeleteRequestBanner } from "@/components/mini/DeleteRequestBanner";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
@@ -234,6 +235,8 @@ export function GroupDetailPage({
           <Settings className="size-4" />
         </Link>
       </div>
+
+      <DeleteRequestBanner groupId={id} selfUserId={selfUserId} redirectPath={platform.basePath} />
 
       {allSettled && (
         <div className="mx-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-center">

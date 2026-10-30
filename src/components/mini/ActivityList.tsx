@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Lock } from "lucide-react";
+import { ChevronRight, KeyRound, Lock } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { dayLabel, stampLabel } from "@/lib/format";
@@ -104,9 +104,13 @@ function Row({
 
   const body = (
     <>
-      {entry.action === "rate_locked" ? (
+      {entry.action === "rate_locked" || entry.action === "invite_reset" ? (
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Lock className="size-3.5" />
+          {entry.action === "rate_locked" ? (
+            <Lock className="size-3.5" />
+          ) : (
+            <KeyRound className="size-3.5" />
+          )}
         </span>
       ) : (
         <Avatar

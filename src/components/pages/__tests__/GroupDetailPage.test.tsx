@@ -7,6 +7,10 @@ import { GroupDetailPage } from "@/components/pages/GroupDetailPage";
 import type { Platform } from "@/components/pages/platform";
 import { fakeRequest, StoreWrapper } from "@/store/test-utils";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+}));
+
 afterEach(() => {
   cleanup();
 });
@@ -174,5 +178,31 @@ describe("GroupDetailPage", () => {
 
     expect(await screen.findByText("早餐")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "載入更多" })).toBeNull();
+  });
+
+  describe("pending group deletion", () => {
+    const REQUEST = (requestedBy: number) => ({
+      "/api/groups/7/delete-request": {
+        request: {
+          id: 1,
+          requestedBy,
+          requestedByName: "Bob",
+          createdAt: "2026-10-28T00:00:00Z",
+          expiresAt: "2026-10-30T00:00:00Z",
+        },
+      },
+    });
+
+    it("asks another member to approve or reject", async () => {
+      await renderPage(fakePlatform("/app"), pageRequest(REQUEST(2)));
+      expect(await screen.findByText("Bob 申請刪除此群組")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "同意刪除" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "拒絕" })).toBeInTheDocument();
+    });
+
+    it("leaves the requester's own request to the settings page", async () => {
+      await renderPage(fakePlatform("/app"), pageRequest(REQUEST(1)));
+      expect(screen.queryByText("Bob 申請刪除此群組")).not.toBeInTheDocument();
+    });
   });
 });

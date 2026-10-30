@@ -4,7 +4,7 @@ import { Api } from "grammy";
 
 import { db } from "@/db";
 import { groupMembers, groups, users } from "@/db/schema";
-import { requireTelegramChatId } from "@/lib/chat";
+import { telegramChatId } from "@/lib/chat";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { serverEnv } from "@/lib/env";
@@ -84,9 +84,10 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
 
   let groupPhoto: string | null = null;
-  if (groupRows[0]) {
+  const groupChatId = groupRows[0] ? telegramChatId(groupRows[0]) : null;
+  if (groupChatId !== null) {
     try {
-      const chat = await tgApi.getChat(requireTelegramChatId(groupRows[0]));
+      const chat = await tgApi.getChat(groupChatId);
       const photo = (chat as { photo?: { big_file_id: string } }).photo;
       if (photo?.big_file_id) {
         groupPhoto = await getFileUrl(tgApi, photo.big_file_id);

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { recordAuditLog, users } from "@/db/schema";
 import {
   diffRecords,
+  isGroupEventPayload,
   isRateLockPayload,
   summariseRecord,
   type AuditAction,
@@ -50,6 +51,8 @@ export type ActivityEntry = {
     expenses: number;
     settlements: number;
   };
+  /** 'member_joined': who made the invite the member used. */
+  groupEvent?: { inviterName?: string };
 };
 
 type Row = {
@@ -81,7 +84,10 @@ const SELECT = {
 };
 
 function asSnapshot(value: unknown): RecordSnapshot | null {
-  return value && typeof value === "object" && !isRateLockPayload(value)
+  return value &&
+    typeof value === "object" &&
+    !isRateLockPayload(value) &&
+    !isGroupEventPayload(value)
     ? (value as RecordSnapshot)
     : null;
 }
@@ -117,6 +123,13 @@ function toEntry(row: Row): ActivityEntry {
       expenses: row.after.expenseIds.length,
       settlements: row.after.settlementIds.length,
     };
+    return entry;
+  }
+
+  if (isGroupEventPayload(row.after)) {
+    if (row.after.kind === "memberJoined") {
+      entry.groupEvent = { inviterName: row.after.inviterName };
+    }
     return entry;
   }
 

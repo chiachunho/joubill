@@ -358,3 +358,31 @@ export function ActivitySkeleton() {
     </div>
   );
 }
+
+/** 建立群組 / 輸入邀請碼: a title, one or two labelled fields and a full-width button. */
+export function GroupFormSkeleton({ fields = 2 }: { fields?: number }) {
+  return (
+    <div className="space-y-5 px-4 py-4">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-12" />
+        <Skeleton className="h-6 w-28" />
+      </div>
+      {Array.from({ length: fields }).map((_, i) => (
+        <FieldSkeleton key={i} />
+      ))}
+      <Skeleton className="h-9 w-full rounded-lg" />
+    </div>
+  );
+}
+
+/** /join/<code>: the group's avatar, name and member count, then the join button. */
+export function JoinSkeleton() {
+  return (
+    <div className="flex flex-col items-center gap-3 px-4 py-16">
+      <Skeleton className="size-12 rounded-full" />
+      <Skeleton className="h-5 w-32" />
+      <Skeleton className="h-3.5 w-24" />
+      <Skeleton className="mt-3 h-9 w-full max-w-xs rounded-lg" />
+    </div>
+  );
+}
