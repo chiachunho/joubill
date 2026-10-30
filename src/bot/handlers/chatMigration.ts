@@ -114,7 +114,7 @@ export async function absorbGroup(
 
   // group_delete_requests is deliberately not carried over — a pending deletion
   // vote against a chat id that no longer exists shouldn't outlive the merge.
-  await db.delete(groups).where(eq(groups.id, fromId));
+  await ex.delete(groups).where(eq(groups.id, fromId));
 }
 
 async function migrateGroupChatId(oldChatId: number, newChatId: number) {

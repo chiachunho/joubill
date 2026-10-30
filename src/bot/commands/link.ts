@@ -2,7 +2,7 @@ import { Composer } from "grammy";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { groupMembers, groups } from "@/db/schema";
+import { groupMembers, groups, recordAuditLog } from "@/db/schema";
 import { telegramChatColumns } from "@/lib/chat";
 import { findActiveInvite, INVITE_NOT_FOUND } from "@/lib/invites";
 import { planLink } from "@/lib/link-plan";
@@ -12,6 +12,22 @@ import { actorOf } from "../actor";
 import type { BotContext } from "../context";
 import { escapeHtml } from "../format";
 import { absorbGroup, hasRecords } from "../handlers/chatMigration";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Whether this chat's group is a web group an earlier `/link` bound here rather than the
+ * empty row `registerUser` made. Folding it into another group would delete a real group
+ * (members, placeholders, invite) even while it has no expenses yet.
+ */
+async function wasLinked(groupId: number, tx: Tx): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: recordAuditLog.id })
+    .from(recordAuditLog)
+    .where(and(eq(recordAuditLog.groupId, groupId), eq(recordAuditLog.action, "chat_linked")))
+    .limit(1);
+  return row !== undefined;
+}
 
 export const linkCommand = new Composer<BotContext>();
 
@@ -64,7 +80,11 @@ linkCommand.command("link", async (ctx) => {
       codeValid: target !== undefined,
       senderIsMember: member !== undefined,
       targetHasChat: target?.chatId != null,
-      chatGroup: isChatGroupItself ? null : { hasRecords: await hasRecords(chatGroup.id, tx) },
+      chatGroup: isChatGroupItself
+        ? null
+        : {
+            hasRecords: (await hasRecords(chatGroup.id, tx)) || (await wasLinked(chatGroup.id, tx)),
+          },
     });
     if (!plan.ok) return plan;
 
