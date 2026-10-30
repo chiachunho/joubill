@@ -58,7 +58,8 @@ export type Executor = Pick<typeof db, "select">;
 export type LoadedNotice = {
   recordId: number;
   groupId: number;
-  chatId: number;
+  /** NULL for a group made on the web: the record is still loaded (the audit log needs it), but there is no chat to write into. */
+  chatId: number | null;
   noticeMessageId: number | null;
   /** Who recorded it, for the deleted-record line. */
   creator: NoticePerson | null;
@@ -124,9 +125,9 @@ export async function loadNoticeRecord(
     .where(eq(expenses.id, recordId));
 
   if (!row) return null;
-  // A group outside Telegram has no chat for this layer to write into.
+  // A group outside Telegram has no chat: callers that write messages skip on a null `chatId`,
+  // but the snapshot itself must still load or the audit row for the record is never written.
   const chatId = telegramChatId(row);
-  if (chatId === null) return null;
 
   const [payerRows, splitRows, receiptRows] = await Promise.all([
     exec
@@ -232,7 +233,10 @@ export async function rememberNoticeMessage(recordId: number, messageId: number)
 }
 
 /** The 編輯 / 刪除 buttons on a settlement notice (expenses get the card's own). */
-function settlementKeyboard(username: string, loaded: LoadedNotice): InlineKeyboard {
+function settlementKeyboard(
+  username: string,
+  loaded: LoadedNotice & { chatId: number },
+): InlineKeyboard {
   const url = settlementLink(username, loaded.chatId, loaded.recordId);
   return new InlineKeyboard().url(BTN.appEdit, url).text(BTN.delete, `del_exp:${loaded.recordId}`);
 }
@@ -244,7 +248,10 @@ type Rendered = { text: string; reply_markup: InlineKeyboard | undefined };
  * Returns null when the bot's username can't be resolved (both kinds need it
  * for the Mini App deep link).
  */
-async function render(api: Api, loaded: LoadedNotice): Promise<Rendered | null> {
+async function render(
+  api: Api,
+  loaded: LoadedNotice & { chatId: number },
+): Promise<Rendered | null> {
   const username = await botUsername(api);
   if (!username) return null;
 
@@ -272,8 +279,8 @@ function isNotModified(err: unknown): boolean {
 export async function sendRecordNotice(api: Api, recordId: number): Promise<void> {
   try {
     const loaded = await loadNoticeRecord(recordId);
-    if (!loaded) return;
-    const rendered = await render(api, loaded);
+    if (!loaded || loaded.chatId === null) return;
+    const rendered = await render(api, { ...loaded, chatId: loaded.chatId });
     if (!rendered) return;
 
     const sent = await api.sendMessage(loaded.chatId, rendered.text, {
@@ -298,14 +305,15 @@ export async function sendRecordNotice(api: Api, recordId: number): Promise<void
 export async function updateRecordNotice(api: Api, recordId: number): Promise<void> {
   try {
     const loaded = await loadNoticeRecord(recordId);
-    if (!loaded) return;
-    const rendered = await render(api, loaded);
+    if (!loaded || loaded.chatId === null) return;
+    const chatId = loaded.chatId;
+    const rendered = await render(api, { ...loaded, chatId });
     if (!rendered) return;
 
     if (loaded.noticeMessageId != null) {
       try {
         // editMessageText drops the keyboard unless it is passed again.
-        await api.editMessageText(loaded.chatId, loaded.noticeMessageId, rendered.text, {
+        await api.editMessageText(chatId, loaded.noticeMessageId, rendered.text, {
           parse_mode: "HTML",
           reply_markup: rendered.reply_markup,
         });
@@ -316,7 +324,7 @@ export async function updateRecordNotice(api: Api, recordId: number): Promise<vo
       }
     }
 
-    const sent = await api.sendMessage(loaded.chatId, rendered.text, {
+    const sent = await api.sendMessage(chatId, rendered.text, {
       parse_mode: "HTML",
       reply_markup: rendered.reply_markup,
     });
@@ -335,7 +343,7 @@ export async function markNoticeDeleted(
   snapshot: LoadedNotice | null,
   deleter: NoticePerson,
 ): Promise<void> {
-  if (!snapshot?.noticeMessageId) return;
+  if (!snapshot?.noticeMessageId || snapshot.chatId === null) return;
   try {
     // No reply_markup: the buttons point at a record that no longer exists.
     await api.editMessageText(
