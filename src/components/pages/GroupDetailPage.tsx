@@ -98,7 +98,7 @@ export function GroupDetailPage({
   // Balances only list people whose net is non-zero, so a group with several members and
   // no balances is rare but possible; a lone member always has none. Only then is the
   // roster worth a request. A failed read just means no card.
-  const { data: members } = useGetMembersQuery(id, {
+  const { data: members, isLoading: membersLoading } = useGetMembersQuery(id, {
     skip: !balance || balance.balances.length > 0,
   });
 
@@ -216,12 +216,15 @@ export function GroupDetailPage({
   }
 
   const allSettled = balance.balances.length === 0;
+  // "All settled" says nothing for a group of one, and the card takes its place.
   const onlyMember =
     allSettled &&
     selfUserId !== undefined &&
     !!members &&
     members.members.every((m) => m.id === selfUserId);
-  // "All settled" says nothing for a group of one, and the card takes its place.
+  // While the roster loads we can't tell the two apart; show neither rather than flash
+  // the banner and swap it for the card.
+  const showSettled = allSettled && !onlyMember && !membersLoading;
 
   return (
     <div className="space-y-6 py-4">
@@ -255,7 +258,7 @@ export function GroupDetailPage({
 
       {onlyMember && <SoloGroupCard groupId={id} basePath={platform.basePath} />}
 
-      {allSettled && !onlyMember && (
+      {showSettled && (
         <div className="mx-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-center">
           <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
             所有帳款已結清
