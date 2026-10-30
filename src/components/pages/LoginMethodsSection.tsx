@@ -6,6 +6,7 @@ import { KeyRound, Link2, Unlink } from "lucide-react";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import type { Platform } from "@/components/pages/platform";
 import { apiErrorText } from "@/lib/api-error";
+import { isInAppBrowser } from "@/lib/in-app-browser";
 import {
   canUnlink,
   isLoginProvider,
@@ -30,6 +31,9 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
 
   const linked = data.linked.filter(isLoginProvider);
   const addable = platform.linkIdentity ? linkableNow(data.enabled, data.linked) : [];
+  // Read here, after the data has loaded, so it only ever runs in the browser. Google refuses
+  // OAuth inside LINE's / Telegram's built-in browser, same as on the login page.
+  const googleBlocked = isInAppBrowser(navigator.userAgent);
 
   async function confirmUnlink() {
     if (!confirming) return;
@@ -70,7 +74,8 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
           <button
             key={provider}
             onClick={() => platform.linkIdentity?.(provider)}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
+            disabled={provider === "google" && googleBlocked}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50 disabled:hover:bg-transparent"
           >
             <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
               <Link2 className="size-3.5 text-primary" />
@@ -84,6 +89,11 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
           ? "先把其他登入方式連結到這個帳號，之後用它登入才會看到原本的群組。"
           : "要連結其他登入方式，請用瀏覽器開啟網頁版，在個人設定裡操作。"}
       </p>
+      {googleBlocked && addable.includes("google") && (
+        <p className="mt-2 px-1 text-xs text-muted-foreground">
+          Google 不允許在 App 內建瀏覽器登入，請用瀏覽器開啟這個頁面再連結。
+        </p>
+      )}
       {message && <p className="mt-2 px-1 text-xs text-destructive">{message}</p>}
 
       <ConfirmDialog

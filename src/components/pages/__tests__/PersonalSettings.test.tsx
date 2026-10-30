@@ -113,6 +113,16 @@ describe("PersonalSettings", () => {
       expect(screen.queryByRole("button", { name: /連結 GitHub/ })).not.toBeInTheDocument();
     });
 
+    it("disables linking Google inside an in-app browser, which Google refuses", async () => {
+      vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 Mobile Safari Line/14.0.0" });
+      const linkIdentity = vi.fn();
+      renderSettings(withLink(linkIdentity));
+      const google = await screen.findByRole("button", { name: /連結 Google/ });
+      expect(google).toBeDisabled();
+      expect(screen.getByRole("button", { name: /連結 LINE/ })).toBeEnabled();
+      expect(screen.getByText(/App 內建瀏覽器/)).toBeInTheDocument();
+    });
+
     it("does not offer to unlink the only login method", async () => {
       renderSettings(withLink(vi.fn()));
       await screen.findByRole("button", { name: /連結 Google/ });
