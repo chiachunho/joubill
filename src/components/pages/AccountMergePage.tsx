@@ -91,7 +91,7 @@ function MergeConfirm({ platform }: { platform: Platform }) {
   const [failure, setFailure] = useState<string | null>(null);
 
   // No live ticket: the cookie expired, was used, or never existed. Back to settings, which
-  // says so; a merge that already went through cleared the cookie and lands there quietly.
+  // says so. A finished merge replaces this page in history, so Back can't land here again.
   const expired = apiErrorStatus(error) === 404;
   useEffect(() => {
     if (expired) router.replace(`${SETTINGS}?merge=expired`);
@@ -143,7 +143,8 @@ function MergeConfirm({ platform }: { platform: Platform }) {
     try {
       await merge({ keepUserId: keepId, selfSettlements: selfChoice }).unwrap();
       // A full load, not a cache refresh: this session may now belong to the other user.
-      window.location.assign(`${SETTINGS}?merge=done`);
+      // `replace`, so Back doesn't return to a page whose ticket is gone ("合併已逾時").
+      window.location.replace(`${SETTINGS}?merge=done`);
     } catch (e) {
       if (apiErrorStatus(e) === 404) {
         router.replace(`${SETTINGS}?merge=expired`);

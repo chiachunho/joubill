@@ -30,11 +30,21 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
   const [message, setMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // The merge page (/app/settings/merge) sends people back here with the outcome.
+  // The merge page (/app/settings/merge) sends people back here with the outcome. The
+  // parameter is dropped once read, so a reload doesn't announce the same merge again.
   useEffect(() => {
-    const merge = new URLSearchParams(window.location.search).get("merge");
+    const params = new URLSearchParams(window.location.search);
+    const merge = params.get("merge");
     if (merge === "done") setNotice("已合併，兩個帳號原本的登入方式現在都會登入這個帳號。");
     else if (merge === "expired") setMessage(MERGE_TICKET_NOT_FOUND);
+    else return;
+    params.delete("merge");
+    const query = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`,
+    );
   }, []);
 
   if (!data) return null;

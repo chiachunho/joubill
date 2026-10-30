@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
-import { appUrl, HELP_URL } from "@/lib/help-url";
+import { appUrl, HELP_PATH } from "@/lib/help-url";
 import { tmaRawFetch } from "@/lib/tma-fetch";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
@@ -59,22 +59,8 @@ function MiniHomeHeader() {
   );
 }
 
-// Opens in Telegram's in-app browser rather than navigating the Mini App's own
-// webview: a plain <a> would replace the Mini App and lose its back button.
-function MiniHelpAction({ className, children }: { className: string; children: ReactNode }) {
-  const openHelp = useCallback(() => {
-    import("@twa-dev/sdk")
-      .then(({ default: WebApp }) => WebApp.openLink(HELP_URL))
-      .catch(() => window.open(HELP_URL, "_blank", "noopener"));
-  }, []);
-  return (
-    <button onClick={openHelp} className={className}>
-      {children}
-    </button>
-  );
-}
-
-// Telegram supplies the identity, so there is nothing to sign out of.
+// Opens outside the Mini App's own webview: a plain <a> would replace the Mini App and
+// lose its back button.
 function openInBrowser(path: string): void {
   const url = appUrl(path);
   import("@twa-dev/sdk")
@@ -82,6 +68,15 @@ function openInBrowser(path: string): void {
     .catch(() => window.open(url, "_blank", "noopener"));
 }
 
+function MiniHelpAction({ className, children }: { className: string; children: ReactNode }) {
+  return (
+    <button onClick={() => openInBrowser(HELP_PATH)} className={className}>
+      {children}
+    </button>
+  );
+}
+
+// Telegram supplies the identity, so there is nothing to sign out of.
 function MiniAccountSection(): null {
   return null;
 }

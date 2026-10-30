@@ -10,11 +10,8 @@ import {
   expenses,
   expenseSplits,
   groupDeleteRequests,
-  groupExchangeRates,
-  groupInvites,
   groupMembers,
   groups,
-  recordAuditLog,
   sessions,
   userBeancountConfigs,
   users,
@@ -30,7 +27,12 @@ import {
 } from "@/lib/account-merge";
 import { labelUser } from "@/lib/label";
 import { findSelfSettlements, planMerge, rekeyPersonAccounts } from "@/lib/member-merge";
-import { applyMergePlan, loadMergeData, type Tx } from "@/lib/member-merge-db";
+import {
+  applyMergePlan,
+  loadMergeData,
+  repointUserReferences,
+  type Tx,
+} from "@/lib/member-merge-db";
 
 type Executor = Pick<typeof db, "select" | "selectDistinct">;
 
@@ -150,11 +152,20 @@ export async function previewAccountMerge(
           .where(inArray(groups.id, sharedIds))
           .orderBy(groups.id);
 
-  let selfSettlements = 0;
-  for (const groupId of sharedIds) {
-    const data = await loadMergeData(db, groupId, otherId);
-    selfSettlements += findSelfSettlements({ fromId: otherId, toId: currentId, ...data }).length;
-  }
+  // Same scope `mergeAccounts` deletes from: every group where both have records, member or
+  // not. Counting only shared memberships would under-report what "delete" removes.
+  const currentRecordGroups = new Set(currentRecords.map((r) => r.groupId));
+  const bothRecordGroups = [
+    ...new Set(otherRecords.map((r) => r.groupId).filter((id) => currentRecordGroups.has(id))),
+  ];
+  const selfSettlements = (
+    await Promise.all(
+      bothRecordGroups.map(async (groupId) => {
+        const data = await loadMergeData(db, groupId, otherId);
+        return findSelfSettlements({ fromId: otherId, toId: currentId, ...data }).length;
+      }),
+    )
+  ).reduce((sum, count) => sum + count, 0);
 
   const side = (
     u: NonNullable<typeof current>,
@@ -301,19 +312,7 @@ export async function mergeAccounts(
       .where(eq(userBeancountConfigs.id, c.id));
   }
 
-  await tx.update(expenses).set({ createdBy: keepId }).where(eq(expenses.createdBy, absorbId));
-  await tx
-    .update(recordAuditLog)
-    .set({ actorId: keepId })
-    .where(eq(recordAuditLog.actorId, absorbId));
-  await tx
-    .update(groupExchangeRates)
-    .set({ createdBy: keepId })
-    .where(eq(groupExchangeRates.createdBy, absorbId));
-  await tx
-    .update(groupInvites)
-    .set({ createdBy: keepId })
-    .where(eq(groupInvites.createdBy, absorbId));
+  await repointUserReferences(tx, absorbId, keepId);
   await tx
     .update(groupDeleteRequests)
     .set({ requestedBy: keepId })

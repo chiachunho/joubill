@@ -24,8 +24,9 @@ test.describe("Merging two accounts", () => {
     await expect(page.getByText("合併後無法還原")).toBeVisible();
     await page.getByRole("button", { name: "合併", exact: true }).click();
 
-    await expect(page).toHaveURL(/\/app\/settings\?merge=done/);
     await expect(page.getByText("已合併")).toBeVisible();
+    // The outcome parameter is dropped once shown, so a reload doesn't repeat it.
+    await expect(page).toHaveURL(/\/app\/settings$/);
 
     // The web session now belongs to the Telegram account, which sees all three groups.
     await page.goto("/app");
@@ -79,8 +80,8 @@ test.describe("Merging two accounts", () => {
     expect(res.status()).toBe(404);
 
     await page.goto("/app/settings/merge");
-    await expect(page).toHaveURL(/\/app\/settings\?merge=expired/);
     await expect(page.getByText("合併已逾時")).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/settings$/);
   });
 
   test("cancelling keeps both accounts", async ({ page, baseURL, mergePair, dbPool }) => {

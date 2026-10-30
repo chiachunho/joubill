@@ -181,6 +181,31 @@ export async function applyMergePlan(tx: Tx, plan: MergePlan, toUserId: number):
   }
 }
 
+/**
+ * Repoints the `users.id` columns that do not cascade, so deleting `fromUserId` afterwards
+ * can't fail on them. Shared by claiming a placeholder and merging two accounts: a new
+ * non-cascading reference to `users.id` goes here, once.
+ */
+export async function repointUserReferences(
+  tx: Tx,
+  fromUserId: number,
+  toUserId: number,
+): Promise<void> {
+  await tx.update(expenses).set({ createdBy: toUserId }).where(eq(expenses.createdBy, fromUserId));
+  await tx
+    .update(recordAuditLog)
+    .set({ actorId: toUserId })
+    .where(eq(recordAuditLog.actorId, fromUserId));
+  await tx
+    .update(groupExchangeRates)
+    .set({ createdBy: toUserId })
+    .where(eq(groupExchangeRates.createdBy, fromUserId));
+  await tx
+    .update(groupInvites)
+    .set({ createdBy: toUserId })
+    .where(eq(groupInvites.createdBy, fromUserId));
+}
+
 async function loadPair(ex: Executor, fromId: number, toId: number) {
   const rows = await ex
     .select({
@@ -272,19 +297,7 @@ export async function mergeUserInto(
 
   // None of these can name a placeholder today, but none cascades, so a stray one would
   // block the delete below. Repointing is cheap insurance.
-  await tx.update(expenses).set({ createdBy: toUserId }).where(eq(expenses.createdBy, fromUserId));
-  await tx
-    .update(recordAuditLog)
-    .set({ actorId: toUserId })
-    .where(eq(recordAuditLog.actorId, fromUserId));
-  await tx
-    .update(groupExchangeRates)
-    .set({ createdBy: toUserId })
-    .where(eq(groupExchangeRates.createdBy, fromUserId));
-  await tx
-    .update(groupInvites)
-    .set({ createdBy: toUserId })
-    .where(eq(groupInvites.createdBy, fromUserId));
+  await repointUserReferences(tx, fromUserId, toUserId);
 
   await tx
     .delete(users)

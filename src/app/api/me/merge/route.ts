@@ -81,9 +81,9 @@ export async function POST(req: Request) {
   const body = bodySchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "invalid body" }, { status: 400 });
 
-  let merged;
+  let result;
   try {
-    merged = await db.transaction(async (tx) => {
+    result = await db.transaction(async (tx) => {
       // Claimed in the same transaction: a double tap finds it used, and a refused merge
       // rolls the claim back so the person can still cancel or retry.
       const ticket = await consumeMergeTicket(tx, id, user.id);
@@ -102,20 +102,22 @@ export async function POST(req: Request) {
     if (err.status === 404) return notFound();
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
-  const { absorbId } = merged;
-  const result = merged;
+  const { absorbId } = result;
 
   const keepId = body.data.keepUserId;
   const actor = { userId: keepId, source: "app" as const };
-  for (const g of result.groups) {
-    await logAccountMerged(g.groupId, actor, {
-      absorbedId: absorbId,
-      absorbedName: result.absorbName,
-      keptId: keepId,
-      keptName: result.keepName,
-      recordIds: g.recordIds,
-    });
-  }
+  // One independent insert per group; none depends on another.
+  await Promise.all(
+    result.groups.map((g) =>
+      logAccountMerged(g.groupId, actor, {
+        absorbedId: absorbId,
+        absorbedName: result.absorbName,
+        keptId: keepId,
+        keptName: result.keepName,
+        recordIds: g.recordIds,
+      }),
+    ),
+  );
 
   // After the merge commits, so each deletion is audited and tombstoned like any other.
   const removed = new Map<number, number[]>();
