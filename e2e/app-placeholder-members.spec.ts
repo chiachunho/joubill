@@ -85,4 +85,50 @@ test.describe("Members without an account", () => {
     );
     expect(intoPlaceholder.status()).toBe(400);
   });
+  test("a settlement between the two merged people can be kept (delete-only) or removed", async ({
+    authedPage,
+    seeded,
+  }) => {
+    const mkPlaceholder = async (label: string) => {
+      const res = await authedPage.request.post(
+        `/api/groups/${seeded.groupId}/members/placeholder`,
+        { data: { firstName: `E2E ${label} ${seeded.groupId}` } },
+      );
+      return ((await res.json()) as { member: { id: number } }).member.id;
+    };
+    const settle = async (fromUserId: number, toUserId: number) => {
+      const res = await authedPage.request.post(`/api/groups/${seeded.groupId}/settlements`, {
+        data: { fromUserId, toUserId, amount: 100, currency: "TWD" },
+      });
+      expect(res.ok()).toBe(true);
+    };
+
+    const keepId = await mkPlaceholder("keep");
+    const dropId = await mkPlaceholder("drop");
+    await settle(keepId, seeded.userId);
+    await settle(dropId, seeded.userId);
+
+    const keep = await authedPage.request.post(
+      `/api/groups/${seeded.groupId}/members/${keepId}/merge`,
+      { data: { intoUserId: seeded.userId, selfSettlements: "keep" } },
+    );
+    expect(await keep.json()).toMatchObject({ ok: true, removed: 0 });
+
+    const drop = await authedPage.request.post(
+      `/api/groups/${seeded.groupId}/members/${dropId}/merge`,
+      { data: { intoUserId: seeded.userId, selfSettlements: "delete" } },
+    );
+    expect(await drop.json()).toMatchObject({ ok: true, removed: 1 });
+
+    // The kept one is a settlement from the viewer to themself: it can no longer be edited.
+    const list = await authedPage.request.get(`/api/groups/${seeded.groupId}/expenses`);
+    const { expenses } = (await list.json()) as { expenses: { id: number; type: string }[] };
+    const left = expenses.filter((e) => e.type === "settlement");
+    expect(left).toHaveLength(1);
+    const edit = await authedPage.request.patch(
+      `/api/groups/${seeded.groupId}/settlements/${left[0].id}`,
+      { data: { fromUserId: seeded.userId, toUserId: seeded.userId, amount: 50, currency: "TWD" } },
+    );
+    expect(edit.status()).toBe(400);
+  });
 });

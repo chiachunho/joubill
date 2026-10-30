@@ -43,6 +43,9 @@ export function MergeMemberDialog({
   const candidates = members.filter((m) => !m.isPlaceholder);
   const [picked, setPicked] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Only asked when the two people have settlements with each other. Keeping is the
+  // non-destructive default; those records can then only be deleted, never edited.
+  const [selfChoice, setSelfChoice] = useState<"delete" | "keep">("keep");
   const [merge, { isLoading }] = useMergeMemberMutation();
 
   // Preselect the viewer: claiming a name for yourself is the common case.
@@ -68,6 +71,7 @@ export function MergeMemberDialog({
     if (!open) {
       setPicked(null);
       setError(null);
+      setSelfChoice("keep");
     }
     onOpenChange(open);
   }
@@ -76,7 +80,12 @@ export function MergeMemberDialog({
     if (!placeholder || target === null) return;
     setError(null);
     try {
-      await merge({ groupId, userId: placeholder.id, intoUserId: target }).unwrap();
+      await merge({
+        groupId,
+        userId: placeholder.id,
+        intoUserId: target,
+        selfSettlements: preview && preview.selfSettlements > 0 ? selfChoice : undefined,
+      }).unwrap();
       close(false);
     } catch (e) {
       setError(apiErrorText(e, "合併失敗，請再試一次"));
@@ -138,6 +147,47 @@ export function MergeMemberDialog({
               </div>
             )}
           </div>
+        )}
+
+        {preview && preview.selfSettlements > 0 && (
+          <fieldset className="flex flex-col gap-2 text-sm">
+            <legend className="mb-1 font-medium">
+              有 {preview.selfSettlements} 筆還款是他和 {targetMember ? name(targetMember) : "對方"}{" "}
+              之間的，合併後會變成自己還自己
+            </legend>
+            <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+              <input
+                type="radio"
+                name="self-settlements"
+                className="mt-1"
+                checked={selfChoice === "keep"}
+                onChange={() => setSelfChoice("keep")}
+                disabled={isLoading}
+              />
+              <span>
+                保留這些還款
+                <span className="block text-xs text-muted-foreground">
+                  之後不能再編輯，只能刪除。
+                </span>
+              </span>
+            </label>
+            <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+              <input
+                type="radio"
+                name="self-settlements"
+                className="mt-1"
+                checked={selfChoice === "delete"}
+                onChange={() => setSelfChoice("delete")}
+                disabled={isLoading}
+              />
+              <span>
+                一併刪除這些還款
+                <span className="block text-xs text-muted-foreground">
+                  不影響餘額，動態紀錄和群組訊息會留下刪除記錄。
+                </span>
+              </span>
+            </label>
+          </fieldset>
         )}
 
         <p className="rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">

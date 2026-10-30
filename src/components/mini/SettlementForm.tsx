@@ -104,6 +104,9 @@ export function SettlementForm({
   // "tma" → /mini, "web" → /app. Same split the fetchers make below.
   const appBase = mode === "web" ? "/app" : "/mini";
   const isEdit = !!initial;
+  // A merge can leave a settlement whose two sides are now the same person. It can't pass the
+  // from ≠ to rule, so it stays as it is until someone deletes it.
+  const merged = !!initial && initial.from.userId === initial.to.userId;
 
   // Anyone in the group may edit or delete any record, so who entered it is
   // shown rather than enforced — attribution in place of a lock (see CLAUDE.md).
@@ -453,10 +456,15 @@ export function SettlementForm({
             )}
           </div>
         )}
+        {merged && (
+          <p className="rounded-lg bg-secondary px-3.5 py-2.5 text-sm text-muted-foreground">
+            付款人和收款人已合併成同一個人，這筆還款無法再編輯，只能刪除。
+          </p>
+        )}
         <div className="flex gap-2 pt-1">
           <Button
             type="submit"
-            disabled={form.formState.isSubmitting || !form.formState.isValid}
+            disabled={merged || form.formState.isSubmitting || !form.formState.isValid}
             className="flex-1 rounded-lg"
           >
             {form.formState.isSubmitting ? "儲存中…" : "儲存"}

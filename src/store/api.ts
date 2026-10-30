@@ -354,13 +354,18 @@ const baseApi = createApi({
       keepUnusedDataFor: 0,
     }),
     mergeMember: build.mutation<
-      { ok: true; recordCount: number },
-      { groupId: GroupId; userId: number; intoUserId: number }
+      { ok: true; recordCount: number; removed: number },
+      {
+        groupId: GroupId;
+        userId: number;
+        intoUserId: number;
+        selfSettlements?: "delete" | "keep";
+      }
     >({
-      query: ({ groupId, userId, intoUserId }) => ({
+      query: ({ groupId, userId, intoUserId, selfSettlements }) => ({
         url: `/api/groups/${groupId}/members/${userId}/merge`,
         method: "POST",
-        body: { intoUserId },
+        body: { intoUserId, ...(selfSettlements ? { selfSettlements } : {}) },
       }),
       // Every record now names a different person; the placeholder is gone, and the log
       // gains a row. The beancount config's per-member accounts were re-keyed too.

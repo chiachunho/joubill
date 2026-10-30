@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   combineSplit,
+  findSelfSettlements,
   planMerge,
   rekeyPersonAccounts,
   summariseMerge,
@@ -178,6 +179,7 @@ describe("summariseMerge", () => {
   it("counts expenses and settlements and nets per currency", () => {
     const summary = summariseMerge({
       fromId: FROM,
+      toId: TO,
       payers: [payer(1, FROM, 300), payer(2, OTHER, 80)],
       splits: [split(1, FROM, 100), split(2, FROM, 40), split(3, FROM, 60)],
       expenses: [
@@ -186,7 +188,36 @@ describe("summariseMerge", () => {
         { id: 3, type: "settlement", currency: "TWD" },
       ],
     });
-    expect(summary).toEqual({ expenses: 2, settlements: 1, net: { TWD: 140, JPY: -40 } });
+    expect(summary).toEqual({
+      expenses: 2,
+      settlements: 1,
+      selfSettlements: 0,
+      net: { TWD: 140, JPY: -40 },
+    });
+  });
+});
+
+describe("findSelfSettlements", () => {
+  const meta = [
+    { id: 1, type: "settlement", currency: "TWD" },
+    { id: 2, type: "settlement", currency: "TWD" },
+    { id: 3, type: "expense", currency: "TWD" },
+  ];
+
+  it("finds settlements between the two people, whichever way they ran", () => {
+    const payers = [payer(1, FROM, 50), payer(2, TO, 20), payer(3, FROM, 10)];
+    const splits = [split(1, TO, 50, "exact"), split(2, FROM, 20, "exact"), split(3, TO, 10)];
+    expect(findSelfSettlements({ fromId: FROM, toId: TO, expenses: meta, payers, splits })).toEqual(
+      [1, 2],
+    );
+  });
+
+  it("ignores a settlement with someone else and ordinary expenses between the two", () => {
+    const payers = [payer(1, FROM, 50), payer(3, FROM, 10)];
+    const splits = [split(1, OTHER, 50, "exact"), split(3, TO, 10)];
+    expect(findSelfSettlements({ fromId: FROM, toId: TO, expenses: meta, payers, splits })).toEqual(
+      [],
+    );
   });
 });
 

@@ -205,6 +205,8 @@ export type InvitePreviewResponse = {
 export type MergePreviewResponse = {
   expenses: number;
   settlements: number;
+  /** Of `settlements`, how many run between the two people and would read "A → A". */
+  selfSettlements: number;
   /** The placeholder's net position per record currency (paid − owed). */
   net: Record<string, number>;
 };

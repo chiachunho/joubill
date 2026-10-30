@@ -1,18 +1,26 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
+import { getBot } from "@/bot";
+
 import { db } from "@/db";
+import { expenses } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { mergeUserInto, previewMerge } from "@/lib/member-merge-db";
-import { logMemberClaimed } from "@/lib/record-mutation";
+import { logDeleted, logMemberClaimed } from "@/lib/record-mutation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string; userId: string }> };
 
-const bodySchema = z.object({ intoUserId: z.number().int().positive() });
+const bodySchema = z.object({
+  intoUserId: z.number().int().positive(),
+  /** Settlements between the two people turn into "A → A": drop them, or keep (delete-only). */
+  selfSettlements: z.enum(["delete", "keep"]).default("keep"),
+});
 
 /**
  * What merging this placeholder into `intoUserId` would take, for the confirm dialog.
@@ -69,5 +77,22 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
       recordIds: result.recordIds,
     },
   );
-  return NextResponse.json({ ok: true, recordCount: result.recordIds.length });
+
+  // After the merge commits, so each deletion is audited and tombstoned like any other.
+  let removed = 0;
+  if (body.data.selfSettlements === "delete") {
+    for (const recordId of result.selfSettlementIds) {
+      await logDeleted(
+        getBot().api,
+        recordId,
+        { userId: auth.user.id, source: "app" },
+        auth.user,
+        async (tx) => {
+          await tx.delete(expenses).where(eq(expenses.id, recordId));
+        },
+      );
+      removed += 1;
+    }
+  }
+  return NextResponse.json({ ok: true, recordCount: result.recordIds.length, removed });
 });

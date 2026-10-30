@@ -65,6 +65,36 @@ export type MergePlan = {
   recordIds: number[];
 };
 
+/**
+ * Settlements between the two merging people. Once they are one person these read "A → A":
+ * balances are unaffected, but the record means nothing and the settlement form refuses to
+ * save it, so the merger chooses between deleting them and keeping them (then delete-only).
+ */
+export function findSelfSettlements(input: {
+  fromId: number;
+  toId: number;
+  expenses: MergeExpenseMeta[];
+  payers: MergePayerRow[];
+  splits: MergeSplitRow[];
+}): number[] {
+  const pair = new Set([input.fromId, input.toId]);
+  return input.expenses
+    .filter((e) => e.type === "settlement")
+    .filter((e) => {
+      const payers = input.payers.filter((p) => p.expenseId === e.id);
+      const debtors = input.splits.filter((s) => s.expenseId === e.id);
+      return (
+        payers.length === 1 &&
+        debtors.length === 1 &&
+        pair.has(payers[0].payerId) &&
+        pair.has(debtors[0].debtorId) &&
+        payers[0].payerId !== debtors[0].debtorId
+      );
+    })
+    .map((e) => e.id)
+    .sort((a, b) => a - b);
+}
+
 /** How two split rows for the same person on one expense combine. */
 export function combineSplit(
   a: MergeSplitRow,
@@ -165,9 +195,14 @@ export function planMerge(input: {
   };
 }
 
+/** What to do with settlements between the two people: `keep` leaves them (delete-only later). */
+export type SelfSettlementChoice = "delete" | "keep";
+
 export type MergeSummary = {
   expenses: number;
   settlements: number;
+  /** How many of `settlements` are between the two people and would read "A → A". */
+  selfSettlements: number;
   /** The placeholder's net position per record currency (paid − owed), 2 dp. */
   net: Record<string, number>;
 };
@@ -175,6 +210,7 @@ export type MergeSummary = {
 /** What a confirm dialog shows before anything is written. */
 export function summariseMerge(input: {
   fromId: number;
+  toId: number;
   payers: MergePayerRow[];
   splits: MergeSplitRow[];
   expenses: MergeExpenseMeta[];
@@ -193,7 +229,8 @@ export function summariseMerge(input: {
 
   let settlements = 0;
   for (const id of ids) if (meta.get(id)?.type === "settlement") settlements += 1;
-  return { expenses: ids.size - settlements, settlements, net };
+  const selfSettlements = findSelfSettlements(input).length;
+  return { expenses: ids.size - settlements, settlements, selfSettlements, net };
 }
 
 /** Moves `from`'s beancount account to `to`; if `to` already has one, it wins. */

@@ -14,6 +14,7 @@ import {
 } from "@/db/schema";
 import { lockGroupMemberNames } from "@/lib/member-name-lock";
 import {
+  findSelfSettlements,
   planMerge,
   rekeyPersonAccounts,
   summariseMerge,
@@ -122,16 +123,27 @@ export async function previewMerge(
   const check = validateMerge(groupId, from, to);
   if (!check.ok) return { check, summary: null };
   const data = await loadMergeData(db, groupId, fromId);
-  return { check, summary: summariseMerge({ fromId, ...data }) };
+  return { check, summary: summariseMerge({ fromId, toId, ...data }) };
 }
 
 export type MergeResult =
-  | { ok: true; placeholderName: string; claimerName: string; recordIds: number[] }
+  | {
+      ok: true;
+      placeholderName: string;
+      claimerName: string;
+      recordIds: number[];
+      /** Settlements between the two people that were kept (`keep`) or are about to be deleted (`delete`). */
+      selfSettlementIds: number[];
+    }
   | { ok: false; status: 400 | 403 | 404; error: string };
 
 /**
  * Fold `fromUserId` (this group's placeholder) into `toUserId` (a real account).
  * Runs inside the caller's transaction; log the audit row after it commits.
+ *
+ * Settlements between the two people become "A → A". They are returned, not deleted here: deleting
+ * a record has to go through `logDeleted` (audit row + chat tombstone), which opens its own
+ * transaction, so the caller does it after this one commits when the merger chose `delete`.
  */
 export async function mergeUserInto(
   tx: Tx,
@@ -224,5 +236,6 @@ export async function mergeUserInto(
     placeholderName: labelUser(from!),
     claimerName: labelUser(to!),
     recordIds: plan.recordIds,
+    selfSettlementIds: findSelfSettlements({ fromId: fromUserId, toId: toUserId, ...data }),
   };
 }
