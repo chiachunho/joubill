@@ -33,6 +33,18 @@ function GoogleIcon() {
   );
 }
 
+function LineIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
+      <rect width="24" height="24" rx="5" fill="#06C755" />
+      <path
+        d="M12 5C8.13 5 5 7.45 5 10.47c0 2.71 2.5 4.98 5.88 5.41.23.05.54.15.62.35.07.18.05.46.02.64l-.1.6c-.03.18-.14.7.62.38.76-.32 4.1-2.41 5.6-4.13 1.03-1.13 1.52-2.28 1.52-3.25C19.06 7.45 15.87 5 12 5z"
+        fill="white"
+      />
+    </svg>
+  );
+}
+
 function TelegramIcon() {
   return (
     <svg className="size-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -53,15 +65,30 @@ interface OAuthButtonsProps {
   callbackUrl?: string;
   showGithub?: boolean;
   showGoogle?: boolean;
+  showLine?: boolean;
+  /** Google refuses OAuth inside LINE's / Telegram's built-in browser (403 disallowed_useragent). */
+  inAppBrowser?: boolean;
 }
 
 export function OAuthButtons({
   callbackUrl = "/app",
   showGithub = false,
   showGoogle = false,
+  showLine = false,
+  inAppBrowser = false,
 }: OAuthButtonsProps) {
   return (
     <div className="flex flex-col gap-3">
+      {/* LINE first: inside LINE's own browser it signs in without a prompt. */}
+      {showLine && (
+        <button
+          onClick={() => signIn("line", { callbackUrl })}
+          className="flex items-center justify-center gap-2.5 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary active:bg-secondary/80"
+        >
+          <LineIcon />
+          使用 LINE 登入
+        </button>
+      )}
       <button
         onClick={() => signIn("telegram", { callbackUrl })}
         className="flex items-center justify-center gap-2.5 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary active:bg-secondary/80"
@@ -79,13 +106,21 @@ export function OAuthButtons({
         </button>
       )}
       {showGoogle && (
-        <button
-          onClick={() => signIn("google", { callbackUrl })}
-          className="flex items-center justify-center gap-2.5 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary active:bg-secondary/80"
-        >
-          <GoogleIcon />
-          使用 Google 登入
-        </button>
+        <>
+          <button
+            onClick={() => signIn("google", { callbackUrl })}
+            disabled={inAppBrowser}
+            className="flex items-center justify-center gap-2.5 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary active:bg-secondary/80 disabled:opacity-50 disabled:hover:bg-secondary/50"
+          >
+            <GoogleIcon />
+            使用 Google 登入
+          </button>
+          {inAppBrowser && (
+            <p className="text-center text-xs text-muted-foreground">
+              Google 不允許在 App 內建瀏覽器登入，請用瀏覽器開啟這個頁面。
+            </p>
+          )}
+        </>
       )}
     </div>
   );

@@ -37,9 +37,13 @@ export function normalizeInviteCode(input: string): string | null {
   return s;
 }
 
-/** The shareable URL for a code; `origin` has no trailing slash. */
+/**
+ * The shareable URL for a code; `origin` has no trailing slash. Links mostly travel through
+ * LINE, whose built-in browser blocks Google login; `openExternalBrowser=1` makes LINE open
+ * the link in the phone's browser instead. Other apps ignore the parameter.
+ */
 export function inviteLink(origin: string, code: string): string {
-  return `${origin}/join/${code}`;
+  return `${origin}/join/${code}?openExternalBrowser=1`;
 }
 
 /** `decodeURIComponent` that answers null instead of throwing on a malformed `%` sequence. */

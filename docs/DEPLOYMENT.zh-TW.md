@@ -73,7 +73,7 @@ Project → **Settings → Environment Variables**,以下所有變數都加（En
    - 或用 Bot API:`https://api.telegram.org/bot<TOKEN>/getUpdates` 傳訊息後看 `channel_post.chat.id`
 4. 把取得的 `chat_id` 填入 `TELEGRAM_STORAGE_CHAT_ID`
 
-### 選填（GitHub / Google OAuth 登入）
+### 選填（GitHub / Google / LINE OAuth 登入）
 
 | Key                  | 值                             |
 | -------------------- | ------------------------------ |
@@ -81,11 +81,25 @@ Project → **Settings → Environment Variables**,以下所有變數都加（En
 | `AUTH_GITHUB_SECRET` | GitHub OAuth App Client Secret |
 | `AUTH_GOOGLE_ID`     | Google OAuth Client ID         |
 | `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret     |
+| `AUTH_LINE_ID`       | LINE Login channel ID          |
+| `AUTH_LINE_SECRET`   | LINE Login channel secret      |
 
-沒設這四個則登入頁只顯示 Telegram 登入按鈕。GitHub / Google OAuth App 的 Callback URL 填:
+每個登入方式要兩個值都設才會顯示在登入頁；都沒設則只顯示 Telegram 登入按鈕。Callback URL 填:
 
 - `https://splitbill.example.com/api/auth/callback/github`
 - `https://splitbill.example.com/api/auth/callback/google`
+- `https://splitbill.example.com/api/auth/callback/line`
+
+**Google**:Google Cloud Console → API 和服務 → 憑證 → 建立憑證 → OAuth 用戶端 ID → 網頁應用程式,
+把 Callback URL 填進「已授權的重新導向 URI」。專案還沒有 OAuth 同意畫面的話要先設定。
+
+**LINE**:[LINE Developers Console](https://developers.line.biz/console/) → 建立 Provider →
+建立 **LINE Login** channel → 在「LINE Login」分頁啟用 Web app 並填入 Callback URL。
+Channel ID 與 Channel secret 在「Basic settings」。Channel 要切到 _Published_,否則只有管理員／測試者能登入。
+不需要申請 Email 權限:LINE 帳號刻意不會用 email 比對。
+
+用 Telegram 登入過的人，之後若直接用 Google 或 LINE 登入，會得到一個**全新、沒有群組的帳號**；
+要先在已登入的狀態下到 個人設定 → 登入方式 連結該方式。
 
 產生隨機字串的方法:
 
@@ -185,6 +199,6 @@ push 到 GitHub 預設分支 → Vercel 自動重新部署。
 - **Mini App 開啟一片空白 / 只有預覽**:`NEXT_PUBLIC_MINI_APP_URL` 或 BotFather 的 URL 沒指到自訂網域的 `/mini`;改 `NEXT_PUBLIC_*` 後記得 redeploy。
 - **DB 連線錯誤**:確認用的是 Neon **pooled** 連線字串且帶 `?sslmode=require`。
 - **Telegram 登入按鈕沒出現 / OIDC 失敗**:確認 `AUTH_TELEGRAM_CLIENT_ID`、`AUTH_TELEGRAM_CLIENT_SECRET` 已設定,且 BotFather Web Login 的 Redirect URI 完全吻合 `https://<domain>/api/auth/callback/telegram`。
-- **GitHub / Google 登入失敗**:`AUTH_GITHUB_*` / `AUTH_GOOGLE_*` 未設定,或 OAuth App 的 Callback URL 沒加。
+- **GitHub / Google / LINE 登入失敗**:`AUTH_GITHUB_*` / `AUTH_GOOGLE_*` / `AUTH_LINE_*` 未設定,或 OAuth App 的 Callback URL 沒加。
 - **收據照片上傳失敗（502）**:`TELEGRAM_STORAGE_CHAT_ID` 設錯,或 bot 不是該頻道的 Admin / 沒有 "Post Messages" 權限。
 - **Mini App 顯示收據圖片空白**:`TELEGRAM_STORAGE_CHAT_ID` 正確但 `/api/tg-photo` proxy 失敗;查 Vercel Function logs 確認 `getFile` 是否有錯。
