@@ -15,8 +15,14 @@ export const dynamic = "force-dynamic";
 /** The Mini App link for a code, or null when the bot's username can't be had. */
 async function miniLinkFor(code: string | undefined): Promise<string | null> {
   if (!code) return null;
-  const username = await botUsername(getBot().api);
-  return username ? joinLink(username, code) : null;
+  // The link is an extra: an incomplete env or an unreachable Telegram must not fail the request,
+  // least of all a POST that has already rotated the code.
+  try {
+    const username = await botUsername(getBot().api);
+    return username ? joinLink(username, code) : null;
+  } catch {
+    return null;
+  }
 }
 
 type Params = { params: Promise<{ id: string }> };

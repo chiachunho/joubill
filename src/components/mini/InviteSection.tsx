@@ -81,7 +81,7 @@ export function InviteSection({ groupId }: { groupId: string }) {
           {miniLink && (
             <button
               onClick={() => copy("mini")}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40"
+              className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40"
             >
               {copied === "mini" ? <Check className="size-4" /> : <Copy className="size-4" />}
               {copied === "mini" ? "已複製" : "複製 Telegram 連結"}
@@ -99,7 +99,7 @@ export function InviteSection({ groupId }: { groupId: string }) {
             <button
               onClick={() => share(link)}
               disabled={!link}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50"
+              className={`${miniLink ? "" : "col-span-2"}inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50`}
             >
               <Share2 className="size-4" />
               分享網頁連結

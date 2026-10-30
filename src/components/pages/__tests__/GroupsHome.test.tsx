@@ -105,12 +105,26 @@ describe("GroupsHome", () => {
   it.each([miniPlatform, webPlatform])(
     "sends a join deep link to the invite preview under the platform's base path (%#)",
     async (platform) => {
-      renderHome(platform, { activeInviteCode: "K7M2QX9PAB" });
+      const code = `JOIN${platform.basePath === "/mini" ? "MINI" : "WEBB"}0`;
+      renderHome(platform, { activeInviteCode: code });
       await waitFor(() =>
-        expect(mockReplace).toHaveBeenCalledWith(`${platform.basePath}/join/K7M2QX9PAB`),
+        expect(mockReplace).toHaveBeenCalledWith(`${platform.basePath}/join/${code}`),
       );
     },
   );
+
+  it("redirects to a join link once, then lets the group list show", async () => {
+    const code = "ONCEONLY00";
+    const first = renderHome(miniPlatform, { activeInviteCode: code, groups: [GROUP] });
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith(`/mini/join/${code}`));
+    first.unmount();
+    mockReplace.mockClear();
+
+    // 回首頁 from the invite page: the same start param is still in initData.
+    renderHome(miniPlatform, { activeInviteCode: code, groups: [GROUP] });
+    expect(await screen.findByText(GROUP.title)).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
 
   it("shows the Mini App its load error when the session check fails with 401", async () => {
     const location = stubLocation("/mini");

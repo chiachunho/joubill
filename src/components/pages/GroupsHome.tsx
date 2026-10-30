@@ -12,6 +12,12 @@ import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { describeError } from "@/lib/api-error";
 import { useGetGroupPhotosQuery, useGetMeQuery } from "@/store/api";
 
+/**
+ * Join links already acted on. The start param lives as long as the webview, so without this every
+ * visit to the home page would bounce back to the invite — including 回首頁 from an invalid one.
+ */
+const handledInvites = new Set<string>();
+
 export function GroupsHome({ platform }: { platform: Platform }) {
   const router = useRouter();
   const { data, error } = useGetMeQuery();
@@ -21,7 +27,12 @@ export function GroupsHome({ platform }: { platform: Platform }) {
   // Only the Mini App gets one: the endpoint leaves activeGroupId null on the web.
   useEffect(() => {
     // A join link names an invite, not a group: the preview decides what happens next.
-    if (data?.activeInviteCode && !data.activeGroupId) {
+    if (
+      data?.activeInviteCode &&
+      !data.activeGroupId &&
+      !handledInvites.has(data.activeInviteCode)
+    ) {
+      handledInvites.add(data.activeInviteCode);
       router.replace(`${platform.basePath}/join/${data.activeInviteCode}`);
       return;
     }
@@ -49,7 +60,9 @@ export function GroupsHome({ platform }: { platform: Platform }) {
 
   if (!data) return <GroupsListSkeleton />;
 
-  if (data.activeGroupId || data.activeInviteCode) return null;
+  // Blank only while a redirect is about to happen; once the invite was handled the list shows.
+  const invitePending = !!data.activeInviteCode && !handledInvites.has(data.activeInviteCode);
+  if (data.activeGroupId || invitePending) return null;
 
   const { groups } = data;
 
