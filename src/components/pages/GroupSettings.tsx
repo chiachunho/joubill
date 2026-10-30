@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Coins,
   Download,
+  GitMerge,
   History,
   Send,
   Pencil,
@@ -20,6 +21,7 @@ import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
 import { InviteSection } from "@/components/mini/InviteSection";
 import { AddPlaceholderDialog } from "@/components/mini/AddPlaceholderDialog";
+import { MergeMemberDialog } from "@/components/mini/MergeMemberDialog";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
@@ -78,6 +80,7 @@ export function GroupSettings({
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Member | null>(null);
+  const [mergeTarget, setMergeTarget] = useState<Member | null>(null);
   const [currencyPending, setCurrencyPending] = useState(false);
   const [pendingCurrency, setPendingCurrency] = useState<string | null>(null);
   const [exportPending, setExportPending] = useState<"download" | "send" | null>(null);
@@ -380,6 +383,16 @@ export function GroupSettings({
                   </button>
                   {member.isPlaceholder && (
                     <button
+                      onClick={() => setMergeTarget(member)}
+                      disabled={isToggling}
+                      aria-label="合併到…"
+                      className="rounded-lg p-1.5 text-primary transition-colors hover:bg-primary/10 disabled:opacity-30"
+                    >
+                      <GitMerge className="size-3.5" />
+                    </button>
+                  )}
+                  {member.isPlaceholder && (
+                    <button
                       onClick={() => setRenameTarget(member)}
                       disabled={isToggling}
                       aria-label="改名"
@@ -441,6 +454,14 @@ export function GroupSettings({
       />
 
       <AddPlaceholderDialog groupId={id} open={addOpen} onOpenChange={setAddOpen} />
+      <MergeMemberDialog
+        groupId={id}
+        placeholder={mergeTarget}
+        members={membersData.members}
+        selfUserId={selfUserId}
+        photos={avatars?.userPhotos}
+        onOpenChange={(open) => !open && setMergeTarget(null)}
+      />
 
       <MemberNameDialog
         open={renameTarget !== null}

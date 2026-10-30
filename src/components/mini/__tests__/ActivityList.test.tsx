@@ -108,6 +108,26 @@ describe("ActivityList", () => {
     expect(container).toHaveTextContent("小明 重設了邀請碼");
   });
 
+  it("describes a claimed placeholder and how many records moved", () => {
+    const { container } = render(
+      <ActivityList
+        {...props}
+        entries={[
+          entry({
+            action: "member_claimed",
+            recordId: null,
+            recordType: "group",
+            groupEvent: { claimedName: "小明", claimedCount: 12 },
+          }),
+        ]}
+      />,
+    );
+
+    expect(container).toHaveTextContent("小明 認領了 小明");
+    expect(container).toHaveTextContent("12 筆紀錄改記在他名下");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
   it("names the chat a group was bound to", () => {
     const { container } = render(
       <ActivityList

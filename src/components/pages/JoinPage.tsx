@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -31,13 +31,18 @@ export function JoinPage({
   const code = raw === null ? null : normalizeInviteCode(raw);
 
   const { data, error, refetch } = useGetInvitePreviewQuery(code ?? "", { skip: !code });
+  // The placeholder the visitor says they are; null is "都不是".
+  const [claimId, setClaimId] = useState<number | null>(null);
   const [accept, { isLoading: joining, error: joinError }] = useAcceptInviteMutation();
   const redirecting = useLoginRedirect(error ?? joinError, platform.loginPath);
 
   async function join() {
     if (!code) return;
     try {
-      const { groupId } = await accept({ code }).unwrap();
+      const { groupId } = await accept({
+        code,
+        ...(claimId !== null ? { placeholderUserId: claimId } : {}),
+      }).unwrap();
       router.replace(`${platform.basePath}/groups/${groupId}`);
     } catch {
       // Shown below from the mutation's error.
@@ -75,6 +80,8 @@ export function JoinPage({
 
   if (!data) return <JoinSkeleton />;
 
+  const claimed = data.placeholders.find((p) => p.id === claimId);
+
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
       <Avatar name={data.title} userId={data.groupId} size="lg" />
@@ -90,8 +97,44 @@ export function JoinPage({
         </>
       ) : (
         <>
+          {data.placeholders.length > 0 && (
+            <fieldset className="mt-6 w-full max-w-xs rounded-2xl border bg-card p-4 text-left">
+              <legend className="sr-only">你是下面其中一位嗎？</legend>
+              <p className="text-sm font-semibold">你是下面其中一位嗎？</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                選了會把他的紀錄併到你的帳號，之後無法還原。
+              </p>
+              <div className="mt-3 flex flex-col gap-2">
+                {data.placeholders.map((p) => (
+                  <label
+                    key={p.id}
+                    className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+                  >
+                    <input
+                      type="radio"
+                      name="claim"
+                      checked={claimId === p.id}
+                      onChange={() => setClaimId(p.id)}
+                      disabled={joining}
+                    />
+                    {p.name}
+                  </label>
+                ))}
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                  <input
+                    type="radio"
+                    name="claim"
+                    checked={claimId === null}
+                    onChange={() => setClaimId(null)}
+                    disabled={joining}
+                  />
+                  都不是，我是新成員
+                </label>
+              </div>
+            </fieldset>
+          )}
           <Button className="mt-6 w-full max-w-xs" onClick={join} disabled={joining}>
-            {joining ? "加入中…" : "加入"}
+            {joining ? "加入中…" : claimed ? `加入並認領「${claimed.name}」` : "加入"}
           </Button>
           {joinError && (
             <p className="mt-2 text-sm text-destructive">{apiErrorText(joinError, INVALID)}</p>

@@ -18,7 +18,13 @@ afterEach(() => {
 });
 
 const CODE = "K7M2QX9PAB";
-const PREVIEW = { groupId: 9, title: "東京旅行", memberCount: 3, alreadyMember: false };
+const PREVIEW = {
+  groupId: 9,
+  title: "東京旅行",
+  memberCount: 3,
+  alreadyMember: false,
+  placeholders: [] as { id: number; name: string }[],
+};
 
 function renderJoin(routes: Parameters<typeof fakeRequest>[0], code = CODE) {
   // A thenable already marked fulfilled, so `use(params)` resolves without suspending.
@@ -45,6 +51,54 @@ describe("JoinPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "加入" }));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/app/groups/9"));
+  });
+
+  describe("claiming a name-only member", () => {
+    const withPlaceholders = {
+      ...PREVIEW,
+      placeholders: [
+        { id: 31, name: "小明" },
+        { id: 32, name: "阿華" },
+      ],
+    };
+
+    it("sends the chosen placeholder with the join", async () => {
+      const accept = vi.fn(() => ({ groupId: 9 }));
+      renderJoin({
+        [`/api/invites/${CODE}`]: withPlaceholders,
+        [`/api/invites/${CODE}/accept`]: accept,
+      });
+
+      fireEvent.click(await screen.findByRole("radio", { name: "小明" }));
+      fireEvent.click(screen.getByRole("button", { name: "加入並認領「小明」" }));
+
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/app/groups/9"));
+      expect(accept).toHaveBeenCalledWith(
+        expect.objectContaining({ body: JSON.stringify({ placeholderUserId: 31 }) }),
+      );
+    });
+
+    it("joins without a claim when 都不是 is left selected", async () => {
+      const accept = vi.fn(() => ({ groupId: 9 }));
+      renderJoin({
+        [`/api/invites/${CODE}`]: withPlaceholders,
+        [`/api/invites/${CODE}/accept`]: accept,
+      });
+
+      expect(await screen.findByRole("radio", { name: "都不是，我是新成員" })).toBeChecked();
+      fireEvent.click(screen.getByRole("button", { name: "加入" }));
+
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/app/groups/9"));
+      const init = accept.mock.calls[0] as unknown as [RequestInit | undefined];
+      expect(init[0]?.body ?? null).toBeNull();
+    });
+
+    it("shows no picker when nobody is waiting to be claimed", async () => {
+      renderJoin({ [`/api/invites/${CODE}`]: PREVIEW });
+
+      expect(await screen.findByRole("button", { name: "加入" })).toBeInTheDocument();
+      expect(screen.queryByText("你是下面其中一位嗎？")).not.toBeInTheDocument();
+    });
   });
 
   it("offers a link instead of a join button to someone already in the group", async () => {

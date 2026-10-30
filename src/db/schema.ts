@@ -367,7 +367,7 @@ export const recordAuditLog = pgTable(
     recordId: integer("record_id"),
     /** 'expense' | 'settlement' | 'group' */
     recordType: varchar("record_type", { length: 16 }).notNull(),
-    /** 'created' | 'updated' | 'deleted' | 'rate_locked' | 'member_joined' | 'invite_reset' | 'chat_linked' */
+    /** 'created' | 'updated' | 'deleted' | 'rate_locked' | 'member_joined' | 'invite_reset' | 'chat_linked' | 'member_claimed' */
     action: varchar("action", { length: 24 }).notNull(),
     actorId: integer("actor_id")
       .notNull()

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   changeHeading,
+  claimTouches,
   diffRecords,
+  isGroupEventPayload,
   isRateLockPayload,
   rateLockImpact,
   rateLockTouches,
@@ -349,5 +351,43 @@ describe("rate lock payloads", () => {
     expect(rateLockTouches(payload, 11)).toBe(true);
     expect(rateLockTouches(payload, 20)).toBe(true);
     expect(rateLockTouches(payload, 99)).toBe(false);
+  });
+});
+
+describe("changeHeading member_claimed", () => {
+  it("reads as the claimer taking the name", () => {
+    expect(
+      changeHeading(
+        { action: "member_claimed", recordType: "group", groupEvent: { claimedName: "小明" } },
+        true,
+      ),
+    ).toBe("認領了 小明");
+  });
+
+  it("names the target when someone else did the merge", () => {
+    expect(
+      changeHeading(
+        {
+          action: "member_claimed",
+          recordType: "group",
+          groupEvent: { claimedName: "小明", claimerName: "Amy" },
+        },
+        true,
+      ),
+    ).toBe("把 小明 合併到 Amy");
+  });
+
+  it("is recognised as a group event and a record's touch", () => {
+    const payload = {
+      kind: "memberClaimed" as const,
+      placeholderId: 3,
+      placeholderName: "小明",
+      claimerId: 4,
+      claimerName: "Chia",
+      recordIds: [7, 9],
+    };
+    expect(isGroupEventPayload(payload)).toBe(true);
+    expect(claimTouches(payload, 9)).toBe(true);
+    expect(claimTouches(payload, 8)).toBe(false);
   });
 });
