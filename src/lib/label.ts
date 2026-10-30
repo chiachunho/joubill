@@ -51,22 +51,36 @@ export function memberLabels<
   const counts = new Map<string, number>();
   for (const label of base.values()) counts.set(label, (counts.get(label) ?? 0) + 1);
 
+  // First tie-break: the provider's name. Two members can share that too (same chosen name,
+  // same provider name), so whatever still collides after it is numbered instead.
+  const tentative = new Map<number, string>();
+  for (const m of members) {
+    const label = base.get(m.id)!;
+    const chosen = m.displayName?.trim();
+    const provider = providerName(m);
+    tentative.set(
+      m.id,
+      counts.get(label)! >= 2 && chosen && provider && provider !== chosen
+        ? `${label}（${provider}）`
+        : label,
+    );
+  }
+  const tentativeCounts = new Map<string, number>();
+  for (const label of tentative.values()) {
+    tentativeCounts.set(label, (tentativeCounts.get(label) ?? 0) + 1);
+  }
+
   const out = new Map<number, string>();
   const seen = new Map<string, number>();
   for (const m of members) {
-    const label = base.get(m.id)!;
-    if (counts.get(label)! < 2) {
+    const label = tentative.get(m.id)!;
+    if (tentativeCounts.get(label)! < 2) {
       out.set(m.id, label);
       continue;
     }
-    const chosen = m.displayName?.trim();
-    const provider = providerName(m);
     const nth = (seen.get(label) ?? 0) + 1;
     seen.set(label, nth);
-    out.set(
-      m.id,
-      chosen && provider && provider !== chosen ? `${label}（${provider}）` : `${label} #${nth}`,
-    );
+    out.set(m.id, `${label} #${nth}`);
   }
   return out;
 }

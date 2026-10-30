@@ -44,4 +44,12 @@ describe("memberLabels", () => {
     expect(labels.get(1)).toBe("小明 #1");
     expect(labels.get(2)).toBe("小明 #2");
   });
+
+  it("numbers them when the provider names collide too", () => {
+    const labels = memberLabels([
+      { id: 1, displayName: "阿明", firstName: "小明", username: null },
+      { id: 2, displayName: "阿明", firstName: "小明", username: null },
+    ]);
+    expect(labels.get(1)).not.toBe(labels.get(2));
+  });
 });

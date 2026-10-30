@@ -30,7 +30,14 @@ describe("display name coverage", () => {
     const missing = walk("src").filter((file) => {
       if (ALLOWED.has(file)) return false;
       const text = readFileSync(file, "utf8");
-      return text.includes("users.firstName") && !text.includes("users.displayName");
+      if (text.includes("users.firstName") && !text.includes("users.displayName")) return true;
+      // An aliased join (`alias(users, "from_user")`) selects `fromUser.firstName`, which the
+      // plain check above can't see.
+      for (const [, name] of text.matchAll(/const (\w+) = alias\(users\b/g)) {
+        if (text.includes(`${name}.firstName`) && !text.includes(`${name}.displayName`))
+          return true;
+      }
+      return false;
     });
     expect(missing).toEqual([]);
   });

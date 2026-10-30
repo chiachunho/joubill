@@ -40,10 +40,12 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     .select({
       id: expenses.id,
       fromUserId: expensePayers.payerId,
+      fromDisplayName: fromUser.displayName,
       fromFirstName: fromUser.firstName,
       fromLastName: fromUser.lastName,
       fromUsername: fromUser.username,
       toUserId: expenseSplits.debtorId,
+      toDisplayName: toUser.displayName,
       toFirstName: toUser.firstName,
       toLastName: toUser.lastName,
       toUsername: toUser.username,
@@ -89,12 +91,14 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     settledAt: row.settledAt,
     from: {
       userId: row.fromUserId,
+      displayName: row.fromDisplayName,
       firstName: row.fromFirstName,
       lastName: row.fromLastName,
       username: row.fromUsername,
     },
     to: {
       userId: row.toUserId,
+      displayName: row.toDisplayName,
       firstName: row.toFirstName,
       lastName: row.toLastName,
       username: row.toUsername,

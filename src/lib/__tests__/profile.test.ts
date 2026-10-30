@@ -61,6 +61,16 @@ describe("normaliseDisplayName", () => {
   it("refuses control and text-direction characters", () => {
     expect(normaliseDisplayName("A\nB").ok).toBe(false);
     expect(normaliseDisplayName("A‮B").ok).toBe(false);
+    expect(normaliseDisplayName("A؜B").ok).toBe(false);
+  });
+
+  it("refuses a name made invisible by zero-width characters", () => {
+    expect(normaliseDisplayName("​").ok).toBe(false);
+    expect(normaliseDisplayName("﻿").ok).toBe(false);
+  });
+
+  it("trims a pasted trailing newline instead of refusing it", () => {
+    expect(normaliseDisplayName("Amy\n")).toEqual({ ok: true, value: "Amy" });
   });
 });
 

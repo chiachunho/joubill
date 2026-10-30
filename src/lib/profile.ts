@@ -42,9 +42,11 @@ export function graphemeLength(s: string): number {
   return segmenter ? [...segmenter.segment(s)].length : [...s].length;
 }
 
-// C0/C1 controls, plus the bidi overrides and isolates that would let a name reorder the text
-// around it in a chat message ("A 還 B" rendering as "B 還 A").
-const FORBIDDEN = /[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/;
+// C0/C1 controls, plus the bidi marks, overrides and isolates that would let a name reorder the
+// text around it in a chat message ("A 還 B" rendering as "B 還 A"), and the zero-width
+// characters that would make a name invisible. ZWJ / ZWNJ stay allowed: emoji and some scripts
+// need them.
+const FORBIDDEN = /[\u0000-\u001f\u007f-\u009f؜​‎‏‪-‮⁠⁦-⁩﻿]/;
 
 export type DisplayNameResult = { ok: true; value: string | null } | { ok: false; error: string };
 
@@ -55,8 +57,10 @@ export type DisplayNameResult = { ok: true; value: string | null } | { ok: false
  */
 export function normaliseDisplayName(raw: string | null): DisplayNameResult {
   if (raw === null || raw === "") return { ok: true, value: null };
-  if (FORBIDDEN.test(raw)) return { ok: false, error: "名稱不能包含控制字元" };
-  const value = raw.trim().replace(/\s+/g, " ");
+  // Checked after the trim, so a pasted trailing newline is trimmed rather than refused.
+  const trimmed = raw.trim();
+  if (FORBIDDEN.test(trimmed)) return { ok: false, error: "名稱不能包含控制字元" };
+  const value = trimmed.replace(/\s+/g, " ");
   if (!value) return { ok: false, error: "名稱不能只有空白" };
   if (graphemeLength(value) > DISPLAY_NAME_MAX) {
     return { ok: false, error: `名稱最多 ${DISPLAY_NAME_MAX} 個字` };

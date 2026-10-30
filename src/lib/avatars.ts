@@ -25,11 +25,15 @@ export function botApi(): Api {
   return api;
 }
 
+/** The proxy URL for a Telegram file. Throws when the bot API call fails. */
+async function fileUrlOrThrow(fileId: string): Promise<string | null> {
+  const file = await botApi().getFile(fileId);
+  return file.file_path ? `/api/tg-photo?path=${encodeURIComponent(file.file_path)}` : null;
+}
+
 export async function telegramFileUrl(fileId: string): Promise<string | null> {
   try {
-    const file = await botApi().getFile(fileId);
-    if (!file.file_path) return null;
-    return `/api/tg-photo?path=${encodeURIComponent(file.file_path)}`;
+    return await fileUrlOrThrow(fileId);
   } catch {
     return null;
   }
@@ -43,7 +47,7 @@ export async function telegramPhotoUrl(telegramId: number): Promise<string | nul
   try {
     const photos = await botApi().getUserProfilePhotos(telegramId, { limit: 1 });
     const fileId = photos.total_count ? photos.photos[0]?.[0]?.file_id : undefined;
-    url = fileId ? await telegramFileUrl(fileId) : null;
+    url = fileId ? await fileUrlOrThrow(fileId) : null;
   } catch {
     // A transient failure is not "no photo": don't cache it, so the next request retries.
     return null;
