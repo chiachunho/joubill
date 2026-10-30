@@ -18,6 +18,7 @@ import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DeleteRequestBanner } from "@/components/mini/DeleteRequestBanner";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
+import { SoloGroupCard } from "@/components/mini/SoloGroupCard";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
@@ -41,6 +42,7 @@ import {
   useGetBalanceQuery,
   useGetExpensesInfiniteQuery,
   useGetMeQuery,
+  useGetMembersQuery,
 } from "@/store/api";
 
 type Profile = {
@@ -92,6 +94,13 @@ export function GroupDetailPage({
   });
 
   const { data: balance, error: balanceError, refetch: refetchBalance } = useGetBalanceQuery(id);
+
+  // Balances only list people whose net is non-zero, so a group with several members and
+  // no balances is rare but possible; a lone member always has none. Only then is the
+  // roster worth a request. A failed read just means no card.
+  const { data: members } = useGetMembersQuery(id, {
+    skip: !balance || balance.balances.length > 0,
+  });
 
   const { data: avatars, error: avatarsError } = useGetAvatarsQuery(id);
   if (avatarsError) console.error("[avatars]", avatarsError);
@@ -207,6 +216,12 @@ export function GroupDetailPage({
   }
 
   const allSettled = balance.balances.length === 0;
+  const onlyMember =
+    allSettled &&
+    selfUserId !== undefined &&
+    !!members &&
+    members.members.every((m) => m.id === selfUserId);
+  // "All settled" says nothing for a group of one, and the card takes its place.
 
   return (
     <div className="space-y-6 py-4">
@@ -238,7 +253,9 @@ export function GroupDetailPage({
 
       <DeleteRequestBanner groupId={id} selfUserId={selfUserId} redirectPath={platform.basePath} />
 
-      {allSettled && (
+      {onlyMember && <SoloGroupCard groupId={id} basePath={platform.basePath} />}
+
+      {allSettled && !onlyMember && (
         <div className="mx-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-center">
           <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
             所有帳款已結清
@@ -418,7 +435,9 @@ export function GroupDetailPage({
                 ? hasMoreExpenses
                   ? "已載入的紀錄裡還沒有與你相關的支出"
                   : "沒有與你相關的支出"
-                : "尚無支出記錄"}
+                : onlyMember
+                  ? "先加入成員，再記第一筆支出"
+                  : "尚無支出記錄"}
             </p>
           </div>
         ) : (

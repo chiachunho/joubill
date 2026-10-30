@@ -19,6 +19,7 @@ import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
 import { InviteSection } from "@/components/mini/InviteSection";
+import { AddPlaceholderDialog } from "@/components/mini/AddPlaceholderDialog";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
@@ -34,7 +35,6 @@ import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
 import { labelMember, labelUser } from "@/lib/label";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 import {
-  useAddPlaceholderMemberMutation,
   useGetAvatarsQuery,
   useGetMeQuery,
   useGetMembersQuery,
@@ -66,7 +66,6 @@ export function GroupSettings({
   const { data: settings, error: settingsError } = useGetSettingsQuery(id);
   const { data: avatars } = useGetAvatarsQuery(id);
 
-  const [addPlaceholderMember] = useAddPlaceholderMemberMutation();
   const [renameMember] = useRenameMemberMutation();
   const [removeMember] = useRemoveMemberMutation();
   const [updateMemberStatus] = useUpdateMemberStatusMutation();
@@ -101,16 +100,9 @@ export function GroupSettings({
   }
 
   /** Resolves to an error message for the dialog, or null once saved. */
-  async function submitMemberName(
-    target: { userId: number } | null,
-    name: string,
-  ): Promise<string | null> {
+  async function submitRename(target: { userId: number }, name: string): Promise<string | null> {
     try {
-      if (target) {
-        await renameMember({ groupId: id, userId: target.userId, firstName: name }).unwrap();
-      } else {
-        await addPlaceholderMember({ groupId: id, firstName: name }).unwrap();
-      }
+      await renameMember({ groupId: id, userId: target.userId, firstName: name }).unwrap();
       return null;
     } catch (e) {
       return apiErrorText(e, "儲存失敗，請再試一次");
@@ -448,18 +440,7 @@ export function GroupSettings({
         redirectPath={platform.basePath}
       />
 
-      <MemberNameDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        title="新增成員"
-        description="沒有帳號的成員也能當付款人或分攤者。"
-        confirmLabel="新增"
-        onSubmit={async (name) => {
-          const err = await submitMemberName(null, name);
-          if (!err) setAddOpen(false);
-          return err;
-        }}
-      />
+      <AddPlaceholderDialog groupId={id} open={addOpen} onOpenChange={setAddOpen} />
 
       <MemberNameDialog
         open={renameTarget !== null}
@@ -471,7 +452,7 @@ export function GroupSettings({
         confirmLabel="儲存"
         onSubmit={async (name) => {
           if (!renameTarget) return null;
-          const err = await submitMemberName({ userId: renameTarget.id }, name);
+          const err = await submitRename({ userId: renameTarget.id }, name);
           if (!err) setRenameTarget(null);
           return err;
         }}
