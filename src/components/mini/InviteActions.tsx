@@ -5,6 +5,7 @@ import { Check, Copy, KeyRound, RefreshCw, Share2 } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { apiErrorText } from "@/lib/api-error";
+import { cn } from "@/lib/utils";
 import { formatInviteCode, inviteLink } from "@/lib/invite";
 import { useGetInviteQuery, useResetInviteMutation } from "@/store/api";
 
@@ -119,7 +120,10 @@ export function InviteActions({
             <button
               onClick={() => share(link)}
               disabled={!link}
-              className={`${miniLink ? "" : "col-span-2"}inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50`}
+              className={cn(
+                "inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50",
+                !miniLink && "col-span-2",
+              )}
             >
               <Share2 className="size-4" />
               分享網頁連結
