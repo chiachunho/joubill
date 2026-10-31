@@ -1,6 +1,7 @@
 import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import type { PushAction } from "@/lib/push-plan";
+import { openedFromPush } from "@/lib/pwa";
 import { diffRecords, type RecordSnapshot } from "@/lib/record-audit";
 import type { NoticeLeg, NoticePerson, NoticeRecord } from "@/lib/record-notice";
 
@@ -39,17 +40,24 @@ export function recordPushTag(recordId: number): string {
   return `r${recordId}`;
 }
 
-/** Where tapping a notification about a record opens. A deleted record has only its history. */
+/**
+ * Where tapping a notification about a record opens. A deleted record has only its history.
+ * Marked with `openedFromPush` so the iPhone home-screen app's launch redirect stays on it.
+ */
 export function recordPushUrl(
   action: PushAction,
   type: NoticeRecord["type"],
   groupId: number,
   recordId: number,
 ): string {
-  if (action === "deleted") return `/app/groups/${groupId}/activity?record=${recordId}`;
-  return type === "settlement"
-    ? `/app/groups/${groupId}/settlements/${recordId}`
-    : `/app/groups/${groupId}/expenses/${recordId}/edit`;
+  if (action === "deleted") {
+    return openedFromPush(`/app/groups/${groupId}/activity?record=${recordId}`);
+  }
+  return openedFromPush(
+    type === "settlement"
+      ? `/app/groups/${groupId}/settlements/${recordId}`
+      : `/app/groups/${groupId}/expenses/${recordId}/edit`,
+  );
 }
 
 function money(amount: number, currency: string): string {

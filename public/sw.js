@@ -8,7 +8,9 @@
  *
  * The payload is built by `src/lib/push-notice.ts`:
  *   { title, body, url, tag }
- * `tag` is per record, so three quick edits to one expense leave one notification.
+ * `tag` is per record, so three quick edits to one expense leave one notification. `url`
+ * already carries the "opened from a notification" mark (`openedFromPush`, src/lib/pwa.ts)
+ * that keeps the iPhone home-screen app's launch redirect on the record.
  * Served with `Cache-Control: no-cache` (next.config.mjs) so a fix reaches people on their
  * next visit.
  */
