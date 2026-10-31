@@ -7,16 +7,14 @@ import type { AvatarsResponse } from "@/lib/api-types";
 import { telegramChatId } from "@/lib/chat";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { AVATAR_COLUMNS, botApi, resolveAvatars, telegramFileUrl } from "@/lib/avatars";
+import { AVATAR_COLUMNS, botApi, resolveAvatars, telegramFileUrl, TtlCache } from "@/lib/avatars";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Only the group photo is cached here; members' pictures go through `resolveAvatars`, which
 // caches the Telegram lookups but chooses fresh each time, so a changed avatar source shows at once.
-type CacheEntry = { url: string | null; expires: number };
-const groupPhotoCache = new Map<number, CacheEntry>();
-const TTL = 4 * 60 * 60 * 1000;
+const groupPhotoCache = new TtlCache<number, string | null>(4 * 60 * 60 * 1000);
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -55,7 +53,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 async function loadGroupPhoto(groupId: number, chatId: number | null): Promise<string | null> {
   if (chatId === null) return null;
   const cached = groupPhotoCache.get(groupId);
-  if (cached && cached.expires > Date.now()) return cached.url;
+  if (cached !== undefined) return cached;
   let url: string | null = null;
   try {
     const chat = await botApi().getChat(chatId);
@@ -64,6 +62,6 @@ async function loadGroupPhoto(groupId: number, chatId: number | null): Promise<s
   } catch {
     return null; // group photo unavailable; retry next time
   }
-  groupPhotoCache.set(groupId, { url, expires: Date.now() + TTL });
+  groupPhotoCache.set(groupId, url);
   return url;
 }

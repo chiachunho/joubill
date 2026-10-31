@@ -7,7 +7,7 @@ import { users } from "@/db/schema";
 import type { ProfileResponse } from "@/lib/api-types";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { resolveAvatars } from "@/lib/avatars";
+import { loadAvatarInputs, resolveAvatar, type AvatarInputs } from "@/lib/avatars";
 import { isAvatarSource, normaliseDisplayName } from "@/lib/profile";
 
 export const runtime = "nodejs";
@@ -24,24 +24,29 @@ type ProfileUser = {
   avatarSource: string | null;
 };
 
-async function profileOf(user: ProfileUser): Promise<ProfileResponse> {
-  const avatar = (await resolveAvatars([user])).get(user.id);
+const NO_PICTURES: AvatarInputs = { telegramPhoto: null, identities: [], legacyAvatarUrl: null };
+
+/** The user's pictures don't depend on which one is chosen, so a PATCH loads them once. */
+async function avatarInputsOf(user: ProfileUser): Promise<AvatarInputs> {
+  return (await loadAvatarInputs([user])).get(user.id) ?? NO_PICTURES;
+}
+
+function profileOf(user: ProfileUser, inputs: AvatarInputs): ProfileResponse {
+  const avatar = resolveAvatar(inputs, user.avatarSource);
   return {
     displayName: user.displayName,
     firstName: user.firstName,
     lastName: user.lastName,
     username: user.username,
-    photoUrl: avatar?.photoUrl ?? null,
+    photoUrl: avatar.photoUrl,
     avatarSource: user.avatarSource,
-    avatarOptions: (avatar?.options ?? []).flatMap((o) =>
-      o.url ? [{ source: o.source, url: o.url }] : [],
-    ),
+    avatarOptions: avatar.options.flatMap((o) => (o.url ? [{ source: o.source, url: o.url }] : [])),
   };
 }
 
 export const GET = withAuth(async (req: Request) => {
   const auth = await getAuth(req);
-  return NextResponse.json(await profileOf(auth.user));
+  return NextResponse.json(profileOf(auth.user, await avatarInputsOf(auth.user)));
 });
 
 const patchSchema = z
@@ -57,6 +62,7 @@ export const PATCH = withAuth(async (req: Request) => {
   const body = patchSchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "格式錯誤" }, { status: 400 });
 
+  const inputs = await avatarInputsOf(auth.user);
   const set: Partial<Pick<ProfileUser, "displayName" | "avatarSource">> = {};
 
   if (body.data.displayName !== undefined) {
@@ -73,20 +79,19 @@ export const PATCH = withAuth(async (req: Request) => {
       if (!isAvatarSource(source)) {
         return NextResponse.json({ error: "未知的頭像來源" }, { status: 400 });
       }
-      const current = await profileOf(auth.user);
-      if (!current.avatarOptions.some((o) => o.source === source)) {
+      if (!profileOf(auth.user, inputs).avatarOptions.some((o) => o.source === source)) {
         return NextResponse.json({ error: "這個登入方式沒有可用的頭像" }, { status: 400 });
       }
     }
     set.avatarSource = source;
   }
 
-  if (Object.keys(set).length === 0) return NextResponse.json(await profileOf(auth.user));
+  if (Object.keys(set).length === 0) return NextResponse.json(profileOf(auth.user, inputs));
 
   const [updated] = await db
     .update(users)
     .set({ ...set, updatedAt: new Date() })
     .where(eq(users.id, auth.user.id))
     .returning();
-  return NextResponse.json(await profileOf(updated));
+  return NextResponse.json(profileOf(updated, inputs));
 });
