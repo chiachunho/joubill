@@ -38,9 +38,9 @@ export function JoinPage({
 
   async function join() {
     if (!code) return;
+    // Only claim a name the preview still lists; a stale pick would refuse the whole join.
+    const claim = data?.placeholders.some((p) => p.id === claimId) ? claimId : null;
     try {
-      // Only claim a name the preview still lists; a stale pick would refuse the whole join.
-      const claim = data?.placeholders.some((p) => p.id === claimId) ? claimId : null;
       const { groupId } = await accept({
         code,
         ...(claim !== null ? { placeholderUserId: claim } : {}),
@@ -49,6 +49,8 @@ export function JoinPage({
     } catch {
       // The error is shown below. Re-read the list: the name picked may have been claimed
       // or removed since this page loaded, and the preview is not otherwise invalidated.
+      // Drop the pick too, so the next tap is a deliberate choice rather than a silent plain join.
+      if (claim !== null) setClaimId(null);
       refetch();
     }
   }

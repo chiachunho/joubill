@@ -1,3 +1,7 @@
+import { and, eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/neon-serverless";
+
+import * as schema from "../src/db/schema";
 import { expect, test } from "./fixtures";
 
 test.describe("Members without an account", () => {
@@ -89,6 +93,7 @@ test.describe("Members without an account", () => {
   test("a settlement between the two merged people can be kept (delete-only) or removed", async ({
     authedPage,
     seeded,
+    dbPool,
   }) => {
     const mkPlaceholder = async (label: string) => {
       const res = await authedPage.request.post(
@@ -102,12 +107,13 @@ test.describe("Members without an account", () => {
         data: { fromUserId, toUserId, amount: 100, currency: "TWD" },
       });
       expect(res.ok()).toBe(true);
+      return ((await res.json()) as { id: number }).id;
     };
 
     const keepId = await mkPlaceholder("keep");
     const dropId = await mkPlaceholder("drop");
     await settle(keepId, seeded.userId);
-    await settle(dropId, seeded.userId);
+    const droppedId = await settle(dropId, seeded.userId);
 
     const keep = await authedPage.request.post(
       `/api/groups/${seeded.groupId}/members/${keepId}/merge`,
@@ -120,6 +126,18 @@ test.describe("Members without an account", () => {
       { data: { intoUserId: seeded.userId, selfSettlements: "delete" } },
     );
     expect(await drop.json()).toMatchObject({ ok: true, removed: 1 });
+
+    // The removal went through the ordinary delete path, so it is audited like any other.
+    const audit = await drizzle(dbPool, { schema })
+      .select({ action: schema.recordAuditLog.action })
+      .from(schema.recordAuditLog)
+      .where(
+        and(
+          eq(schema.recordAuditLog.groupId, seeded.groupId),
+          eq(schema.recordAuditLog.recordId, droppedId),
+        ),
+      );
+    expect(audit.map((r) => r.action)).toContain("deleted");
 
     // The kept one is a settlement from the viewer to themself: it can no longer be edited.
     const list = await authedPage.request.get(`/api/groups/${seeded.groupId}/expenses`);

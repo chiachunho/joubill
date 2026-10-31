@@ -1,30 +1,22 @@
-import { randomBytes } from "node:crypto";
-
 import { and, eq, isNull } from "drizzle-orm";
+import type { Pool } from "@neondatabase/serverless";
+import type { APIRequestContext, APIResponse } from "@playwright/test";
 import { drizzle } from "drizzle-orm/neon-serverless";
 
 import * as schema from "../src/db/schema";
-import { expect, setSessionCookie, test } from "./fixtures";
+import { CLAIM_UNAVAILABLE } from "../src/lib/invite";
+import { expect, test } from "./fixtures";
+import {
+  addExpense,
+  addSettlement,
+  balances,
+  legs,
+  mergedBalances,
+  mkPlaceholder,
+  signedInPage,
+} from "./helpers";
 
 const INVALID = "邀請碼無效或已失效";
-
-/** A browser context signed in as the seeded outsider, who is not in the seeded group. */
-async function outsiderPage(
-  browser: import("@playwright/test").Browser,
-  baseURL: string | undefined,
-  dbPool: import("@neondatabase/serverless").Pool,
-  outsiderId: number,
-) {
-  const token = randomBytes(24).toString("hex");
-  const db = drizzle(dbPool, { schema });
-  // Removed with the user by the fixture's teardown (sessions cascade).
-  await db
-    .insert(schema.sessions)
-    .values({ id: token, userId: outsiderId, expiresAt: new Date(Date.now() + 3_600_000) });
-  const context = await browser.newContext({ baseURL });
-  await setSessionCookie(context, baseURL, token);
-  return { context, page: await context.newPage() };
-}
 
 test.describe("Creating groups and joining by invite", () => {
   test("a user can create a web group from the home page", async ({ authedPage, dbPool }) => {
@@ -58,7 +50,7 @@ test.describe("Creating groups and joining by invite", () => {
     const first = await authedPage.request.post(`/api/groups/${seeded.groupId}/invite`);
     const { code: oldCode } = await first.json();
 
-    const { context, page } = await outsiderPage(browser, baseURL, dbPool, seeded.outsiderId);
+    const { context, page } = await signedInPage(browser, baseURL, dbPool, seeded.outsiderId);
     try {
       await page.goto(`/join/${oldCode}`);
       await expect(page.getByText(seeded.groupTitle, { exact: true })).toBeVisible();
@@ -96,7 +88,7 @@ test.describe("Creating groups and joining by invite", () => {
     const { code } = await res.json();
     const dashed = `${code.slice(0, 5)}-${code.slice(5)}`.toLowerCase();
 
-    const { context, page } = await outsiderPage(browser, baseURL, dbPool, seeded.outsiderId);
+    const { context, page } = await signedInPage(browser, baseURL, dbPool, seeded.outsiderId);
     try {
       await page.goto("/app/groups/join");
       await page.getByPlaceholder("K7M2Q-X9PAB").fill(dashed);
@@ -120,7 +112,7 @@ test.describe("Creating groups and joining by invite", () => {
       await authedPage.request.post(`/api/groups/${seeded.groupId}/invite`)
     ).json();
 
-    const { context, page } = await outsiderPage(browser, baseURL, dbPool, seeded.outsiderId);
+    const { context, page } = await signedInPage(browser, baseURL, dbPool, seeded.outsiderId);
     try {
       const accept = () => page.request.post(`/api/invites/${code}/accept`);
       await Promise.all([accept(), accept()]);
@@ -198,7 +190,7 @@ test.describe("Creating groups and joining by invite", () => {
     const { id } = await created.json();
     const { code } = await (await authedPage.request.get(`/api/groups/${id}/invite`)).json();
 
-    const { context, page } = await outsiderPage(browser, baseURL, dbPool, seeded.outsiderId);
+    const { context, page } = await signedInPage(browser, baseURL, dbPool, seeded.outsiderId);
     try {
       await page.goto(`/join/${code}`);
       await page.getByRole("button", { name: "加入" }).click();
@@ -220,4 +212,181 @@ test.describe("Creating groups and joining by invite", () => {
       await db.delete(schema.groups).where(eq(schema.groups.id, id));
     }
   });
+});
+
+async function auditActions(dbPool: Pool, groupId: number) {
+  const rows = await drizzle(dbPool, { schema })
+    .select({ action: schema.recordAuditLog.action })
+    .from(schema.recordAuditLog)
+    .where(eq(schema.recordAuditLog.groupId, groupId));
+  return rows.map((r) => r.action);
+}
+
+async function isMember(dbPool: Pool, groupId: number, userId: number) {
+  const rows = await drizzle(dbPool, { schema })
+    .select()
+    .from(schema.groupMembers)
+    .where(and(eq(schema.groupMembers.groupId, groupId), eq(schema.groupMembers.userId, userId)));
+  return rows.length > 0;
+}
+
+async function userExists(dbPool: Pool, userId: number) {
+  const rows = await drizzle(dbPool, { schema })
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.id, userId));
+  return rows.length > 0;
+}
+
+test.describe("Claiming a member without an account from the invite page", () => {
+  test("joining as that member moves their records to the new account", async ({
+    authedPage,
+    seeded,
+    dbPool,
+    browser,
+    baseURL,
+  }) => {
+    const name = `E2E ghost ${Date.now()}`;
+    const ghostId = await mkPlaceholder(authedPage.request, seeded.groupId, name);
+    const expenseId = await addExpense(authedPage.request, seeded.groupId, {
+      amount: 200,
+      shareType: "exact",
+      payers: [{ payerId: ghostId, amount: 200 }],
+      splits: [
+        { debtorId: seeded.userId, amount: 100 },
+        { debtorId: ghostId, amount: 100 },
+      ],
+    });
+    await addSettlement(authedPage.request, seeded.groupId, ghostId, seeded.userId, 50);
+    const before = await balances(authedPage.request, seeded.groupId);
+    const { code } = await (
+      await authedPage.request.post(`/api/groups/${seeded.groupId}/invite`)
+    ).json();
+
+    const { context, page } = await signedInPage(browser, baseURL, dbPool, seeded.outsiderId);
+    try {
+      await page.goto(`/join/${code}`);
+      await page.getByRole("radio", { name }).check();
+      await page.getByRole("button", { name: `加入並認領「${name}」` }).click();
+      await expect(page).toHaveURL(new RegExp(`/app/groups/${seeded.groupId}$`));
+
+      expect(await userExists(dbPool, ghostId)).toBe(false);
+      expect(await legs(dbPool, expenseId)).toEqual({
+        payers: [{ payerId: seeded.outsiderId, amount: 200 }],
+        splits: [
+          { debtorId: seeded.userId, amount: 100, shareType: "exact", splitValue: null },
+          { debtorId: seeded.outsiderId, amount: 100, shareType: "exact", splitValue: null },
+        ].sort((a, b) => a.debtorId - b.debtorId),
+      });
+      expect(await balances(authedPage.request, seeded.groupId)).toEqual(
+        mergedBalances(before, ghostId, seeded.outsiderId),
+      );
+
+      await page.goto(`/app/groups/${seeded.groupId}/settings`);
+      await expect(page.getByText("新增成員（不需帳號）")).toBeVisible();
+      await expect(page.getByText(name)).toHaveCount(0);
+
+      await page.goto(`/app/groups/${seeded.groupId}/activity`);
+      await expect(page.getByText(`認領了 ${name}`)).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("choosing 都不是 joins without touching the member", async ({
+    authedPage,
+    seeded,
+    dbPool,
+    browser,
+    baseURL,
+  }) => {
+    const name = `E2E ghost ${Date.now()}`;
+    const ghostId = await mkPlaceholder(authedPage.request, seeded.groupId, name);
+    const expenseId = await addExpense(authedPage.request, seeded.groupId, {
+      amount: 80,
+      shareType: "exact",
+      payers: [{ payerId: ghostId, amount: 80 }],
+      splits: [{ debtorId: seeded.userId, amount: 80 }],
+    });
+    const legsBefore = await legs(dbPool, expenseId);
+    const { code } = await (
+      await authedPage.request.post(`/api/groups/${seeded.groupId}/invite`)
+    ).json();
+
+    const { context, page } = await signedInPage(browser, baseURL, dbPool, seeded.outsiderId);
+    try {
+      await page.goto(`/join/${code}`);
+      await expect(page.getByRole("radio", { name })).toBeVisible();
+      await expect(page.getByRole("radio", { name: "都不是，我是新成員" })).toBeChecked();
+      await page.getByRole("button", { name: "加入", exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`/app/groups/${seeded.groupId}$`));
+
+      expect(await isMember(dbPool, seeded.groupId, ghostId)).toBe(true);
+      expect(await isMember(dbPool, seeded.groupId, seeded.outsiderId)).toBe(true);
+      expect(await legs(dbPool, expenseId)).toEqual(legsBefore);
+      const actions = await auditActions(dbPool, seeded.groupId);
+      expect(actions).toContain("member_joined");
+      expect(actions).not.toContain("member_claimed");
+    } finally {
+      await context.close();
+    }
+  });
+
+  // How the picked member disappears before the visitor taps 加入並認領. `other` is the member
+  // a merge folds them into.
+  type TakeAway = (
+    request: APIRequestContext,
+    groupId: number,
+    id: number,
+    other: number,
+  ) => Promise<APIResponse>;
+  const takeAways: [string, TakeAway][] = [
+    [
+      "merged into someone else",
+      (request, groupId, id, other) =>
+        request.post(`/api/groups/${groupId}/members/${id}/merge`, { data: { intoUserId: other } }),
+    ],
+    ["removed", (request, groupId, id) => request.delete(`/api/groups/${groupId}/members/${id}`)],
+  ];
+  for (const [how, takeAway] of takeAways) {
+    test(`a member ${how} after the page loaded refuses the whole join`, async ({
+      authedPage,
+      seeded,
+      dbPool,
+      browser,
+      baseURL,
+    }) => {
+      const name = `E2E ghost ${Date.now()}`;
+      const ghostId = await mkPlaceholder(authedPage.request, seeded.groupId, name);
+      const { code } = await (
+        await authedPage.request.post(`/api/groups/${seeded.groupId}/invite`)
+      ).json();
+
+      const { context, page } = await signedInPage(browser, baseURL, dbPool, seeded.outsiderId);
+      try {
+        await page.goto(`/join/${code}`);
+        await page.getByRole("radio", { name }).check();
+        // Someone else gets there first. No reload here: a refetched preview would drop the
+        // pick and this would pass as a plain join.
+        const gone = await takeAway(authedPage.request, seeded.groupId, ghostId, seeded.partnerId);
+        expect(gone.ok(), await gone.text()).toBe(true);
+
+        await page.getByRole("button", { name: `加入並認領「${name}」` }).click();
+        await expect(page.getByText(CLAIM_UNAVAILABLE)).toBeVisible();
+        await expect(page).toHaveURL(new RegExp(`/join/${code}$`));
+
+        // The join and the claim share one transaction: nothing of the join is left behind.
+        expect(await isMember(dbPool, seeded.groupId, seeded.outsiderId)).toBe(false);
+        expect(await auditActions(dbPool, seeded.groupId)).not.toContain("member_joined");
+
+        // The re-read list no longer offers the name, and a plain join still works.
+        await expect(page.getByRole("radio", { name })).toHaveCount(0);
+        await page.getByRole("button", { name: "加入", exact: true }).click();
+        await expect(page).toHaveURL(new RegExp(`/app/groups/${seeded.groupId}$`));
+        expect(await isMember(dbPool, seeded.groupId, seeded.outsiderId)).toBe(true);
+      } finally {
+        await context.close();
+      }
+    });
+  }
 });

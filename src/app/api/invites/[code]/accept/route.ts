@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { groupMembers, users } from "@/db/schema";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { INVITE_NOT_FOUND } from "@/lib/invite";
+import { CLAIM_UNAVAILABLE, INVITE_NOT_FOUND } from "@/lib/invite";
 import { findActiveInvite } from "@/lib/invites";
 import { labelUser } from "@/lib/label";
 import { getBot } from "@/bot";
@@ -46,11 +46,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   // member already active, gets no row back, and so doesn't log a second "joined".
   // A refused claim throws so the transaction rolls the join back with it.
   class ClaimRefused extends Error {
-    constructor(
-      readonly status: number,
-      message: string,
-    ) {
-      super(message);
+    constructor(readonly status: number) {
+      super("claim refused");
     }
   }
   let changed: { userId: number }[];
@@ -70,14 +67,16 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
       let claim: Extract<MergeResult, { ok: true }> | null = null;
       if (placeholderUserId !== undefined) {
         const merged = await mergeUserInto(tx, invite.groupId, placeholderUserId, auth.user.id);
-        if (!merged.ok) throw new ClaimRefused(merged.status, merged.error);
+        if (!merged.ok) throw new ClaimRefused(merged.status);
         claim = merged;
       }
       return { changed: rows, claim };
     }));
   } catch (err) {
     if (err instanceof ClaimRefused) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      // The only refusal a picker on the join page can reach is a name that has been merged or
+      // removed since the page loaded, so say that rather than echoing validateMerge's English.
+      return NextResponse.json({ error: CLAIM_UNAVAILABLE }, { status: err.status });
     }
     throw err;
   }
