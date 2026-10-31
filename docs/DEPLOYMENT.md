@@ -113,6 +113,28 @@ is not needed: LINE accounts are deliberately never matched by email.
 A person who signed in with Telegram and later uses Google or LINE gets a **new, empty
 account** unless they first link that method from 個人設定 → 登入方式 while signed in.
 
+### Optional (push notifications, issue #67)
+
+Without these the Web App still works and can be added to the home screen; it just never
+sends push, and 個人設定 hides the 通知 section.
+
+| Variable                       | Value                                                    |
+| ------------------------------ | -------------------------------------------------------- |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | VAPID public key (baked in at build time)                |
+| `VAPID_PRIVATE_KEY`            | VAPID private key                                        |
+| `VAPID_SUBJECT`                | `mailto:` address or https URL push services can contact |
+
+Generate the pair once and keep it: a new pair invalidates every existing subscription, so
+everyone would have to turn notifications on again.
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Set all three for **Production and Preview** (the E2E run reads `configured` from the API
+and checks the 503 path when they are missing). `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is baked at
+build time, so changing it needs a redeploy.
+
 Generate random strings with:
 
 ```bash

@@ -13,6 +13,7 @@ import {
   updateRecordNotice,
   type LoadedNotice,
 } from "@/lib/notify";
+import { queueRecordPush } from "@/lib/push";
 import {
   diffRecords,
   type AuditSource,
@@ -38,6 +39,11 @@ import {
  * `actor` is a required argument for the same reason — the compiler asks "who
  * did this?" at every call site, and there is no default that could quietly be
  * wrong.
+ *
+ * Push notifications (issue #67) hang off the same three calls, for the same
+ * reason: a nudge to the people a change touches must not depend on each mutation
+ * site remembering to send it. `queueRecordPush` runs after the response and
+ * swallows its own errors.
  *
  * Errors from the chat side are swallowed by `notify.ts`. Errors from the log
  * write are swallowed here: an audit row is worth a lot, but not worth failing
@@ -111,6 +117,15 @@ export async function logCreated(
       before: null,
       after: loaded.record,
     });
+    queueRecordPush({
+      action: "created",
+      groupId: loaded.groupId,
+      recordId,
+      before: null,
+      after: loaded.record,
+      creatorId: loaded.creator?.userId ?? null,
+      actor,
+    });
   }
 
   if (api) {
@@ -171,6 +186,15 @@ export async function logUpdated<T>(
       before: before.record,
       after: after.record,
     });
+    queueRecordPush({
+      action: "updated",
+      groupId: after.groupId,
+      recordId,
+      before: before.record,
+      after: after.record,
+      creatorId: after.creator?.userId ?? null,
+      actor,
+    });
   }
 
   if (api) await updateRecordNotice(api, recordId);
@@ -209,6 +233,15 @@ export async function logDeleted(
       actor,
       before: before.record,
       after: null,
+    });
+    queueRecordPush({
+      action: "deleted",
+      groupId: before.groupId,
+      recordId,
+      before: before.record,
+      after: null,
+      creatorId: before.creator?.userId ?? null,
+      actor,
     });
   }
 

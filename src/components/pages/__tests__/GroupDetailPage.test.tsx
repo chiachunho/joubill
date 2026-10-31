@@ -64,6 +64,9 @@ function fakePlatform(basePath: "/mini" | "/app"): Platform {
     linkIdentity: null,
     openInBrowser: null,
     inviteHint: () => `hint for ${basePath}`,
+    DeviceSettings: () => null,
+    GroupPrompt: () => null,
+    GroupNotificationSetting: () => null,
     AccountSection: () => null,
   };
 }

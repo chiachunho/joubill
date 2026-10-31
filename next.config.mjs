@@ -20,6 +20,19 @@ const nextConfig = {
     NEXT_PUBLIC_APP_VERSION: appVersion,
   },
   pageExtensions: ["js", "jsx", "ts", "tsx", "md", "mdx"],
+  // The service worker must be revalidated on every visit, or a fix to it waits for the
+  // browser's own 24h check (public/sw.js).
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+        ],
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",

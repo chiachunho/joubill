@@ -260,3 +260,18 @@ export type MergePreviewResponse = {
 
 /** POST /api/invites/[code]/accept */
 export type AcceptInviteResponse = { groupId: number };
+
+/** GET /api/me/push-subscriptions */
+export type PushSubscriptionsResponse = {
+  /** False when the server has no VAPID keys: the 通知 section is hidden. */
+  configured: boolean;
+  /** How many of the caller's devices receive push. */
+  count: number;
+};
+
+/** GET /api/groups/[id]/notifications */
+export type GroupNotificationsResponse = {
+  muted: boolean;
+  /** The group has a Telegram chat, whose messages already tell its members what changed. */
+  telegramLinked: boolean;
+};

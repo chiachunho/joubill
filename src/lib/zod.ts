@@ -276,3 +276,39 @@ export const groupCreateSchema = z.object({
 });
 
 export type GroupCreateInput = z.infer<typeof groupCreateSchema>;
+
+/**
+ * The push services browsers hand out endpoints on. The server POSTs to whatever endpoint a
+ * client registers, so anything else is refused rather than letting a request be aimed at
+ * an arbitrary host (or an internal one). A browser that adds a new service needs a line here.
+ */
+const PUSH_SERVICE_HOSTS = [
+  /^fcm\.googleapis\.com$/, // Chrome, Edge on Android, Samsung Internet
+  /^android\.googleapis\.com$/,
+  /^updates\.push\.services\.mozilla\.com$/, // Firefox
+  /^web\.push\.apple\.com$/, // Safari, home-screen apps on iOS
+  /\.push\.apple\.com$/,
+  /\.notify\.windows\.com$/, // Edge on Windows
+];
+
+export function isPushServiceUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return url.protocol === "https:" && PUSH_SERVICE_HOSTS.some((re) => re.test(url.hostname));
+}
+
+/** A browser push subscription (`PushSubscription.toJSON()`). */
+export const pushEndpointSchema = z.object({
+  endpoint: z.string().max(2048).refine(isPushServiceUrl, "unknown push service"),
+});
+
+export const pushSubscriptionSchema = pushEndpointSchema.extend({
+  keys: z.object({
+    p256dh: z.string().min(1).max(256),
+    auth: z.string().min(1).max(64),
+  }),
+});

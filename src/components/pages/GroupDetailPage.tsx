@@ -229,6 +229,9 @@ export function GroupDetailPage({
     // Inactive members are still members (they can be switched back on in 群組設定), so
     // a group whose only others are inactive is not "alone".
     members.members.every((m) => m.id === selfUserId);
+  const hasOtherMembers =
+    !allSettled ||
+    (!membersFetching && !!members && members.members.some((m) => m.id !== selfUserId));
   // Until the roster is current we can't tell the two apart; show neither rather than flash
   // the banner and swap it for the card.
   const showSettled = allSettled && !onlyMember && !membersFetching;
@@ -262,6 +265,9 @@ export function GroupDetailPage({
       </div>
 
       <DeleteRequestBanner groupId={id} selfUserId={selfUserId} redirectPath={platform.basePath} />
+
+      {/* Nobody else can record anything in a group of one, so it asks nothing there. */}
+      {hasOtherMembers && <platform.GroupPrompt />}
 
       {onlyMember && (
         <SoloGroupCard groupId={id} basePath={platform.basePath} inviteHint={platform.inviteHint} />

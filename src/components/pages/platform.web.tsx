@@ -6,10 +6,14 @@ import { signIn } from "next-auth/react";
 import { ChevronLeft, LogOut, UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
+import { DeviceSettings } from "@/components/pwa/DeviceSettings";
+import { GroupNotificationSetting } from "@/components/pwa/GroupNotificationSetting";
+import { OnboardingPromptCard } from "@/components/pwa/OnboardingPromptCard";
 import { WEB_LOGIN_PATH } from "@/lib/auth-redirect";
 import { HELP_PATH } from "@/lib/help-url";
 import type { LoginProvider } from "@/lib/identities";
 import { rememberLinking } from "@/lib/linking-attempt";
+import { useForgetPushDevice } from "@/lib/use-push-device";
 import { webRawFetch } from "@/lib/web-fetch";
 
 function useNoSelfPhoto(): string | null {
@@ -66,10 +70,13 @@ function WebHelpAction({ className, children }: { className: string; children: R
 
 function WebAccountSection() {
   const [loggingOut, setLoggingOut] = useState(false);
+  const forgetPushDevice = useForgetPushDevice();
 
   async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
+    // While the session still exists: this device stops showing the account's records.
+    await forgetPushDevice();
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     } catch {
@@ -118,5 +125,8 @@ export const webPlatform: Platform = {
   inviteHint: () => "對方也可以在「我的群組」按「輸入邀請碼」，貼上邀請碼。",
   linkIdentity,
   openInBrowser: null,
+  DeviceSettings,
+  GroupPrompt: OnboardingPromptCard,
+  GroupNotificationSetting,
   AccountSection: WebAccountSection,
 };

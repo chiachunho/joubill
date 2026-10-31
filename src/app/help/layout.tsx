@@ -16,6 +16,7 @@ const sections = [
   { slug: "group-management", label: "群組與成員" },
   { slug: "stats", label: "統計" },
   { slug: "web-app", label: "網頁版" },
+  { slug: "add-to-home-screen", label: "加到主畫面與通知" },
   { slug: "invite-members", label: "網頁建群組與邀請碼" },
   { slug: "troubleshooting", label: "常見問題" },
 ];
