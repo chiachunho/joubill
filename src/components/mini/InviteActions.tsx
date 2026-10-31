@@ -110,7 +110,12 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: string
   }
 
   const copyButton = (kind: CopyKind, text: string, label: string, surface = ON_DIALOG) => (
-    <button onClick={() => copy(kind, text)} aria-label={label} className={cn(ACTION, surface)}>
+    <button
+      onClick={() => copy(kind, text)}
+      // The visible 已複製 is the only feedback, so the accessible name says it too.
+      aria-label={copied === kind ? "已複製" : label}
+      className={cn(ACTION, surface)}
+    >
       {copied === kind ? <Check className="size-4" /> : <Copy className="size-4" />}
       {copied === kind ? "已複製" : "複製"}
     </button>
@@ -119,30 +124,33 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: string
   // One row per kind of link: copy and share side by side, or copy alone across the row.
   // The row's title names the link, so the buttons say only 複製 / 分享 and never wrap;
   // their accessible names stay the full 複製網頁連結 / 分享 Telegram 連結.
-  const linkRow = (kind: "link" | "mini", url: string, title: string, note: string) => {
-    const named = (verb: string) => (/^[A-Za-z]/.test(title) ? `${verb} ${title}` : verb + title);
-    return (
-      <div role="group" aria-label={title}>
-        <p className="mb-1.5 flex items-baseline gap-2 px-0.5">
-          <span className="text-[13px] font-semibold">{title}</span>
-          <span className="truncate text-[11px] text-muted-foreground">{note}</span>
-        </p>
-        <div className={cn("grid gap-2", canShare ? "grid-cols-2" : "grid-cols-1")}>
-          {copyButton(kind, url, named("複製"))}
-          {canShare && (
-            <button
-              onClick={() => share(url)}
-              aria-label={named("分享")}
-              className={cn(ACTION, ON_DIALOG)}
-            >
-              <Share2 className="size-4" />
-              分享
-            </button>
-          )}
-        </div>
+  const linkRow = (
+    kind: "link" | "mini",
+    url: string,
+    title: string,
+    note: string,
+    names: { copy: string; share: string },
+  ) => (
+    <div role="group" aria-label={title}>
+      <p className="mb-1.5 flex items-baseline gap-2 px-0.5">
+        <span className="text-sm font-semibold">{title}</span>
+        <span className="truncate text-xs text-muted-foreground">{note}</span>
+      </p>
+      <div className={cn("grid gap-2", canShare ? "grid-cols-2" : "grid-cols-1")}>
+        {copyButton(kind, url, names.copy)}
+        {canShare && (
+          <button
+            onClick={() => share(url)}
+            aria-label={names.share}
+            className={cn(ACTION, ON_DIALOG)}
+          >
+            <Share2 className="size-4" />
+            分享
+          </button>
+        )}
       </div>
-    );
-  };
+    </div>
+  );
 
   return (
     <>
@@ -156,8 +164,16 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: string
             {copyButton("code", formatInviteCode(code), "複製邀請碼", ON_PANEL)}
           </div>
         </div>
-        {link && linkRow("link", link, "網頁連結", "用瀏覽器開啟，可用任何方式登入")}
-        {miniLink && linkRow("mini", miniLink, "Telegram 連結", "在 Telegram 點開直接進 Mini App")}
+        {link &&
+          linkRow("link", link, "網頁連結", "用瀏覽器開啟，可用任何方式登入", {
+            copy: "複製網頁連結",
+            share: "分享網頁連結",
+          })}
+        {miniLink &&
+          linkRow("mini", miniLink, "Telegram 連結", "在 Telegram 點開直接進 Mini App", {
+            copy: "複製 Telegram 連結",
+            share: "分享 Telegram 連結",
+          })}
       </div>
 
       <p
@@ -172,7 +188,7 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: string
       <button
         onClick={() => setConfirmReset(true)}
         disabled={resetting}
-        className="mt-3.5 flex w-full items-center gap-2 border-t border-border/60 pt-3 text-left text-[13px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+        className="mt-3.5 flex w-full items-center gap-2 border-t border-border/60 pt-3 text-left text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
       >
         <RefreshCw className="size-3.5" />
         重設邀請碼
