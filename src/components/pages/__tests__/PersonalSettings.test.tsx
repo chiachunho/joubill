@@ -8,6 +8,8 @@ import { miniPlatform } from "@/components/pages/platform.mini";
 import { webPlatform } from "@/components/pages/platform.web";
 import type { ProfileResponse } from "@/lib/api-types";
 import { HELP_PATH } from "@/lib/help-url";
+import type { LoginProvider } from "@/lib/identities";
+import { rememberLinking } from "@/lib/linking-attempt";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 afterEach(() => {
@@ -192,6 +194,67 @@ describe("PersonalSettings", () => {
         enabled: ["telegram", "google"],
       });
       expect(await screen.findByRole("button", { name: /解除連結/ })).toBeInTheDocument();
+    });
+
+    describe("a link that came back unfinished (issue #105)", () => {
+      afterEach(() => {
+        window.history.replaceState(null, "", "/");
+        sessionStorage.clear();
+      });
+
+      function returnFromLink(code: string, provider?: LoginProvider) {
+        window.history.replaceState(null, "", `/app/settings?linkError=${code}`);
+        if (provider) rememberLinking(provider);
+      }
+
+      it("names the provider, offers a retry and drops the parameter", async () => {
+        returnFromLink("OAuthCallbackError", "line");
+        const linkIdentity = vi.fn();
+        renderSettings(withLink(linkIdentity));
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "沒有連結 LINE：授權沒有完成，可能是在 LINE 的頁面取消了。",
+        );
+        expect(window.location.search).toBe("");
+        fireEvent.click(screen.getByRole("button", { name: "再試一次" }));
+        expect(linkIdentity).toHaveBeenCalledWith("line");
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      });
+
+      it("still explains the failure when the provider is unknown, without a retry", async () => {
+        returnFromLink("AccessDenied");
+        renderSettings(withLink(vi.fn()));
+        expect(await screen.findByRole("alert")).toHaveTextContent("連結失敗，請再試一次。");
+        expect(screen.queryByRole("button", { name: "再試一次" })).not.toBeInTheDocument();
+      });
+
+      it("closes", async () => {
+        returnFromLink("OAuthCallbackError", "google");
+        renderSettings(withLink(vi.fn()));
+        fireEvent.click(await screen.findByRole("button", { name: "關閉" }));
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      });
+
+      it("hides the retry for Google inside an in-app browser, which Google refuses", async () => {
+        vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 Mobile Safari Line/14.0.0" });
+        returnFromLink("OAuthCallbackError", "google");
+        renderSettings(withLink(vi.fn()));
+        expect(await screen.findByRole("alert")).toHaveTextContent("沒有連結 Google");
+        expect(screen.queryByRole("button", { name: "再試一次" })).not.toBeInTheDocument();
+      });
+
+      it("shows nothing without the parameter, and forgets the remembered attempt", async () => {
+        rememberLinking("line");
+        renderSettings(withLink(vi.fn()));
+        await screen.findByRole("button", { name: /連結 LINE/ });
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        cleanup();
+        // A later error that started elsewhere must not be blamed on that attempt.
+        returnFromLink("OAuthCallbackError");
+        renderSettings(withLink(vi.fn()));
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "沒有連結：授權沒有完成，可能是在授權頁取消了。",
+        );
+      });
     });
 
     it("only lists the methods in the Mini App, which cannot run OAuth", async () => {

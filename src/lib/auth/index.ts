@@ -1,4 +1,5 @@
 import { and, eq, gt, inArray } from "drizzle-orm";
+import { cookies } from "next/headers";
 
 import { db } from "@/db";
 import { groupMembers, groups, sessions, users } from "@/db/schema";
@@ -42,6 +43,15 @@ export async function resolveSessionByToken(token: string): Promise<User | null>
   if (!row) return null;
   const [user] = await db.select().from(users).where(eq(users.id, row.userId));
   return user ?? null;
+}
+
+/**
+ * The signed-in user of the current request, read from `cookies()` (Server Components and
+ * Auth.js callbacks, which have no `Request` in hand). Null without a live session.
+ */
+export async function resolveSessionFromCookies(): Promise<User | null> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  return token ? resolveSessionByToken(token) : null;
 }
 
 /**

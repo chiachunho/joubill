@@ -1,19 +1,36 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { SessionProvider } from "next-auth/react";
 
 import { githubEnabled, googleEnabled, lineEnabled } from "@/auth";
 import { Logo } from "@/components/Logo";
 import { OAuthButtons } from "@/components/OAuthButtons";
 import { isInAppBrowser } from "@/lib/in-app-browser";
-import { loginErrorMessage } from "@/lib/identities";
+import { resolveSessionFromCookies } from "@/lib/auth";
+import { CALLBACK_URL_COOKIE, loginCallbackUrl } from "@/lib/auth-redirect";
+import { authErrorRedirect, loginErrorMessage } from "@/lib/identities";
 
-type Props = { searchParams: Promise<{ next?: string; error?: string }> };
+type Props = { searchParams: Promise<{ next?: string | string[]; error?: string | string[] }> };
 
 export default async function LoginPage({ searchParams }: Props) {
-  const { next, error } = await searchParams;
+  // A repeated parameter (`?next=a&next=b`) arrives as an array; read only a single value.
+  const params = await searchParams;
+  const next = typeof params.next === "string" ? params.next : undefined;
+  const error = typeof params.error === "string" ? params.error : undefined;
+  // Auth.js sends every failed OAuth callback here, a link from the settings page included.
+  // Someone still signed in belongs back on that page, not in front of the login buttons.
+  if (error) {
+    const signedIn = (await resolveSessionFromCookies()) !== null;
+    const target = authErrorRedirect(error, signedIn);
+    if (target) redirect(target);
+  }
   const errorMessage = loginErrorMessage(error);
   const inAppBrowser = isInAppBrowser((await headers()).get("user-agent"));
-  const callbackUrl = next && next.startsWith("/") && !next.startsWith("//") ? next : "/app";
+  const callbackUrl = loginCallbackUrl(
+    next,
+    error,
+    (await cookies()).get(CALLBACK_URL_COOKIE)?.value,
+  );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">

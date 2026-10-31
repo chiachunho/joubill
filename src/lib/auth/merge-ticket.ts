@@ -9,7 +9,7 @@ import {
   MERGE_TICKET_TTL_SECONDS,
 } from "@/lib/account-merge";
 import { createMergeTicket } from "@/lib/account-merge-db";
-import { resolveSessionByToken, SESSION_COOKIE } from "@/lib/auth";
+import { resolveSessionFromCookies } from "@/lib/auth";
 
 /** The page that confirms a merge. The ticket itself travels only in the cookie. */
 export const MERGE_PAGE = "/app/settings/merge";
@@ -53,17 +53,14 @@ export async function mergeRedirect(
   provider: string,
   providerAccountId: string,
 ): Promise<string | null> {
-  const jar = await cookies();
-  const token = jar.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-  const current = await resolveSessionByToken(token);
+  const current = await resolveSessionFromCookies();
   if (!current) return null;
 
   const owner = await identityOwner(provider, providerAccountId);
   if (owner === null || owner === current.id) return null;
 
   const ticket = await createMergeTicket(current.id, owner, provider);
-  jar.set(MERGE_TICKET_COOKIE, ticket, {
+  (await cookies()).set(MERGE_TICKET_COOKIE, ticket, {
     httpOnly: true,
     sameSite: "lax",
     path: MERGE_TICKET_PATH,

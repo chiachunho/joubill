@@ -63,3 +63,54 @@ test.describe("Login methods", () => {
     expect(res.status()).toBe(409);
   });
 });
+
+// Auth.js sends every failed OAuth callback to /login?error=, including a link started from the
+// settings page. A signed-in person goes back to that page instead (issue #105).
+test.describe("A login method that did not link", () => {
+  test("sends a signed-in visitor from the login page back to settings", async ({ authedPage }) => {
+    await authedPage.goto("/login?error=OAuthCallbackError");
+    await expect(authedPage).toHaveURL(/\/app\/settings$/);
+    await expect(
+      authedPage.getByText("沒有連結：授權沒有完成，可能是在授權頁取消了。"),
+    ).toBeVisible();
+  });
+
+  test("does not show the message again after a reload", async ({ authedPage }) => {
+    await authedPage.goto("/app/settings?linkError=AccessDenied");
+    // Matched by text: Next.js's route announcer is a role="alert" too.
+    await expect(authedPage.getByText("連結失敗，請再試一次。")).toBeVisible();
+    await expect(authedPage).toHaveURL(/\/app\/settings$/);
+    await authedPage.reload();
+    await expect(authedPage.getByText("登入方式", { exact: true })).toBeVisible();
+    await expect(authedPage.getByText("連結失敗，請再試一次。")).toHaveCount(0);
+  });
+
+  test("keeps a signed-out visitor on the login page", async ({ page }) => {
+    await page.goto("/login?error=OAuthCallbackError");
+    await expect(page).toHaveURL(/\/login\?error=OAuthCallbackError/);
+    await expect(page.getByText("登入失敗，請再試一次。")).toBeVisible();
+  });
+});
+
+// Auth.js's error redirect drops ?next=, so /login reads back where the failed attempt was
+// headed from the callback-url cookie that attempt left behind.
+test.describe("Retrying a sign-in that did not complete", () => {
+  test("returns to the page the failed attempt was headed for", async ({ page, baseURL }) => {
+    await page
+      .context()
+      .addCookies([
+        { name: "authjs.callback-url", value: `${baseURL}/join/K7M2QX9PAB`, url: baseURL! },
+      ]);
+    await page.goto("/login?error=OAuthCallbackError");
+
+    // Catch the sign-in request instead of leaving for Telegram, and read where it would return.
+    const posted = new Promise<string>((resolve) => {
+      void page.route("**/api/auth/signin/telegram**", async (route) => {
+        resolve(new URLSearchParams(route.request().postData() ?? "").get("callbackUrl") ?? "");
+        await route.abort();
+      });
+    });
+    await page.getByRole("button", { name: "使用 Telegram 登入" }).click();
+    expect(await posted).toBe("/join/K7M2QX9PAB");
+  });
+});
