@@ -55,6 +55,30 @@ export function homeScreenOffer(env: PwaEnv, hasInstallPrompt: boolean): HomeScr
   return "none";
 }
 
+/**
+ * Marks a URL the service worker opens from a notification tap (`public/sw.js`), so the
+ * launch redirect below leaves it on the record it was opened for.
+ */
+export const OPENED_FROM_PUSH_PARAM = "via";
+export const OPENED_FROM_PUSH_VALUE = "push";
+
+/**
+ * Where a freshly launched iPhone home-screen app should go instead of the URL it was opened
+ * at, or null to stay. iOS saves the page that was on screen as the shortcut, ignoring the
+ * manifest's `start_url`, so adding it from a group page would make every launch open that
+ * group. The shortcut always starts at 我的群組 (`/app`) instead.
+ *
+ * Only Web App pages under `/app/` are redirected: `/join/<code>`, `/login` and the help site
+ * are where a link meant to send someone, and a notification tap carries
+ * `OPENED_FROM_PUSH_PARAM` because it is opened for one record.
+ */
+export function homeScreenLaunchRedirect(pathname: string, search: string): string | null {
+  if (!pathname.startsWith("/app/")) return null;
+  const params = new URLSearchParams(search);
+  if (params.get(OPENED_FROM_PUSH_PARAM) === OPENED_FROM_PUSH_VALUE) return null;
+  return "/app";
+}
+
 export function isIOS(userAgent: string, maxTouchPoints: number): boolean {
   if (/\b(iPhone|iPad|iPod)\b/.test(userAgent)) return true;
   // iPadOS 13+ asks for the desktop site and reports itself as a Mac; only the touch screen

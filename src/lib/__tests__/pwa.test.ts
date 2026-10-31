@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { homeScreenOffer, isIOS, pushSupport, type PwaEnv } from "@/lib/pwa";
+import {
+  homeScreenLaunchRedirect,
+  homeScreenOffer,
+  isIOS,
+  pushSupport,
+  type PwaEnv,
+} from "@/lib/pwa";
 
 const BASE: PwaEnv = {
   standalone: false,
@@ -85,5 +91,26 @@ describe("isIOS", () => {
     expect(
       isIOS("Mozilla/5.0 (Linux; Android 15; Pixel 8) Chrome/141.0 Mobile Safari/537.36", 5),
     ).toBe(false);
+  });
+});
+
+describe("homeScreenLaunchRedirect", () => {
+  it("opens 我的群組 when the shortcut was saved on a group page", () => {
+    expect(homeScreenLaunchRedirect("/app/groups/12", "")).toBe("/app");
+    expect(homeScreenLaunchRedirect("/app/groups/12/settings", "?x=1")).toBe("/app");
+  });
+
+  it("stays on 我的群組 itself", () => {
+    expect(homeScreenLaunchRedirect("/app", "")).toBeNull();
+  });
+
+  it("stays on the record a notification tap opened", () => {
+    expect(homeScreenLaunchRedirect("/app/groups/12/expenses/99/edit", "?via=push")).toBeNull();
+  });
+
+  it("leaves invites, login and the help site where a link sent them", () => {
+    expect(homeScreenLaunchRedirect("/join/K7M2QX9PAB", "")).toBeNull();
+    expect(homeScreenLaunchRedirect("/login", "?next=/app")).toBeNull();
+    expect(homeScreenLaunchRedirect("/help/add-to-home-screen", "")).toBeNull();
   });
 });

@@ -49,6 +49,9 @@ self.addEventListener("notificationclick", (event) => {
   );
   // Only ever open this site: a payload can't send someone elsewhere.
   if (target.origin !== self.location.origin) return;
+  // Tells the home-screen app's launch redirect to stay on this record instead of going to
+  // 我的群組 (OPENED_FROM_PUSH_PARAM in src/lib/pwa.ts).
+  target.searchParams.set("via", "push");
 
   event.waitUntil(
     (async () => {
