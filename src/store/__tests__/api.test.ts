@@ -386,4 +386,27 @@ describe("invites and new groups", () => {
     const result = api.endpoints.getInvite.select(9)(store.getState());
     expect(result.data).toEqual({ code: "CCCCCDDDDD" });
   });
+
+  it("shows the code the reset answered with, even when the refetch after it fails", async () => {
+    let reset = false;
+    const request = fakeRequest({
+      "/api/groups/9/invite": (init) => {
+        if (init?.method === "POST") {
+          reset = true;
+          return { code: "CCCCCDDDDD", miniLink: null };
+        }
+        return reset ? new Failure(500) : { code: "AAAAABBBBB", miniLink: null };
+      },
+    });
+    const store = makeStore(request);
+    store.dispatch(api.endpoints.getInvite.initiate(9));
+    await settle();
+
+    await store.dispatch(api.endpoints.resetInvite.initiate({ groupId: 9 }));
+    await settle();
+
+    // The revoked AAAAA-BBBBB must not come back, nor stay up because the refetch failed.
+    const result = api.endpoints.getInvite.select(9)(store.getState());
+    expect(result.data).toEqual({ code: "CCCCCDDDDD", miniLink: null });
+  });
 });

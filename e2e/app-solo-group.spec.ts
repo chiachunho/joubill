@@ -6,6 +6,8 @@ import type { Page } from "@playwright/test";
 
 import * as schema from "../src/db/schema";
 import { expect, setSessionCookie, test } from "./fixtures";
+import { openAddMember } from "./helpers";
+import { formatInviteCode } from "../src/lib/invite";
 
 const CARD = "還沒有其他成員";
 
@@ -30,9 +32,10 @@ test.describe("A group with only its creator", () => {
       await authedPage.goto(`/app/groups/${groupId}`);
       await expect(authedPage.getByText(CARD)).toBeVisible();
       await expect(authedPage.getByText("所有帳款已結清")).toHaveCount(0);
-      await expect(authedPage.getByRole("button", { name: "複製邀請碼" })).toBeVisible();
+      // The invite panel is behind 新增成員 now, not on the card itself.
+      await expect(authedPage.getByRole("button", { name: "複製邀請碼" })).toHaveCount(0);
 
-      await authedPage.getByRole("button", { name: "新增沒有帳號的成員" }).click();
+      await openAddMember(authedPage, "新增沒有帳號的成員");
       await authedPage.getByLabel("名字").fill("E2E ghost");
       await authedPage.getByRole("button", { name: "新增", exact: true }).click();
 
@@ -76,6 +79,31 @@ test.describe("A group with only its creator", () => {
       await authedPage.reload();
       await expect(authedPage.getByText("所有帳款已結清")).toBeVisible();
       await expect(authedPage.getByText(CARD)).toHaveCount(0);
+    } finally {
+      await db.delete(schema.groups).where(eq(schema.groups.id, groupId));
+    }
+  });
+
+  test("the card's 新增成員 leads to the invite code, which copies", async ({
+    authedPage,
+    dbPool,
+  }) => {
+    const db = drizzle(dbPool, { schema });
+    const groupId = await createSoloGroup(authedPage);
+    try {
+      await authedPage.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+      const { code } = await (await authedPage.request.get(`/api/groups/${groupId}/invite`)).json();
+      const shown = formatInviteCode(code);
+
+      await authedPage.goto(`/app/groups/${groupId}`);
+      await openAddMember(authedPage, "用邀請碼邀請");
+      await expect(authedPage.getByText(shown)).toBeVisible();
+      await expect(authedPage.getByRole("button", { name: "複製網頁連結" })).toBeVisible();
+      await expect(authedPage.getByRole("button", { name: "重設邀請碼" })).toBeVisible();
+
+      await authedPage.getByRole("button", { name: "複製邀請碼" }).click();
+      await expect(authedPage.getByText("已複製")).toBeVisible();
+      expect(await authedPage.evaluate(() => navigator.clipboard.readText())).toBe(shown);
     } finally {
       await db.delete(schema.groups).where(eq(schema.groups.id, groupId));
     }

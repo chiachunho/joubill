@@ -1,64 +1,64 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, KeyRound, RefreshCw, Share2 } from "lucide-react";
+import { Check, Copy, KeyRound, Loader2, RefreshCw, Share2 } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
-import { apiErrorText } from "@/lib/api-error";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { apiErrorText, describeError } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { formatInviteCode, inviteLink } from "@/lib/invite";
 import { useGetInviteQuery, useResetInviteMutation } from "@/store/api";
+import type { InviteHint } from "@/components/pages/platform";
 
-const DEFAULT_HINT = "任何拿到連結或邀請碼的人都能加入。重設後，舊的連結和邀請碼會立即失效。";
+type CopyKind = "link" | "mini" | "code";
+
+// Buttons sit on the dialog's own background, so they take the panel surface to be seen;
+// the one inside the code box (already that surface) takes the background instead.
+const ACTION =
+  "inline-flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors";
+const ON_DIALOG = "bg-secondary/70 hover:bg-secondary";
+const ON_PANEL = "bg-background/70 hover:bg-background";
 
 /**
- * The live invite code with its copy / share buttons and the issue-or-reset action.
- * Shared by 群組設定 (`InviteSection`) and the one-person group card, so the code
- * is read, issued, copied and shared in one place.
+ * The invite step of 新增成員 (`AddMemberDialog`): the live code, a copy / share row per
+ * kind of link, and 重設邀請碼 behind a confirm.
  *
- * `allowReset` is off on the card: it only ever issues a first code (an explicit tap,
- * never on read), and replacing a live one belongs in 群組設定.
+ * Whether a code exists decides whether the buttons render at all. Loading, a failed read
+ * and a group with no code yet show no copy or share button, disabled or otherwise, so the
+ * panel never shows a row of buttons that then disappears. A missing code is only issued by
+ * a tap on 產生邀請碼, never on read: whoever presses it is the inviter on record.
  */
-export function InviteActions({
-  groupId,
-  allowReset = true,
-  hint = DEFAULT_HINT,
-  className = "overflow-hidden rounded-2xl bg-secondary/50",
-}: {
-  groupId: string;
-  allowReset?: boolean;
-  /** Shown under the buttons until an error replaces it. */
-  hint?: string;
-  /** The look of the box around the code and buttons. */
-  className?: string;
-}) {
-  const { data, error } = useGetInviteQuery(groupId);
+export function InviteActions({ groupId, hint }: { groupId: string; hint: InviteHint }) {
+  const { data, error, isFetching, refetch } = useGetInviteQuery(groupId);
   const [resetInvite, { isLoading: resetting }] = useResetInviteMutation();
   const [confirmReset, setConfirmReset] = useState(false);
-  const [copied, setCopied] = useState<"link" | "mini" | "code" | null>(null);
+  const [copied, setCopied] = useState<CopyKind | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // What the clipboard refused, shown as selectable text: the links themselves are not on
+  // screen anywhere else, so "select it by hand" needs something to select.
+  const [manualCopy, setManualCopy] = useState<string | null>(null);
 
-  const code = data?.code;
+  const code = data?.code ?? null;
   const link = code ? inviteLink(window.location.origin, code) : null;
+  const miniLink = data?.miniLink ?? null;
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-  const miniLink = data?.miniLink ?? null;
-
-  async function copy(kind: "link" | "mini" | "code") {
-    const text =
-      kind === "link" ? link : kind === "mini" ? miniLink : code && formatInviteCode(code);
-    if (!text) return;
+  async function copy(kind: CopyKind, text: string) {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(kind);
-      setTimeout(() => setCopied(null), 2000);
+      setMessage(null);
+      setManualCopy(null);
+      setTimeout(() => setCopied((c) => (c === kind ? null : c)), 2000);
     } catch {
-      setMessage("無法複製，請手動選取");
+      setManualCopy(text);
+      setMessage("無法自動複製，請長按或選取上面的文字複製");
     }
   }
 
-  async function share(url: string | null) {
-    if (!url) return;
+  async function share(url: string) {
     try {
       await navigator.share({ title: "加入揪帳群組", url });
     } catch {
@@ -70,90 +70,146 @@ export function InviteActions({
   async function issue() {
     try {
       await resetInvite({ groupId }).unwrap();
-      setConfirmReset(false);
       setMessage(null);
+      setManualCopy(null);
     } catch (e) {
-      setConfirmReset(false);
       setMessage(apiErrorText(e, code ? "重設失敗" : "產生失敗"));
+    } finally {
+      setConfirmReset(false);
     }
   }
 
-  return (
-    <>
-      <div className={className}>
-        <div className="flex items-center gap-3 px-4 py-3">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <KeyRound className="size-3.5" />
-          </span>
-          <span className="text-sm">邀請碼</span>
-          <span className="num ml-auto text-sm font-semibold tracking-wider">
-            {code ? formatInviteCode(code) : error ? "無法載入" : data ? "尚未產生" : "載入中…"}
-          </span>
+  if (!data) {
+    if (error && !isFetching) {
+      return (
+        <div className="py-2 text-center">
+          <p className="text-sm text-destructive">無法載入邀請碼</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{describeError(error)}</p>
+          <Button variant="outline" className="mt-3 w-full rounded-lg" onClick={() => refetch()}>
+            重試
+          </Button>
         </div>
-        <div className="grid grid-cols-2 gap-2 border-t border-border/40 p-3">
+      );
+    }
+    return (
+      <div aria-busy="true" aria-label="載入中">
+        <Skeleton className="h-[62px] rounded-lg" />
+        <Skeleton className="mt-4 h-3.5 w-1/3 rounded-lg" />
+        <Skeleton className="mt-2 h-9 rounded-lg" />
+      </div>
+    );
+  }
+
+  if (!code) {
+    return (
+      <div className="py-2 text-center">
+        <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <KeyRound className="size-5" />
+        </span>
+        <p className="mt-2.5 text-sm font-semibold">這個群組還沒有邀請碼</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">產生後，拿到連結或邀請碼的人就能加入</p>
+        <Button className="mt-4 w-full rounded-lg" onClick={issue} disabled={resetting}>
+          {resetting ? <Loader2 className="size-4 animate-spin" /> : "產生邀請碼"}
+        </Button>
+        {message && <p className="mt-2 text-xs text-destructive">{message}</p>}
+      </div>
+    );
+  }
+
+  const copyButton = (kind: CopyKind, text: string, label: string, surface = ON_DIALOG) => (
+    <button
+      onClick={() => copy(kind, text)}
+      // The visible 已複製 is the only feedback, so the accessible name says it too.
+      aria-label={copied === kind ? "已複製" : label}
+      className={cn(ACTION, surface)}
+    >
+      {copied === kind ? <Check className="size-4" /> : <Copy className="size-4" />}
+      {copied === kind ? "已複製" : "複製"}
+    </button>
+  );
+
+  // One row per kind of link: copy and share side by side, or copy alone across the row.
+  // The row's title names the link, so the buttons say only 複製 / 分享 and never wrap;
+  // their accessible names stay the full 複製網頁連結 / 分享 Telegram 連結.
+  const linkRow = (
+    kind: "link" | "mini",
+    url: string,
+    title: string,
+    note: string,
+    names: { copy: string; share: string },
+  ) => (
+    <div role="group" aria-label={title}>
+      <p className="mb-1.5 flex items-baseline gap-2 px-0.5">
+        <span className="text-sm font-semibold">{title}</span>
+        <span className="truncate text-xs text-muted-foreground">{note}</span>
+      </p>
+      <div className={cn("grid gap-2", canShare ? "grid-cols-2" : "grid-cols-1")}>
+        {copyButton(kind, url, names.copy)}
+        {canShare && (
           <button
-            onClick={() => copy("link")}
-            disabled={!link}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50"
+            onClick={() => share(url)}
+            aria-label={names.share}
+            className={cn(ACTION, ON_DIALOG)}
           >
-            {copied === "link" ? <Check className="size-4" /> : <Copy className="size-4" />}
-            {copied === "link" ? "已複製" : "複製網頁連結"}
-          </button>
-          {miniLink && (
-            <button
-              onClick={() => copy("mini")}
-              className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40"
-            >
-              {copied === "mini" ? <Check className="size-4" /> : <Copy className="size-4" />}
-              {copied === "mini" ? "已複製" : "複製 Telegram 連結"}
-            </button>
-          )}
-          <button
-            onClick={() => copy("code")}
-            disabled={!code}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50"
-          >
-            {copied === "code" ? <Check className="size-4" /> : <Copy className="size-4" />}
-            {copied === "code" ? "已複製" : "複製邀請碼"}
-          </button>
-          {canShare && (
-            <button
-              onClick={() => share(link)}
-              disabled={!link}
-              className={cn(
-                "inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40 disabled:opacity-50",
-                !miniLink && "col-span-2",
-              )}
-            >
-              <Share2 className="size-4" />
-              分享網頁連結
-            </button>
-          )}
-          {canShare && miniLink && (
-            <button
-              onClick={() => share(miniLink)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent/40"
-            >
-              <Share2 className="size-4" />
-              分享 Telegram 連結
-            </button>
-          )}
-        </div>
-        {/* Only once the read has answered: before that the label would claim there is no code. */}
-        {data && (!code || allowReset) && (
-          <button
-            onClick={() => (code ? setConfirmReset(true) : issue())}
-            disabled={resetting}
-            className="flex w-full items-center gap-3 border-t border-border/40 px-4 py-3 text-left text-sm transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <RefreshCw className="size-3.5" />
-            </span>
-            {code ? "重設邀請碼" : "產生邀請碼"}
+            <Share2 className="size-4" />
+            分享
           </button>
         )}
       </div>
-      <p className="mt-2 px-1 text-xs text-muted-foreground">{message ?? hint}</p>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="space-y-3.5">
+        <div className="flex items-center gap-3 rounded-lg bg-secondary/50 px-3.5 py-3">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">邀請碼</p>
+            <p className="num text-lg font-semibold tracking-wider">{formatInviteCode(code)}</p>
+          </div>
+          <div className="ml-auto shrink-0">
+            {copyButton("code", formatInviteCode(code), "複製邀請碼", ON_PANEL)}
+          </div>
+        </div>
+        {link &&
+          linkRow("link", link, "網頁連結", "用瀏覽器開啟，可用任何方式登入", {
+            copy: "複製網頁連結",
+            share: "分享網頁連結",
+          })}
+        {miniLink &&
+          linkRow("mini", miniLink, "Telegram 連結", "在 Telegram 點開直接進 Mini App", {
+            copy: "複製 Telegram 連結",
+            share: "分享 Telegram 連結",
+          })}
+        {manualCopy && (
+          <input
+            readOnly
+            value={manualCopy}
+            aria-label="要複製的內容"
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            className="num w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          />
+        )}
+      </div>
+
+      <p
+        className={cn(
+          "mt-3.5 px-0.5 text-xs",
+          message ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
+        {message ?? hint({ telegramLink: miniLink !== null })}
+      </p>
+
+      <button
+        onClick={() => setConfirmReset(true)}
+        disabled={resetting}
+        className="mt-3.5 flex w-full items-center gap-2 border-t border-border/60 pt-3 text-left text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+      >
+        <RefreshCw className="size-3.5" />
+        重設邀請碼
+      </button>
 
       <ConfirmDialog
         open={confirmReset}

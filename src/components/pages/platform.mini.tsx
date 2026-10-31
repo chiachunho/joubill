@@ -93,8 +93,10 @@ export const miniPlatform: Platform = {
   loginPath: null,
   HelpAction: MiniHelpAction,
   canDownloadExport: false,
-  soloInviteHint:
-    "對方在 Telegram 點連結可能會跳到外部瀏覽器。也可以把邀請碼傳給對方，請他在 Mini App 的「輸入邀請碼」貼上。",
+  inviteHint: ({ telegramLink }) =>
+    telegramLink
+      ? "在 Telegram 裡請傳 Telegram 連結，對方點開會直接進 Mini App；網頁連結在 Telegram 點開會跳到外部瀏覽器。"
+      : "網頁連結在 Telegram 點開會跳到外部瀏覽器。也可以把邀請碼傳給對方，請他在 Mini App 的「輸入邀請碼」貼上。",
   linkIdentity: null,
   openInBrowser,
   AccountSection: MiniAccountSection,

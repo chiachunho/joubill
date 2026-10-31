@@ -12,6 +12,9 @@ import type { LoginProvider } from "@/lib/identities";
  * (`platform.mini.tsx`, `platform.web.tsx`), so a route's bundle carries only its
  * own platform's code.
  */
+/** The invite step's hint, given whether a Telegram link is on offer next to the web link. */
+export type InviteHint = (offer: { telegramLink: boolean }) => string;
+
 export type Platform = {
   /** Prefix for in-app links: "/mini" or "/app". */
   basePath: "/mini" | "/app";
@@ -59,11 +62,12 @@ export type Platform = {
    */
   openInBrowser: ((path: string) => void) | null;
   /**
-   * What the one-person group card tells the inviter about handing the invite over. The
-   * Mini App's link opens outside Telegram's webview for the recipient, so it points at the
-   * code; the Web App has no such caveat.
+   * What the invite step of 新增成員 tells the inviter about handing the invite over.
+   * The Mini App's advice is Telegram-specific: a web link opened inside Telegram leaves its
+   * webview, so it points at the Telegram link when the server could build one
+   * (`telegramLink`) and at the code otherwise. The Web App has no such caveat.
    */
-  soloInviteHint: string;
+  inviteHint: InviteHint;
   /** Extra content at the foot of the personal settings page. The Web App has the sign-out button. */
   AccountSection: ComponentType;
 };

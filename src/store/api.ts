@@ -470,14 +470,6 @@ const baseApi = createApi({
       query: (body) => ({ url: "/api/groups", method: "POST", body }),
       invalidatesTags: [tag("Me", "LIST"), tag("GroupPhotos", "LIST")],
     }),
-    resetInvite: build.mutation<InviteResponse, { groupId: GroupId }>({
-      query: ({ groupId }) => ({ url: `/api/groups/${groupId}/invite`, method: "POST" }),
-      // The old code is dead, and the feed gains an 重設了邀請碼 row.
-      invalidatesTags: (_r, _e, { groupId }) => [
-        tag("Invite", g(groupId)),
-        tag("Activity", g(groupId)),
-      ],
-    }),
     acceptInvite: build.mutation<
       AcceptInviteResponse,
       { code: string; placeholderUserId?: number }
@@ -522,7 +514,8 @@ const baseApi = createApi({
 });
 
 /**
- * The two edits that update the screen before the server answers. They sit in a
+ * The edits that update the screen before the server answers, or write the server's
+ * answer straight into the cache instead of waiting for a refetch. They sit in a
  * second `injectEndpoints` so they can reach `baseApi.util` without the api
  * having to name its own type while it is still being defined.
  */
@@ -572,6 +565,28 @@ export const api = baseApi.injectEndpoints({
           dispatch(baseApi.util.upsertQueryData("getBeancountConfig", groupId, data));
         } catch {
           // the page shows the error from the mutation itself
+        }
+      },
+    }),
+    /**
+     * Issue the first invite code, or replace the live one. The response is the new code,
+     * written straight into the cache: the old code is dead the moment the server answers,
+     * so the panel must not keep offering it while a refetch runs (or after one fails).
+     */
+    resetInvite: build.mutation<InviteResponse, { groupId: GroupId }>({
+      query: ({ groupId }) => ({ url: `/api/groups/${groupId}/invite`, method: "POST" }),
+      // The feed gains an 重設了邀請碼 row; Invite still refetches for any reader keyed
+      // on the other spelling of the group id (a number where this one is a string).
+      invalidatesTags: (_r, _e, { groupId }) => [
+        tag("Invite", g(groupId)),
+        tag("Activity", g(groupId)),
+      ],
+      async onQueryStarted({ groupId }, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(baseApi.util.upsertQueryData("getInvite", groupId, data));
+        } catch {
+          // the panel shows the error from the mutation itself; the old code is still live
         }
       },
     }),

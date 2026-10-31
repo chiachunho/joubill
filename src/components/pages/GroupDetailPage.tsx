@@ -264,11 +264,7 @@ export function GroupDetailPage({
       <DeleteRequestBanner groupId={id} selfUserId={selfUserId} redirectPath={platform.basePath} />
 
       {onlyMember && (
-        <SoloGroupCard
-          groupId={id}
-          basePath={platform.basePath}
-          inviteHint={platform.soloInviteHint}
-        />
+        <SoloGroupCard groupId={id} basePath={platform.basePath} inviteHint={platform.inviteHint} />
       )}
 
       {showSettled && (
