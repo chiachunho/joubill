@@ -31,6 +31,16 @@ export type Seeded = {
   expiredSessionToken: string;
 };
 
+/**
+ * Records first, then the groups. A test may leave a member without an account who paid or owes
+ * in a record; deleting the group alone would then fail (see `src/lib/group-delete.ts`, which
+ * this mirrors because that module needs the app's env).
+ */
+async function deleteGroups(db: ReturnType<typeof drizzle<typeof schema>>, groupIds: number[]) {
+  await db.delete(schema.expenses).where(inArray(schema.expenses.groupId, groupIds));
+  await db.delete(schema.groups).where(inArray(schema.groups.id, groupIds));
+}
+
 function connectionString(): string {
   const url = process.env.E2E_DATABASE_URL;
   if (!url) throw new Error("E2E_DATABASE_URL must point at the DB the target site uses");
@@ -202,7 +212,7 @@ export const test = base.extend<
       });
     } finally {
       if (groupIds.length) {
-        await db.delete(schema.groups).where(inArray(schema.groups.id, groupIds));
+        await deleteGroups(db, groupIds);
       }
       if (userIds.length) {
         await db.delete(schema.users).where(inArray(schema.users.id, userIds));
@@ -308,7 +318,7 @@ export const test = base.extend<
     } finally {
       // Groups first: expenses (and their created_by) go with them, so the users can follow.
       if (groupIds.length) {
-        await db.delete(schema.groups).where(inArray(schema.groups.id, groupIds));
+        await deleteGroups(db, groupIds);
       }
       if (userIds.length) {
         await db.delete(schema.users).where(inArray(schema.users.id, userIds));

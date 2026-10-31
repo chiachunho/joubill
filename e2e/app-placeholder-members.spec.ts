@@ -1,5 +1,9 @@
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/neon-serverless";
+
+import * as schema from "../src/db/schema";
 import { expect, test } from "./fixtures";
-import { addSettlement, auditActions, mkPlaceholder } from "./helpers";
+import { addExpense, addSettlement, auditActions, mkPlaceholder } from "./helpers";
 
 test.describe("Members without an account", () => {
   test("can be added from the member list and are marked as having no account", async ({
@@ -123,5 +127,42 @@ test.describe("Members without an account", () => {
       { data: { fromUserId: seeded.userId, toUserId: seeded.userId, amount: 50, currency: "TWD" } },
     );
     expect(edit.status()).toBe(400);
+  });
+
+  test("a group whose member without an account has records can still be deleted", async ({
+    authedPage,
+    seeded,
+    dbPool,
+  }) => {
+    const db = drizzle(dbPool, { schema });
+    const created = await authedPage.request.post("/api/groups", {
+      data: { title: `E2E delete ghost ${Date.now()}`, defaultCurrency: "TWD" },
+    });
+    const { id } = (await created.json()) as { id: number };
+    try {
+      // The placeholder pays and owes, so its `users` row is named by both kinds of leg, which
+      // the group's cascade used to trip over.
+      const ghost = await mkPlaceholder(authedPage.request, id, `E2E ghost ${id}`);
+      await addExpense(authedPage.request, id, {
+        amount: 100,
+        shareType: "exact",
+        payers: [{ payerId: ghost, amount: 100 }],
+        splits: [
+          { debtorId: seeded.userId, amount: 60 },
+          { debtorId: ghost, amount: 40 },
+        ],
+      });
+
+      // Members without an account don't count, so the sole owner deletes it at once.
+      const del = await authedPage.request.delete(`/api/groups/${id}`);
+      expect(del.status(), await del.text()).toBe(200);
+      expect(await db.select().from(schema.groups).where(eq(schema.groups.id, id))).toHaveLength(0);
+      expect(await db.select().from(schema.users).where(eq(schema.users.id, ghost))).toHaveLength(
+        0,
+      );
+    } finally {
+      await db.delete(schema.expenses).where(eq(schema.expenses.groupId, id));
+      await db.delete(schema.groups).where(eq(schema.groups.id, id));
+    }
   });
 });
