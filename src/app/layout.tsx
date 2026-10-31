@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { LAUNCH_SCRIPT } from "@/lib/pwa";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,6 +28,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-Hant" suppressHydrationWarning>
       <head>
+        {/* First, before any rendering or request: opens the iPhone home-screen app at 我的群組
+            and drops the notification marker from the address (see LAUNCH_SCRIPT). */}
+        <script dangerouslySetInnerHTML={{ __html: LAUNCH_SCRIPT }} />
         {/* TODO: switch to next/font/google (Chiron_GoRound_TC) once Next.js adds it to its font list */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

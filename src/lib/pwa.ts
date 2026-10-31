@@ -57,7 +57,8 @@ export function homeScreenOffer(env: PwaEnv, hasInstallPrompt: boolean): HomeScr
 
 /**
  * Marks a URL a notification tap opens (`recordPushUrl` in `src/lib/push-notice.ts`), so the
- * launch redirect below leaves it on the record it was opened for. Both ends live here.
+ * launch script below leaves it on the record it was opened for, then removes it. Both ends
+ * live here.
  */
 const OPENED_FROM_PUSH_PARAM = "via";
 const OPENED_FROM_PUSH_VALUE = "push";
@@ -68,28 +69,59 @@ export function openedFromPush(path: string): string {
   return `${path}${sep}${OPENED_FROM_PUSH_PARAM}=${OPENED_FROM_PUSH_VALUE}`;
 }
 
+/** Set for the life of one launch of the home-screen app; a relaunch starts without it. */
+const LAUNCHED_KEY = "jiuzhang:launched";
+
+// Shared by `isIOS` and the launch script, so the two can't disagree about what an iPhone is.
+const IOS_DEVICE = /\b(iPhone|iPad|iPod)\b/;
+const IPAD_AS_MAC = /\bMacintosh\b/;
+
 /**
- * Where a freshly launched iPhone home-screen app should go instead of the URL it was opened
- * at, or null to stay. iOS saves the page that was on screen as the shortcut, ignoring the
- * manifest's `start_url`, so adding it from a group page would make every launch open that
- * group. The shortcut always starts at 我的群組 (`/app`) instead.
+ * Runs inline in the document head (`src/app/layout.tsx`), before React or any request, on
+ * every page of the site. Two jobs:
  *
- * Only Web App pages under `/app/` are redirected: `/join/<code>`, `/login` and the help site
- * are where a link meant to send someone, and a notification tap is marked by
- * `openedFromPush` because it is opened for one record.
+ * 1. **Open the iPhone home-screen app at 我的群組.** iOS saves the page that was on screen
+ *    as the shortcut, ignoring the manifest's `start_url`, so adding it from a group page
+ *    would make every launch open that group. The first page of a launch (no `LAUNCHED_KEY`
+ *    in `sessionStorage`, which a reload, navigation and the OAuth round trip all keep) on an
+ *    `/app/…` page is replaced by `/app` before anything renders or asks the API, so no 401
+ *    can remember the old page as the place to come back to. Only on iOS: Android honours
+ *    `start_url`, and opens links to the site in the installed app, which this would wrongly
+ *    send to 我的群組. `/join/<code>`, `/login` and the help site are where a link meant to send
+ *    someone, and a notification tap (`openedFromPush`) is opened for one record.
+ * 2. **Drop the notification marker** from the address once read, on any device, so it
+ *    doesn't linger in history or a later login's `?next=`.
+ *
+ * A string rather than a function's source, because the bundler rewrites function bodies;
+ * `pwa.test.ts` runs this exact string against stubbed browser objects.
  */
-export function homeScreenLaunchRedirect(pathname: string, search: string): string | null {
-  if (!pathname.startsWith("/app/")) return null;
-  const params = new URLSearchParams(search);
-  if (params.get(OPENED_FROM_PUSH_PARAM) === OPENED_FROM_PUSH_VALUE) return null;
-  return "/app";
-}
+export const LAUNCH_SCRIPT = `(function () {
+  try {
+    var url = new URL(location.href);
+    var fromPush = url.searchParams.get(${JSON.stringify(OPENED_FROM_PUSH_PARAM)}) === ${JSON.stringify(OPENED_FROM_PUSH_VALUE)};
+    if (fromPush) {
+      url.searchParams.delete(${JSON.stringify(OPENED_FROM_PUSH_PARAM)});
+      history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+    }
+    var nav = navigator;
+    var standalone =
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+      nav.standalone === true;
+    var ios =
+      ${IOS_DEVICE}.test(nav.userAgent) ||
+      (${IPAD_AS_MAC}.test(nav.userAgent) && nav.maxTouchPoints > 1);
+    if (!standalone || !ios) return;
+    if (sessionStorage.getItem(${JSON.stringify(LAUNCHED_KEY)})) return;
+    sessionStorage.setItem(${JSON.stringify(LAUNCHED_KEY)}, "1");
+    if (!fromPush && url.pathname.indexOf("/app/") === 0) location.replace("/app");
+  } catch (e) {}
+})();`;
 
 export function isIOS(userAgent: string, maxTouchPoints: number): boolean {
-  if (/\b(iPhone|iPad|iPod)\b/.test(userAgent)) return true;
+  if (IOS_DEVICE.test(userAgent)) return true;
   // iPadOS 13+ asks for the desktop site and reports itself as a Mac; only the touch screen
   // gives it away.
-  return /\bMacintosh\b/.test(userAgent) && maxTouchPoints > 1;
+  return IPAD_AS_MAC.test(userAgent) && maxTouchPoints > 1;
 }
 
 /** Reads the current browser. Call it only on the client (in an effect or an event handler). */
