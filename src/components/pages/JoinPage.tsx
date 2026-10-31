@@ -35,22 +35,23 @@ export function JoinPage({
   const [claimId, setClaimId] = useState<number | null>(null);
   const [accept, { isLoading: joining, error: joinError }] = useAcceptInviteMutation();
   const redirecting = useLoginRedirect(error ?? joinError, platform.loginPath);
+  // Only a name the preview still lists counts as picked; a stale pick would refuse the whole
+  // join, so once the list drops it the page reads (and joins) as 都不是.
+  const claimed = data?.placeholders.find((p) => p.id === claimId);
 
   async function join() {
     if (!code) return;
-    // Only claim a name the preview still lists; a stale pick would refuse the whole join.
-    const claim = data?.placeholders.some((p) => p.id === claimId) ? claimId : null;
     try {
       const { groupId } = await accept({
         code,
-        ...(claim !== null ? { placeholderUserId: claim } : {}),
+        ...(claimed ? { placeholderUserId: claimed.id } : {}),
       }).unwrap();
       router.replace(`${platform.basePath}/groups/${groupId}`);
     } catch {
       // The error is shown below. Re-read the list: the name picked may have been claimed
       // or removed since this page loaded, and the preview is not otherwise invalidated.
-      // Drop the pick too, so the next tap is a deliberate choice rather than a silent plain join.
-      if (claim !== null) setClaimId(null);
+      // A pick the new list no longer offers falls back to 都不是 on its own (`claimed`), while
+      // one that is still listed survives a transient failure, so a retry still claims it.
       refetch();
     }
   }
@@ -85,8 +86,6 @@ export function JoinPage({
   }
 
   if (!data) return <JoinSkeleton />;
-
-  const claimed = data.placeholders.find((p) => p.id === claimId);
 
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
@@ -130,7 +129,7 @@ export function JoinPage({
                   <input
                     type="radio"
                     name="claim"
-                    checked={claimId === null}
+                    checked={!claimed}
                     onChange={() => setClaimId(null)}
                     disabled={joining}
                   />
@@ -143,7 +142,9 @@ export function JoinPage({
             {joining ? "加入中…" : claimed ? `加入並認領「${claimed.name}」` : "加入"}
           </Button>
           {joinError && (
-            <p className="mt-2 text-sm text-destructive">{apiErrorText(joinError, INVALID)}</p>
+            <p className="mt-2 text-sm text-destructive">
+              {apiErrorText(joinError, "加入失敗，請再試一次")}
+            </p>
           )}
         </>
       )}

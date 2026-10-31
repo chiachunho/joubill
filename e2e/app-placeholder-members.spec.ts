@@ -1,8 +1,5 @@
-import { and, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/neon-serverless";
-
-import * as schema from "../src/db/schema";
 import { expect, test } from "./fixtures";
+import { addSettlement, auditActions, mkPlaceholder } from "./helpers";
 
 test.describe("Members without an account", () => {
   test("can be added from the member list and are marked as having no account", async ({
@@ -95,25 +92,11 @@ test.describe("Members without an account", () => {
     seeded,
     dbPool,
   }) => {
-    const mkPlaceholder = async (label: string) => {
-      const res = await authedPage.request.post(
-        `/api/groups/${seeded.groupId}/members/placeholder`,
-        { data: { firstName: `E2E ${label} ${seeded.groupId}` } },
-      );
-      return ((await res.json()) as { member: { id: number } }).member.id;
-    };
-    const settle = async (fromUserId: number, toUserId: number) => {
-      const res = await authedPage.request.post(`/api/groups/${seeded.groupId}/settlements`, {
-        data: { fromUserId, toUserId, amount: 100, currency: "TWD" },
-      });
-      expect(res.ok()).toBe(true);
-      return ((await res.json()) as { id: number }).id;
-    };
-
-    const keepId = await mkPlaceholder("keep");
-    const dropId = await mkPlaceholder("drop");
-    await settle(keepId, seeded.userId);
-    const droppedId = await settle(dropId, seeded.userId);
+    const { request } = authedPage;
+    const keepId = await mkPlaceholder(request, seeded.groupId, `E2E keep ${seeded.groupId}`);
+    const dropId = await mkPlaceholder(request, seeded.groupId, `E2E drop ${seeded.groupId}`);
+    await addSettlement(request, seeded.groupId, keepId, seeded.userId, 100);
+    const droppedId = await addSettlement(request, seeded.groupId, dropId, seeded.userId, 100);
 
     const keep = await authedPage.request.post(
       `/api/groups/${seeded.groupId}/members/${keepId}/merge`,
@@ -128,16 +111,7 @@ test.describe("Members without an account", () => {
     expect(await drop.json()).toMatchObject({ ok: true, removed: 1 });
 
     // The removal went through the ordinary delete path, so it is audited like any other.
-    const audit = await drizzle(dbPool, { schema })
-      .select({ action: schema.recordAuditLog.action })
-      .from(schema.recordAuditLog)
-      .where(
-        and(
-          eq(schema.recordAuditLog.groupId, seeded.groupId),
-          eq(schema.recordAuditLog.recordId, droppedId),
-        ),
-      );
-    expect(audit.map((r) => r.action)).toContain("deleted");
+    expect(await auditActions(dbPool, seeded.groupId, droppedId)).toContain("deleted");
 
     // The kept one is a settlement from the viewer to themself: it can no longer be edited.
     const list = await authedPage.request.get(`/api/groups/${seeded.groupId}/expenses`);

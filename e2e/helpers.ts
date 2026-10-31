@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import type { Pool } from "@neondatabase/serverless";
 import { expect, type APIRequestContext, type Browser } from "@playwright/test";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-serverless";
 
 import * as schema from "../src/db/schema";
@@ -160,4 +160,18 @@ export async function legsNaming(dbPool: Pool, expenseIds: number[], userId: num
       .where(inArray(schema.expenseSplits.expenseId, expenseIds)),
   ]);
   return payers.some((p) => p.payerId === userId) || splits.some((s) => s.debtorId === userId);
+}
+
+/** The audit actions logged for a group, or for one of its records when `recordId` is given. */
+export async function auditActions(dbPool: Pool, groupId: number, recordId?: number) {
+  const rows = await drizzle(dbPool, { schema })
+    .select({ action: schema.recordAuditLog.action })
+    .from(schema.recordAuditLog)
+    .where(
+      and(
+        eq(schema.recordAuditLog.groupId, groupId),
+        recordId === undefined ? undefined : eq(schema.recordAuditLog.recordId, recordId),
+      ),
+    );
+  return rows.map((r) => r.action);
 }

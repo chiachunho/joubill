@@ -117,6 +117,21 @@ describe("JoinPage", () => {
       expect(mockReplace).not.toHaveBeenCalled();
     });
 
+    it("keeps the pick after a failure that says nothing about the member", async () => {
+      renderJoin({
+        [`/api/invites/${CODE}`]: withPlaceholders,
+        [`/api/invites/${CODE}/accept`]: new Failure(500),
+      });
+
+      fireEvent.click(await screen.findByRole("radio", { name: "小明" }));
+      fireEvent.click(screen.getByRole("button", { name: "加入並認領「小明」" }));
+
+      expect(await screen.findByText("加入失敗，請再試一次")).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "小明" })).toBeChecked();
+      expect(screen.getByRole("button", { name: "加入並認領「小明」" })).toBeInTheDocument();
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
     it("shows no picker when nobody is waiting to be claimed", async () => {
       renderJoin({ [`/api/invites/${CODE}`]: PREVIEW });
 

@@ -9,6 +9,7 @@ import { expect, test } from "./fixtures";
 import {
   addExpense,
   addSettlement,
+  auditActions,
   balances,
   legs,
   mergedBalances,
@@ -214,14 +215,6 @@ test.describe("Creating groups and joining by invite", () => {
   });
 });
 
-async function auditActions(dbPool: Pool, groupId: number) {
-  const rows = await drizzle(dbPool, { schema })
-    .select({ action: schema.recordAuditLog.action })
-    .from(schema.recordAuditLog)
-    .where(eq(schema.recordAuditLog.groupId, groupId));
-  return rows.map((r) => r.action);
-}
-
 async function isMember(dbPool: Pool, groupId: number, userId: number) {
   const rows = await drizzle(dbPool, { schema })
     .select()
@@ -293,7 +286,7 @@ test.describe("Claiming a member without an account from the invite page", () =>
     }
   });
 
-  test("choosing 都不是 joins without touching the member", async ({
+  test("choosing none of them joins without touching the member", async ({
     authedPage,
     seeded,
     dbPool,

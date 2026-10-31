@@ -46,8 +46,11 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   // member already active, gets no row back, and so doesn't log a second "joined".
   // A refused claim throws so the transaction rolls the join back with it.
   class ClaimRefused extends Error {
-    constructor(readonly status: number) {
-      super("claim refused");
+    constructor(
+      readonly status: number,
+      message: string,
+    ) {
+      super(message);
     }
   }
   let changed: { userId: number }[];
@@ -67,16 +70,22 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
       let claim: Extract<MergeResult, { ok: true }> | null = null;
       if (placeholderUserId !== undefined) {
         const merged = await mergeUserInto(tx, invite.groupId, placeholderUserId, auth.user.id);
-        if (!merged.ok) throw new ClaimRefused(merged.status);
+        if (!merged.ok) {
+          // A 404 is the one refusal the join page's picker can reach: the name was merged or
+          // removed since the page loaded, so say that rather than echoing validateMerge's
+          // English. Anything else comes from a hand-made body and keeps its own reason.
+          throw new ClaimRefused(
+            merged.status,
+            merged.status === 404 ? CLAIM_UNAVAILABLE : merged.error,
+          );
+        }
         claim = merged;
       }
       return { changed: rows, claim };
     }));
   } catch (err) {
     if (err instanceof ClaimRefused) {
-      // The only refusal a picker on the join page can reach is a name that has been merged or
-      // removed since the page loaded, so say that rather than echoing validateMerge's English.
-      return NextResponse.json({ error: CLAIM_UNAVAILABLE }, { status: err.status });
+      return NextResponse.json({ error: err.message }, { status: err.status });
     }
     throw err;
   }
