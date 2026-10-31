@@ -69,3 +69,9 @@ export function parseInviteCode(input: string): string | null {
  * probe which codes exist. Lives here, not in invites.ts, so the join page can show the same text.
  */
 export const INVITE_NOT_FOUND = { status: 404, error: "邀請碼無效或已失效" } as const;
+
+/**
+ * The join was refused because the member picked under 你是下面其中一位嗎？ can no longer be
+ * claimed: someone merged or removed them after the page loaded. Nothing was joined.
+ */
+export const CLAIM_UNAVAILABLE = "這位成員已被認領或移除，請重新選擇";

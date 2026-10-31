@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { JoinPage } from "@/components/pages/JoinPage";
 import { webPlatform } from "@/components/pages/platform.web";
+import { CLAIM_UNAVAILABLE } from "@/lib/invite";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 const mockReplace = vi.fn();
@@ -91,6 +92,44 @@ describe("JoinPage", () => {
       await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/app/groups/9"));
       const init = accept.mock.calls[0] as unknown as [RequestInit | undefined];
       expect(init[0]?.body ?? null).toBeNull();
+    });
+
+    it("explains a claim that was taken meanwhile and drops the stale pick", async () => {
+      // The second read is the refetch after the refusal: 小明 has been merged by someone else.
+      const preview = vi
+        .fn()
+        .mockReturnValueOnce(withPlaceholders)
+        .mockReturnValue({ ...withPlaceholders, placeholders: [{ id: 32, name: "阿華" }] });
+      renderJoin({
+        [`/api/invites/${CODE}`]: preview,
+        [`/api/invites/${CODE}/accept`]: new Failure(404, { error: CLAIM_UNAVAILABLE }),
+      });
+
+      fireEvent.click(await screen.findByRole("radio", { name: "小明" }));
+      fireEvent.click(screen.getByRole("button", { name: "加入並認領「小明」" }));
+
+      expect(await screen.findByText(CLAIM_UNAVAILABLE)).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByRole("radio", { name: "小明" })).not.toBeInTheDocument(),
+      );
+      expect(screen.getByRole("radio", { name: "都不是，我是新成員" })).toBeChecked();
+      expect(screen.getByRole("button", { name: "加入" })).toBeInTheDocument();
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it("keeps the pick after a failure that says nothing about the member", async () => {
+      renderJoin({
+        [`/api/invites/${CODE}`]: withPlaceholders,
+        [`/api/invites/${CODE}/accept`]: new Failure(500),
+      });
+
+      fireEvent.click(await screen.findByRole("radio", { name: "小明" }));
+      fireEvent.click(screen.getByRole("button", { name: "加入並認領「小明」" }));
+
+      expect(await screen.findByText("加入失敗，請再試一次")).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "小明" })).toBeChecked();
+      expect(screen.getByRole("button", { name: "加入並認領「小明」" })).toBeInTheDocument();
+      expect(mockReplace).not.toHaveBeenCalled();
     });
 
     it("shows no picker when nobody is waiting to be claimed", async () => {

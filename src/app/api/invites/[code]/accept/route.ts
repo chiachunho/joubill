@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { groupMembers, users } from "@/db/schema";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { INVITE_NOT_FOUND } from "@/lib/invite";
+import { CLAIM_UNAVAILABLE, INVITE_NOT_FOUND } from "@/lib/invite";
 import { findActiveInvite } from "@/lib/invites";
 import { labelUser } from "@/lib/label";
 import { getBot } from "@/bot";
@@ -70,7 +70,15 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
       let claim: Extract<MergeResult, { ok: true }> | null = null;
       if (placeholderUserId !== undefined) {
         const merged = await mergeUserInto(tx, invite.groupId, placeholderUserId, auth.user.id);
-        if (!merged.ok) throw new ClaimRefused(merged.status, merged.error);
+        if (!merged.ok) {
+          // A 404 is the one refusal the join page's picker can reach: the name was merged or
+          // removed since the page loaded, so say that rather than echoing validateMerge's
+          // English. Anything else comes from a hand-made body and keeps its own reason.
+          throw new ClaimRefused(
+            merged.status,
+            merged.status === 404 ? CLAIM_UNAVAILABLE : merged.error,
+          );
+        }
         claim = merged;
       }
       return { changed: rows, claim };

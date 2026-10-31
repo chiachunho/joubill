@@ -8,6 +8,7 @@ import { telegramChatId } from "@/lib/chat";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { BTN } from "@/lib/buttons";
+import { deleteGroup } from "@/lib/group-delete";
 import { labelUser } from "@/lib/label";
 
 export const runtime = "nodejs";
@@ -60,7 +61,7 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
         .catch(() => null);
       await bot.api.leaveChat(chatId).catch(() => null);
     }
-    await db.delete(groups).where(eq(groups.id, groupId));
+    await deleteGroup(groupId);
     return NextResponse.json({ ok: true });
   }
 

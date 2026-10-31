@@ -5,6 +5,7 @@ import { TOAST } from "@/lib/buttons";
 import { db } from "@/db";
 import { groupDeleteRequests, groupMembers, groups } from "@/db/schema";
 import { requireTelegramChatId } from "@/lib/chat";
+import { deleteGroup } from "@/lib/group-delete";
 import { labelUser } from "@/lib/label";
 
 import type { BotContext } from "../context";
@@ -78,10 +79,7 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
     // Use .returning() to detect a race where two members both approved simultaneously.
     // Postgres DELETE is a silent no-op when the row is already gone; the empty result
     // lets us return a clean success response without double-processing.
-    const [deleted] = await db
-      .delete(groups)
-      .where(eq(groups.id, request.groupId))
-      .returning({ id: groups.id });
+    const deleted = await deleteGroup(request.groupId);
 
     if (!deleted) {
       // Group was already deleted by a concurrent approver — still a success.
