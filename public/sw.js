@@ -56,8 +56,14 @@ self.addEventListener("notificationclick", (event) => {
       for (const client of windows) {
         if (new URL(client.url).pathname.startsWith("/app") && "focus" in client) {
           await client.focus();
-          if ("navigate" in client) await client.navigate(target.href);
-          return;
+          try {
+            // navigate() rejects for a window this worker doesn't control (a hard reload,
+            // or one opened before it activated); open the record in a new window then.
+            if ("navigate" in client) await client.navigate(target.href);
+            return;
+          } catch {
+            break;
+          }
         }
       }
       await self.clients.openWindow(target.href);

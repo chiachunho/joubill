@@ -13,6 +13,7 @@ import { WEB_LOGIN_PATH } from "@/lib/auth-redirect";
 import { HELP_PATH } from "@/lib/help-url";
 import type { LoginProvider } from "@/lib/identities";
 import { rememberLinking } from "@/lib/linking-attempt";
+import { useForgetPushDevice } from "@/lib/use-push-device";
 import { webRawFetch } from "@/lib/web-fetch";
 
 function useNoSelfPhoto(): string | null {
@@ -69,10 +70,13 @@ function WebHelpAction({ className, children }: { className: string; children: R
 
 function WebAccountSection() {
   const [loggingOut, setLoggingOut] = useState(false);
+  const forgetPushDevice = useForgetPushDevice();
 
   async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
+    // While the session still exists: this device stops showing the account's records.
+    await forgetPushDevice();
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     } catch {

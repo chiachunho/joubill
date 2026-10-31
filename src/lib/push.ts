@@ -30,11 +30,18 @@ let vapidSet = false;
 function ensureVapid(): boolean {
   if (!pushConfigured()) return false;
   if (!vapidSet) {
-    webpush.setVapidDetails(
-      process.env.VAPID_SUBJECT!,
-      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-      process.env.VAPID_PRIVATE_KEY!,
-    );
+    try {
+      webpush.setVapidDetails(
+        process.env.VAPID_SUBJECT!,
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+        process.env.VAPID_PRIVATE_KEY!,
+      );
+    } catch (err) {
+      // A malformed key or a subject that isn't mailto:/https: throws here, which would
+      // otherwise turn the test button into a 500 instead of its "failed" answer.
+      console.error("[push] invalid VAPID settings:", err);
+      return false;
+    }
     vapidSet = true;
   }
   return true;
@@ -131,44 +138,44 @@ export function queueRecordPush(event: RecordPushEvent): void {
   if (recipients.length === 0) return;
 
   inBackground(async () => {
-    const [group] = await db
-      .select({ title: groups.title })
-      .from(groups)
-      .where(eq(groups.id, event.groupId));
-    if (!group) return;
-
-    // Only current, unmuted members: someone removed from the group has no business hearing
-    // about its records any more.
-    const targets = await db
-      .select({
-        id: pushSubscriptions.id,
-        userId: pushSubscriptions.userId,
-        endpoint: pushSubscriptions.endpoint,
-        p256dh: pushSubscriptions.p256dh,
-        auth: pushSubscriptions.auth,
-      })
-      .from(pushSubscriptions)
-      .innerJoin(
-        groupMembers,
-        and(
-          eq(groupMembers.userId, pushSubscriptions.userId),
-          eq(groupMembers.groupId, event.groupId),
+    // Three independent reads, so one round trip's wait instead of three.
+    const [[group], targets, [actor]] = await Promise.all([
+      db.select({ title: groups.title }).from(groups).where(eq(groups.id, event.groupId)),
+      // Only current, unmuted members: someone removed from the group has no business
+      // hearing about its records any more.
+      db
+        .select({
+          id: pushSubscriptions.id,
+          userId: pushSubscriptions.userId,
+          endpoint: pushSubscriptions.endpoint,
+          p256dh: pushSubscriptions.p256dh,
+          auth: pushSubscriptions.auth,
+        })
+        .from(pushSubscriptions)
+        .innerJoin(
+          groupMembers,
+          and(
+            eq(groupMembers.userId, pushSubscriptions.userId),
+            eq(groupMembers.groupId, event.groupId),
+          ),
+        )
+        .where(
+          and(inArray(pushSubscriptions.userId, recipients), eq(groupMembers.pushMuted, false)),
         ),
-      )
-      .where(and(inArray(pushSubscriptions.userId, recipients), eq(groupMembers.pushMuted, false)));
-    if (targets.length === 0) return;
+      db
+        .select({
+          userId: users.id,
+          displayName: users.displayName,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          username: users.username,
+          telegramId: users.telegramId,
+        })
+        .from(users)
+        .where(eq(users.id, event.actor.userId)),
+    ]);
+    if (!group || targets.length === 0) return;
 
-    const [actor] = await db
-      .select({
-        userId: users.id,
-        displayName: users.displayName,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        username: users.username,
-        telegramId: users.telegramId,
-      })
-      .from(users)
-      .where(eq(users.id, event.actor.userId));
     const messages = targets.flatMap((target) => {
       const payload = formatPushNotice({
         action: event.action,

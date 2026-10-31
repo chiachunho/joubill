@@ -70,14 +70,15 @@ export async function absorbGroup(
   }
 
   const members = await ex
-    .select({ userId: groupMembers.userId })
+    .select({ userId: groupMembers.userId, pushMuted: groupMembers.pushMuted })
     .from(groupMembers)
     .where(eq(groupMembers.groupId, fromId));
 
   if (members.length > 0) {
+    // A member's own push mute travels with them; a row the survivor already has keeps its own.
     await ex
       .insert(groupMembers)
-      .values(members.map((m) => ({ groupId: intoId, userId: m.userId })))
+      .values(members.map((m) => ({ groupId: intoId, userId: m.userId, pushMuted: m.pushMuted })))
       .onConflictDoNothing();
   }
 

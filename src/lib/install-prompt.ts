@@ -52,9 +52,14 @@ export async function promptInstall(): Promise<InstallOutcome> {
   if (!event) return "unavailable";
   deferred = null;
   emit();
-  await event.prompt();
-  const { outcome } = await event.userChoice;
-  return outcome;
+  try {
+    await event.prompt();
+    const { outcome } = await event.userChoice;
+    return outcome;
+  } catch {
+    // The browser refused the prompt (already shown, or no user gesture): nothing opened.
+    return "unavailable";
+  }
 }
 
 /** Whether a tap can open the browser's own install dialog right now. */
