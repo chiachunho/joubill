@@ -8,9 +8,9 @@ import { listenForInstallPrompt } from "@/lib/install-prompt";
 if (typeof window !== "undefined") listenForInstallPrompt();
 
 /**
- * Registers `public/sw.js` (push only, see that file). Mounted by the Web App's layouts
- * (`/app` and the public `/join/<code>`), never the Mini App's: Telegram's webview has no
- * push, and the chat already tells those users what changed.
+ * Registers `public/sw.js` (push only, see that file). Mounted by `AuthProvider` in web mode,
+ * so by every Web App layout (`/app` and the public `/join/<code>`) and never the Mini App's:
+ * Telegram's webview has no push, and the chat already tells those users what changed.
  */
 export function ServiceWorkerRegistrar() {
   useEffect(() => {
