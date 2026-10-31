@@ -76,6 +76,11 @@ function MiniHelpAction({ className, children }: { className: string; children: 
   );
 }
 
+// Telegram's webview can't be added to a home screen and has no push.
+function MiniDeviceSettings(): null {
+  return null;
+}
+
 // Telegram supplies the identity, so there is nothing to sign out of.
 function MiniAccountSection(): null {
   return null;
@@ -99,5 +104,6 @@ export const miniPlatform: Platform = {
       : "網頁連結在 Telegram 點開會跳到外部瀏覽器。也可以把邀請碼傳給對方，請他在 Mini App 的「輸入邀請碼」貼上。",
   linkIdentity: null,
   openInBrowser,
+  DeviceSettings: MiniDeviceSettings,
   AccountSection: MiniAccountSection,
 };

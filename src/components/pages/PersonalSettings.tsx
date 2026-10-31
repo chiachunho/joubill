@@ -94,6 +94,8 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
 
       <LoginMethodsSection platform={platform} />
 
+      <platform.DeviceSettings />
+
       <section className="px-4">
         <p className="sect mb-2.5">關於</p>
         <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">

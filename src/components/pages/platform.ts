@@ -68,6 +68,12 @@ export type Platform = {
    * (`telegramLink`) and at the code otherwise. The Web App has no such caveat.
    */
   inviteHint: InviteHint;
+  /**
+   * The per-device sections of personal settings: 通知 and 主畫面捷徑 in the Web App. The Mini
+   * App renders nothing, since Telegram's webview can neither be added to a home screen nor
+   * receive push, and the chat already tells those users what changed.
+   */
+  DeviceSettings: ComponentType;
   /** Extra content at the foot of the personal settings page. The Web App has the sign-out button. */
   AccountSection: ComponentType;
 };

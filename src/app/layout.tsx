@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -14,7 +14,14 @@ export const metadata: Metadata = {
     apple: { url: "/apple-touch-icon.png" },
   },
   manifest: "/site.webmanifest",
+  // Added to the iPhone home screen, the Web App opens full screen like an app. Push
+  // notifications only reach it there (iOS 16.4+), never a Safari tab.
+  appleWebApp: { capable: true, title: "揪帳", statusBarStyle: "default" },
 };
+
+// The page background (米白). Only the Mini App switches to dark, following Telegram's theme;
+// the Web App is always light, so one colour is right for its status bar.
+export const viewport: Viewport = { themeColor: "#F2F0EB" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

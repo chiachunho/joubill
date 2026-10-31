@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react";
 import { ChevronLeft, LogOut, UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
+import { DeviceSettings } from "@/components/pwa/DeviceSettings";
 import { WEB_LOGIN_PATH } from "@/lib/auth-redirect";
 import { HELP_PATH } from "@/lib/help-url";
 import type { LoginProvider } from "@/lib/identities";
@@ -118,5 +119,6 @@ export const webPlatform: Platform = {
   inviteHint: () => "對方也可以在「我的群組」按「輸入邀請碼」，貼上邀請碼。",
   linkIdentity,
   openInBrowser: null,
+  DeviceSettings,
   AccountSection: WebAccountSection,
 };
