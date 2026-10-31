@@ -41,11 +41,13 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
   // send people back here with the outcome. The parameters are dropped once read, so a reload
   // doesn't announce the same thing again.
   useEffect(() => {
+    // Consumed on every visit, so an attempt that ended in a link or a merge offer can't be
+    // blamed for a later error that started somewhere else (such as the login page).
+    const provider = takeLinking();
     const params = new URLSearchParams(window.location.search);
     const merge = params.get("merge");
     const linkError = params.get(LINK_ERROR_PARAM);
-    if (linkError) {
-      const provider = takeLinking();
+    if (linkError !== null) {
       setAlert({ text: linkErrorMessage(linkError, provider), retry: provider });
     } else if (merge === "done") {
       setNotice("已合併，兩個帳號原本的登入方式現在都會登入這個帳號。");
@@ -63,9 +65,11 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
   }, []);
 
   // The section sits below the profile card, so bring the message into view once it renders.
+  // Keyed on "loaded", not `data`, so a refetch (after an unlink) doesn't scroll the page again.
+  const loaded = data !== undefined;
   useEffect(() => {
-    if (alert && data) alertRef.current?.scrollIntoView?.({ block: "center" });
-  }, [alert, data]);
+    if (alert && loaded) alertRef.current?.scrollIntoView?.({ block: "center" });
+  }, [alert, loaded]);
 
   if (!data) return null;
 
@@ -74,6 +78,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
   // Read here, after the data has loaded, so it only ever runs in the browser. Google refuses
   // OAuth inside LINE's / Telegram's built-in browser, same as on the login page.
   const googleBlocked = isInAppBrowser(navigator.userAgent);
+  const blocked = (provider: LoginProvider) => provider === "google" && googleBlocked;
 
   async function confirmUnlink() {
     if (!confirming) return;
@@ -97,7 +102,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
         >
           <div className="flex-1 space-y-2">
             <p>{alert.text}</p>
-            {alert.retry && addable.includes(alert.retry) && (
+            {alert.retry && addable.includes(alert.retry) && !blocked(alert.retry) && (
               <button
                 onClick={() => {
                   const provider = alert.retry!;
@@ -157,7 +162,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
           <button
             key={provider}
             onClick={() => platform.linkIdentity?.(provider)}
-            disabled={provider === "google" && googleBlocked}
+            disabled={blocked(provider)}
             className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50 disabled:hover:bg-transparent"
           >
             <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">

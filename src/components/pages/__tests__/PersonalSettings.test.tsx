@@ -8,6 +8,8 @@ import { miniPlatform } from "@/components/pages/platform.mini";
 import { webPlatform } from "@/components/pages/platform.web";
 import type { ProfileResponse } from "@/lib/api-types";
 import { HELP_PATH } from "@/lib/help-url";
+import type { LoginProvider } from "@/lib/identities";
+import { rememberLinking } from "@/lib/linking-attempt";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 afterEach(() => {
@@ -200,9 +202,9 @@ describe("PersonalSettings", () => {
         sessionStorage.clear();
       });
 
-      function returnFromLink(code: string, provider?: string) {
+      function returnFromLink(code: string, provider?: LoginProvider) {
         window.history.replaceState(null, "", `/app/settings?linkError=${code}`);
-        if (provider) sessionStorage.setItem("splitbill:linking", provider);
+        if (provider) rememberLinking(provider);
       }
 
       it("names the provider, offers a retry and drops the parameter", async () => {
@@ -232,11 +234,26 @@ describe("PersonalSettings", () => {
         expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       });
 
-      it("shows nothing without the parameter, even if an attempt was remembered", async () => {
-        sessionStorage.setItem("splitbill:linking", "line");
+      it("hides the retry for Google inside an in-app browser, which Google refuses", async () => {
+        vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 Mobile Safari Line/14.0.0" });
+        returnFromLink("OAuthCallbackError", "google");
+        renderSettings(withLink(vi.fn()));
+        expect(await screen.findByRole("alert")).toHaveTextContent("沒有連結 Google");
+        expect(screen.queryByRole("button", { name: "再試一次" })).not.toBeInTheDocument();
+      });
+
+      it("shows nothing without the parameter, and forgets the remembered attempt", async () => {
+        rememberLinking("line");
         renderSettings(withLink(vi.fn()));
         await screen.findByRole("button", { name: /連結 LINE/ });
         expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        cleanup();
+        // A later error that started elsewhere must not be blamed on that attempt.
+        returnFromLink("OAuthCallbackError");
+        renderSettings(withLink(vi.fn()));
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "沒有連結：授權沒有完成，可能是在授權頁取消了。",
+        );
       });
     });
 
