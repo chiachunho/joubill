@@ -50,11 +50,45 @@ export function linkableNow(
   return LINKABLE_PROVIDERS.filter((p) => enabled.includes(p) && !linked.includes(p));
 }
 
-/** Reasons `/login?error=` can carry, as text a person can act on. */
+/**
+ * Reasons `/login?error=` can carry, as text a person can act on. Only signed-out failures
+ * reach here; a signed-in one is a failed link and goes back to the settings page
+ * (`authErrorRedirect`).
+ *
+ * There is no `OAuthAccountNotLinked` text on purpose (issue #105): signed in, the `signIn`
+ * callback sends that case to the merge page first; signed out, Telegram and LINE carry no
+ * email and GitHub / Google link by email, so Auth.js never raises it.
+ */
 export function loginErrorMessage(code: string | undefined): string | null {
   if (!code) return null;
-  if (code === "OAuthAccountNotLinked") {
-    return "這個登入方式已經屬於另一個帳號，不會自動合併。如果兩個都是你的，請先用其中一個登入，再到個人設定連結另一個，就能把兩個帳號合併。";
-  }
   return "登入失敗，請再試一次。";
+}
+
+/** Where a failed link lands: the settings page, which reads this parameter once. */
+export const LINK_ERROR_PARAM = "linkError";
+const LINK_ERROR_PAGE = "/app/settings";
+
+/**
+ * Where `/login?error=` should send a visitor instead of the login page, or null to stay.
+ * A signed-in visitor got there from a link that did not complete (Auth.js sends every
+ * sign-in error to its sign-in page), so the login buttons would only suggest switching
+ * accounts.
+ */
+export function authErrorRedirect(code: string | undefined, signedIn: boolean): string | null {
+  if (!code || !signedIn) return null;
+  return `${LINK_ERROR_PAGE}?${new URLSearchParams({ [LINK_ERROR_PARAM]: code })}`;
+}
+
+/**
+ * The text for a link that did not complete. `provider` is the one the person tried, if the
+ * page still knows it; the error redirect itself doesn't say.
+ */
+export function linkErrorMessage(code: string, provider: LoginProvider | null): string {
+  const name = provider ? PROVIDER_LABEL[provider] : null;
+  if (code === "OAuthCallbackError") {
+    return name
+      ? `沒有連結 ${name}：授權沒有完成，可能是在 ${name} 的頁面取消了。`
+      : "沒有連結：授權沒有完成，可能是在授權頁取消了。";
+  }
+  return name ? `連結 ${name} 失敗，請再試一次。` : "連結失敗，請再試一次。";
 }

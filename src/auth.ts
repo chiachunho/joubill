@@ -98,6 +98,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // permission the user may refuse and LINE does not promise it is verified, so matching on
     // it would let someone take over an account by registering its address. LINE joins an
     // existing account only through the settings page (signed in), never by email.
+    // These choices are also why OAuthAccountNotLinked can't happen signed out, so /login has
+    // no text for it: a provider that sends a real email without auto-linking would need one.
     ...(githubEnabled ? [GitHub({ allowDangerousEmailAccountLinking: true })] : []),
     ...(googleEnabled ? [Google({ allowDangerousEmailAccountLinking: true })] : []),
     ...(lineEnabled
@@ -135,6 +137,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: {
     signIn: "/login",
+    // AccessDenied and Configuration go to `error`, the OAuth errors to `signIn`. Both land on
+    // /login, which sends a signed-in visitor (a failed link) back to settings (issue #105).
+    error: "/login",
   },
   events: {
     // Fires after a sign-in, a new account and a link alike, with the account already stored, so

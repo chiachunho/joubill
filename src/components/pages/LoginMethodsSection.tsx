@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, KeyRound, Link2, Merge, Unlink } from "lucide-react";
+import { ChevronRight, KeyRound, Link2, Merge, Unlink, X } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import type { Platform } from "@/components/pages/platform";
@@ -12,10 +12,13 @@ import { isInAppBrowser } from "@/lib/in-app-browser";
 import {
   canUnlink,
   isLoginProvider,
+  LINK_ERROR_PARAM,
   linkableNow,
+  linkErrorMessage,
   PROVIDER_LABEL,
   type LoginProvider,
 } from "@/lib/identities";
+import { takeLinking } from "@/lib/linking-attempt";
 import { useGetIdentitiesQuery, useUnlinkIdentityMutation } from "@/store/api";
 
 /**
@@ -29,16 +32,28 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
   const [confirming, setConfirming] = useState<LoginProvider | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // A link or merge that came back unfinished. Shown above the list, where the person will
+  // look for the provider they just tried; `retry` is that provider when it is known.
+  const [alert, setAlert] = useState<{ text: string; retry: LoginProvider | null } | null>(null);
+  const alertRef = useRef<HTMLDivElement>(null);
 
-  // The merge page (/app/settings/merge) sends people back here with the outcome. The
-  // parameter is dropped once read, so a reload doesn't announce the same merge again.
+  // The merge page (/app/settings/merge) and a link that didn't complete (/login, issue #105)
+  // send people back here with the outcome. The parameters are dropped once read, so a reload
+  // doesn't announce the same thing again.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const merge = params.get("merge");
-    if (merge === "done") setNotice("已合併，兩個帳號原本的登入方式現在都會登入這個帳號。");
-    else if (merge === "expired") setMessage(MERGE_TICKET_NOT_FOUND);
-    else return;
+    const linkError = params.get(LINK_ERROR_PARAM);
+    if (linkError) {
+      const provider = takeLinking();
+      setAlert({ text: linkErrorMessage(linkError, provider), retry: provider });
+    } else if (merge === "done") {
+      setNotice("已合併，兩個帳號原本的登入方式現在都會登入這個帳號。");
+    } else if (merge === "expired") {
+      setAlert({ text: MERGE_TICKET_NOT_FOUND, retry: null });
+    } else return;
     params.delete("merge");
+    params.delete(LINK_ERROR_PARAM);
     const query = params.toString();
     window.history.replaceState(
       window.history.state,
@@ -46,6 +61,11 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
       `${window.location.pathname}${query ? `?${query}` : ""}`,
     );
   }, []);
+
+  // The section sits below the profile card, so bring the message into view once it renders.
+  useEffect(() => {
+    if (alert && data) alertRef.current?.scrollIntoView?.({ block: "center" });
+  }, [alert, data]);
 
   if (!data) return null;
 
@@ -69,6 +89,36 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
   return (
     <section className="px-4">
       <p className="sect mb-2.5">登入方式</p>
+      {alert && (
+        <div
+          ref={alertRef}
+          role="alert"
+          className="mb-2.5 flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          <div className="flex-1 space-y-2">
+            <p>{alert.text}</p>
+            {alert.retry && addable.includes(alert.retry) && (
+              <button
+                onClick={() => {
+                  const provider = alert.retry!;
+                  setAlert(null);
+                  platform.linkIdentity?.(provider);
+                }}
+                className="rounded-lg bg-destructive px-2.5 py-1 text-xs font-semibold text-destructive-foreground"
+              >
+                再試一次
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setAlert(null)}
+            aria-label="關閉"
+            className="-mr-1 rounded-lg p-1 transition-colors hover:bg-destructive/10"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
       <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
         {linked.map((provider) => {
           const verdict = canUnlink(provider, data.linked);

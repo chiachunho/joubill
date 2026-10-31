@@ -194,6 +194,52 @@ describe("PersonalSettings", () => {
       expect(await screen.findByRole("button", { name: /解除連結/ })).toBeInTheDocument();
     });
 
+    describe("a link that came back unfinished (issue #105)", () => {
+      afterEach(() => {
+        window.history.replaceState(null, "", "/");
+        sessionStorage.clear();
+      });
+
+      function returnFromLink(code: string, provider?: string) {
+        window.history.replaceState(null, "", `/app/settings?linkError=${code}`);
+        if (provider) sessionStorage.setItem("splitbill:linking", provider);
+      }
+
+      it("names the provider, offers a retry and drops the parameter", async () => {
+        returnFromLink("OAuthCallbackError", "line");
+        const linkIdentity = vi.fn();
+        renderSettings(withLink(linkIdentity));
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "沒有連結 LINE：授權沒有完成，可能是在 LINE 的頁面取消了。",
+        );
+        expect(window.location.search).toBe("");
+        fireEvent.click(screen.getByRole("button", { name: "再試一次" }));
+        expect(linkIdentity).toHaveBeenCalledWith("line");
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      });
+
+      it("still explains the failure when the provider is unknown, without a retry", async () => {
+        returnFromLink("AccessDenied");
+        renderSettings(withLink(vi.fn()));
+        expect(await screen.findByRole("alert")).toHaveTextContent("連結失敗，請再試一次。");
+        expect(screen.queryByRole("button", { name: "再試一次" })).not.toBeInTheDocument();
+      });
+
+      it("closes", async () => {
+        returnFromLink("OAuthCallbackError", "google");
+        renderSettings(withLink(vi.fn()));
+        fireEvent.click(await screen.findByRole("button", { name: "關閉" }));
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      });
+
+      it("shows nothing without the parameter, even if an attempt was remembered", async () => {
+        sessionStorage.setItem("splitbill:linking", "line");
+        renderSettings(withLink(vi.fn()));
+        await screen.findByRole("button", { name: /連結 LINE/ });
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      });
+    });
+
     it("only lists the methods in the Mini App, which cannot run OAuth", async () => {
       renderSettings(miniPlatform);
       await screen.findByText("登入方式");

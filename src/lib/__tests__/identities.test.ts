@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { canUnlink, isLoginProvider, linkableNow, loginErrorMessage } from "@/lib/identities";
+import {
+  authErrorRedirect,
+  canUnlink,
+  isLoginProvider,
+  linkableNow,
+  linkErrorMessage,
+  loginErrorMessage,
+} from "@/lib/identities";
 
 describe("canUnlink", () => {
   it("refuses the last login method", () => {
@@ -41,11 +48,55 @@ describe("isLoginProvider", () => {
 });
 
 describe("loginErrorMessage", () => {
-  it("explains an identity that belongs to another account", () => {
-    expect(loginErrorMessage("OAuthAccountNotLinked")).toContain("不會自動合併");
+  it("offers a retry for any sign-in failure", () => {
+    expect(loginErrorMessage("OAuthCallbackError")).toBe("登入失敗，請再試一次。");
   });
 
   it("is silent without an error", () => {
     expect(loginErrorMessage(undefined)).toBeNull();
+  });
+});
+
+describe("authErrorRedirect", () => {
+  it("sends a signed-in visitor back to settings with the code", () => {
+    expect(authErrorRedirect("OAuthCallbackError", true)).toBe(
+      "/app/settings?linkError=OAuthCallbackError",
+    );
+  });
+
+  it("keeps a signed-out visitor on the login page", () => {
+    expect(authErrorRedirect("OAuthCallbackError", false)).toBeNull();
+  });
+
+  it("does nothing without an error", () => {
+    expect(authErrorRedirect(undefined, true)).toBeNull();
+  });
+
+  it("encodes a code it doesn't recognise", () => {
+    expect(authErrorRedirect("a&b", true)).toBe("/app/settings?linkError=a%26b");
+  });
+});
+
+describe("linkErrorMessage", () => {
+  it("explains a cancelled consent, naming the provider", () => {
+    expect(linkErrorMessage("OAuthCallbackError", "line")).toBe(
+      "沒有連結 LINE：授權沒有完成，可能是在 LINE 的頁面取消了。",
+    );
+  });
+
+  it("explains a cancelled consent without a provider", () => {
+    expect(linkErrorMessage("OAuthCallbackError", null)).toBe(
+      "沒有連結：授權沒有完成，可能是在授權頁取消了。",
+    );
+  });
+
+  it("falls back to a retry for anything else", () => {
+    expect(linkErrorMessage("AccessDenied", "google")).toBe("連結 Google 失敗，請再試一次。");
+    expect(linkErrorMessage("Configuration", null)).toBe("連結失敗，請再試一次。");
+  });
+
+  it("has no special text for an identity owned by another account", () => {
+    // The signIn callback turns that case into a merge offer before Auth.js can raise it.
+    expect(linkErrorMessage("OAuthAccountNotLinked", "line")).toBe("連結 LINE 失敗，請再試一次。");
   });
 });

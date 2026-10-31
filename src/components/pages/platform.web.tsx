@@ -9,6 +9,7 @@ import type { Platform } from "@/components/pages/platform";
 import { WEB_LOGIN_PATH } from "@/lib/auth-redirect";
 import { HELP_PATH } from "@/lib/help-url";
 import type { LoginProvider } from "@/lib/identities";
+import { rememberLinking } from "@/lib/linking-attempt";
 import { webRawFetch } from "@/lib/web-fetch";
 
 function useNoSelfPhoto(): string | null {
@@ -96,7 +97,9 @@ function WebAccountSection() {
 function linkIdentity(provider: LoginProvider): void {
   // With a session, Auth.js links the new account to the signed-in user instead of creating
   // one. If it belongs to another account, the signIn callback sends the person to
-  // /app/settings/merge to confirm merging the two (src/lib/auth/merge-ticket.ts).
+  // /app/settings/merge to confirm merging the two (src/lib/auth/merge-ticket.ts). A link
+  // that doesn't complete comes back to /app/settings?linkError=, which names the provider.
+  rememberLinking(provider);
   void signIn(provider, { callbackUrl: "/app/settings" });
 }
 
