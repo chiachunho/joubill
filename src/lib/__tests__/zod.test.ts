@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { beancountConfigInputSchema, expenseInputSchema, settlementInputSchema } from "../zod";
+import {
+  beancountConfigInputSchema,
+  expenseInputSchema,
+  isPushServiceUrl,
+  settlementInputSchema,
+} from "../zod";
 
 const validExpense = {
   amount: 300,
@@ -275,5 +280,30 @@ describe("beancountConfigInputSchema", () => {
   it("rejects a root outside the five beancount account types", () => {
     const r = beancountConfigInputSchema.safeParse({ ...valid, cashAccount: "Foo:Cash" });
     expect(r.success).toBe(false);
+  });
+});
+
+describe("isPushServiceUrl", () => {
+  it("accepts the endpoints browsers hand out", () => {
+    for (const url of [
+      "https://fcm.googleapis.com/fcm/send/abc:def",
+      "https://updates.push.services.mozilla.com/wpush/v2/gAAA",
+      "https://web.push.apple.com/QGx",
+      "https://wns2-par02p.notify.windows.com/w/?token=x",
+    ]) {
+      expect(isPushServiceUrl(url)).toBe(true);
+    }
+  });
+
+  it("refuses any other host, plain http and look-alikes", () => {
+    for (const url of [
+      "https://example.com/push",
+      "http://fcm.googleapis.com/fcm/send/abc",
+      "https://fcm.googleapis.com.evil.example/x",
+      "https://169.254.169.254/latest",
+      "not a url",
+    ]) {
+      expect(isPushServiceUrl(url)).toBe(false);
+    }
   });
 });

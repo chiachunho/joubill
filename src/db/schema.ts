@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   bigint,
+  boolean,
   check,
   date,
   index,
@@ -79,6 +80,9 @@ export const groupMembers = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
     status: varchar("status", { length: 16 }).notNull().default("active"),
+    /** The member turned off push for this group (群組設定 → 通知). Only push: the group's
+     *  chat message and the audit log are unaffected. See `src/lib/push.ts`. */
+    pushMuted: boolean("push_muted").notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.groupId, t.userId] })],
 );
@@ -450,6 +454,30 @@ export const userBeancountConfigs = pgTable(
   (t) => [unique("user_beancount_configs_user_group").on(t.userId, t.groupId)],
 );
 
+/**
+ * One browser or home-screen app that receives this user's push notifications (issue #67).
+ * A person has one row per device; `endpoint` is the push service URL the browser issued and
+ * is unique, so a device that signs in as someone else takes the row over. Rows are deleted
+ * when the push service answers 404/410 (`src/lib/push.ts`). `mergeAccounts` repoints them
+ * before deleting the absorbed user, since the cascade would otherwise silence that device.
+ */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+  },
+  (t) => [index("push_subscriptions_user_idx").on(t.userId)],
+);
+
 // Convenient row types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -478,6 +506,7 @@ export type RecordAuditLog = typeof recordAuditLog.$inferSelect;
 export type NewRecordAuditLog = typeof recordAuditLog.$inferInsert;
 export type UserBeancountConfig = typeof userBeancountConfigs.$inferSelect;
 export type NewUserBeancountConfig = typeof userBeancountConfigs.$inferInsert;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 
 /**
  * Applied data migrations (scripts/migrate.ts creates it with the same shape).

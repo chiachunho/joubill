@@ -12,6 +12,7 @@ import {
   groupDeleteRequests,
   groupMembers,
   groups,
+  pushSubscriptions,
   sessions,
   userBeancountConfigs,
   users,
@@ -213,9 +214,11 @@ export type AccountMergeResult =
  * deletes `absorbId`. Log and refresh chat messages after it commits.
  *
  * Every column that points at `users.id` is handled here. The ones that cascade
- * (`auth_identities`, `sessions`, `group_delete_requests`, `user_beancount_configs`,
- * `group_members`) are moved *before* the delete, or the cascade would silently drop
- * the person's logins, other devices' sign-ins and a pending group deletion.
+ * (`auth_identities`, `sessions`, `push_subscriptions`, `group_delete_requests`,
+ * `user_beancount_configs`, `group_members`) are moved *before* the delete, or the cascade
+ * would silently drop the person's logins, other devices' sign-ins and push, and a pending
+ * group deletion. A membership row keeps its own `push_muted`: where both were members, the
+ * kept account's row (and its choice) survives.
  */
 export async function mergeAccounts(
   tx: Tx,
@@ -323,6 +326,11 @@ export async function mergeAccounts(
     .set({ userId: keepId })
     .where(eq(authIdentities.userId, absorbId));
   await tx.update(sessions).set({ userId: keepId }).where(eq(sessions.userId, absorbId));
+  // A device that had push on for either account keeps receiving it.
+  await tx
+    .update(pushSubscriptions)
+    .set({ userId: keepId })
+    .where(eq(pushSubscriptions.userId, absorbId));
 
   // telegram_id is unique: clear it on the absorbed row before the kept row takes it.
   const fill = mergedProfileFields(keep, absorb);
