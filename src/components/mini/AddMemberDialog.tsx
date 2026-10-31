@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Link2, UserPlus } from "lucide-react";
 
 import { AddPlaceholderDialog } from "@/components/mini/AddPlaceholderDialog";
 import { InviteActions } from "@/components/mini/InviteActions";
+import type { InviteHint } from "@/components/pages/platform";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,7 +33,7 @@ export function AddMemberDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** What to tell the inviter about handing the invite over (`Platform.inviteHint`). */
-  inviteHint: string;
+  inviteHint: InviteHint;
 }) {
   const [step, setStep] = useState<Step>("choose");
   const [wasOpen, setWasOpen] = useState(open);

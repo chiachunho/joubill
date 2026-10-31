@@ -63,7 +63,7 @@ function fakePlatform(basePath: "/mini" | "/app"): Platform {
     canDownloadExport: false,
     linkIdentity: null,
     openInBrowser: null,
-    inviteHint: `hint for ${basePath}`,
+    inviteHint: () => `hint for ${basePath}`,
     AccountSection: () => null,
   };
 }

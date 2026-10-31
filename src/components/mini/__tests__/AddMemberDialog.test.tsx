@@ -13,7 +13,12 @@ function Harness() {
   return (
     <>
       <button onClick={() => setOpen(true)}>open</button>
-      <AddMemberDialog groupId="9" open={open} onOpenChange={setOpen} inviteHint="the hint" />
+      <AddMemberDialog
+        groupId="9"
+        open={open}
+        onOpenChange={setOpen}
+        inviteHint={() => "the hint"}
+      />
     </>
   );
 }

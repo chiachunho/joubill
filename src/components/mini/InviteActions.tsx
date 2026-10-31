@@ -10,6 +10,7 @@ import { apiErrorText, describeError } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { formatInviteCode, inviteLink } from "@/lib/invite";
 import { useGetInviteQuery, useResetInviteMutation } from "@/store/api";
+import type { InviteHint } from "@/components/pages/platform";
 
 type CopyKind = "link" | "mini" | "code";
 
@@ -29,12 +30,15 @@ const ON_PANEL = "bg-background/70 hover:bg-background";
  * panel never shows a row of buttons that then disappears. A missing code is only issued by
  * a tap on 產生邀請碼, never on read: whoever presses it is the inviter on record.
  */
-export function InviteActions({ groupId, hint }: { groupId: string; hint: string }) {
+export function InviteActions({ groupId, hint }: { groupId: string; hint: InviteHint }) {
   const { data, error, isFetching, refetch } = useGetInviteQuery(groupId);
   const [resetInvite, { isLoading: resetting }] = useResetInviteMutation();
   const [confirmReset, setConfirmReset] = useState(false);
   const [copied, setCopied] = useState<CopyKind | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // What the clipboard refused, shown as selectable text: the links themselves are not on
+  // screen anywhere else, so "select it by hand" needs something to select.
+  const [manualCopy, setManualCopy] = useState<string | null>(null);
 
   const code = data?.code ?? null;
   const link = code ? inviteLink(window.location.origin, code) : null;
@@ -46,9 +50,11 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: string
       await navigator.clipboard.writeText(text);
       setCopied(kind);
       setMessage(null);
+      setManualCopy(null);
       setTimeout(() => setCopied((c) => (c === kind ? null : c)), 2000);
     } catch {
-      setMessage("無法複製，請手動選取");
+      setManualCopy(text);
+      setMessage("無法自動複製，請長按或選取上面的文字複製");
     }
   }
 
@@ -65,6 +71,7 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: string
     try {
       await resetInvite({ groupId }).unwrap();
       setMessage(null);
+      setManualCopy(null);
     } catch (e) {
       setMessage(apiErrorText(e, code ? "重設失敗" : "產生失敗"));
     } finally {
@@ -174,6 +181,16 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: string
             copy: "複製 Telegram 連結",
             share: "分享 Telegram 連結",
           })}
+        {manualCopy && (
+          <input
+            readOnly
+            value={manualCopy}
+            aria-label="要複製的內容"
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            className="num w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          />
+        )}
       </div>
 
       <p
@@ -182,7 +199,7 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: string
           message ? "text-destructive" : "text-muted-foreground",
         )}
       >
-        {message ?? hint}
+        {message ?? hint({ telegramLink: miniLink !== null })}
       </p>
 
       <button

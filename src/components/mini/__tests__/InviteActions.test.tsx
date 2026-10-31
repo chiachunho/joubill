@@ -17,7 +17,10 @@ afterEach(() => {
 function renderActions(request: ReturnType<typeof fakeRequest>) {
   return render(
     <StoreWrapper request={request}>
-      <InviteActions groupId="9" hint="the hint" />
+      <InviteActions
+        groupId="9"
+        hint={({ telegramLink }) => (telegramLink ? "hint with telegram" : "the hint")}
+      />
     </StoreWrapper>,
   );
 }
@@ -67,6 +70,27 @@ describe("InviteActions", () => {
     fireEvent.click(await screen.findByRole("button", { name: "複製邀請碼" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("K7M2Q-X9PAB"));
     expect(await screen.findByText("已複製")).toBeInTheDocument();
+  });
+
+  it("tells the hint whether a Telegram link is on offer", async () => {
+    renderActions(fakeRequest({ "/api/groups/9/invite": { code: "K7M2QX9PAB", miniLink: MINI } }));
+    expect(await screen.findByText("hint with telegram")).toBeInTheDocument();
+    cleanup();
+    renderActions(fakeRequest({ "/api/groups/9/invite": { code: "K7M2QX9PAB", miniLink: null } }));
+    expect(await screen.findByText("the hint")).toBeInTheDocument();
+  });
+
+  it("shows the link as selectable text when the clipboard refuses", async () => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+    });
+    renderActions(fakeRequest({ "/api/groups/9/invite": { code: "K7M2QX9PAB", miniLink: MINI } }));
+
+    expect(screen.queryByLabelText("要複製的內容")).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "複製 Telegram 連結" }));
+
+    expect(await screen.findByLabelText("要複製的內容")).toHaveValue(MINI);
+    expect(screen.getByText(/無法自動複製/)).toBeInTheDocument();
   });
 
   it("asks before replacing a live code", async () => {

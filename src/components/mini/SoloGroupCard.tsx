@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { AddMemberDialog } from "@/components/mini/AddMemberDialog";
+import type { InviteHint } from "@/components/pages/platform";
 
 /**
  * Shown on the group page while the viewer is the only member, in place of the
@@ -19,7 +20,7 @@ export function SoloGroupCard({
 }: {
   groupId: string;
   basePath: string;
-  inviteHint: string;
+  inviteHint: InviteHint;
 }) {
   const [addOpen, setAddOpen] = useState(false);
 
