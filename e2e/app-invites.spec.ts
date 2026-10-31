@@ -14,6 +14,7 @@ import {
   legs,
   mergedBalances,
   mkPlaceholder,
+  openAddMember,
   signedInPage,
 } from "./helpers";
 
@@ -165,6 +166,7 @@ test.describe("Creating groups and joining by invite", () => {
     if (miniLink !== null) expect(miniLink).toContain(`startapp=join_${code}`);
 
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings`);
+    await openAddMember(authedPage, "用邀請碼邀請");
     await expect(authedPage.getByRole("button", { name: "複製網頁連結" })).toBeVisible();
     const telegramButton = authedPage.getByRole("button", { name: "複製 Telegram 連結" });
     if (miniLink !== null) await expect(telegramButton).toBeVisible();
@@ -276,7 +278,7 @@ test.describe("Claiming a member without an account from the invite page", () =>
       );
 
       await page.goto(`/app/groups/${seeded.groupId}/settings`);
-      await expect(page.getByText("新增成員（不需帳號）")).toBeVisible();
+      await expect(page.getByRole("button", { name: "新增成員", exact: true })).toBeVisible();
       await expect(page.getByText(name)).toHaveCount(0);
 
       await page.goto(`/app/groups/${seeded.groupId}/activity`);

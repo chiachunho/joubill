@@ -33,7 +33,7 @@ export const linkCommand = new Composer<BotContext>();
 
 const USAGE =
   "在網頁版建立的群組，可以用邀請碼綁到這個聊天室：<code>/link 邀請碼</code>\n" +
-  "邀請碼在 App 的群組設定 → 邀請成員。";
+  "邀請碼在 App 的群組設定 → 成員 → 新增成員 → 用邀請碼邀請。";
 
 linkCommand.command("link", async (ctx) => {
   const chatGroup = ctx.dbGroup;

@@ -63,7 +63,7 @@ function fakePlatform(basePath: "/mini" | "/app"): Platform {
     canDownloadExport: false,
     linkIdentity: null,
     openInBrowser: null,
-    soloInviteHint: `hint for ${basePath}`,
+    inviteHint: `hint for ${basePath}`,
     AccountSection: () => null,
   };
 }
@@ -260,15 +260,23 @@ describe("GroupDetailPage", () => {
       await screen.findByText("Expenses", { exact: false });
     }
 
-    it("shows the card, with both ways to add people, instead of 所有帳款已結清", async () => {
+    /** The card's one button, then one of the two ways to add someone. */
+    async function openAdd(option: "新增沒有帳號的成員" | "用邀請碼邀請") {
+      fireEvent.click(await screen.findByRole("button", { name: "新增成員" }));
+      fireEvent.click(await screen.findByRole("button", { name: new RegExp(option) }));
+    }
+
+    it("shows the card, with one 新增成員 button, instead of 所有帳款已結清", async () => {
       await renderSolo(
         fakePlatform("/app"),
         soloRequest({ "/api/groups/7/expenses": { expenses: [], nextCursor: null, total: 0 } }),
       );
 
       expect(await screen.findByText("還沒有其他成員")).toBeInTheDocument();
-      expect(await screen.findByText("K7M2Q-X9PAB")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "新增沒有帳號的成員" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "新增成員" })).toBeInTheDocument();
+      // The invite panel lives in the dialog now, not on the card.
+      expect(screen.queryByText("K7M2Q-X9PAB")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "複製邀請碼" })).not.toBeInTheDocument();
       expect(screen.queryByText("所有帳款已結清")).not.toBeInTheDocument();
       expect(screen.getByText("先加入成員，再記第一筆支出")).toBeInTheDocument();
     });
@@ -297,8 +305,10 @@ describe("GroupDetailPage", () => {
     it("offers 產生邀請碼 for an old group and never issues one on read", async () => {
       const request = soloRequest({ "/api/groups/7/invite": { code: null, miniLink: null } });
       await renderSolo(fakePlatform("/app"), request);
+      await openAdd("用邀請碼邀請");
 
       expect(await screen.findByRole("button", { name: "產生邀請碼" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^(複製|分享)/ })).not.toBeInTheDocument();
       expect(
         request.mock.calls.some(
           ([path, init]) => path === "/api/groups/7/invite" && init?.method === "POST",
@@ -306,17 +316,21 @@ describe("GroupDetailPage", () => {
       ).toBe(false);
     });
 
-    it("does not offer to reset a live code from the card", async () => {
+    it("shows the code, its copy buttons and 重設邀請碼 once 用邀請碼邀請 is picked", async () => {
       await renderSolo(fakePlatform("/app"));
-      await screen.findByText("K7M2Q-X9PAB");
-      expect(screen.queryByRole("button", { name: "重設邀請碼" })).not.toBeInTheDocument();
+      await openAdd("用邀請碼邀請");
+      expect(await screen.findByText("K7M2Q-X9PAB")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "複製邀請碼" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "重設邀請碼" })).toBeInTheDocument();
     });
 
     it("shows each platform's own invite hint", async () => {
       await renderSolo(fakePlatform("/mini"));
+      await openAdd("用邀請碼邀請");
       expect(await screen.findByText("hint for /mini")).toBeInTheDocument();
       cleanup();
       await renderSolo(fakePlatform("/app"));
+      await openAdd("用邀請碼邀請");
       expect(await screen.findByText("hint for /app")).toBeInTheDocument();
       expect(screen.queryByText("hint for /mini")).not.toBeInTheDocument();
     });
@@ -346,7 +360,7 @@ describe("GroupDetailPage", () => {
       });
       await renderSolo(fakePlatform("/app"), request);
 
-      fireEvent.click(await screen.findByRole("button", { name: "新增沒有帳號的成員" }));
+      await openAdd("新增沒有帳號的成員");
       fireEvent.change(screen.getByLabelText("名字"), { target: { value: "小明" } });
       fireEvent.click(screen.getByRole("button", { name: "新增" }));
 
@@ -360,7 +374,7 @@ describe("GroupDetailPage", () => {
       });
       await renderSolo(fakePlatform("/app"), request);
 
-      fireEvent.click(await screen.findByRole("button", { name: "新增沒有帳號的成員" }));
+      await openAdd("新增沒有帳號的成員");
       fireEvent.change(screen.getByLabelText("名字"), { target: { value: "小明" } });
       fireEvent.click(screen.getByRole("button", { name: "新增" }));
 

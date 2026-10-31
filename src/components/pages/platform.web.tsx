@@ -115,7 +115,7 @@ export const webPlatform: Platform = {
   loginPath: WEB_LOGIN_PATH,
   HelpAction: WebHelpAction,
   canDownloadExport: true,
-  soloInviteHint: "把連結傳給對方就能加入。對方也可以在「我的群組」按「輸入邀請碼」，貼上邀請碼。",
+  inviteHint: "把連結傳給對方就能加入。對方也可以在「我的群組」按「輸入邀請碼」，貼上邀請碼。",
   linkIdentity,
   openInBrowser: null,
   AccountSection: WebAccountSection,

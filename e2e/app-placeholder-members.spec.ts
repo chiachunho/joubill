@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 
 import * as schema from "../src/db/schema";
 import { expect, test } from "./fixtures";
-import { addExpense, addSettlement, auditActions, mkPlaceholder } from "./helpers";
+import { addExpense, addSettlement, auditActions, mkPlaceholder, openAddMember } from "./helpers";
 
 test.describe("Members without an account", () => {
   test("can be added from the member list and are marked as having no account", async ({
@@ -12,7 +12,7 @@ test.describe("Members without an account", () => {
   }) => {
     const name = `E2E ghost ${seeded.groupId}`;
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings`);
-    await authedPage.getByText("新增成員（不需帳號）").click();
+    await openAddMember(authedPage, "新增沒有帳號的成員");
     await authedPage.getByLabel("名字").fill(name);
     await authedPage.getByRole("button", { name: "新增", exact: true }).click();
 
@@ -23,7 +23,7 @@ test.describe("Members without an account", () => {
 
   test("a duplicate name is rejected", async ({ authedPage, seeded }) => {
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings`);
-    await authedPage.getByText("新增成員（不需帳號）").click();
+    await openAddMember(authedPage, "新增沒有帳號的成員");
     await authedPage.getByLabel("名字").fill(seeded.partnerName);
     await authedPage.getByRole("button", { name: "新增", exact: true }).click();
 

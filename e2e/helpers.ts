@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 
 import type { Pool } from "@neondatabase/serverless";
-import { expect, type APIRequestContext, type Browser } from "@playwright/test";
+import { expect, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-serverless";
 
@@ -174,4 +174,13 @@ export async function auditActions(dbPool: Pool, groupId: number, recordId?: num
       ),
     );
   return rows.map((r) => r.action);
+}
+
+/**
+ * 新增成員, from 群組設定's member list or the one-person group card (whichever the page
+ * shows), then one of the two ways to add someone.
+ */
+export async function openAddMember(page: Page, option: "新增沒有帳號的成員" | "用邀請碼邀請") {
+  await page.getByRole("button", { name: "新增成員", exact: true }).click();
+  await page.getByRole("button", { name: new RegExp(option) }).click();
 }

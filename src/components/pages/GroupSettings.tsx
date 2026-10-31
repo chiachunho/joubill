@@ -19,8 +19,7 @@ import {
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
-import { InviteSection } from "@/components/mini/InviteSection";
-import { AddPlaceholderDialog } from "@/components/mini/AddPlaceholderDialog";
+import { AddMemberDialog } from "@/components/mini/AddMemberDialog";
 import { MergeMemberDialog } from "@/components/mini/MergeMemberDialog";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
@@ -254,8 +253,6 @@ export function GroupSettings({
         </div>
       </section>
 
-      <InviteSection groupId={id} />
-
       {/* 動態紀錄 — the way into the audit log. The group page header has no
           free slot (personal settings left, group settings right) and the
           Expenses row is taken by 還款/支出, so the entry lives here; the
@@ -418,7 +415,7 @@ export function GroupSettings({
             className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-primary transition-colors hover:bg-secondary"
           >
             <Plus className="size-4" />
-            新增成員（不需帳號）
+            新增成員
           </button>
         </div>
       </section>
@@ -454,7 +451,12 @@ export function GroupSettings({
         redirectPath={platform.basePath}
       />
 
-      <AddPlaceholderDialog groupId={id} open={addOpen} onOpenChange={setAddOpen} />
+      <AddMemberDialog
+        groupId={id}
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        inviteHint={platform.inviteHint}
+      />
       <MergeMemberDialog
         groupId={id}
         placeholder={mergeTarget}

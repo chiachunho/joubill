@@ -59,11 +59,11 @@ export type Platform = {
    */
   openInBrowser: ((path: string) => void) | null;
   /**
-   * What the one-person group card tells the inviter about handing the invite over. The
+   * What the invite step of 新增成員 tells the inviter about handing the invite over. The
    * Mini App's link opens outside Telegram's webview for the recipient, so it points at the
    * code; the Web App has no such caveat.
    */
-  soloInviteHint: string;
+  inviteHint: string;
   /** Extra content at the foot of the personal settings page. The Web App has the sign-out button. */
   AccountSection: ComponentType;
 };
