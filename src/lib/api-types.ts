@@ -269,5 +269,9 @@ export type PushSubscriptionsResponse = {
   count: number;
 };
 
-/** GET / PATCH /api/groups/[id]/notifications */
-export type GroupNotificationsResponse = { muted: boolean };
+/** GET /api/groups/[id]/notifications */
+export type GroupNotificationsResponse = {
+  muted: boolean;
+  /** The group has a Telegram chat, whose messages already tell its members what changed. */
+  telegramLinked: boolean;
+};

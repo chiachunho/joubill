@@ -76,7 +76,8 @@ function MiniHelpAction({ className, children }: { className: string; children: 
   );
 }
 
-// Telegram's webview can't be added to a home screen and has no push.
+// Telegram's webview can't be added to a home screen and has no push, so the Mini App has no
+// device settings, no card asking for either, and nothing to mute.
 function MiniDeviceSettings(): null {
   return null;
 }
@@ -105,5 +106,7 @@ export const miniPlatform: Platform = {
   linkIdentity: null,
   openInBrowser,
   DeviceSettings: MiniDeviceSettings,
+  GroupPrompt: MiniDeviceSettings,
+  GroupNotificationSetting: MiniDeviceSettings,
   AccountSection: MiniAccountSection,
 };

@@ -110,11 +110,11 @@ test.describe("Muting push for a group", () => {
   }) => {
     const db = drizzle(dbPool, { schema });
     const url = `/api/groups/${seeded.groupId}/notifications`;
-    expect(await (await authedPage.request.get(url)).json()).toEqual({ muted: false });
+    expect(await (await authedPage.request.get(url)).json()).toMatchObject({ muted: false });
 
     const res = await authedPage.request.patch(url, { data: { muted: true } });
     expect(res.status(), await res.text()).toBe(200);
-    expect(await (await authedPage.request.get(url)).json()).toEqual({ muted: true });
+    expect(await (await authedPage.request.get(url)).json()).toMatchObject({ muted: true });
 
     const rows = await db
       .select({ userId: schema.groupMembers.userId, muted: schema.groupMembers.pushMuted })

@@ -253,6 +253,8 @@ export function GroupSettings({
         </div>
       </section>
 
+      <platform.GroupNotificationSetting groupId={Number(id)} />
+
       {/* 動態紀錄 — the way into the audit log. The group page header has no
           free slot (personal settings left, group settings right) and the
           Expenses row is taken by 還款/支出, so the entry lives here; the

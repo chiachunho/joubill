@@ -74,6 +74,13 @@ export type Platform = {
    * receive push, and the chat already tells those users what changed.
    */
   DeviceSettings: ComponentType;
+  /**
+   * The group page's one card asking to add the app to the home screen, then to turn on
+   * notifications (Web App). Rendered only for a group with someone else in it.
+   */
+  GroupPrompt: ComponentType;
+  /** 群組設定 → 通知, muting push for one group (Web App). */
+  GroupNotificationSetting: ComponentType<{ groupId: number }>;
   /** Extra content at the foot of the personal settings page. The Web App has the sign-out button. */
   AccountSection: ComponentType;
 };

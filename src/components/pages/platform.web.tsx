@@ -7,6 +7,8 @@ import { ChevronLeft, LogOut, UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
 import { DeviceSettings } from "@/components/pwa/DeviceSettings";
+import { GroupNotificationSetting } from "@/components/pwa/GroupNotificationSetting";
+import { OnboardingPromptCard } from "@/components/pwa/OnboardingPromptCard";
 import { WEB_LOGIN_PATH } from "@/lib/auth-redirect";
 import { HELP_PATH } from "@/lib/help-url";
 import type { LoginProvider } from "@/lib/identities";
@@ -120,5 +122,7 @@ export const webPlatform: Platform = {
   linkIdentity,
   openInBrowser: null,
   DeviceSettings,
+  GroupPrompt: OnboardingPromptCard,
+  GroupNotificationSetting,
   AccountSection: WebAccountSection,
 };

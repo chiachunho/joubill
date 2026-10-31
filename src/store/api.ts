@@ -13,6 +13,7 @@ import type {
   EffectiveRateResponse,
   ExpenseDetail,
   ExpensesResponse,
+  GroupNotificationsResponse,
   GroupPhotosResponse,
   InvitePreviewResponse,
   InviteResponse,
@@ -21,6 +22,7 @@ import type {
   MembersResponse,
   ProfileResponse,
   ProfileUpdate,
+  PushSubscriptionsResponse,
   IdentitiesResponse,
   RatesResponse,
   SettingsResponse,
@@ -65,6 +67,8 @@ const tagTypes = [
   "Beancount",
   "DeleteRequest",
   "Invite",
+  "PushSubscriptions",
+  "GroupNotifications",
 ] as const;
 
 type Tag = { type: (typeof tagTypes)[number]; id: string };
@@ -465,6 +469,30 @@ const baseApi = createApi({
       query: () => ({ url: "/api/me/merge", method: "DELETE" }),
     }),
 
+    // ---- push notifications (issue #67) ----------------------------------------------
+    getPushSubscriptions: build.query<PushSubscriptionsResponse, void>({
+      query: () => ({ url: "/api/me/push-subscriptions" }),
+      providesTags: [tag("PushSubscriptions", "ME")],
+    }),
+    savePushSubscription: build.mutation<
+      unknown,
+      { endpoint: string; keys: { p256dh: string; auth: string } }
+    >({
+      query: (body) => ({ url: "/api/me/push-subscriptions", method: "POST", body }),
+      invalidatesTags: [tag("PushSubscriptions", "ME")],
+    }),
+    deletePushSubscription: build.mutation<unknown, { endpoint: string }>({
+      query: (body) => ({ url: "/api/me/push-subscriptions", method: "DELETE", body }),
+      invalidatesTags: [tag("PushSubscriptions", "ME")],
+    }),
+    sendTestPush: build.mutation<unknown, { endpoint: string }>({
+      query: (body) => ({ url: "/api/me/push-subscriptions/test", method: "POST", body }),
+    }),
+    getGroupNotifications: build.query<GroupNotificationsResponse, GroupId>({
+      query: (groupId) => ({ url: `/api/groups/${groupId}/notifications` }),
+      providesTags: (_r, _e, groupId) => [tag("GroupNotifications", g(groupId))],
+    }),
+
     // ---- creating and joining a group ------------------------------------------------
     createGroup: build.mutation<CreateGroupResponse, { title: string; defaultCurrency: string }>({
       query: (body) => ({ url: "/api/groups", method: "POST", body }),
@@ -602,6 +630,29 @@ export const api = baseApi.injectEndpoints({
         }
       },
     }),
+    /** Mute or unmute push for one group. The switch flips at once and rolls back on failure. */
+    updateGroupNotifications: build.mutation<
+      { muted: boolean },
+      { groupId: GroupId; muted: boolean }
+    >({
+      query: ({ groupId, muted }) => ({
+        url: `/api/groups/${groupId}/notifications`,
+        method: "PATCH",
+        body: { muted },
+      }),
+      async onQueryStarted({ groupId, muted }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          baseApi.util.updateQueryData("getGroupNotifications", groupId, (draft) => {
+            draft.muted = muted;
+          }),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patch.undo();
+        }
+      },
+    }),
     /**
      * Change the group's default currency. Everything converted into it moves with it, so
      * the derived tags refresh; the settings entry itself already shows the new value.
@@ -647,6 +698,12 @@ export const {
   useGetAccountMergePreviewQuery,
   useMergeAccountsMutation,
   useCancelAccountMergeMutation,
+  useGetPushSubscriptionsQuery,
+  useSavePushSubscriptionMutation,
+  useDeletePushSubscriptionMutation,
+  useSendTestPushMutation,
+  useGetGroupNotificationsQuery,
+  useUpdateGroupNotificationsMutation,
   useGetMembersQuery,
   useGetSettingsQuery,
   useGetAvatarsQuery,

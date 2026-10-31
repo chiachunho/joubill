@@ -1,6 +1,7 @@
 "use client";
 
 import { HomeScreenSection } from "@/components/pwa/HomeScreenSection";
+import { NotificationSection } from "@/components/pwa/NotificationSection";
 import { usePwaEnv } from "@/lib/use-pwa-env";
 
 /**
@@ -10,5 +11,10 @@ import { usePwaEnv } from "@/lib/use-pwa-env";
 export function DeviceSettings() {
   const env = usePwaEnv();
   if (!env) return null;
-  return <HomeScreenSection env={env} />;
+  return (
+    <>
+      <NotificationSection env={env} />
+      <HomeScreenSection env={env} />
+    </>
+  );
 }

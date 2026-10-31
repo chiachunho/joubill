@@ -3,10 +3,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { groupMembers } from "@/db/schema";
+import { groupMembers, groups } from "@/db/schema";
 import type { GroupNotificationsResponse } from "@/lib/api-types";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { telegramChatId } from "@/lib/chat";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,10 +31,14 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
   const ids = await resolve(req, ctx);
   if (!ids) return NextResponse.json({ error: "invalid group id" }, { status: 400 });
   const [row] = await db
-    .select({ muted: groupMembers.pushMuted })
+    .select({ muted: groupMembers.pushMuted, chatType: groups.chatType, chatId: groups.chatId })
     .from(groupMembers)
+    .innerJoin(groups, eq(groups.id, groupMembers.groupId))
     .where(where(ids));
-  const body: GroupNotificationsResponse = { muted: row?.muted ?? false };
+  const body: GroupNotificationsResponse = {
+    muted: row?.muted ?? false,
+    telegramLinked: row ? telegramChatId(row) !== null : false,
+  };
   return NextResponse.json(body);
 });
 
@@ -46,6 +51,5 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
   if (!parsed.success) return NextResponse.json({ error: "格式錯誤" }, { status: 400 });
 
   await db.update(groupMembers).set({ pushMuted: parsed.data.muted }).where(where(ids));
-  const body: GroupNotificationsResponse = { muted: parsed.data.muted };
-  return NextResponse.json(body);
+  return NextResponse.json({ muted: parsed.data.muted });
 });
