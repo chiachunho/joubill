@@ -56,11 +56,17 @@ export function homeScreenOffer(env: PwaEnv, hasInstallPrompt: boolean): HomeScr
 }
 
 /**
- * Marks a URL the service worker opens from a notification tap (`public/sw.js`), so the
- * launch redirect below leaves it on the record it was opened for.
+ * Marks a URL a notification tap opens (`recordPushUrl` in `src/lib/push-notice.ts`), so the
+ * launch redirect below leaves it on the record it was opened for. Both ends live here.
  */
-export const OPENED_FROM_PUSH_PARAM = "via";
-export const OPENED_FROM_PUSH_VALUE = "push";
+const OPENED_FROM_PUSH_PARAM = "via";
+const OPENED_FROM_PUSH_VALUE = "push";
+
+/** `path` (a site path, possibly with a query) marked as opened from a notification. */
+export function openedFromPush(path: string): string {
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}${OPENED_FROM_PUSH_PARAM}=${OPENED_FROM_PUSH_VALUE}`;
+}
 
 /**
  * Where a freshly launched iPhone home-screen app should go instead of the URL it was opened
@@ -69,8 +75,8 @@ export const OPENED_FROM_PUSH_VALUE = "push";
  * group. The shortcut always starts at 我的群組 (`/app`) instead.
  *
  * Only Web App pages under `/app/` are redirected: `/join/<code>`, `/login` and the help site
- * are where a link meant to send someone, and a notification tap carries
- * `OPENED_FROM_PUSH_PARAM` because it is opened for one record.
+ * are where a link meant to send someone, and a notification tap is marked by
+ * `openedFromPush` because it is opened for one record.
  */
 export function homeScreenLaunchRedirect(pathname: string, search: string): string | null {
   if (!pathname.startsWith("/app/")) return null;

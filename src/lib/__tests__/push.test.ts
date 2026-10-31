@@ -131,7 +131,7 @@ describe("formatPushNotice", () => {
     expect(formatPushNotice(input({}))).toEqual({
       title: "東京五日遊",
       body: "小明 記了「燒肉晚餐」12,000 JPY，你分 4,000 JPY",
-      url: "/app/groups/12/expenses/99/edit",
+      url: "/app/groups/12/expenses/99/edit?via=push",
       tag: "r99",
     });
   });
@@ -155,7 +155,7 @@ describe("formatPushNotice", () => {
   it("reads a repayment from the receiver's side", () => {
     const n = formatPushNotice(input({ after: settlement() }));
     expect(n?.body).toBe("小明 還你 4,500 TWD");
-    expect(n?.url).toBe("/app/groups/12/settlements/99");
+    expect(n?.url).toBe("/app/groups/12/settlements/99?via=push");
   });
 
   it("says who recorded a repayment they didn't send", () => {
@@ -210,7 +210,7 @@ describe("formatPushNotice", () => {
       input({ action: "deleted", before: expense(), after: null, actor: hua, recipientId: 1 }),
     );
     expect(n?.body).toBe("阿花 刪除了你記的「燒肉晚餐」12,000 JPY（你分 4,000 JPY）");
-    expect(n?.url).toBe("/app/groups/12/activity?record=99");
+    expect(n?.url).toBe("/app/groups/12/activity?record=99&via=push");
   });
 
   it("returns null without the snapshot an action needs", () => {
@@ -220,8 +220,14 @@ describe("formatPushNotice", () => {
 
 describe("recordPushUrl", () => {
   it("points each kind at its page", () => {
-    expect(recordPushUrl("created", "expense", 1, 2)).toBe("/app/groups/1/expenses/2/edit");
-    expect(recordPushUrl("updated", "settlement", 1, 2)).toBe("/app/groups/1/settlements/2");
-    expect(recordPushUrl("deleted", "settlement", 1, 2)).toBe("/app/groups/1/activity?record=2");
+    expect(recordPushUrl("created", "expense", 1, 2)).toBe(
+      "/app/groups/1/expenses/2/edit?via=push",
+    );
+    expect(recordPushUrl("updated", "settlement", 1, 2)).toBe(
+      "/app/groups/1/settlements/2?via=push",
+    );
+    expect(recordPushUrl("deleted", "settlement", 1, 2)).toBe(
+      "/app/groups/1/activity?record=2&via=push",
+    );
   });
 });

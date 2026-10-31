@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { recordPushUrl } from "@/lib/push-notice";
 import {
   homeScreenLaunchRedirect,
   homeScreenOffer,
@@ -105,7 +106,13 @@ describe("homeScreenLaunchRedirect", () => {
   });
 
   it("stays on the record a notification tap opened", () => {
-    expect(homeScreenLaunchRedirect("/app/groups/12/expenses/99/edit", "?via=push")).toBeNull();
+    // Round trip against the producer, not a hand-written query string.
+    for (const action of ["created", "updated", "deleted"] as const) {
+      for (const type of ["expense", "settlement"] as const) {
+        const url = new URL(recordPushUrl(action, type, 12, 99), "https://example.test");
+        expect(homeScreenLaunchRedirect(url.pathname, url.search)).toBeNull();
+      }
+    }
   });
 
   it("leaves invites, login and the help site where a link sent them", () => {

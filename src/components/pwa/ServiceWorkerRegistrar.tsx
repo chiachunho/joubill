@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 import { listenForInstallPrompt } from "@/lib/install-prompt";
 import { homeScreenLaunchRedirect, readPwaEnv } from "@/lib/pwa";
@@ -18,13 +17,17 @@ if (typeof window !== "undefined") listenForInstallPrompt();
  * Telegram's webview has no push, and the chat already tells those users what changed.
  */
 export function ServiceWorkerRegistrar() {
-  const router = useRouter();
-
   // A fresh launch of the iPhone home-screen app opens 我的群組, whatever page the shortcut
   // was saved from (see `homeScreenLaunchRedirect`). Only the first page of a launch: later
   // navigation, a reload and the OAuth round trip all keep the session storage flag. Not on
   // Android: Chrome honours the manifest's start_url already, and opens links to the site in
   // the installed app, which this would wrongly send to 我的群組.
+  //
+  // The page underneath sends its requests in this same commit, and on the first launch (no
+  // session yet: the home-screen app doesn't share Safari's cookies) their 401 sends the
+  // viewer to /login?next=<this page>, which would land them back on the old page after
+  // signing in. So the address is rewritten synchronously first, making any 401 handler read
+  // /app as the page to come back to, and then /app is loaded.
   useEffect(() => {
     const env = readPwaEnv();
     if (!env.standalone || !env.ios) return;
@@ -35,8 +38,10 @@ export function ServiceWorkerRegistrar() {
       return;
     }
     const target = homeScreenLaunchRedirect(location.pathname, location.search);
-    if (target) router.replace(target);
-  }, [router]);
+    if (!target) return;
+    history.replaceState(null, "", target);
+    location.replace(target);
+  }, []);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
