@@ -79,6 +79,14 @@ describe("NotificationSection", () => {
     expect(screen.getByText("通知已被封鎖")).toBeInTheDocument();
   });
 
+  it("lets a subscription the browser kept after 不允許 still be turned off", () => {
+    setDevice({ permission: "denied", endpoint: "https://fcm.googleapis.com/fcm/send/x" });
+    renderSection();
+    const toggle = screen.getByRole("switch", { name: "這台裝置的推播" });
+    expect(toggle).toBeChecked();
+    expect(toggle).toBeEnabled();
+  });
+
   it("replaces the switch where the browser has no push", () => {
     setDevice({ support: "unsupported", permission: null });
     renderSection();

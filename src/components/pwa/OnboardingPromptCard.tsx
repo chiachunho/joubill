@@ -45,6 +45,7 @@ function PromptCard({ env }: { env: PwaEnv }) {
   const [stepsOpen, setStepsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setStored({
@@ -102,6 +103,7 @@ function PromptCard({ env }: { env: PwaEnv }) {
 
   async function turnOnPush() {
     setBusy(true);
+    setFailed(false);
     try {
       const result = await device.enable();
       if (result === "on") {
@@ -110,7 +112,8 @@ function PromptCard({ env }: { env: PwaEnv }) {
         setTimeout(() => setMessage(null), 3000);
       } else if (result === "denied") answer("push", NEVER);
       else if (result === "dismissed") later("push");
-      else setMessage("沒有開成功，可以到個人設定再試一次。");
+      // Keep the card, so the same button is the retry.
+      else setFailed(true);
     } finally {
       setBusy(false);
     }
@@ -136,6 +139,11 @@ function PromptCard({ env }: { env: PwaEnv }) {
           </p>
         </div>
       </div>
+      {failed && !isHome && (
+        <p role="alert" className="text-xs text-destructive">
+          沒有開成功，請再試一次。
+        </p>
+      )}
       <div className="flex items-center justify-end gap-2">
         <Button
           variant="ghost"
@@ -153,7 +161,7 @@ function PromptCard({ env }: { env: PwaEnv }) {
           disabled={busy}
           onClick={() => void (isHome ? addToHomeScreen() : turnOnPush())}
         >
-          {isHome ? "加到主畫面" : busy ? "開啟中…" : "開啟通知"}
+          {isHome ? "加到主畫面" : busy ? "開啟中…" : failed ? "再試一次" : "開啟通知"}
         </Button>
       </div>
       <AddToHomeScreenDialog

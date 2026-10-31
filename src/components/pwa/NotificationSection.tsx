@@ -81,7 +81,9 @@ export function NotificationSection({ env }: { env: PwaEnv }) {
   } else if (denied) {
     status = <span className="text-destructive">通知已被封鎖</span>;
     note = DENIED_HINT;
-    disabled = true;
+    // Turning it back on needs the browser's settings, but a subscription the browser kept
+    // must still be removable from here.
+    disabled = busy || !on;
   } else {
     status = busy ? (on ? "關閉中…" : "開啟中…") : on ? "已開啟" : "尚未開啟";
   }

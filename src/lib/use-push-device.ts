@@ -107,7 +107,7 @@ export function usePushDevice(env: PwaEnv): PushDevice {
   // The browser still holds a subscription: send it again, so a server copy deleted after a
   // 410, or one owned by whoever used this browser before, points back at this account.
   useEffect(() => {
-    if (!configured || !endpoint || healed.has(endpoint)) return;
+    if (!configured || !endpoint || permission === "denied" || healed.has(endpoint)) return;
     healed.add(endpoint);
     (async () => {
       const json = (await currentSubscription())?.toJSON();
@@ -120,7 +120,7 @@ export function usePushDevice(env: PwaEnv): PushDevice {
     })().catch(() => {
       healed.delete(endpoint);
     });
-  }, [configured, endpoint, save]);
+  }, [configured, endpoint, permission, save]);
 
   const enable = useCallback(async (): Promise<EnableResult> => {
     if (support !== "supported" || !configured) return "failed";
@@ -169,6 +169,14 @@ export function usePushDevice(env: PwaEnv): PushDevice {
       return false;
     }
   }, [remove]);
+
+  // Notifications were blocked in the browser's settings after subscribing, and the browser
+  // kept the subscription: nothing it receives will be shown, so drop it on both sides
+  // rather than leave the server pushing to it and the switch stuck "on". If that fails, the
+  // settings switch stays usable for turning it off by hand.
+  useEffect(() => {
+    if (permission === "denied" && endpoint) void disable();
+  }, [permission, endpoint, disable]);
 
   return {
     support,
