@@ -9,14 +9,29 @@ import {
 
 const alice = {
   userId: 1,
+  displayName: null,
   firstName: "Alice",
   lastName: null,
   username: "alice",
   telegramId: 111,
 };
-const bob = { userId: 2, firstName: "Bob", lastName: null, username: "bob", telegramId: 222 };
+const bob = {
+  userId: 2,
+  displayName: null,
+  firstName: "Bob",
+  lastName: null,
+  username: "bob",
+  telegramId: 222,
+};
 /** A web-only user: no Telegram account, so no tappable mention is possible. */
-const dave = { userId: 4, firstName: "Dave", lastName: null, username: null, telegramId: null };
+const dave = {
+  userId: 4,
+  displayName: null,
+  firstName: "Dave",
+  lastName: null,
+  username: null,
+  telegramId: null,
+};
 
 function settlement(over: Partial<NoticeRecord> = {}): NoticeRecord {
   return {
@@ -69,7 +84,9 @@ describe("formatSettlementNotice", () => {
 
   it("escapes HTML in names", () => {
     const text = formatSettlementNotice(
-      settlement({ payers: [{ user: { ...dave, firstName: "<script>" }, amount: 1200 }] }),
+      settlement({
+        payers: [{ user: { ...dave, displayName: null, firstName: "<script>" }, amount: 1200 }],
+      }),
     );
     expect(text).toContain("💸 &lt;script&gt; →");
   });
@@ -128,7 +145,7 @@ describe("formatDeletedNotice", () => {
   it("escapes HTML in the description and the creator's name", () => {
     const text = formatDeletedNotice({
       record: expense({ description: "<b>x</b> & y" }),
-      creator: { ...dave, firstName: "<script>" },
+      creator: { ...dave, displayName: null, firstName: "<script>" },
       deleter: bob,
     });
     expect(text).toContain("（&lt;b&gt;x&lt;/b&gt; &amp; y）");

@@ -30,6 +30,13 @@ export const users = pgTable("users", {
   languageCode: text("language_code"),
   email: text("email"),
   avatarUrl: text("avatar_url"),
+  /** The name the person chose (issue #101). NULL = use first/last name, which follow the login
+   *  provider and are overwritten on every Telegram sync; nothing but PATCH /api/me/profile
+   *  writes this one. Read through `displayName()` (`src/lib/profile.ts`). */
+  displayName: text("display_name"),
+  /** Which login's picture to show (`telegram` / `line` / `google` / `github`). NULL = automatic:
+   *  Telegram's photo, then the other logins. Resolved by `pickAvatar` (`src/lib/profile.ts`). */
+  avatarSource: text("avatar_source"),
   /** Non-NULL = a member with a name but no account, belonging to exactly this group.
    *  Such a row has no telegram_id, auth_identities or sessions, so no login path can
    *  resolve to it; it is deleted together with its group. */
@@ -268,6 +275,11 @@ export const authIdentities = pgTable(
     provider: text("provider").notNull(),
     providerUid: text("provider_uid").notNull(),
     email: text("email"),
+    /** The name and picture this login supplied, refreshed on every sign-in through it (and
+     *  on every Telegram sync for the Telegram row), so each method's picture is available to
+     *  choose from and a provider's expiring avatar URL gets renewed. */
+    name: text("name"),
+    pictureUrl: text("picture_url"),
     // OAuth token fields — null for Telegram identities, populated by Auth.js for GitHub/Google
     accessToken: text("access_token"),
     refreshToken: text("refresh_token"),

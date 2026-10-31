@@ -8,9 +8,15 @@ const BOB = 2;
 const CAROL = 3;
 
 const people = new Map<number, Profile>([
-  [ALICE, { userId: ALICE, firstName: "Alice", lastName: null, username: "alice" }],
-  [BOB, { userId: BOB, firstName: "Bob", lastName: null, username: "bob" }],
-  [CAROL, { userId: CAROL, firstName: "Carol", lastName: null, username: "carol" }],
+  [
+    ALICE,
+    { userId: ALICE, displayName: null, firstName: "Alice", lastName: null, username: "alice" },
+  ],
+  [BOB, { userId: BOB, displayName: null, firstName: "Bob", lastName: null, username: "bob" }],
+  [
+    CAROL,
+    { userId: CAROL, displayName: null, firstName: "Carol", lastName: null, username: "carol" },
+  ],
 ]);
 
 const SPENT_AT = "2026-06-30T08:00:00.000Z";
@@ -132,7 +138,10 @@ describe("recordToBeancount — expense, personal perspective", () => {
         ],
       }),
       ALICE,
-      new Map([...people, [4, { userId: 4, firstName: "Dave", lastName: null, username: "dave" }]]),
+      new Map([
+        ...people,
+        [4, { userId: 4, displayName: null, firstName: "Dave", lastName: null, username: "dave" }],
+      ]),
     );
     const ps = postings(out);
     // Cash must stay exactly -10.00 (the real amount fronted); the cent residual
@@ -280,7 +289,10 @@ describe("recordToBeancount — custom accounts", () => {
         ],
       }),
       ALICE,
-      new Map([...people, [4, { userId: 4, firstName: "Dave", lastName: null, username: "dave" }]]),
+      new Map([
+        ...people,
+        [4, { userId: 4, displayName: null, firstName: "Dave", lastName: null, username: "dave" }],
+      ]),
       undefined,
       accounts,
     );
@@ -294,19 +306,37 @@ describe("recordToBeancount — custom accounts", () => {
 describe("beancountAccountName", () => {
   it("prefers a capitalized username", () => {
     expect(
-      beancountAccountName({ userId: 1, firstName: "x", lastName: null, username: "alice" }),
+      beancountAccountName({
+        userId: 1,
+        displayName: null,
+        firstName: "x",
+        lastName: null,
+        username: "alice",
+      }),
     ).toBe("Alice");
   });
 
   it("falls back to the sanitized name", () => {
     expect(
-      beancountAccountName({ userId: 1, firstName: "John", lastName: "Doe", username: null }),
+      beancountAccountName({
+        userId: 1,
+        displayName: null,
+        firstName: "John",
+        lastName: "Doe",
+        username: null,
+      }),
     ).toBe("JohnDoe");
   });
 
   it("falls back to User<id> for a non-ASCII-only name", () => {
     expect(
-      beancountAccountName({ userId: 7, firstName: "陳", lastName: "小明", username: null }),
+      beancountAccountName({
+        userId: 7,
+        displayName: null,
+        firstName: "陳",
+        lastName: "小明",
+        username: null,
+      }),
     ).toBe("User7");
   });
 });

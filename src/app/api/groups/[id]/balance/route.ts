@@ -33,6 +33,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const profileRows = await db
     .select({
       id: users.id,
+      displayName: users.displayName,
       firstName: users.firstName,
       lastName: users.lastName,
       username: users.username,
@@ -53,6 +54,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       .map((b) => ({
         userId: b.userId,
         amount: b.amount,
+        displayName: profiles.get(b.userId)?.displayName ?? null,
         firstName: profiles.get(b.userId)?.firstName ?? null,
         lastName: profiles.get(b.userId)?.lastName ?? null,
         username: profiles.get(b.userId)?.username ?? null,

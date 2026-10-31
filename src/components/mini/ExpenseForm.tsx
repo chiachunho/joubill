@@ -46,7 +46,7 @@ import {
 } from "@/components/ui/select";
 import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
 import { stampLabel } from "@/lib/format";
-import { labelMember, labelUser } from "@/lib/label";
+import { labelUser, memberLabels } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
 import { n, splitEqual } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -64,6 +64,7 @@ import {
 
 type Member = {
   id: number;
+  displayName: string | null;
   firstName: string;
   lastName?: string | null;
   username: string | null;
@@ -186,6 +187,9 @@ function buildDefaults(props: Props): ExpenseFormValues {
 
 export function ExpenseForm(props: Props) {
   const { groupId, members, photos, initial, returnPath } = props;
+  // Display names are free text, so two members can read the same; the payer and participant
+  // rows must still be told apart.
+  const labels = useMemo(() => memberLabels(members), [members]);
   const router = useRouter();
   const mode = useAuthMode();
   // "tma" → /mini, "web" → /app. Same split the fetchers make below.
@@ -898,12 +902,12 @@ export function ExpenseForm(props: Props) {
                             />
                             <Avatar
                               src={photos?.[entry.userId] ?? null}
-                              name={m ? labelMember(m) : String(entry.userId)}
+                              name={m ? labels.get(m.id)! : String(entry.userId)}
                               userId={entry.userId}
                               size="sm"
                             />
                             <div className="min-w-0 flex-1 truncate text-sm leading-tight">
-                              {m ? labelMember(m) : `#${entry.userId}`}
+                              {m ? labels.get(m.id)! : `#${entry.userId}`}
                             </div>
                             {entry.included && (
                               <Input
@@ -1077,13 +1081,13 @@ export function ExpenseForm(props: Props) {
                         />
                         <Avatar
                           src={photos?.[f.userId] ?? null}
-                          name={m ? labelMember(m) : String(f.userId)}
+                          name={m ? labels.get(m.id)! : String(f.userId)}
                           userId={f.userId}
                           size="sm"
                         />
                         <div className="min-w-0 flex-1">
                           <div className="text-sm leading-tight">
-                            {m ? labelMember(m) : `#${f.userId}`}
+                            {m ? labels.get(m.id)! : `#${f.userId}`}
                           </div>
                           {shareType === "shares" && isIncluded && computed && (
                             <div className="num mt-0.5 text-xs text-muted-foreground">

@@ -18,6 +18,7 @@
  */
 
 import type { Profile } from "@/lib/label";
+import { displayName } from "@/lib/profile";
 
 export type BeancountParty = { userId: number; amount: number };
 
@@ -79,7 +80,7 @@ function sanitizeComponent(raw: string): string {
 export function beancountAccountName(person: Profile): string {
   const fromUsername = person.username ? sanitizeComponent(person.username) : "";
   if (fromUsername) return fromUsername;
-  const fromName = sanitizeComponent([person.firstName, person.lastName].filter(Boolean).join(""));
+  const fromName = sanitizeComponent(displayName(person).replace(/ /g, ""));
   if (fromName) return fromName;
   return `User${person.userId ?? 0}`;
 }
@@ -102,7 +103,15 @@ function round2(value: number): number {
 }
 
 function personFor(peopleById: Map<number, Profile>, userId: number): Profile {
-  return peopleById.get(userId) ?? { userId, firstName: null, lastName: null, username: null };
+  return (
+    peopleById.get(userId) ?? {
+      userId,
+      displayName: null,
+      firstName: null,
+      lastName: null,
+      username: null,
+    }
+  );
 }
 
 /** Sum per-user contributions into a Map. */

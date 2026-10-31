@@ -6,6 +6,7 @@ import { PersonalSettings } from "@/components/pages/PersonalSettings";
 import type { Platform } from "@/components/pages/platform";
 import { miniPlatform } from "@/components/pages/platform.mini";
 import { webPlatform } from "@/components/pages/platform.web";
+import type { ProfileResponse } from "@/lib/api-types";
 import { HELP_PATH } from "@/lib/help-url";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
@@ -21,7 +22,15 @@ function stubLocation(path: string) {
   return location;
 }
 
-const PROFILE = { firstName: "小明", lastName: null, username: "xiaoming", photoUrl: null };
+const PROFILE: ProfileResponse = {
+  displayName: null,
+  firstName: "小明",
+  lastName: null,
+  username: "xiaoming",
+  photoUrl: null,
+  avatarSource: null,
+  avatarOptions: [],
+};
 
 // The real HelpAction and AccountSection are what these tests check. Only the back
 // hook is stubbed: the Telegram back button needs the Telegram SDK, which jsdom lacks.
@@ -35,9 +44,10 @@ function renderSettings(
   platform: Platform,
   failure?: Failure,
   identities: { linked: string[]; enabled: string[] } = IDENTITIES,
+  profile: ProfileResponse = PROFILE,
 ) {
   const request = fakeRequest({
-    "/api/me/profile": failure ?? PROFILE,
+    "/api/me/profile": failure ?? profile,
     "/api/me/identities": identities,
   });
   return render(
@@ -51,6 +61,41 @@ describe("PersonalSettings", () => {
   it("shows the profile name on either platform", async () => {
     renderSettings(miniPlatform);
     expect(await screen.findByText("小明")).toBeInTheDocument();
+  });
+
+  it("shows the chosen display name instead of the provider's", async () => {
+    renderSettings(webPlatform, undefined, IDENTITIES, { ...PROFILE, displayName: "阿明" });
+    expect(await screen.findByText("阿明")).toBeInTheDocument();
+    expect(screen.queryByText("小明")).not.toBeInTheDocument();
+  });
+
+  it("opens the name editor from the pencil, prefilled with the provider name as the hint", async () => {
+    renderSettings(miniPlatform);
+    fireEvent.click(await screen.findByRole("button", { name: "編輯顯示名稱" }));
+    expect(await screen.findByRole("textbox", { name: "顯示名稱" })).toHaveAttribute(
+      "placeholder",
+      "小明",
+    );
+  });
+
+  it("makes the avatar a button only when there is more than one picture to choose", async () => {
+    const one = { ...PROFILE, avatarOptions: [{ source: "telegram", url: "/t.jpg" }] };
+    renderSettings(miniPlatform, undefined, IDENTITIES, one);
+    await screen.findByText("小明");
+    expect(screen.queryByRole("button", { name: "更換頭像" })).not.toBeInTheDocument();
+    cleanup();
+
+    const two = {
+      ...PROFILE,
+      avatarOptions: [
+        { source: "telegram", url: "/t.jpg" },
+        { source: "google", url: "/g.jpg" },
+      ],
+    };
+    renderSettings(miniPlatform, undefined, IDENTITIES, two);
+    fireEvent.click(await screen.findByRole("button", { name: "更換頭像" }));
+    expect(await screen.findByRole("radio", { name: /Google/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /自動/ })).toHaveAttribute("aria-checked", "true");
   });
 
   it("offers sign-out only on the web", async () => {

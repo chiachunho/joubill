@@ -12,9 +12,30 @@ import {
   type RecordSnapshot,
 } from "@/lib/record-audit";
 
-const alice = { userId: 1, firstName: "Alice", lastName: null, username: "alice", telegramId: 111 };
-const bob = { userId: 2, firstName: "Bob", lastName: null, username: "bob", telegramId: 222 };
-const carol = { userId: 3, firstName: "Carol", lastName: null, username: null, telegramId: 333 };
+const alice = {
+  userId: 1,
+  displayName: null,
+  firstName: "Alice",
+  lastName: null,
+  username: "alice",
+  telegramId: 111,
+};
+const bob = {
+  userId: 2,
+  displayName: null,
+  firstName: "Bob",
+  lastName: null,
+  username: "bob",
+  telegramId: 222,
+};
+const carol = {
+  userId: 3,
+  displayName: null,
+  firstName: "Carol",
+  lastName: null,
+  username: null,
+  telegramId: 333,
+};
 
 function snapshot(over: Partial<RecordSnapshot> = {}): RecordSnapshot {
   return {

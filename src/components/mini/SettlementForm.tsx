@@ -46,6 +46,7 @@ import {
 
 type Member = {
   id: number;
+  displayName: string | null;
   firstName: string | null;
   lastName?: string | null;
   username: string | null;

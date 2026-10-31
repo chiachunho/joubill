@@ -47,6 +47,7 @@ import {
 
 type Profile = {
   userId: number;
+  displayName: string | null;
   firstName: string | null;
   lastName: string | null;
   username: string | null;

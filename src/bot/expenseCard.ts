@@ -17,6 +17,7 @@ import type { BotContext } from "./context";
 export type DbUser = {
   id: number;
   username: string | null;
+  displayName: string | null;
   firstName: string;
   lastName: string | null;
   telegramId: number | null;
@@ -185,6 +186,7 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
       user: {
         id: r.id,
         username: r.username,
+        displayName: r.displayName,
         firstName: r.firstName,
         lastName: r.lastName,
         telegramId: r.telegramId,

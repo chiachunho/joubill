@@ -8,13 +8,15 @@ import { mention } from "./format";
 
 /**
  * The user columns every bot query needs: enough to render a tappable mention
- * (`telegramId`) and to fall back to a readable name when there isn't one.
+ * (`telegramId`), the name the person chose (`displayName`), and the provider's
+ * name to fall back to.
  * Selected as a shared object so a query can't quietly forget `telegramId` and
  * silently degrade every mention in its output to plain text.
  */
 export const USER_COLUMNS = {
   id: users.id,
   username: users.username,
+  displayName: users.displayName,
   firstName: users.firstName,
   lastName: users.lastName,
   telegramId: users.telegramId,

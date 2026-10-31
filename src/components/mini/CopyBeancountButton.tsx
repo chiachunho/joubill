@@ -16,6 +16,7 @@ import { useGetBeancountConfigQuery, useLazyGetEffectiveRateQuery } from "@/stor
 
 type Member = {
   id: number;
+  displayName: string | null;
   firstName: string | null;
   lastName?: string | null;
   username: string | null;
@@ -98,6 +99,7 @@ export function CopyBeancountButton({
         m.id,
         {
           userId: m.id,
+          displayName: m.displayName,
           firstName: m.firstName,
           lastName: m.lastName ?? null,
           username: m.username,

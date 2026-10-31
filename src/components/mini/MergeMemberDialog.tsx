@@ -59,6 +59,7 @@ export function MergeMemberDialog({
   const name = (m: Member) =>
     labelUser({
       userId: m.id,
+      displayName: m.displayName,
       firstName: m.firstName,
       lastName: m.lastName,
       username: m.username,

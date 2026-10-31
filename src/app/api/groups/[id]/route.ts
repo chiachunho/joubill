@@ -43,6 +43,7 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
 
   const { user } = auth;
   const name = labelUser({
+    displayName: user.displayName,
     firstName: user.firstName,
     lastName: user.lastName,
     username: user.username,

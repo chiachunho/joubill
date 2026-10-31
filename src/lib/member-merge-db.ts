@@ -211,6 +211,7 @@ async function loadPair(ex: Executor, fromId: number, toId: number) {
     .select({
       id: users.id,
       placeholderGroupId: users.placeholderGroupId,
+      displayName: users.displayName,
       firstName: users.firstName,
       lastName: users.lastName,
       username: users.username,

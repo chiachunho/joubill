@@ -94,6 +94,8 @@ export type MergeProfile = {
   username: string | null;
   lastName: string | null;
   languageCode: string | null;
+  displayName: string | null;
+  avatarSource: string | null;
 };
 
 const FILLABLE = [
@@ -103,6 +105,10 @@ const FILLABLE = [
   "username",
   "lastName",
   "languageCode",
+  // A chosen name or avatar source carries over when the kept account has none. The absorbed
+  // account's identities move to the kept one, so its avatar source stays meaningful.
+  "displayName",
+  "avatarSource",
 ] as const;
 
 /**

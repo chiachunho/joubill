@@ -200,6 +200,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
           fxRate: expenses.fxRate,
           fxQuote: expenses.fxQuote,
           payerId: expensePayers.payerId,
+          payerDisplayName: users.displayName,
           payerFirstName: users.firstName,
           payerLastName: users.lastName,
           payerUsername: users.username,
@@ -289,6 +290,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     number,
     {
       userId: number;
+      displayName: string | null;
       firstName: string;
       lastName: string | null;
       username: string | null;
@@ -298,6 +300,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   payerRowsInRange.forEach((r, i) => {
     const cur = byPayerMap.get(r.payerId) ?? {
       userId: r.payerId,
+      displayName: r.payerDisplayName,
       firstName: r.payerFirstName,
       lastName: r.payerLastName,
       username: r.payerUsername,

@@ -88,6 +88,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
         expenseId: expensePayers.expenseId,
         payerId: expensePayers.payerId,
         amount: expensePayers.amount,
+        payerDisplayName: users.displayName,
         payerFirstName: users.firstName,
         payerLastName: users.lastName,
         payerUsername: users.username,
@@ -100,6 +101,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
         expenseId: expenseSplits.expenseId,
         debtorId: expenseSplits.debtorId,
         amount: expenseSplits.amount,
+        debtorDisplayName: users.displayName,
         debtorFirstName: users.firstName,
         debtorLastName: users.lastName,
         debtorUsername: users.username,
@@ -153,6 +155,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       ),
       payers: (payersByExpense.get(e.id) ?? []).map((p) => ({
         userId: p.payerId,
+        displayName: p.payerDisplayName,
         firstName: p.payerFirstName,
         lastName: p.payerLastName,
         username: p.payerUsername,
@@ -160,6 +163,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       })),
       splits: (splitsByExpense.get(e.id) ?? []).map((s) => ({
         debtorId: s.debtorId,
+        displayName: s.debtorDisplayName,
         firstName: s.debtorFirstName,
         lastName: s.debtorLastName,
         username: s.debtorUsername,

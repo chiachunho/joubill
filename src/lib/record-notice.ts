@@ -18,6 +18,9 @@ export type NoticePerson = {
   /** Required so a snapshot stored in the audit log can still key an avatar or
    *  a mention later, when the name captured alongside it has gone stale. */
   userId: number;
+  /** The person's chosen name as it was then. Absent from snapshots written before
+   *  issue #101; `displayName()` reads a missing key as unset. */
+  displayName: string | null;
   firstName: string;
   lastName?: string | null;
   username: string | null;

@@ -25,10 +25,23 @@ export type MeResponse = {
 export type GroupPhotosResponse = { photos: Record<number, string | null> };
 
 export type ProfileResponse = {
+  /** The name the person chose; null = the provider's (`firstName` + `lastName`). */
+  displayName: string | null;
   firstName: string;
   lastName: string | null;
   username: string | null;
+  /** The picture `pickAvatar` resolved: the chosen source, else automatic. */
   photoUrl: string | null;
+  /** `users.avatar_source`; null = automatic. */
+  avatarSource: string | null;
+  /** Linked login methods that have a picture, in the order automatic tries them. */
+  avatarOptions: Array<{ source: string; url: string }>;
+};
+
+/** PATCH /api/me/profile. An omitted key is left unchanged; null resets it. */
+export type ProfileUpdate = {
+  displayName?: string | null;
+  avatarSource?: string | null;
 };
 
 export type IdentitiesResponse = {
@@ -69,6 +82,7 @@ export type AccountMergePreview = {
 
 export type Member = {
   id: number;
+  displayName: string | null;
   firstName: string;
   lastName: string | null;
   username: string | null;
@@ -88,6 +102,7 @@ export type AvatarsResponse = {
 
 export type ExpensePayer = {
   userId: number;
+  displayName: string | null;
   firstName: string;
   lastName: string | null;
   username: string | null;
@@ -96,6 +111,7 @@ export type ExpensePayer = {
 
 export type ExpenseSplit = {
   debtorId: number;
+  displayName: string | null;
   firstName: string;
   lastName: string | null;
   username: string | null;
@@ -126,6 +142,7 @@ export type BalanceResponse = {
   balances: Array<{
     userId: number;
     amount: number;
+    displayName: string | null;
     firstName: string | null;
     lastName: string | null;
     username: string | null;
@@ -175,6 +192,7 @@ export type StatsResponse = {
   netTrend: Array<{ date: string; net: number }>;
   byPayer: Array<{
     userId: number;
+    displayName: string | null;
     firstName: string;
     lastName: string | null;
     username: string | null;

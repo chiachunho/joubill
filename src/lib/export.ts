@@ -103,6 +103,7 @@ export async function buildGroupExport(
     ? await db
         .select({
           id: users.id,
+          displayName: users.displayName,
           firstName: users.firstName,
           lastName: users.lastName,
           username: users.username,
@@ -110,12 +111,7 @@ export async function buildGroupExport(
         .from(users)
         .where(inArray(users.id, [...userIds]))
     : [];
-  const nameOf = new Map(
-    profiles.map((p) => [
-      p.id,
-      labelUser({ firstName: p.firstName, lastName: p.lastName, username: p.username }),
-    ]),
-  );
+  const nameOf = new Map(profiles.map((p) => [p.id, labelUser(p)]));
   const name = (id: number) => nameOf.get(id) ?? "?";
 
   const payersBy = new Map<number, { name: string; amount: number }[]>();

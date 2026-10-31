@@ -101,6 +101,7 @@ export async function loadNoticeRecord(
       chatType: groups.chatType,
       chatId: groups.chatId,
       creatorId: creatorUser.id,
+      creatorDisplayName: creatorUser.displayName,
       creatorFirstName: creatorUser.firstName,
       creatorLastName: creatorUser.lastName,
       creatorUsername: creatorUser.username,
@@ -121,6 +122,7 @@ export async function loadNoticeRecord(
       .select({
         amount: expensePayers.amount,
         userId: users.id,
+        displayName: users.displayName,
         firstName: users.firstName,
         lastName: users.lastName,
         username: users.username,
@@ -134,6 +136,7 @@ export async function loadNoticeRecord(
       .select({
         amount: expenseSplits.amount,
         userId: users.id,
+        displayName: users.displayName,
         firstName: users.firstName,
         lastName: users.lastName,
         username: users.username,
@@ -153,6 +156,7 @@ export async function loadNoticeRecord(
     amount: n(r.amount),
     user: {
       userId: r.userId,
+      displayName: r.displayName,
       firstName: r.firstName,
       lastName: r.lastName,
       username: r.username,
@@ -169,6 +173,7 @@ export async function loadNoticeRecord(
       row.creatorId != null
         ? {
             userId: row.creatorId,
+            displayName: row.creatorDisplayName,
             firstName: row.creatorFirstName!,
             lastName: row.creatorLastName,
             username: row.creatorUsername,
@@ -196,6 +201,7 @@ export async function loadNoticeRecord(
 /** Shapes a `users` row as the person performing a deletion. */
 export function deleterOf(u: {
   id: number;
+  displayName: string | null;
   firstName: string;
   lastName: string | null;
   username: string | null;
@@ -203,6 +209,7 @@ export function deleterOf(u: {
 }): NoticePerson {
   return {
     userId: u.id,
+    displayName: u.displayName,
     firstName: u.firstName,
     lastName: u.lastName,
     username: u.username,

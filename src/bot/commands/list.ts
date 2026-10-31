@@ -39,6 +39,7 @@ listCommand.command("list", async (ctx) => {
   const payerRows = await db
     .select({
       expenseId: expensePayers.expenseId,
+      displayName: users.displayName,
       firstName: users.firstName,
       username: users.username,
     })
@@ -46,23 +47,20 @@ listCommand.command("list", async (ctx) => {
     .innerJoin(users, eq(users.id, expensePayers.payerId))
     .where(inArray(expensePayers.expenseId, expenseIds));
 
-  const payersByExpense = new Map<number, Array<{ firstName: string; username: string | null }>>();
+  // A chosen name first; otherwise the @handle, which is shorter than most full names in a
+  // fixed-width column, then the provider's first name.
+  const short = (p: (typeof payerRows)[number]) =>
+    p.displayName ?? (p.username ? "@" + p.username : p.firstName);
+  const payersByExpense = new Map<number, string[]>();
   for (const p of payerRows) {
     const list = payersByExpense.get(p.expenseId) ?? [];
-    list.push({ firstName: p.firstName, username: p.username });
+    list.push(short(p));
     payersByExpense.set(p.expenseId, list);
   }
 
   const lines = rows.map((r) => {
     const payers = payersByExpense.get(r.id) ?? [];
-    const who =
-      payers.length === 0
-        ? "?"
-        : payers.length === 1
-          ? payers[0].username
-            ? "@" + payers[0].username
-            : payers[0].firstName
-          : payers.map((p) => (p.username ? "@" + p.username : p.firstName)).join("、");
+    const who = payers.length === 0 ? "?" : payers.join("、");
     const date = r.spentAt.toISOString().slice(5, 10).replace("-", "/");
     const amount = fmt(Number(r.amount));
     const desc = r.description ? `  ${r.description}` : "";

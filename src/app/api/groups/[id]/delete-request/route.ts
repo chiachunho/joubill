@@ -31,6 +31,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       requestedBy: groupDeleteRequests.requestedBy,
       createdAt: groupDeleteRequests.createdAt,
       expiresAt: groupDeleteRequests.expiresAt,
+      displayName: users.displayName,
       firstName: users.firstName,
       lastName: users.lastName,
       username: users.username,
@@ -52,6 +53,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       id: row.id,
       requestedBy: row.requestedBy,
       requestedByName: labelUser({
+        displayName: row.displayName,
         firstName: row.firstName,
         lastName: row.lastName,
         username: row.username,
@@ -97,6 +99,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
 
   const { user } = auth;
   const name = labelUser({
+    displayName: user.displayName,
     firstName: user.firstName,
     lastName: user.lastName,
     username: user.username,
@@ -146,6 +149,7 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   if (request.telegramMessageId && chatId !== null) {
     const { user } = auth;
     const name = labelUser({
+      displayName: user.displayName,
       firstName: user.firstName,
       lastName: user.lastName,
       username: user.username,

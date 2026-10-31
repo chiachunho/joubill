@@ -23,6 +23,7 @@ import {
 
 export type ActivityActor = {
   userId: number;
+  displayName: string | null;
   firstName: string;
   lastName: string | null;
   username: string | null;
@@ -70,6 +71,7 @@ type Row = {
   before: unknown;
   after: unknown;
   actorId: number | null;
+  actorDisplayName: string | null;
   actorFirstName: string | null;
   actorLastName: string | null;
   actorUsername: string | null;
@@ -84,6 +86,7 @@ const SELECT = {
   before: recordAuditLog.before,
   after: recordAuditLog.after,
   actorId: users.id,
+  actorDisplayName: users.displayName,
   actorFirstName: users.firstName,
   actorLastName: users.lastName,
   actorUsername: users.username,
@@ -111,6 +114,7 @@ function toEntry(row: Row): ActivityEntry {
       row.actorId != null
         ? {
             userId: row.actorId,
+            displayName: row.actorDisplayName,
             firstName: row.actorFirstName!,
             lastName: row.actorLastName,
             username: row.actorUsername,

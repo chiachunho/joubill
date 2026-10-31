@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { groupMembers, groups, users } from "@/db/schema";
 import { requireTelegramChatId } from "@/lib/chat";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
+import { displayName } from "@/lib/profile";
 import { eq } from "drizzle-orm";
 
 import type { BotContext } from "../context";
@@ -52,7 +53,7 @@ forwardJoin.on("message:forward_origin", async (ctx, next) => {
     keyboard.text(group.title, `fwd_join:${group.id}:${dbUser.id}:${fwdUser.id}`).row();
   }
 
-  const name = [fwdUser.first_name, fwdUser.last_name].filter(Boolean).join(" ");
+  const name = displayName(dbUser);
   await ctx.reply(`要把「${name}」加入哪個群組？`, { reply_markup: keyboard });
 });
 
@@ -97,7 +98,7 @@ forwardJoin.callbackQuery(/^fwd_join:(\d+):(\d+):(\d+)$/, async (ctx) => {
     .values({ groupId: group.id, userId: dbUserId })
     .onConflictDoNothing();
 
-  const name = [targetUser.firstName, targetUser.lastName].filter(Boolean).join(" ");
+  const name = displayName(targetUser);
   await ctx.answerCallbackQuery({ text: `✅ 已將「${name}」加入「${group.title}」！` });
   try {
     await ctx.editMessageText(`✅ 已將「${name}」加入「${group.title}」的揪帳。`);

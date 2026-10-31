@@ -60,6 +60,7 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
   }
 
   const name = labelUser({
+    displayName: user.displayName,
     firstName: user.firstName,
     lastName: user.lastName,
     username: user.username,
@@ -127,6 +128,7 @@ deleteGroupCallback.callbackQuery(/^cancel_del:(\d+)$/, async (ctx) => {
 
   const isRequester = request.requestedBy === user.id;
   const name = labelUser({
+    displayName: user.displayName,
     firstName: user.firstName,
     lastName: user.lastName,
     username: user.username,

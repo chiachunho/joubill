@@ -4,6 +4,7 @@ import { BTN } from "@/lib/buttons";
 import { groupLink } from "@/lib/deep-link";
 import { clientEnv } from "@/lib/env";
 import { HELP_URL } from "@/lib/help-url";
+import { displayName } from "@/lib/profile";
 
 import type { BotContext } from "../context";
 
@@ -37,7 +38,7 @@ startCommand.command("start", async (ctx) => {
   }
 
   // Private chat: the web_app button can launch the Mini App directly.
-  const name = ctx.from?.first_name ?? "";
+  const name = ctx.dbUser ? displayName(ctx.dbUser) : (ctx.from?.first_name ?? "");
   const greeting = `嗨 ${name}！把我加進群組就能開始分帳。\n就這樣，就是這麼簡單🫲🫱`;
   const keyboard = new InlineKeyboard()
     .webApp(BTN.openApp, clientEnv.NEXT_PUBLIC_MINI_APP_URL)
