@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SessionProvider } from "next-auth/react";
 
@@ -7,6 +7,7 @@ import { Logo } from "@/components/Logo";
 import { OAuthButtons } from "@/components/OAuthButtons";
 import { isInAppBrowser } from "@/lib/in-app-browser";
 import { resolveSessionFromCookies } from "@/lib/auth";
+import { CALLBACK_URL_COOKIE, loginCallbackUrl } from "@/lib/auth-redirect";
 import { authErrorRedirect, loginErrorMessage } from "@/lib/identities";
 
 type Props = { searchParams: Promise<{ next?: string | string[]; error?: string | string[] }> };
@@ -25,7 +26,11 @@ export default async function LoginPage({ searchParams }: Props) {
   }
   const errorMessage = loginErrorMessage(error);
   const inAppBrowser = isInAppBrowser((await headers()).get("user-agent"));
-  const callbackUrl = next && next.startsWith("/") && !next.startsWith("//") ? next : "/app";
+  const callbackUrl = loginCallbackUrl(
+    next,
+    error,
+    (await cookies()).get(CALLBACK_URL_COOKIE)?.value,
+  );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">

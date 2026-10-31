@@ -6,6 +6,7 @@ import Line from "next-auth/providers/line";
 
 import { splitbillAdapter } from "@/lib/auth/nextAuthAdapter";
 import { SESSION_COOKIE } from "@/lib/auth";
+import { CALLBACK_URL_COOKIE } from "@/lib/auth-redirect";
 import { syncIdentityProfile } from "@/lib/auth/identity-profile";
 import { mergeRedirect } from "@/lib/auth/merge-ticket";
 import { githubEnabled, googleEnabled, lineEnabled } from "@/lib/auth/providers";
@@ -127,6 +128,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   cookies: {
     sessionToken: {
       name: SESSION_COOKIE,
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    // Named by us so /login can read back where a failed sign-in was headed: Auth.js's error
+    // redirect drops `?next=` (src/lib/auth-redirect.ts, loginCallbackUrl).
+    callbackUrl: {
+      name: CALLBACK_URL_COOKIE,
       options: {
         httpOnly: true,
         sameSite: "lax" as const,

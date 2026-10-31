@@ -91,3 +91,26 @@ test.describe("A login method that did not link", () => {
     await expect(page.getByText("登入失敗，請再試一次。")).toBeVisible();
   });
 });
+
+// Auth.js's error redirect drops ?next=, so /login reads back where the failed attempt was
+// headed from the callback-url cookie that attempt left behind.
+test.describe("Retrying a sign-in that did not complete", () => {
+  test("returns to the page the failed attempt was headed for", async ({ page, baseURL }) => {
+    await page
+      .context()
+      .addCookies([
+        { name: "authjs.callback-url", value: `${baseURL}/join/K7M2QX9PAB`, url: baseURL! },
+      ]);
+    await page.goto("/login?error=OAuthCallbackError");
+
+    // Catch the sign-in request instead of leaving for Telegram, and read where it would return.
+    const posted = new Promise<string>((resolve) => {
+      void page.route("**/api/auth/signin/telegram**", async (route) => {
+        resolve(new URLSearchParams(route.request().postData() ?? "").get("callbackUrl") ?? "");
+        await route.abort();
+      });
+    });
+    await page.getByRole("button", { name: "使用 Telegram 登入" }).click();
+    expect(await posted).toBe("/join/K7M2QX9PAB");
+  });
+});

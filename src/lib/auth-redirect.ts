@@ -23,3 +23,48 @@ export function isUnauthorizedError(error: unknown): boolean {
 export function loginUrl(loginPath: string, pathname: string, search: string): string {
   return `${loginPath}?next=${encodeURIComponent(pathname + search)}`;
 }
+
+/**
+ * Auth.js's cookie for the page a sign-in should return to. Named here rather than left to
+ * Auth.js's default (which changes with the `__Secure-` prefix) because `/login` reads it back:
+ * `src/auth.ts` sets the name, `loginCallbackUrl` consumes the value.
+ */
+export const CALLBACK_URL_COOKIE = "authjs.callback-url";
+
+/** Where the Web App lands after signing in when nothing says otherwise. */
+const DEFAULT_AFTER_LOGIN = "/app";
+
+/** A same-site path, or null for anything that could leave the site or isn't a path. */
+function sitePath(value: string | undefined): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
+    return null;
+  }
+  return value;
+}
+
+/**
+ * The page `/login` should send a sign-in back to. `?next=` wins. After a failed sign-in
+ * Auth.js redirects to `/login?error=` without it, so then the callback URL that attempt
+ * stored in `CALLBACK_URL_COOKIE` (an absolute URL) is used instead: cancelling a consent
+ * from an invite link must not turn the retry into a trip to `/app`. Only its path is kept,
+ * so a cookie naming another origin can't send anyone off the site. Without an error the
+ * cookie is ignored, since it may be left over from a sign-in long ago.
+ */
+export function loginCallbackUrl(
+  next: string | undefined,
+  error: string | undefined,
+  remembered: string | undefined,
+): string {
+  const explicit = sitePath(next);
+  if (explicit) return explicit;
+  if (error && remembered) {
+    try {
+      const url = new URL(remembered);
+      const path = sitePath(`${url.pathname}${url.search}${url.hash}`);
+      if (path) return path;
+    } catch {
+      // Not an absolute URL: fall through to the default.
+    }
+  }
+  return DEFAULT_AFTER_LOGIN;
+}
