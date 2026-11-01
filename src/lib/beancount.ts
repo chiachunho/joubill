@@ -21,6 +21,7 @@
  * Pure (no DB, no fetch): the caller resolves rates and accounts.
  */
 
+import { formatUtcMinute } from "@/lib/csv";
 import { BEANCOUNT_LEAF_RE } from "@/lib/zod";
 
 export type BeancountParty = { userId: number; amount: number };
@@ -217,11 +218,11 @@ export type BeancountExportInput = {
 function rangeLabel(range: BeancountExportRange): string {
   if (range.kind === "all") return "全部";
   if (range.kind === "custom") {
-    return `消費日期 ${range.from.toISOString().slice(0, 10)} ~ ${range.to.toISOString().slice(0, 10)}`;
+    // The bounds are the viewer's local day boundaries as instants; their UTC date
+    // would be a day off for anyone not on UTC, so print the instants themselves.
+    return `消費日期 ${formatUtcMinute(range.from)} ~ ${formatUtcMinute(range.to)} UTC`;
   }
-  return range.since
-    ? `${range.since.toISOString().slice(0, 16).replace("T", " ")} UTC 之後新增的紀錄`
-    : "全部（第一次匯出）";
+  return range.since ? `${formatUtcMinute(range.since)} UTC 之後新增的紀錄` : "全部（第一次匯出）";
 }
 
 /**
@@ -257,7 +258,7 @@ export function groupToBeancount(input: BeancountExportInput): {
   const openDate = firstDate ?? beancountDate(input.now.toISOString());
   const lines = [
     `; 揪帳 · ${escapeString(input.groupTitle)}`,
-    `; 匯出時間 ${input.now.toISOString().slice(0, 16).replace("T", " ")} UTC · 預設貨幣 ${input.defaultCurrency}`,
+    `; 匯出時間 ${formatUtcMinute(input.now)} UTC · 預設貨幣 ${input.defaultCurrency}`,
     `; 範圍：${rangeLabel(input.range)}`,
     `; ${included} 筆${skipped > 0 ? `，略過 ${skipped} 筆跟你無關的紀錄` : ""}`,
     "",

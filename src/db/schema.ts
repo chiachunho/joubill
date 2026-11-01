@@ -440,7 +440,10 @@ export const userBeancountConfigs = pgTable(
       .references(() => groups.id, { onDelete: "cascade" }),
     expensesAccount: text("expenses_account").notNull(),
     cashAccount: text("cash_account").notNull(),
-    /** NULL = the default, `Assets:Receivable:<group title>` (`resolveBeancountAccounts`). */
+    /**
+     * NULL = the default, `Assets:Receivable:<group title>` (`resolveBeancountAccounts`).
+     * The first 全部 / 上次匯出後 export pins it, so a later group rename can't move it.
+     */
     eventAccount: text("event_account"),
     /**
      * `created_at` of the newest record the last 全部 / 上次匯出後 export covered; the next

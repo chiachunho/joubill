@@ -66,7 +66,10 @@ function toBeancountRecord(r: LoadedRecord): BeancountRecord {
 /** Only 全部 and 上次匯出後 move the watermark; a custom range is a one-off look back. */
 function watermarkOf(range: BeancountExportRange, records: LoadedRecord[]): Date | null {
   if (range.kind === "custom" || records.length === 0) return null;
-  return new Date(Math.max(...records.map((r) => r.createdAt.getTime())));
+  // A loop, not `Math.max(...)`: spreading a big group's records overflows the call stack.
+  let newest = records[0].createdAt.getTime();
+  for (const r of records) newest = Math.max(newest, r.createdAt.getTime());
+  return new Date(newest);
 }
 
 type Settings = NonNullable<Awaited<ReturnType<typeof loadBeancountSettings>>>;
@@ -106,6 +109,8 @@ export async function buildBeancountExport(
   text: string;
   included: number;
   watermark: Date | null;
+  /** The event account the file posted to, pinned by {@link saveBeancountWatermark}. */
+  eventAccount: string;
 } | null> {
   const settings = await loadBeancountSettings(userId, groupId);
   if (!settings) return null;
@@ -137,6 +142,7 @@ export async function buildBeancountExport(
     text,
     included,
     watermark: watermarkOf(range, records),
+    eventAccount: settings.accounts.event,
   };
 }
 
@@ -144,8 +150,17 @@ export async function buildBeancountExport(
  * Remember where this export stopped, once it has been handed over. `greatest` keeps
  * the watermark from moving backwards (Postgres's `greatest` ignores the NULL of a
  * first export). A user who never saved accounts gets a row with the defaults.
+ *
+ * An unsaved event account is pinned to the one this file used: the default follows
+ * the group title, which the bot refreshes on every update, so after a rename the
+ * next 上次匯出後 file would post to an account its ledger never opened.
  */
-export async function saveBeancountWatermark(userId: number, groupId: number, watermark: Date) {
+export async function saveBeancountWatermark(
+  userId: number,
+  groupId: number,
+  watermark: Date,
+  eventAccount: string,
+) {
   await db
     .insert(userBeancountConfigs)
     .values({
@@ -153,11 +168,13 @@ export async function saveBeancountWatermark(userId: number, groupId: number, wa
       groupId,
       expensesAccount: DEFAULT_EXPENSES_ACCOUNT,
       cashAccount: DEFAULT_CASH_ACCOUNT,
+      eventAccount,
       lastExportedAt: watermark,
     })
     .onConflictDoUpdate({
       target: [userBeancountConfigs.userId, userBeancountConfigs.groupId],
       set: {
+        eventAccount: sql`coalesce(${userBeancountConfigs.eventAccount}, ${eventAccount})`,
         lastExportedAt: sql`greatest(${userBeancountConfigs.lastExportedAt}, ${watermark.toISOString()}::timestamptz)`,
       },
     });

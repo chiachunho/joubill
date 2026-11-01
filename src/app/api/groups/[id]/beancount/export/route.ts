@@ -21,7 +21,9 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
 
   const file = await buildBeancountExport(user.id, groupId, range);
   if (!file) return NextResponse.json({ error: "group not found" }, { status: 404 });
-  if (file.watermark) await saveBeancountWatermark(user.id, groupId, file.watermark);
+  if (file.watermark) {
+    await saveBeancountWatermark(user.id, groupId, file.watermark, file.eventAccount);
+  }
 
   return new Response(file.text, {
     headers: {

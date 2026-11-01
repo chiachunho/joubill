@@ -46,6 +46,8 @@ export const POST = withAuth(async (req: Request, ctx: Params) => {
     return NextResponse.json({ error: "傳送失敗，請再試一次" }, { status: 502 });
   }
 
-  if (file.watermark) await saveBeancountWatermark(user.id, groupId, file.watermark);
+  if (file.watermark) {
+    await saveBeancountWatermark(user.id, groupId, file.watermark, file.eventAccount);
+  }
   return NextResponse.json({ ok: true, included: file.included });
 });

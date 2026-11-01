@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDispatch } from "react-redux";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { Check, Download, Send } from "lucide-react";
 
@@ -11,7 +12,11 @@ import { apiErrorText } from "@/lib/api-error";
 import { beancountRangeParams } from "@/lib/beancount-range";
 import { saveResponseAsFile } from "@/lib/download";
 import { customRangeToQueryBounds } from "@/lib/stats-core";
-import { useGetBeancountExportSummaryQuery, useSendBeancountExportMutation } from "@/store/api";
+import {
+  api,
+  useGetBeancountExportSummaryQuery,
+  useSendBeancountExportMutation,
+} from "@/store/api";
 
 type Choice = "new" | "all" | "custom";
 
@@ -48,6 +53,7 @@ export function BeancountExportSection({
   const [pending, setPending] = useState<"download" | "send" | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [sendExport] = useSendBeancountExportMutation();
+  const dispatch = useDispatch();
 
   const [lastExportedAt, setLastExportedAt] = useState<string | null | undefined>(undefined);
   const choice: Choice = picked ?? (lastExportedAt ? "new" : "all");
@@ -67,11 +73,9 @@ export function BeancountExportSection({
     params = beancountRangeParams({ kind: picked === null ? "new" : choice });
   }
 
-  const {
-    currentData: summary,
-    error,
-    refetch,
-  } = useGetBeancountExportSummaryQuery(params ? { groupId, params } : skipToken);
+  const { currentData: summary, error } = useGetBeancountExportSummaryQuery(
+    params ? { groupId, params } : skipToken,
+  );
   // The watermark is the same in every answer; remember it so the 上次匯出後 row
   // doesn't disappear while a custom range is being picked.
   if (summary && summary.lastExportedAt !== lastExportedAt) {
@@ -112,7 +116,9 @@ export function BeancountExportSection({
         return;
       }
       await saveResponseAsFile(res, "export.beancount");
-      refetch();
+      // The watermark moved: every cached range's summary is stale, not just this one's
+      // (a stale one would put the old 上次匯出 time back on screen when picked).
+      dispatch(api.util.invalidateTags([{ type: "BeancountExport", id: String(groupId) }]));
     } catch {
       setMessage({ ok: false, text: "匯出失敗，請再試一次" });
     } finally {
