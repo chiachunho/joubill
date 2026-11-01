@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, ChevronRight, Pencil, User } from "lucide-react";
+import { BookOpen, ChevronRight, FileText, Pencil, ShieldCheck, User } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { AvatarSourceDialog } from "@/components/mini/AvatarSourceDialog";
 import { DisplayNameDialog } from "@/components/mini/DisplayNameDialog";
@@ -10,9 +11,16 @@ import { PersonalSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { describeError } from "@/lib/api-error";
+import { HELP_PATH, PRIVACY_PATH, TERMS_PATH } from "@/lib/help-url";
 import { displayName as nameOf, providerName as providerNameOf } from "@/lib/profile";
 import { useGetProfileQuery } from "@/store/api";
 
+/** The help-site pages listed under 關於. */
+const ABOUT_LINKS: { path: string; label: string; Icon: LucideIcon }[] = [
+  { path: HELP_PATH, label: "使用說明", Icon: BookOpen },
+  { path: PRIVACY_PATH, label: "隱私權政策", Icon: ShieldCheck },
+  { path: TERMS_PATH, label: "服務條款", Icon: FileText },
+];
 export function PersonalSettings({ platform }: { platform: Platform }) {
   platform.useBack(platform.basePath);
 
@@ -99,13 +107,19 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
       <section className="px-4">
         <p className="sect mb-2.5">關於</p>
         <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
-          <platform.HelpAction className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <BookOpen className="size-3.5 text-primary" />
-            </div>
-            <span className="flex-1 text-sm">使用說明</span>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
-          </platform.HelpAction>
+          {ABOUT_LINKS.map(({ path, label, Icon }) => (
+            <platform.HelpAction
+              key={path}
+              path={path}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
+            >
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <Icon className="size-3.5 text-primary" />
+              </div>
+              <span className="flex-1 text-sm">{label}</span>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
+            </platform.HelpAction>
+          ))}
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm">版本</span>
             <span className="num text-sm text-muted-foreground">

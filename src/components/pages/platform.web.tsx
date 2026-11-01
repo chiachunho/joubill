@@ -10,7 +10,6 @@ import { DeviceSettings } from "@/components/pwa/DeviceSettings";
 import { GroupNotificationSetting } from "@/components/pwa/GroupNotificationSetting";
 import { OnboardingPromptCard } from "@/components/pwa/OnboardingPromptCard";
 import { WEB_LOGIN_PATH } from "@/lib/auth-redirect";
-import { HELP_PATH } from "@/lib/help-url";
 import type { LoginProvider } from "@/lib/identities";
 import { rememberLinking } from "@/lib/linking-attempt";
 import { useForgetPushDevice } from "@/lib/use-push-device";
@@ -60,9 +59,17 @@ function WebHomeHeader() {
   );
 }
 
-function WebHelpAction({ className, children }: { className: string; children: ReactNode }) {
+function WebHelpAction({
+  path,
+  className,
+  children,
+}: {
+  path: string;
+  className: string;
+  children: ReactNode;
+}) {
   return (
-    <Link href={HELP_PATH} className={className}>
+    <Link href={path} className={className}>
       {children}
     </Link>
   );

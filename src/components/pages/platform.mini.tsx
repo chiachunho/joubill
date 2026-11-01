@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
-import { appUrl, HELP_PATH } from "@/lib/help-url";
+import { appUrl } from "@/lib/help-url";
 import { tmaRawFetch } from "@/lib/tma-fetch";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 
@@ -68,9 +68,17 @@ function openInBrowser(path: string): void {
     .catch(() => window.open(url, "_blank", "noopener"));
 }
 
-function MiniHelpAction({ className, children }: { className: string; children: ReactNode }) {
+function MiniHelpAction({
+  path,
+  className,
+  children,
+}: {
+  path: string;
+  className: string;
+  children: ReactNode;
+}) {
   return (
-    <button onClick={() => openInBrowser(HELP_PATH)} className={className}>
+    <button onClick={() => openInBrowser(path)} className={className}>
       {children}
     </button>
   );

@@ -3,6 +3,10 @@ import { clientEnv } from "./env";
 /** Path of the public help/FAQ site (`src/app/help/**`). No auth required. */
 export const HELP_PATH = "/help";
 
+/** The privacy policy and terms of service, part of the help site (and its sidebar). */
+export const PRIVACY_PATH = "/help/privacy";
+export const TERMS_PATH = "/help/terms";
+
 /**
  * Absolute URL of the help site.
  *

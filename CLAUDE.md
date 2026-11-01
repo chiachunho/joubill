@@ -187,14 +187,22 @@ The remark/rehype plugins are passed to `createMDX` **by package name**
 `@next/mdx` on the same major as `next` (both 15.x) — a mismatch fails Turbopack's
 config validation.
 
+The privacy policy and terms of service are help pages too (`/help/privacy`,
+`/help/terms`, the URLs given to Google's OAuth consent screen). They describe what
+the code actually collects and who sees it, so a change to stored personal data, a
+new third-party service or a new login provider updates `privacy/page.mdx` in the
+same commit. The contact address comes from `CONTACT_EMAIL` through
+`<ContactEmail />` (`src/components/help/ContactEmail.tsx`), never a literal.
+
 `src/app/help/layout.tsx` holds the section list. **Adding a page means adding
 both `src/app/help/<slug>/page.mdx` and an entry in that `sections` array** —
 the array drives the sidebar, so a page without one is unreachable.
 
 Entry points into the site are deliberately spread across every surface, since
 documentation nobody can find is worthless: the bot's `/help` reply and both
-`/start` welcomes carry a URL button, and 個人設定 → 關於 has a 使用說明 row in
-the Mini App and Web App. All of them resolve the URL through
+`/start` welcomes carry a URL button, and 個人設定 → 關於 has 使用說明,
+隱私權政策 and 服務條款 rows in the Mini App and Web App (`Platform.HelpAction`
+takes the path); `/login` links the latter two under its buttons. All of them resolve the URL through
 `src/lib/help-url.ts`, which derives it from `NEXT_PUBLIC_MINI_APP_URL`'s origin
 rather than adding a second env var the two could disagree about. The Mini App
 row calls `WebApp.openLink` instead of using an `<a>`, because navigating the
@@ -456,6 +464,10 @@ Push notifications (issue #67) are optional too, read from `process.env` by `pus
 - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — baked at build time; a new key pair invalidates every existing subscription
 - `VAPID_PRIVATE_KEY`
 - `VAPID_SUBJECT` — `mailto:` address or https URL
+
+Optional, read from `process.env` by `contactEmail()` (`src/lib/contact.ts`):
+
+- `CONTACT_EMAIL` — shown on `/help/privacy` and `/help/terms`; unset, they read 尚未設定聯絡信箱. The pages are prerendered, so a change takes effect at the next deploy
 
 All route handlers must set `export const runtime = "nodejs"` and `export const dynamic = "force-dynamic"` because they use the Neon serverless driver.
 

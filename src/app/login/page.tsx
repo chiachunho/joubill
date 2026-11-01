@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SessionProvider } from "next-auth/react";
@@ -8,6 +9,7 @@ import { OAuthButtons } from "@/components/OAuthButtons";
 import { isInAppBrowser } from "@/lib/in-app-browser";
 import { resolveSessionFromCookies } from "@/lib/auth";
 import { CALLBACK_URL_COOKIE, loginCallbackUrl } from "@/lib/auth-redirect";
+import { PRIVACY_PATH, TERMS_PATH } from "@/lib/help-url";
 import { authErrorRedirect, loginErrorMessage } from "@/lib/identities";
 
 type Props = { searchParams: Promise<{ next?: string | string[]; error?: string | string[] }> };
@@ -59,6 +61,17 @@ export default async function LoginPage({ searchParams }: Props) {
             inAppBrowser={inAppBrowser}
           />
         </SessionProvider>
+        <p className="text-center text-xs text-muted-foreground">
+          登入即表示你同意
+          <Link href={TERMS_PATH} className="underline underline-offset-2 hover:text-foreground">
+            服務條款
+          </Link>
+          與
+          <Link href={PRIVACY_PATH} className="underline underline-offset-2 hover:text-foreground">
+            隱私權政策
+          </Link>
+          。
+        </p>
       </div>
     </div>
   );
