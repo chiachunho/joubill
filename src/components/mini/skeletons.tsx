@@ -202,7 +202,7 @@ export function GroupSettingsSkeleton() {
 
 /**
  * Generic settings sub-page shell: back header + one panel of a few rows.
- * Shared by the 自訂匯率 and Beancount 帳戶名稱設定 sub-pages — both are a
+ * Shared by the 自訂匯率 and Beancount sub-pages — both are a
  * single `bg-secondary/50` panel under a page title, just with different
  * row content once loaded.
  */
@@ -220,27 +220,59 @@ export function SettingsSubpageSkeleton() {
   );
 }
 
-/**
- * Beancount settings page: just the description+toggle card. Reused two ways —
- * the standalone page shows it while `members` loads (page title already
- * rendered), and `BeancountSettingsSection` shows it again while its own
- * `config` fetch is in flight; either way it's the same shape, so one
- * component covers both without duplicating the title.
- */
+/** Beancount 帳戶設定: the description, then the panel of three account fields. */
 export function BeancountSettingsSkeleton() {
   return (
-    <section className="px-4">
-      <div className="overflow-hidden rounded-2xl bg-secondary/50">
-        <div className="space-y-2 px-4 py-4">
-          <Skeleton className="h-3 w-full" />
-          <Skeleton className="h-3 w-2/3" />
+    <>
+      <section className="space-y-2 px-4">
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-2/3" />
+      </section>
+      <section className="px-4">
+        <div className="space-y-3 rounded-2xl bg-secondary/50 px-4 py-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="space-y-1.5">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-8 w-full rounded-lg" />
+            </div>
+          ))}
         </div>
-        <div className="flex items-center justify-between border-t border-border/40 px-4 py-3">
-          <Skeleton className="h-3.5 w-10" />
-          <Skeleton className="h-[27px] w-[46px] rounded-full" />
+      </section>
+    </>
+  );
+}
+
+/** 匯出 beancount: three range rows, then the action rows. */
+export function BeancountExportSkeleton() {
+  return (
+    <>
+      <section className="px-4">
+        <Skeleton className="mb-2.5 h-3 w-10" />
+        <Panel rows={3} />
+      </section>
+      <section className="px-4">
+        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          <NavRowSkeleton />
+          <NavRowSkeleton />
         </div>
-      </div>
-    </section>
+      </section>
+    </>
+  );
+}
+
+/** Rows shaped like a 自訂匯率 row (icon tile, one line, the delete button's slot). */
+export function RateRowsSkeleton({ rows = 2 }: { rows?: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-4 py-3">
+          <Skeleton className="size-7 shrink-0 rounded-full" />
+          <Skeleton className={`h-3.5 ${i % 2 ? "w-28" : "w-36"}`} />
+          <div className="flex-1" />
+          <Skeleton className="size-3.5 shrink-0" />
+        </div>
+      ))}
+    </>
   );
 }
 

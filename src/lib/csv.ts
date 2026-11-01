@@ -58,7 +58,7 @@ export function formatUtcMinute(d: Date): string {
  * `<group>-<YYYY-MM-DD>.csv`. Characters that are illegal in filenames (or that
  * would break the Content-Disposition header) become `_`.
  */
-export function exportFilename(groupTitle: string, now: Date): string {
+export function exportFilename(groupTitle: string, now: Date, extension = "csv"): string {
   const base =
     // Cut by code point, not UTF-16 unit: slicing through an emoji's surrogate pair leaves a
     // lone surrogate, which makes `encodeURIComponent` in `contentDisposition` throw.
@@ -70,7 +70,7 @@ export function exportFilename(groupTitle: string, now: Date): string {
     )
       .slice(0, 60)
       .join("") || "group";
-  return `${base}-${now.toISOString().slice(0, 10)}.csv`;
+  return `${base}-${now.toISOString().slice(0, 10)}.${extension}`;
 }
 
 /**

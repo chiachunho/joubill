@@ -243,8 +243,7 @@ describe("beancountConfigInputSchema", () => {
   const valid = {
     expensesAccount: "Expenses:Uncategorized",
     cashAccount: "Assets:Cash",
-    receivablePrefix: "Assets:Receivable",
-    personAccounts: {},
+    eventAccount: "Assets:Receivable:Japan",
   };
 
   it("accepts ASCII account names", () => {
@@ -252,14 +251,9 @@ describe("beancountConfigInputSchema", () => {
   });
 
   it("accepts a Chinese account segment", () => {
-    const r = beancountConfigInputSchema.safeParse({ ...valid, cashAccount: "Assets:Flow:現金" });
-    expect(r.success).toBe(true);
-  });
-
-  it("accepts a Chinese person-account leaf", () => {
     const r = beancountConfigInputSchema.safeParse({
       ...valid,
-      personAccounts: { "1": "阿明" },
+      eventAccount: "Assets:Receivable:日本旅行",
     });
     expect(r.success).toBe(true);
   });
@@ -269,17 +263,14 @@ describe("beancountConfigInputSchema", () => {
     expect(r.success).toBe(false);
   });
 
-  it("rejects a leaf starting with punctuation", () => {
-    const r = beancountConfigInputSchema.safeParse({
-      ...valid,
-      personAccounts: { "1": "-阿明" },
-    });
-    expect(r.success).toBe(false);
-  });
-
   it("rejects a root outside the five beancount account types", () => {
     const r = beancountConfigInputSchema.safeParse({ ...valid, cashAccount: "Foo:Cash" });
     expect(r.success).toBe(false);
+  });
+
+  it("requires the event account", () => {
+    const { eventAccount: _, ...rest } = valid;
+    expect(beancountConfigInputSchema.safeParse(rest).success).toBe(false);
   });
 });
 

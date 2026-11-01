@@ -212,7 +212,19 @@ export type EffectiveRateResponse = {
   affectedSettlements?: number;
 };
 
-export type BeancountConfigResponse = { config: BeancountConfigInput | null };
+/** Always filled in: an unsaved account comes back as its default. */
+export type BeancountConfigResponse = { config: BeancountConfigInput };
+
+export type BeancountExportSummary = {
+  /** Records the file would hold. */
+  included: number;
+  /** Records in the range that don't touch the caller's ledger. */
+  skipped: number;
+  /** ISO; null = never exported, so 上次匯出後 means everything. */
+  lastExportedAt: string | null;
+  /** Whether 傳到我的私訊 can reach the caller at all. */
+  telegramLinked: boolean;
+};
 
 export type DeleteRequestResponse = {
   request: {

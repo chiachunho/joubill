@@ -1,52 +1,52 @@
 import { describe, expect, it } from "vitest";
 
-import type { Profile } from "@/lib/label";
-import { beancountAccountName, recordToBeancount, type BeancountRecord } from "@/lib/beancount";
+import {
+  defaultEventAccount,
+  eventAccountLeaf,
+  groupToBeancount,
+  recordToBeancount,
+  resolveBeancountAccounts,
+  type BeancountAccounts,
+  type BeancountRecord,
+} from "@/lib/beancount";
+import { beancountRangeParams, parseBeancountRange } from "@/lib/beancount-range";
 
-const ALICE = 1;
+const U = 1;
 const BOB = 2;
 const CAROL = 3;
 
-const people = new Map<number, Profile>([
-  [
-    ALICE,
-    { userId: ALICE, displayName: null, firstName: "Alice", lastName: null, username: "alice" },
-  ],
-  [BOB, { userId: BOB, displayName: null, firstName: "Bob", lastName: null, username: "bob" }],
-  [
-    CAROL,
-    { userId: CAROL, displayName: null, firstName: "Carol", lastName: null, username: "carol" },
-  ],
-]);
+const ACCOUNTS: BeancountAccounts = {
+  expenses: "Expenses:Food",
+  cash: "Assets:Cash",
+  event: "Assets:Receivable:Trip",
+};
 
 const SPENT_AT = "2026-06-30T08:00:00.000Z";
 
-/** Parse `  Account  123.45 CUR [@ rate quote]` posting lines into {account, amount}. */
+/** Posting lines (`  Account  123.45 CUR [@ rate quote]`) as {account, amount}; metadata is skipped. */
 function postings(text: string): { account: string; amount: number }[] {
   return text
     .split("\n")
-    .filter((l) => l.startsWith("  "))
-    .map((l) => {
-      const m = l.trim().match(/^(\S+)\s+(-?\d+\.\d{2})\s/);
-      if (!m) throw new Error(`unparseable posting: ${l}`);
-      return { account: m[1], amount: Number(m[2]) };
-    });
+    .map((l) => /^ {2}(\S+)\s+(-?\d+\.\d{2}) /.exec(l))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => ({ account: m[1], amount: Number(m[2]) }));
 }
 
 function sum(text: string): number {
-  return Math.round(postings(text).reduce((s, p) => s + p.amount, 0) * 100) / 100;
+  return Math.round(postings(text).reduce((s, p) => s + p.amount, 0) * 100) / 100 + 0;
 }
 
-function expense(over: Partial<BeancountRecord>): BeancountRecord {
+function expense(over: Partial<BeancountRecord> = {}): BeancountRecord {
   return {
+    id: 42,
     type: "expense",
     amount: 300,
     currency: "TWD",
     description: "晚餐",
     spentAt: SPENT_AT,
-    payers: [{ userId: ALICE, amount: 300 }],
+    payers: [{ userId: U, amount: 300 }],
     splits: [
-      { userId: ALICE, amount: 100 },
+      { userId: U, amount: 100 },
       { userId: BOB, amount: 100 },
       { userId: CAROL, amount: 100 },
     ],
@@ -54,289 +54,259 @@ function expense(over: Partial<BeancountRecord>): BeancountRecord {
   };
 }
 
-describe("recordToBeancount — expense, personal perspective", () => {
-  it("single payer = U, equal split (matches the chosen example)", () => {
-    const out = recordToBeancount(expense({}), ALICE, people);
-    expect(out).toBe(
-      [
-        '2026-06-30 * "晚餐"',
-        "  Expenses:Uncategorized    100.00 TWD",
-        "  Assets:Cash              -300.00 TWD",
-        "  Assets:Receivable:Bob     100.00 TWD",
-        "  Assets:Receivable:Carol   100.00 TWD",
-      ].join("\n"),
-    );
-    expect(sum(out)).toBe(0);
-  });
-
-  it("U is not a payer: no Cash leg, single payable to the payer", () => {
-    const out = recordToBeancount(
-      expense({ payers: [{ userId: BOB, amount: 300 }] }),
-      ALICE,
-      people,
-    );
-    const ps = postings(out);
-    expect(ps).toContainEqual({ account: "Expenses:Uncategorized", amount: 100 });
-    expect(ps).toContainEqual({ account: "Assets:Receivable:Bob", amount: -100 });
-    // U paid nothing → no Assets:Cash posting, and Carol's debt to Bob is NOT in U's ledger.
-    expect(ps.find((p) => p.account === "Assets:Cash")).toBeUndefined();
-    expect(ps.find((p) => p.account === "Assets:Receivable:Carol")).toBeUndefined();
-    expect(sum(out)).toBe(0);
-  });
-
-  it("multi-payer split allocates proportionally and stays balanced", () => {
-    // Alice paid 200, Bob paid 100; equal 100 share each.
-    const out = recordToBeancount(
-      expense({
-        payers: [
-          { userId: ALICE, amount: 200 },
-          { userId: BOB, amount: 100 },
-        ],
-      }),
-      ALICE,
-      people,
-    );
-    const ps = postings(out);
-    // netAlice = 200 - 100 = +100; only Carol is a net debtor (net -100) → owes Alice 100.
-    expect(ps).toContainEqual({ account: "Expenses:Uncategorized", amount: 100 });
-    expect(ps).toContainEqual({ account: "Assets:Cash", amount: -200 });
-    expect(ps).toContainEqual({ account: "Assets:Receivable:Carol", amount: 100 });
-    expect(sum(out)).toBe(0);
-  });
-
-  it("U is unrelated to the expense: no legs, annotated with a comment", () => {
-    const out = recordToBeancount(
-      expense({
-        payers: [{ userId: BOB, amount: 300 }],
-        splits: [
-          { userId: BOB, amount: 150 },
-          { userId: CAROL, amount: 150 },
-        ],
-      }),
-      ALICE,
-      people,
-    );
-    expect(postings(out)).toHaveLength(0);
-    expect(out).toContain("; 你與這筆支出無關");
-  });
-
-  it("rounding residual lands on a receivable, leaving Cash exact", () => {
-    // Alice pays 10, Bob pays 5; 4-way equal split = 3.75 each. Alice's net
-    // (6.25) spreads over two net debtors → 3.13 + 3.13 = 6.26, a +0.01 residual.
-    const out = recordToBeancount(
-      expense({
-        amount: 15,
-        payers: [
-          { userId: ALICE, amount: 10 },
-          { userId: BOB, amount: 5 },
-        ],
-        splits: [
-          { userId: ALICE, amount: 3.75 },
-          { userId: BOB, amount: 3.75 },
-          { userId: CAROL, amount: 3.75 },
-          { userId: 4, amount: 3.75 },
-        ],
-      }),
-      ALICE,
-      new Map([
-        ...people,
-        [4, { userId: 4, displayName: null, firstName: "Dave", lastName: null, username: "dave" }],
-      ]),
-    );
-    const ps = postings(out);
-    // Cash must stay exactly -10.00 (the real amount fronted); the cent residual
-    // is absorbed by a receivable leg, not the factual Cash/Expenses figures.
-    expect(ps).toContainEqual({ account: "Assets:Cash", amount: -10 });
-    expect(ps).toContainEqual({ account: "Expenses:Uncategorized", amount: 3.75 });
-    expect(sum(out)).toBe(0);
-  });
-
-  it("rounding residual is folded back so postings sum to zero", () => {
-    // 100 split 3 ways = 33.34/33.33/33.33; Alice sole payer.
-    const out = recordToBeancount(
-      expense({
-        amount: 100,
-        payers: [{ userId: ALICE, amount: 100 }],
-        splits: [
-          { userId: ALICE, amount: 33.34 },
-          { userId: BOB, amount: 33.33 },
-          { userId: CAROL, amount: 33.33 },
-        ],
-      }),
-      ALICE,
-      people,
-    );
-    expect(sum(out)).toBe(0);
-  });
-});
-
-describe("recordToBeancount — settlement", () => {
-  const settlement = (over: Partial<BeancountRecord> = {}): BeancountRecord => ({
+function settlement(from: number, to: number, amount = 50): BeancountRecord {
+  return {
+    id: 7,
     type: "settlement",
-    amount: 150,
+    amount,
     currency: "TWD",
     description: null,
     spentAt: SPENT_AT,
-    payers: [{ userId: ALICE, amount: 150 }], // from
-    splits: [{ userId: BOB, amount: 150 }], // to
-    ...over,
-  });
+    payers: [{ userId: from, amount }],
+    splits: [{ userId: to, amount }],
+  };
+}
 
-  it("U = from (the one repaying): cash out, receivable from the receiver up", () => {
-    const ps = postings(recordToBeancount(settlement(), ALICE, people));
-    expect(ps).toContainEqual({ account: "Assets:Receivable:Bob", amount: 150 });
-    expect(ps).toContainEqual({ account: "Assets:Cash", amount: -150 });
-    // settlements never produce an Expenses leg
-    expect(ps.find((p) => p.account === "Expenses:Uncategorized")).toBeUndefined();
-  });
+function render(record: BeancountRecord, fx?: { quote: string; rate: number }) {
+  const out = recordToBeancount(record, U, ACCOUNTS, fx);
+  if (out === null) throw new Error("expected a transaction");
+  return out;
+}
 
-  it("U = to (the receiver): cash in, the payer's debt reduced", () => {
-    const ps = postings(recordToBeancount(settlement(), BOB, people));
-    expect(ps).toContainEqual({ account: "Assets:Cash", amount: 150 });
-    expect(ps).toContainEqual({ account: "Assets:Receivable:Alice", amount: -150 });
-    expect(ps.find((p) => p.account === "Expenses:Uncategorized")).toBeUndefined();
-  });
-
-  it("U not involved: neutral, annotated with a comment", () => {
-    const out = recordToBeancount(settlement(), CAROL, people);
-    expect(out).toContain("; 你未參與這筆還款");
+describe("recordToBeancount: expenses", () => {
+  it("puts what the others owe U into the event account when U paid", () => {
+    const out = render(expense());
+    expect(postings(out)).toEqual([
+      { account: "Expenses:Food", amount: 100 },
+      { account: "Assets:Cash", amount: -300 },
+      { account: "Assets:Receivable:Trip", amount: 200 },
+    ]);
     expect(sum(out)).toBe(0);
   });
-});
 
-describe("recordToBeancount — FX", () => {
-  it("annotates every posting with @ rate quote and balances in both currencies", () => {
-    const out = recordToBeancount(
+  it("records U's share against the event account when someone else paid", () => {
+    const out = render(expense({ payers: [{ userId: BOB, amount: 300 }] }));
+    expect(postings(out)).toEqual([
+      { account: "Expenses:Food", amount: 100 },
+      { account: "Assets:Receivable:Trip", amount: -100 },
+    ]);
+  });
+
+  it("nets several payers into one event leg", () => {
+    const out = render(
       expense({
-        currency: "JPY",
-        amount: 3000,
-        payers: [{ userId: ALICE, amount: 3000 }],
-        splits: [
-          { userId: ALICE, amount: 1000 },
-          { userId: BOB, amount: 1000 },
-          { userId: CAROL, amount: 1000 },
+        payers: [
+          { userId: U, amount: 200 },
+          { userId: BOB, amount: 100 },
         ],
       }),
-      ALICE,
-      people,
-      { quote: "TWD", rate: 0.21 },
     );
-    const priceLines = out.split("\n").filter((l) => l.startsWith("  "));
-    expect(priceLines.every((l) => l.includes("@ 0.21 TWD"))).toBe(true);
-    // balances in JPY (units) and in TWD (units * rate)
-    const ps = postings(out);
-    expect(Math.round(ps.reduce((s, p) => s + p.amount, 0) * 100) / 100).toBe(0);
-    expect(Math.round(ps.reduce((s, p) => s + p.amount * 0.21, 0) * 100) / 100).toBe(0);
+    expect(postings(out)).toEqual([
+      { account: "Expenses:Food", amount: 100 },
+      { account: "Assets:Cash", amount: -200 },
+      { account: "Assets:Receivable:Trip", amount: 100 },
+    ]);
   });
 
-  it("no price when quote === currency", () => {
-    const out = recordToBeancount(expense({}), ALICE, people, { quote: "TWD", rate: 1 });
-    expect(out).not.toContain("@");
+  it("balances exactly when a split doesn't divide evenly", () => {
+    const out = render(
+      expense({
+        amount: 1000,
+        payers: [{ userId: U, amount: 1000 }],
+        splits: [
+          { userId: U, amount: 333.33 },
+          { userId: BOB, amount: 333.33 },
+          { userId: CAROL, amount: 333.34 },
+        ],
+      }),
+    );
+    expect(postings(out)).toContainEqual({ account: "Assets:Receivable:Trip", amount: 666.67 });
+    expect(sum(out)).toBe(0);
   });
 
-  it("emits a comment when the rate is unavailable", () => {
-    const out = recordToBeancount(expense({ currency: "JPY" }), ALICE, people, {
-      quote: "TWD",
-      rate: null,
-    });
-    expect(out).toContain("; 匯率不可得（JPY→TWD）");
-    expect(out).not.toContain("@");
+  it("leaves out the event leg when U paid exactly their own share", () => {
+    const out = render(
+      expense({
+        amount: 100,
+        payers: [{ userId: U, amount: 100 }],
+        splits: [{ userId: U, amount: 100 }],
+      }),
+    );
+    expect(postings(out).map((p) => p.account)).toEqual(["Expenses:Food", "Assets:Cash"]);
+  });
+
+  it("skips an expense U neither paid for nor shares", () => {
+    const out = recordToBeancount(
+      expense({
+        payers: [{ userId: BOB, amount: 300 }],
+        splits: [{ userId: CAROL, amount: 300 }],
+      }),
+      U,
+      ACCOUNTS,
+    );
+    expect(out).toBeNull();
   });
 });
 
-describe("recordToBeancount — custom accounts", () => {
-  const accounts = {
-    expenses: "Expenses:Food",
-    cash: "Assets:Bank:Checking",
-    receivablePrefix: "Assets:Owed",
-    personAccounts: { [String(BOB)]: "Robert" },
+describe("recordToBeancount: settlements", () => {
+  it("moves cash out and the event account up when U repays", () => {
+    expect(postings(render(settlement(U, BOB)))).toEqual([
+      { account: "Assets:Receivable:Trip", amount: 50 },
+      { account: "Assets:Cash", amount: -50 },
+    ]);
+  });
+
+  it("moves cash in and the event account down when U is repaid", () => {
+    expect(postings(render(settlement(BOB, U)))).toEqual([
+      { account: "Assets:Cash", amount: 50 },
+      { account: "Assets:Receivable:Trip", amount: -50 },
+    ]);
+  });
+
+  it("skips a settlement between two other people", () => {
+    expect(recordToBeancount(settlement(BOB, CAROL), U, ACCOUNTS)).toBeNull();
+  });
+
+  it("skips a settlement from U to U (left behind by an account merge)", () => {
+    expect(recordToBeancount(settlement(U, U), U, ACCOUNTS)).toBeNull();
+  });
+});
+
+describe("recordToBeancount: formatting", () => {
+  it("writes the header, the splitbill_id and escaped narration", () => {
+    const out = render(expense({ description: 'Say "hi"\nnow' }));
+    const [header, meta] = out.split("\n");
+    expect(header).toBe('2026-06-30 * "Say \\"hi\\" now"');
+    expect(meta).toBe('  splitbill_id: "42"');
+  });
+
+  it("uses the narration override", () => {
+    const out = recordToBeancount(settlement(BOB, U), U, ACCOUNTS, null, "還款 Bob → 我");
+    expect(out?.split("\n")[0]).toBe('2026-06-30 * "還款 Bob → 我"');
+  });
+
+  it("prices every posting in the group currency for a foreign record", () => {
+    const out = render(expense({ currency: "JPY" }), { quote: "TWD", rate: 0.2135 });
+    const legs = out.split("\n").filter((l) => /\d\.\d{2} /.test(l));
+    expect(legs).toHaveLength(3);
+    for (const l of legs) expect(l).toMatch(/ JPY @ 0\.2135 TWD$/);
+  });
+
+  it("adds no price when the record is already in the group currency", () => {
+    expect(render(expense(), { quote: "TWD", rate: 1 })).not.toContain("@");
+  });
+});
+
+describe("event account defaults", () => {
+  it("keeps letters and digits of any script from the group title", () => {
+    expect(eventAccountLeaf("日本 旅行!", 5)).toBe("日本旅行");
+    expect(eventAccountLeaf("japan trip 2026", 5)).toBe("Japantrip2026");
+  });
+
+  it("falls back to the group id when nothing usable is left", () => {
+    expect(eventAccountLeaf("🎉🎉", 5)).toBe("Group5");
+    expect(defaultEventAccount("", 9)).toBe("Assets:Receivable:Group9");
+  });
+
+  it("fills every unsaved account with its default", () => {
+    expect(resolveBeancountAccounts(null, { id: 1, title: "Tokyo" })).toEqual({
+      expenses: "Expenses:Uncategorized",
+      cash: "Assets:Cash",
+      event: "Assets:Receivable:Tokyo",
+    });
+    expect(
+      resolveBeancountAccounts(
+        { expensesAccount: "Expenses:Travel", cashAccount: "Assets:Bank", eventAccount: null },
+        { id: 1, title: "Tokyo" },
+      ),
+    ).toEqual({
+      expenses: "Expenses:Travel",
+      cash: "Assets:Bank",
+      event: "Assets:Receivable:Tokyo",
+    });
+  });
+});
+
+describe("groupToBeancount", () => {
+  const records = [
+    { record: expense({ id: 1 }), rate: 1 },
+    { record: expense({ id: 2, payers: [{ userId: BOB, amount: 300 }] }), rate: 1 },
+    { record: { ...settlement(BOB, U, 100), id: 3 }, rate: 1 },
+    { record: { ...settlement(BOB, CAROL), id: 4 }, rate: 1 },
+  ];
+  const base = {
+    groupTitle: "Trip",
+    defaultCurrency: "TWD",
+    userId: U,
+    accounts: ACCOUNTS,
+    records,
+    now: new Date("2026-11-01T14:30:00Z"),
   };
 
-  it("uses the configured accounts and per-person leaf, falling back to auto name", () => {
-    const out = recordToBeancount(expense({}), ALICE, people, undefined, accounts);
-    const ps = postings(out);
-    expect(ps).toContainEqual({ account: "Expenses:Food", amount: 100 });
-    expect(ps).toContainEqual({ account: "Assets:Bank:Checking", amount: -300 });
-    // Bob has a configured leaf; Carol falls back to her auto-derived name.
-    expect(ps).toContainEqual({ account: "Assets:Owed:Robert", amount: 100 });
-    expect(ps).toContainEqual({ account: "Assets:Owed:Carol", amount: 100 });
-    expect(sum(out)).toBe(0);
+  it("counts what it wrote and what it skipped", () => {
+    const out = groupToBeancount({ ...base, range: { kind: "all" } });
+    expect(out.included).toBe(3);
+    expect(out.skipped).toBe(1);
+    expect(out.text).toContain("; 3 筆，略過 1 筆跟你無關的紀錄");
+    expect(out.text.match(/splitbill_id/g)).toHaveLength(3);
   });
 
-  it("a blank configured leaf falls back to the auto name (no trailing colon)", () => {
-    const out = recordToBeancount(expense({}), ALICE, people, undefined, {
-      ...accounts,
-      personAccounts: { [String(BOB)]: "" },
+  it("leaves the event account at U's net balance", () => {
+    const { text } = groupToBeancount({ ...base, range: { kind: "all" } });
+    const event = postings(text)
+      .filter((p) => p.account === ACCOUNTS.event)
+      .reduce((s, p) => s + p.amount, 0);
+    // +200 (U paid for the others) −100 (U's share of Bob's) −100 (Bob repaid U)
+    expect(event).toBe(0);
+    expect(sum(text)).toBe(0);
+  });
+
+  it("opens the event account only when the file starts the ledger", () => {
+    const open = `2026-06-30 open ${ACCOUNTS.event}`;
+    const lines = (range: Parameters<typeof groupToBeancount>[0]["range"]) =>
+      groupToBeancount({ ...base, range }).text.split("\n");
+
+    expect(lines({ kind: "all" })).toContain(open);
+    expect(lines({ kind: "new", since: null })).toContain(open);
+    expect(lines({ kind: "new", since: new Date("2026-06-01T00:00:00Z") })).toContain(`; ${open}`);
+    expect(
+      lines({ kind: "custom", from: new Date("2026-06-01Z"), to: new Date("2026-07-01Z") }),
+    ).toContain(`; ${open}`);
+    // Expenses and Cash are almost always opened already in the user's own ledger.
+    expect(lines({ kind: "all" })).toContain(`; 2026-06-30 open ${ACCOUNTS.cash}`);
+  });
+
+  it("converts at each record's own rate", () => {
+    const { text } = groupToBeancount({
+      ...base,
+      range: { kind: "all" },
+      records: [{ record: expense({ currency: "JPY" }), rate: 0.2 }],
     });
-    const ps = postings(out);
-    expect(ps).toContainEqual({ account: "Assets:Owed:Bob", amount: 100 });
-    expect(out).not.toContain("Assets:Owed: ");
-  });
-
-  it("residual still lands on a receivable leg under a custom prefix, keeping Cash exact", () => {
-    const out = recordToBeancount(
-      expense({
-        amount: 15,
-        payers: [
-          { userId: ALICE, amount: 10 },
-          { userId: BOB, amount: 5 },
-        ],
-        splits: [
-          { userId: ALICE, amount: 3.75 },
-          { userId: BOB, amount: 3.75 },
-          { userId: CAROL, amount: 3.75 },
-          { userId: 4, amount: 3.75 },
-        ],
-      }),
-      ALICE,
-      new Map([
-        ...people,
-        [4, { userId: 4, displayName: null, firstName: "Dave", lastName: null, username: "dave" }],
-      ]),
-      undefined,
-      accounts,
-    );
-    const ps = postings(out);
-    // The kind tag (not the "Assets:Receivable" string) drives residual folding.
-    expect(ps).toContainEqual({ account: "Assets:Bank:Checking", amount: -10 });
-    expect(sum(out)).toBe(0);
+    expect(text).toContain("JPY @ 0.2 TWD");
   });
 });
 
-describe("beancountAccountName", () => {
-  it("prefers a capitalized username", () => {
-    expect(
-      beancountAccountName({
-        userId: 1,
-        displayName: null,
-        firstName: "x",
-        lastName: null,
-        username: "alice",
-      }),
-    ).toBe("Alice");
+describe("beancount export range", () => {
+  it("round-trips every kind through the query string", () => {
+    const from = new Date("2026-10-01T00:00:00.000Z");
+    const to = new Date("2026-10-31T23:59:59.999Z");
+    for (const range of [{ kind: "new" }, { kind: "all" }, { kind: "custom", from, to }] as const) {
+      const qs = new URLSearchParams(beancountRangeParams(range));
+      expect(parseBeancountRange(qs)).toEqual(range);
+    }
   });
 
-  it("falls back to the sanitized name", () => {
-    expect(
-      beancountAccountName({
-        userId: 1,
-        displayName: null,
-        firstName: "John",
-        lastName: "Doe",
-        username: null,
-      }),
-    ).toBe("JohnDoe");
+  it("reads a JSON body too", () => {
+    expect(parseBeancountRange({ range: "all" })).toEqual({ kind: "all" });
   });
 
-  it("falls back to User<id> for a non-ASCII-only name", () => {
+  it("refuses an unknown kind, a bare date and a reversed range", () => {
+    const parse = (o: Record<string, string>) => "error" in parseBeancountRange(o);
+    expect(parse({})).toBe(true);
+    expect(parse({ range: "6m" })).toBe(true);
+    expect(parse({ range: "custom", from: "2026-10-01", to: "2026-10-31" })).toBe(true);
     expect(
-      beancountAccountName({
-        userId: 7,
-        displayName: null,
-        firstName: "陳",
-        lastName: "小明",
-        username: null,
-      }),
-    ).toBe("User7");
+      parse({ range: "custom", from: "2026-10-31T00:00:00Z", to: "2026-10-01T00:00:00Z" }),
+    ).toBe(true);
   });
 });

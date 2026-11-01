@@ -4,6 +4,7 @@ import { useState } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
 
+import { RateRowsSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -94,8 +95,15 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
     : 0;
 
   const parsedRate = parseFloat(rateInput);
+  // Waits for the list too: a PUT replaces any rate for the same currency, so saving
+  // before the list is on screen could overwrite one the user hasn't seen.
   const canSave =
-    base !== "" && Number.isFinite(parsedRate) && parsedRate > 0 && !saving && countsReady;
+    !!data &&
+    base !== "" &&
+    Number.isFinite(parsedRate) &&
+    parsedRate > 0 &&
+    !saving &&
+    countsReady;
 
   async function save(mode: "all" | "lock") {
     if (saving) return;
@@ -183,10 +191,9 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
             </div>
           );
         })}
-        {rates.length === 0 && !error && (
-          <p className="px-4 py-3 text-sm text-muted-foreground">
-            {data ? "未設定，使用市場匯率換算" : "載入中…"}
-          </p>
+        {!data && !error && <RateRowsSkeleton />}
+        {data && rates.length === 0 && (
+          <p className="px-4 py-3 text-sm text-muted-foreground">未設定，使用市場匯率換算</p>
         )}
         {error && <p className="px-4 py-3 text-sm text-muted-foreground">無法載入自訂匯率</p>}
 

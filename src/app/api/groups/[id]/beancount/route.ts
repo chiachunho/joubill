@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { userBeancountConfigs } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import type { BeancountAccounts } from "@/lib/beancount";
+import { loadBeancountSettings } from "@/lib/beancount-export";
 import { beancountConfigInputSchema, type BeancountConfigInput } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -20,35 +21,27 @@ async function resolve(req: Request, ctx: Params) {
   return { userId: auth.user.id, groupId };
 }
 
-/** Project a config row down to the wire shape (drops id/userId/groupId/timestamps). */
-function toJson(row: BeancountConfigInput): BeancountConfigInput {
+function toJson(accounts: BeancountAccounts): { config: BeancountConfigInput } {
   return {
-    expensesAccount: row.expensesAccount,
-    cashAccount: row.cashAccount,
-    receivablePrefix: row.receivablePrefix,
-    personAccounts: row.personAccounts,
+    config: {
+      expensesAccount: accounts.expenses,
+      cashAccount: accounts.cash,
+      eventAccount: accounts.event,
+    },
   };
 }
 
-/** The current user's beancount config for this group, or `null` when not enabled. */
+/** The caller's beancount accounts for this group, with the defaults filled in. */
 export const GET = withAuth(async (req: Request, ctx: Params) => {
   const ids = await resolve(req, ctx);
   if (!ids) return NextResponse.json({ error: "invalid group id" }, { status: 400 });
 
-  const [row] = await db
-    .select()
-    .from(userBeancountConfigs)
-    .where(
-      and(
-        eq(userBeancountConfigs.userId, ids.userId),
-        eq(userBeancountConfigs.groupId, ids.groupId),
-      ),
-    );
-
-  return NextResponse.json({ config: row ? toJson(row) : null });
+  const settings = await loadBeancountSettings(ids.userId, ids.groupId);
+  if (!settings) return NextResponse.json({ error: "group not found" }, { status: 404 });
+  return NextResponse.json(toJson(settings.accounts));
 });
 
-/** Enable / update the current user's beancount config for this group. */
+/** Save the caller's accounts for this group. The export watermark is left alone. */
 export const PUT = withAuth(async (req: Request, ctx: Params) => {
   const ids = await resolve(req, ctx);
   if (!ids) return NextResponse.json({ error: "invalid group id" }, { status: 400 });
@@ -61,45 +54,21 @@ export const PUT = withAuth(async (req: Request, ctx: Params) => {
     );
   }
   const input = parsed.data;
-
-  const [row] = await db
-    .insert(userBeancountConfigs)
-    .values({
-      userId: ids.userId,
-      groupId: ids.groupId,
-      expensesAccount: input.expensesAccount,
-      cashAccount: input.cashAccount,
-      receivablePrefix: input.receivablePrefix,
-      personAccounts: input.personAccounts,
-    })
-    .onConflictDoUpdate({
-      target: [userBeancountConfigs.userId, userBeancountConfigs.groupId],
-      set: {
-        expensesAccount: input.expensesAccount,
-        cashAccount: input.cashAccount,
-        receivablePrefix: input.receivablePrefix,
-        personAccounts: input.personAccounts,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
-
-  return NextResponse.json({ config: toJson(row) });
-});
-
-/** Disable the feature for this group (removes the config row). */
-export const DELETE = withAuth(async (req: Request, ctx: Params) => {
-  const ids = await resolve(req, ctx);
-  if (!ids) return NextResponse.json({ error: "invalid group id" }, { status: 400 });
+  const columns = {
+    expensesAccount: input.expensesAccount,
+    cashAccount: input.cashAccount,
+    eventAccount: input.eventAccount,
+  };
 
   await db
-    .delete(userBeancountConfigs)
-    .where(
-      and(
-        eq(userBeancountConfigs.userId, ids.userId),
-        eq(userBeancountConfigs.groupId, ids.groupId),
-      ),
-    );
+    .insert(userBeancountConfigs)
+    .values({ userId: ids.userId, groupId: ids.groupId, ...columns })
+    .onConflictDoUpdate({
+      target: [userBeancountConfigs.userId, userBeancountConfigs.groupId],
+      set: { ...columns, updatedAt: new Date() },
+    });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(
+    toJson({ expenses: input.expensesAccount, cash: input.cashAccount, event: input.eventAccount }),
+  );
 });
