@@ -25,6 +25,21 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Baseline for every response. No frame-ancestors/CSP here: the Mini App has to be
+        // embeddable by Telegram's own clients.
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+      {
+        // The standalone web app never needs to be framed (clickjacking on the sign-in and
+        // join-by-invite screens). /mini stays embeddable.
+        source: "/:prefix(app|login|join)/:path*",
+        headers: [{ key: "X-Frame-Options", value: "DENY" }],
+      },
+      {
         source: "/sw.js",
         headers: [
           { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },

@@ -91,6 +91,8 @@ type Initial = {
   payers: Array<{ payerId: number; amount: number }>;
   spentAt: string;
   receiptFileIds?: string[];
+  /** Signed `/api/tg-photo` link for each receipt id (an <img> cannot send the auth header). */
+  receiptUrls?: Record<string, string>;
   splits: Array<{
     debtorId: number;
     amount: number;
@@ -548,6 +550,9 @@ export function ExpenseForm(props: Props) {
   }
 
   const [receiptFileIds, setReceiptFileIds] = useState<string[]>(initial?.receiptFileIds ?? []);
+  const [receiptUrls, setReceiptUrls] = useState<Record<string, string>>(
+    initial?.receiptUrls ?? {},
+  );
   const [receiptUploading, setReceiptUploading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [loadedFileIds, setLoadedFileIds] = useState<Set<string>>(
@@ -575,16 +580,25 @@ export function ExpenseForm(props: Props) {
             const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
             throw new Error(parsed.error ?? "上傳失敗");
           }
-          const { fileId } = (await res.json()) as { fileId: string };
-          return fileId;
+          const { fileId, url } = (await res.json()) as { fileId: string; url: string };
+          return { fileId, url };
         }),
       );
       const succeeded = results
-        .filter((r): r is PromiseFulfilledResult<string> => r.status === "fulfilled")
+        .filter(
+          (r): r is PromiseFulfilledResult<{ fileId: string; url: string }> =>
+            r.status === "fulfilled",
+        )
         .map((r) => r.value);
       const failedCount = results.filter((r) => r.status === "rejected").length;
       // Cap at 5 in the updater in case `remaining` was computed from stale closure state.
-      if (succeeded.length > 0) setReceiptFileIds((prev) => [...prev, ...succeeded].slice(0, 5));
+      if (succeeded.length > 0) {
+        setReceiptUrls((prev) => ({
+          ...prev,
+          ...Object.fromEntries(succeeded.map((s) => [s.fileId, s.url])),
+        }));
+        setReceiptFileIds((prev) => [...prev, ...succeeded.map((s) => s.fileId)].slice(0, 5));
+      }
       if (failedCount > 0)
         setReceiptError(failedCount === 1 ? "1 張照片上傳失敗" : `${failedCount} 張照片上傳失敗`);
     } finally {
@@ -806,7 +820,7 @@ export function ExpenseForm(props: Props) {
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`/api/tg-photo?fileId=${fileId}`}
+                        src={receiptUrls[fileId]}
                         alt={`收據 ${i + 1}`}
                         className="h-full w-full object-cover"
                         onLoad={() => setLoadedFileIds((prev) => new Set([...prev, fileId]))}
@@ -1351,7 +1365,7 @@ export function ExpenseForm(props: Props) {
                   </DialogTitle>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={`/api/tg-photo?fileId=${receiptFileIds[safeIdx]}`}
+                    src={receiptUrls[receiptFileIds[safeIdx]]}
                     alt="收據大圖"
                     className="max-h-[80dvh] w-full rounded-2xl object-contain"
                   />

@@ -28,7 +28,13 @@ export const SESSION_COOKIE = "session";
 
 export function parseCookie(header: string, name: string): string | null {
   const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
+  if (!match) return null;
+  // A malformed escape (`session=%`) must read as "no cookie", not throw a 500.
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
 }
 
 /**

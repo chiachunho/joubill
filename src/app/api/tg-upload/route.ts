@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { serverEnv } from "@/lib/env";
+import { receiptPhotoUrl } from "@/lib/tg-photo-sign";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,5 +49,5 @@ export const POST = withAuth(async (req: Request) => {
     console.error("[tg-upload] sendPhoto returned no photo array:", JSON.stringify(data.result));
     return NextResponse.json({ error: "upload failed: unsupported image format" }, { status: 502 });
   }
-  return NextResponse.json({ fileId });
+  return NextResponse.json({ fileId, url: receiptPhotoUrl(fileId) });
 });
