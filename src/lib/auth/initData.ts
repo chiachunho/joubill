@@ -84,3 +84,21 @@ export function verifyInitData(initData: string, botToken: string): VerifiedInit
     chatInstance: params.get("chat_instance"),
   };
 }
+
+/**
+ * The other end of `verifyInitData`: signs `params` the way Telegram does. Kept in this file
+ * so the signer can't drift from the verifier (both ends of a contract live together); the
+ * app never calls it, the unit tests and the Mini App E2E (`e2e/mini.spec.ts`) do.
+ */
+export function signInitData(params: Record<string, string>, botToken: string): string {
+  const dataCheckString = Object.entries(params)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("\n");
+  const secretKey = crypto.createHmac("sha256", "WebAppData").update(botToken).digest();
+  const hash = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+
+  const qs = new URLSearchParams(params);
+  qs.set("hash", hash);
+  return qs.toString();
+}

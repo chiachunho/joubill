@@ -15,13 +15,20 @@ const SESSION_TTL_MS = 60 * 60 * 1000;
 export type Seeded = {
   /** The signed-in user. Pays 300 of the seeded expense and owes 150 of it. */
   userId: number;
+  /** The signed-in user's Telegram id and first name, for signing Mini App initData. */
+  telegramId: number;
+  firstName: string;
   groupId: number;
   groupTitle: string;
+  /** The group's Telegram chat id, as a `startapp=group_<chatId>` deep link carries it. */
+  chatId: string;
   /** Second group member who has no session. Owes 150 of the seeded expense. */
   partnerId: number;
   partnerName: string;
   /** A user who is not a member of `groupId` at all. */
   outsiderId: number;
+  outsiderTelegramId: number;
+  outsiderFirstName: string;
   expenseId: number;
   expenseDescription: string;
   /** A group the signed-in user does NOT belong to. */
@@ -198,11 +205,16 @@ export const test = base.extend<
 
       await use({
         userId: user.id,
+        telegramId: user.telegramId!,
+        firstName: user.firstName,
         groupId: group.id,
         groupTitle,
+        chatId: group.chatId!,
         partnerId: partner.id,
         partnerName,
         outsiderId: outsider.id,
+        outsiderTelegramId: outsider.telegramId!,
+        outsiderFirstName: outsider.firstName,
         expenseId: expense.id,
         expenseDescription,
         foreignGroupId: foreign.id,
