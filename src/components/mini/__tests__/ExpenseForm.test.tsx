@@ -107,7 +107,7 @@ function renderForm(
   return request;
 }
 
-const save = () => screen.getByRole("button", { name: "儲存", exact: true });
+const save = () => screen.getByRole("button", { name: "儲存" });
 
 async function submit() {
   await waitFor(() => expect(save()).toBeEnabled());
