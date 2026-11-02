@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { parseBeancountRange, type BeancountRangeQuery } from "@/lib/beancount-range";
+import { requireId } from "@/lib/route-params";
 
 export type Params = { params: Promise<{ id: string }> };
 
@@ -20,13 +21,7 @@ export async function readExportRequest(
   | { ok: false; response: NextResponse }
 > {
   const auth = await getAuth(req);
-  const groupId = Number((await ctx.params).id);
-  if (!Number.isFinite(groupId)) {
-    return {
-      ok: false,
-      response: NextResponse.json({ error: "invalid group id" }, { status: 400 }),
-    };
-  }
+  const groupId = requireId((await ctx.params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
   const range = parseBeancountRange(params);
   if ("error" in range) {

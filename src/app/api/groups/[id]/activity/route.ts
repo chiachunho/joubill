@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { loadGroupActivity, loadRecordHistory } from "@/lib/record-history";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,20 +20,14 @@ type Params = { params: Promise<{ id: string }> };
  */
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const url = new URL(req.url);
 
   const recordParam = url.searchParams.get("record");
   if (recordParam != null) {
-    const recordId = Number(recordParam);
-    if (!Number.isFinite(recordId)) {
-      return NextResponse.json({ error: "invalid record id" }, { status: 400 });
-    }
+    const recordId = requireId(recordParam, "record id");
     // No existence check: a deleted record still has a history, and refusing to
     // show it would hide the deletion — the one entry most worth reading.
     return NextResponse.json({
@@ -42,10 +37,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
 
   const cursorParam = url.searchParams.get("cursor");
-  const cursor = cursorParam != null ? Number(cursorParam) : undefined;
-  if (cursor !== undefined && !Number.isFinite(cursor)) {
-    return NextResponse.json({ error: "invalid cursor" }, { status: 400 });
-  }
+  const cursor = cursorParam != null ? requireId(cursorParam, "cursor") : undefined;
 
   return NextResponse.json(await loadGroupActivity(groupId, cursor));
 });

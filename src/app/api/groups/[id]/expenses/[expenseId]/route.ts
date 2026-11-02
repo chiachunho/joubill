@@ -13,6 +13,7 @@ import { logDeleted, logUpdated } from "@/lib/record-mutation";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { receiptPhotoUrl } from "@/lib/tg-photo-sign";
 import { expenseInputSchema } from "@/lib/zod";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,16 +22,12 @@ type Params = { params: Promise<{ id: string; expenseId: string }> };
 
 async function resolveIds({ params }: Params) {
   const { id, expenseId } = await params;
-  const groupId = Number(id);
-  const eid = Number(expenseId);
-  if (!Number.isFinite(groupId) || !Number.isFinite(eid)) return null;
-  return { groupId, eid };
+  return { groupId: requireId(id, "group id"), eid: requireId(expenseId, "expense id") };
 }
 
 export const GET = withAuth(async (req: Request, ctx: Params) => {
   const auth = await getAuth(req);
   const ids = await resolveIds(ctx);
-  if (!ids) return NextResponse.json({ error: "invalid id" }, { status: 400 });
   await assertGroupMember(auth.user.id, ids.groupId);
 
   const [expense] = await db
@@ -113,7 +110,6 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
 export const PATCH = withAuth(async (req: Request, ctx: Params) => {
   const auth = await getAuth(req);
   const ids = await resolveIds(ctx);
-  if (!ids) return NextResponse.json({ error: "invalid id" }, { status: 400 });
   await assertGroupMember(auth.user.id, ids.groupId);
 
   const parsed = expenseInputSchema.safeParse(await req.json());
@@ -224,7 +220,6 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
 export const DELETE = withAuth(async (req: Request, ctx: Params) => {
   const auth = await getAuth(req);
   const ids = await resolveIds(ctx);
-  if (!ids) return NextResponse.json({ error: "invalid id" }, { status: 400 });
   await assertGroupMember(auth.user.id, ids.groupId);
 
   // Group membership is the only gate: the ledger is shared, so anyone in it can

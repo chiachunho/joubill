@@ -9,6 +9,7 @@ import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { telegramChatId } from "@/lib/chat";
 import { buildGroupExport } from "@/lib/export";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,10 +23,7 @@ type Params = { params: Promise<{ id: string }> };
  */
 export const POST = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));

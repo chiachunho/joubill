@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { AuthError } from "./errors";
+import { HttpError } from "./errors";
 
 /**
- * Wraps a route handler so AuthError surfaces as the right HTTP status.
+ * Wraps a route handler so an HttpError (AuthError, BadRequestError, …) surfaces as
+ * its HTTP status.
  * Other errors fall through to Next's default 500 handler.
  */
 export function withAuth<TArgs extends unknown[]>(
@@ -13,7 +14,7 @@ export function withAuth<TArgs extends unknown[]>(
     try {
       return await handler(req, ...args);
     } catch (err) {
-      if (err instanceof AuthError) {
+      if (err instanceof HttpError) {
         return NextResponse.json({ error: err.message }, { status: err.status });
       }
       throw err;

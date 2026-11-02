@@ -8,6 +8,7 @@ import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { lockGroupMemberNames } from "@/lib/member-name-lock";
 import { isDuplicateName, placeholderNameSchema } from "@/lib/placeholder";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,10 +20,7 @@ const bodySchema = z.object({ firstName: placeholderNameSchema });
 /** Add a member who has a name but no account; they can be a payer or debtor like anyone else. */
 export const POST = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const body = bodySchema.safeParse(await req.json().catch(() => null));
