@@ -7,7 +7,7 @@ import type { Platform } from "@/components/pages/platform";
 import { miniPlatform } from "@/components/pages/platform.mini";
 import { webPlatform } from "@/components/pages/platform.web";
 import type { ProfileResponse } from "@/lib/api-types";
-import { HELP_PATH } from "@/lib/help-url";
+import { HELP_PATH, PRIVACY_PATH, TERMS_PATH } from "@/lib/help-url";
 import type { LoginProvider } from "@/lib/identities";
 import { rememberLinking } from "@/lib/linking-attempt";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
@@ -119,10 +119,23 @@ describe("PersonalSettings", () => {
     );
   });
 
+  it("links the privacy policy and terms next to help on the web", async () => {
+    renderSettings(webPlatform);
+    expect(await screen.findByRole("link", { name: /隱私權政策/ })).toHaveAttribute(
+      "href",
+      PRIVACY_PATH,
+    );
+    expect(screen.getByRole("link", { name: /服務條款/ })).toHaveAttribute("href", TERMS_PATH);
+  });
+
   it("opens help as a button in the Mini App rather than a link that would replace the app", async () => {
     renderSettings(miniPlatform);
     expect(await screen.findByRole("button", { name: /使用說明/ })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /使用說明/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /隱私權政策/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /服務條款/ })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /使用說明|隱私權政策|服務條款/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the Mini App its load error when the profile request fails with 401", async () => {

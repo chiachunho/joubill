@@ -113,6 +113,12 @@ is not needed: LINE accounts are deliberately never matched by email.
 A person who signed in with Telegram and later uses Google or LINE gets a **new, empty
 account** unless they first link that method from 個人設定 → 登入方式 while signed in.
 
+### Optional (contact address)
+
+`CONTACT_EMAIL` is shown on the privacy policy and terms pages (`/help/privacy`,
+`/help/terms`), which are the URLs to enter on Google's OAuth consent screen. Unset, the
+pages say no address is configured. The pages are prerendered, so redeploy after changing it.
+
 ### Optional (push notifications, issue #67)
 
 Without these the Web App still works and can be added to the home screen; it just never

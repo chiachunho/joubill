@@ -19,6 +19,8 @@ const sections = [
   { slug: "add-to-home-screen", label: "加到主畫面與通知" },
   { slug: "invite-members", label: "網頁建群組與邀請碼" },
   { slug: "troubleshooting", label: "常見問題" },
+  { slug: "privacy", label: "隱私權政策" },
+  { slug: "terms", label: "服務條款" },
 ];
 
 function NavLinks({ onNav }: { onNav?: () => void }) {

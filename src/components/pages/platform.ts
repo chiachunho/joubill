@@ -40,8 +40,11 @@ export type Platform = {
   HomeHeader: ComponentType;
   /** Where an unauthenticated viewer is sent, or null to show the error instead. */
   loginPath: string | null;
-  /** The "使用說明" row. The Mini App opens it in Telegram's browser; the Web App navigates. */
-  HelpAction: ComponentType<{ className: string; children: ReactNode }>;
+  /**
+   * A row in 關於 that opens a page of the public help site (使用說明, 隱私權政策, 服務條款).
+   * The Mini App opens it in Telegram's browser; the Web App navigates.
+   */
+  HelpAction: ComponentType<{ path: string; className: string; children: ReactNode }>;
   /**
    * Whether the browser can save the CSV itself. The Web App can; Telegram's webview
    * cannot be handed an authenticated download, so the Mini App only offers sending
