@@ -9,14 +9,12 @@ import {
   groupInvites,
   groupMembers,
   recordAuditLog,
-  userBeancountConfigs,
   users,
 } from "@/db/schema";
 import { lockGroupMemberNames } from "@/lib/member-name-lock";
 import {
   findSelfSettlements,
   planMerge,
-  rekeyPersonAccounts,
   summariseMerge,
   validateMerge,
   type MergeCheck,
@@ -281,20 +279,6 @@ export async function mergeUserInto(
   await tx
     .delete(groupMembers)
     .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, fromUserId)));
-
-  const configs = await tx
-    .select({ id: userBeancountConfigs.id, personAccounts: userBeancountConfigs.personAccounts })
-    .from(userBeancountConfigs)
-    .where(eq(userBeancountConfigs.groupId, groupId));
-  for (const c of configs) {
-    const next = rekeyPersonAccounts(c.personAccounts, fromUserId, toUserId);
-    if (next !== c.personAccounts) {
-      await tx
-        .update(userBeancountConfigs)
-        .set({ personAccounts: next })
-        .where(eq(userBeancountConfigs.id, c.id));
-    }
-  }
 
   // None of these can name a placeholder today, but none cascades, so a stray one would
   // block the delete below. Repointing is cheap insurance.

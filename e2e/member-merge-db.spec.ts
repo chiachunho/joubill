@@ -1,7 +1,3 @@
-import { and, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/neon-serverless";
-
-import * as schema from "../src/db/schema";
 import { expect, test } from "./fixtures";
 import {
   addExpense,
@@ -141,63 +137,6 @@ test.describe("Merging a member without an account (database)", () => {
       split(me, 210, "exact", null),
       split(partner, 90, "exact", null),
     ]);
-  });
-
-  test("beancount person accounts move to the merged-into member", async ({
-    authedPage,
-    seeded,
-    dbPool,
-  }) => {
-    const { request } = authedPage;
-    const db = drizzle(dbPool, { schema });
-    const g = seeded.groupId;
-    const me = seeded.userId;
-    const partner = seeded.partnerId;
-    const ghost = await mkPlaceholder(request, g, `E2E ghost ${Date.now()}`);
-
-    const accounts = {
-      expensesAccount: "Expenses:Uncategorized",
-      cashAccount: "Assets:Cash",
-      receivablePrefix: "Assets:Receivable",
-    };
-    // person_accounts is deprecated (issue #117) and the API no longer writes it, so the
-    // rows are seeded directly; this case goes with rekeyPersonAccounts in the next release.
-    // The viewer named the placeholder; the partner named both, so the viewer's own
-    // entry has to win.
-    await db.insert(schema.userBeancountConfigs).values([
-      {
-        userId: me,
-        groupId: g,
-        ...accounts,
-        personAccounts: { [ghost]: "Ghost", [partner]: "Partner" },
-      },
-      {
-        userId: partner,
-        groupId: g,
-        ...accounts,
-        personAccounts: { [ghost]: "Ghost", [me]: "Mine" },
-      },
-    ]);
-
-    const res = await request.post(`/api/groups/${g}/members/${ghost}/merge`, {
-      data: { intoUserId: me },
-    });
-    expect(res.status(), await res.text()).toBe(200);
-
-    const personAccounts = async (userId: number) => {
-      const [row] = await db
-        .select({ personAccounts: schema.userBeancountConfigs.personAccounts })
-        .from(schema.userBeancountConfigs)
-        .where(
-          and(
-            eq(schema.userBeancountConfigs.userId, userId),
-            eq(schema.userBeancountConfigs.groupId, g),
-          ),
-        );
-      return row.personAccounts;
-    };
-    expect(await personAccounts(me)).toEqual({ [me]: "Ghost", [partner]: "Partner" });
-    expect(await personAccounts(partner)).toEqual({ [me]: "Mine" });
   });
 
   test("an edit to the same expense at the same moment doesn't break the merge", async ({

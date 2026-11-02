@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { and, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -27,7 +27,7 @@ import {
   validateAccountMerge,
 } from "@/lib/account-merge";
 import { labelUser } from "@/lib/label";
-import { findSelfSettlements, planMerge, rekeyPersonAccounts } from "@/lib/member-merge";
+import { findSelfSettlements, planMerge } from "@/lib/member-merge";
 import {
   applyMergePlan,
   loadMergeData,
@@ -303,18 +303,6 @@ export async function mergeAccounts(
       .set({ userId: keepId })
       .where(inArray(userBeancountConfigs.id, configs.repoint));
   }
-  // Anyone's beancount setup may name the absorbed account as a counterparty.
-  const naming = await tx
-    .select({ id: userBeancountConfigs.id, personAccounts: userBeancountConfigs.personAccounts })
-    .from(userBeancountConfigs)
-    .where(sql`jsonb_exists(${userBeancountConfigs.personAccounts}, ${String(absorbId)})`);
-  for (const c of naming) {
-    await tx
-      .update(userBeancountConfigs)
-      .set({ personAccounts: rekeyPersonAccounts(c.personAccounts, absorbId, keepId) })
-      .where(eq(userBeancountConfigs.id, c.id));
-  }
-
   await repointUserReferences(tx, absorbId, keepId);
   await tx
     .update(groupDeleteRequests)

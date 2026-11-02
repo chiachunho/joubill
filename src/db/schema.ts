@@ -450,17 +450,6 @@ export const userBeancountConfigs = pgTable(
      * "since last" export takes records created after it. NULL = never exported.
      */
     lastExportedAt: timestamp("last_exported_at", { withTimezone: true }),
-    /**
-     * @deprecated Per-person receivables were replaced by one event account (issue #117).
-     * Kept, with a default so new rows needn't set it, while the previous release can
-     * still be serving; drop it in the next one.
-     */
-    receivablePrefix: text("receivable_prefix").notNull().default("Assets:Receivable"),
-    /** @deprecated As `receivablePrefix`; drop together with `rekeyPersonAccounts`. */
-    personAccounts: jsonb("person_accounts")
-      .$type<Record<string, string>>()
-      .notNull()
-      .default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

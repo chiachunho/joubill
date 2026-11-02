@@ -4,7 +4,6 @@ import {
   combineSplit,
   findSelfSettlements,
   planMerge,
-  rekeyPersonAccounts,
   summariseMerge,
   validateMerge,
   type MergeSplitRow,
@@ -218,21 +217,5 @@ describe("findSelfSettlements", () => {
     expect(findSelfSettlements({ fromId: FROM, toId: TO, expenses: meta, payers, splits })).toEqual(
       [],
     );
-  });
-});
-
-describe("rekeyPersonAccounts", () => {
-  it("moves the key to the new account", () => {
-    expect(rekeyPersonAccounts({ "10": "Amy", "5": "Bob" }, 10, 20)).toEqual({
-      "5": "Bob",
-      "20": "Amy",
-    });
-  });
-  it("lets the target's own entry win", () => {
-    expect(rekeyPersonAccounts({ "10": "Old", "20": "Mine" }, 10, 20)).toEqual({ "20": "Mine" });
-  });
-  it("leaves a map without the placeholder untouched", () => {
-    const map = { "5": "Bob" };
-    expect(rekeyPersonAccounts(map, 10, 20)).toBe(map);
   });
 });

@@ -232,16 +232,3 @@ export function summariseMerge(input: {
   const selfSettlements = findSelfSettlements(input).length;
   return { expenses: ids.size - settlements, settlements, selfSettlements, net };
 }
-
-/** Moves `from`'s beancount account to `to`; if `to` already has one, it wins. */
-export function rekeyPersonAccounts(
-  map: Record<string, string>,
-  fromId: number,
-  toId: number,
-): Record<string, string> {
-  const fromKey = String(fromId);
-  const toKey = String(toId);
-  if (!(fromKey in map)) return map;
-  const { [fromKey]: moved, ...rest } = map;
-  return toKey in rest ? rest : { ...rest, [toKey]: moved };
-}
