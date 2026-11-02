@@ -106,8 +106,11 @@ export async function POST(req: Request) {
 
   const keepId = body.data.keepUserId;
   const actor = { userId: keepId, source: "app" as const };
+  // Everything below runs after the merge committed, and the ticket is already consumed: a
+  // throw here would answer 500 for a merge that happened, and a retry could only get a 404.
+  // So each step logs its own failure and the response still reports the merge.
   // One independent insert per group; none depends on another.
-  await Promise.all(
+  const audits = await Promise.allSettled(
     result.groups.map((g) =>
       logAccountMerged(g.groupId, actor, {
         absorbedId: absorbId,
@@ -118,24 +121,40 @@ export async function POST(req: Request) {
       }),
     ),
   );
+  for (const r of audits) {
+    if (r.status === "rejected") console.error("[account merge] audit log failed:", r.reason);
+  }
 
   // After the merge commits, so each deletion is audited and tombstoned like any other.
   const removed = new Map<number, number[]>();
   if (body.data.selfSettlements === "delete") {
-    const [keeper] = await db.select().from(users).where(eq(users.id, keepId));
-    for (const g of result.groups) {
-      for (const recordId of g.selfSettlementIds) {
-        await logDeleted(getBot().api, recordId, actor, keeper, async (tx) => {
-          await tx.delete(expenses).where(eq(expenses.id, recordId));
-        });
-        removed.set(g.groupId, [...(removed.get(g.groupId) ?? []), recordId]);
+    try {
+      const [keeper] = await db.select().from(users).where(eq(users.id, keepId));
+      for (const g of result.groups) {
+        for (const recordId of g.selfSettlementIds) {
+          try {
+            await logDeleted(getBot().api, recordId, actor, keeper, async (tx) => {
+              await tx.delete(expenses).where(eq(expenses.id, recordId));
+            });
+            removed.set(g.groupId, [...(removed.get(g.groupId) ?? []), recordId]);
+          } catch (err) {
+            // The A → A settlement stays; it is delete-only in the form, so it can be removed there.
+            console.error("[account merge] deleting self-settlement failed:", recordId, err);
+          }
+        }
       }
+    } catch (err) {
+      console.error("[account merge] loading the kept account failed:", err);
     }
   }
   // Each group's cards still name the absorbed account; edit them once the response is out.
   after(async () => {
     for (const g of result.groups) {
-      await refreshClaimedNotices(getBot().api, g.recordIds, removed.get(g.groupId) ?? []);
+      try {
+        await refreshClaimedNotices(getBot().api, g.recordIds, removed.get(g.groupId) ?? []);
+      } catch (err) {
+        console.error("[account merge] refreshing chat cards failed:", g.groupId, err);
+      }
     }
   });
 
