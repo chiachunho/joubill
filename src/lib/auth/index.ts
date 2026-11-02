@@ -7,6 +7,7 @@ import type { Group, User } from "@/db/schema";
 import { whereTelegramChat } from "@/lib/chat";
 import { parseStartParam } from "@/lib/deep-link";
 import { serverEnv } from "@/lib/env";
+import { decodeInviteParam } from "@/lib/invite";
 
 import { ForbiddenError, UnauthorizedError } from "./errors";
 import { verifyInitData } from "./initData";
@@ -28,13 +29,8 @@ export const SESSION_COOKIE = "session";
 
 export function parseCookie(header: string, name: string): string | null {
   const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
-  if (!match) return null;
   // A malformed escape (`session=%`) must read as "no cookie", not throw a 500.
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return null;
-  }
+  return match ? decodeInviteParam(match[1]) : null;
 }
 
 /**

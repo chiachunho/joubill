@@ -92,7 +92,7 @@ type Initial = {
   spentAt: string;
   receiptFileIds?: string[];
   /** Signed `/api/tg-photo` link for each receipt id (an <img> cannot send the auth header). */
-  receiptUrls?: Record<string, string>;
+  receiptUrls: Record<string, string>;
   splits: Array<{
     debtorId: number;
     amount: number;

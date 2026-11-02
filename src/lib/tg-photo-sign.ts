@@ -16,11 +16,15 @@ import { serverEnv } from "@/lib/env";
  */
 export type PhotoRef = { fileId: string } | { path: string };
 
+let cachedKey: Buffer | undefined;
+
 function key(): Buffer {
-  return crypto
+  // Derived once: the detail route signs every receipt and the photo routes every avatar.
+  cachedKey ??= crypto
     .createHmac("sha256", "tg-photo-link")
     .update(serverEnv().TELEGRAM_BOT_TOKEN)
     .digest();
+  return cachedKey;
 }
 
 function message(ref: PhotoRef): string {

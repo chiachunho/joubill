@@ -474,8 +474,6 @@ Optional, read from `process.env` by `contactEmail()` (`src/lib/contact.ts`):
 
 - `CONTACT_EMAIL` — shown on `/help/privacy` and `/help/terms`; unset, they read 尚未設定聯絡信箱. The pages are prerendered, so a change takes effect at the next deploy
 
-Baseline security headers (`nosniff`, `Referrer-Policy`, and `X-Frame-Options: DENY` on `/app`, `/login`, `/join`) are set in `next.config.mjs`; `/mini` is deliberately frameable because Telegram embeds it, so don't add a site-wide `frame-ancestors`.
-
 All route handlers must set `export const runtime = "nodejs"` and `export const dynamic = "force-dynamic"` because they use the Neon serverless driver.
 
 ### Git conventions
@@ -494,6 +492,8 @@ The prefix is for humans only: the release workflow's semver bump is a manual `w
 Production runs on **Vercel** (frontend + bot webhook + API in one deploy), served from a **custom domain** (not the default `*.vercel.app`), backed by **Neon Postgres**, with the Mini App registered in **BotFather**. The repo is `chiachunho/splitbill-telegram-bot` (private); `origin` is HTTPS. The **default branch is `dev`** — open all PRs against `dev`, not `main`. Pushing to the default branch triggers Vercel auto-deploy. Full step-by-step in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 Node runtime is **24.x**, pinned in two places that must agree: `engines.node` in `package.json` (Vercel reads this and it overrides the dashboard's Node.js Version setting) and `.nvmrc` (CI's `setup-node` reads it via `node-version-file`). Vercel only honours the major version and patches it on its own, so a security release on that line (e.g. CVE-2026-111497 "Node2Shell", fixed in 24.22.1) is picked up on the next deploy, not by editing the pin. CI mirrors that with `check-latest: true` — without it `setup-node` silently uses whatever 24.x the runner image has cached, which lagged behind the Node2Shell fix.
+
+Baseline security headers (`nosniff`, `Referrer-Policy`, and `X-Frame-Options: DENY` on `/app`, `/login`, `/join`) are set in `next.config.mjs`; `/mini` is deliberately frameable because Telegram embeds it, so don't add a site-wide `frame-ancestors`.
 
 Things that bite, in priority order:
 
