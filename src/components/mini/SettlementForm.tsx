@@ -9,7 +9,6 @@ import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowLeft, Calendar as CalendarIcon, ChevronRight } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
-import { CopyBeancountButton } from "@/components/mini/CopyBeancountButton";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -250,25 +249,6 @@ export function SettlementForm({
               {isEdit && <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>}
             </div>
           </div>
-          {isEdit && initial && (
-            <CopyBeancountButton
-              record={{
-                type: "settlement",
-                amount: initial.amount,
-                currency: initial.currency,
-                description: null,
-                spentAt: initial.settledAt,
-                payers: [{ userId: initial.from.userId, amount: initial.amount }],
-                splits: [{ userId: initial.to.userId, amount: initial.amount }],
-              }}
-              fxRate={initial.fxRate ?? null}
-              fxQuote={initial.fxQuote ?? null}
-              currentUserId={currentUserId}
-              members={members}
-              groupId={groupId}
-              defaultCurrency={defaultCurrency}
-            />
-          )}
         </div>
 
         {/* From */}

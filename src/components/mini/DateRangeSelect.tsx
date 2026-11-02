@@ -78,38 +78,66 @@ export function DateRangeSelect({ value, onChange }: Props) {
       </Select>
 
       {value.key === "custom" && (
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-9 w-full justify-start text-xs font-normal"
-            >
-              <CalendarIcon className="size-3.5" />
-              {value.from && value.to ? `${value.from} ~ ${value.to}` : "選擇日期範圍"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              selected={{
-                from: value.from ? parseLocalDay(value.from) : undefined,
-                to: value.to ? parseLocalDay(value.to) : undefined,
-              }}
-              onSelect={(range) => {
-                onChange({
-                  key: "custom",
-                  from: range?.from ? ymd(range.from) : undefined,
-                  to: range?.to ? ymd(range.to) : undefined,
-                });
-                if (range?.from && range?.to) setOpen(false);
-              }}
-              numberOfMonths={1}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
+        <DateRangePicker
+          from={value.from}
+          to={value.to}
+          open={open}
+          onOpenChange={setOpen}
+          onChange={(from, to) => onChange({ key: "custom", from, to })}
+        />
       )}
     </div>
+  );
+}
+
+/**
+ * The from/to calendar behind the 自訂區間 option, on its own so the beancount export's
+ * custom range picks days the same way the stats page does. Days are local "YYYY-MM-DD";
+ * turn them into instants with `customRangeToQueryBounds` before sending them anywhere.
+ */
+export function DateRangePicker({
+  from,
+  to,
+  open,
+  onOpenChange,
+  onChange,
+}: {
+  from?: string;
+  to?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChange: (from: string | undefined, to: string | undefined) => void;
+}) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-9 w-full justify-start text-xs font-normal"
+        >
+          <CalendarIcon className="size-3.5" />
+          {from && to ? `${from} ~ ${to}` : "選擇日期範圍"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="range"
+          selected={{
+            from: from ? parseLocalDay(from) : undefined,
+            to: to ? parseLocalDay(to) : undefined,
+          }}
+          onSelect={(range) => {
+            onChange(
+              range?.from ? ymd(range.from) : undefined,
+              range?.to ? ymd(range.to) : undefined,
+            );
+            if (range?.from && range?.to) onOpenChange(false);
+          }}
+          numberOfMonths={1}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
   );
 }

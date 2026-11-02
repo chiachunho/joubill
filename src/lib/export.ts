@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
@@ -66,15 +66,40 @@ export function exportRecordsToCsv(records: readonly ExportRecord[], quote: stri
   return buildCsv(EXPORT_HEADER, rows);
 }
 
+/** One record as both exports read it: ids (beancount) and names (CSV) are both on hand. */
+export type LoadedRecord = {
+  id: number;
+  type: "expense" | "settlement";
+  spentAt: Date;
+  createdAt: Date;
+  description: string | null;
+  amount: number;
+  currency: string;
+  /** Rate to the group's default currency (`resolveRate`); 1 when `rates: false`. */
+  rate: number;
+  createdBy: number;
+  payers: { userId: number; amount: number }[];
+  splits: { userId: number; amount: number }[];
+};
+
+export type LoadedGroupRecords = {
+  group: typeof groups.$inferSelect;
+  records: LoadedRecord[];
+  /** Display name per user id, for every person the records mention. */
+  name: (userId: number) => string;
+};
+
 /**
- * Every record of the group, oldest first, rendered as CSV. Rates come from
- * `resolveRate`, the same pinned > group > market chain `computeGroupBalances`
- * uses, so the 換算金額 column adds up to the same figures as /balance.
+ * The group's records, oldest first, with their legs and names, shared by the CSV
+ * and beancount exports so the two can't load records differently. `where` narrows
+ * the rows (the beancount range); `rates: false` skips FX for a count-only caller.
+ * Rates come from `resolveRate`, the same pinned > group > market chain
+ * `computeGroupBalances` uses, so converted figures add up to /balance.
  */
-export async function buildGroupExport(
+export async function loadGroupRecords(
   groupId: number,
-  now: Date = new Date(),
-): Promise<{ filename: string; csv: string } | null> {
+  { where, rates = true }: { where?: SQL; rates?: boolean } = {},
+): Promise<LoadedGroupRecords | null> {
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
   if (!group) return null;
   const quote = group.defaultCurrency;
@@ -82,7 +107,7 @@ export async function buildGroupExport(
   const rows = await db
     .select()
     .from(expenses)
-    .where(eq(expenses.groupId, groupId))
+    .where(where ? and(eq(expenses.groupId, groupId), where) : eq(expenses.groupId, groupId))
     .orderBy(asc(expenses.spentAt), asc(expenses.id));
   const ids = rows.map((r) => r.id);
 
@@ -93,7 +118,7 @@ export async function buildGroupExport(
     ids.length
       ? db.select().from(expenseSplits).where(inArray(expenseSplits.expenseId, ids))
       : Promise.resolve([]),
-    loadGroupRateOverrides(groupId),
+    rates ? loadGroupRateOverrides(groupId) : Promise.resolve(undefined),
   ]);
 
   const userIds = new Set<number>(rows.map((r) => r.createdBy));
@@ -114,16 +139,16 @@ export async function buildGroupExport(
   const nameOf = new Map(profiles.map((p) => [p.id, labelUser(p)]));
   const name = (id: number) => nameOf.get(id) ?? "?";
 
-  const payersBy = new Map<number, { name: string; amount: number }[]>();
+  const payersBy = new Map<number, { userId: number; amount: number }[]>();
   for (const p of payerRows) {
     const list = payersBy.get(p.expenseId) ?? [];
-    list.push({ name: name(p.payerId), amount: n(p.amount) });
+    list.push({ userId: p.payerId, amount: n(p.amount) });
     payersBy.set(p.expenseId, list);
   }
-  const splitsBy = new Map<number, { name: string; amount: number }[]>();
+  const splitsBy = new Map<number, { userId: number; amount: number }[]>();
   for (const s of splitRows) {
     const list = splitsBy.get(s.expenseId) ?? [];
-    list.push({ name: name(s.debtorId), amount: n(s.amount) });
+    list.push({ userId: s.debtorId, amount: n(s.amount) });
     splitsBy.set(s.expenseId, list);
   }
 
@@ -139,25 +164,51 @@ export async function buildGroupExport(
     }
     return rate;
   };
-  const rates = await Promise.all(rows.map(rateOf));
+  const resolved = rates ? await Promise.all(rows.map(rateOf)) : rows.map(() => 1);
 
-  const records: ExportRecord[] = rows.map((r, i) => {
-    return {
-      type: r.type,
-      spentAt: r.spentAt,
-      description: r.description,
-      amount: n(r.amount),
-      currency: r.currency,
-      rate: rates[i],
-      payers: payersBy.get(r.id) ?? [],
-      splits: splitsBy.get(r.id) ?? [],
-      createdByName: name(r.createdBy),
-      createdAt: r.createdAt,
-    };
-  });
+  const records: LoadedRecord[] = rows.map((r, i) => ({
+    id: r.id,
+    type: r.type === "settlement" ? "settlement" : "expense",
+    spentAt: r.spentAt,
+    createdAt: r.createdAt,
+    description: r.description,
+    amount: n(r.amount),
+    currency: r.currency,
+    rate: resolved[i],
+    createdBy: r.createdBy,
+    payers: payersBy.get(r.id) ?? [],
+    splits: splitsBy.get(r.id) ?? [],
+  }));
+
+  return { group, records, name };
+}
+
+/** Every record of the group, oldest first, rendered as CSV. */
+export async function buildGroupExport(
+  groupId: number,
+  now: Date = new Date(),
+): Promise<{ filename: string; csv: string } | null> {
+  const loaded = await loadGroupRecords(groupId);
+  if (!loaded) return null;
+  const { group, records, name } = loaded;
+  const legs = (list: { userId: number; amount: number }[]) =>
+    list.map((l) => ({ name: name(l.userId), amount: l.amount }));
+
+  const rows: ExportRecord[] = records.map((r) => ({
+    type: r.type,
+    spentAt: r.spentAt,
+    description: r.description,
+    amount: r.amount,
+    currency: r.currency,
+    rate: r.rate,
+    payers: legs(r.payers),
+    splits: legs(r.splits),
+    createdByName: name(r.createdBy),
+    createdAt: r.createdAt,
+  }));
 
   return {
     filename: exportFilename(group.title, now),
-    csv: exportRecordsToCsv(records, quote),
+    csv: exportRecordsToCsv(rows, group.defaultCurrency),
   };
 }

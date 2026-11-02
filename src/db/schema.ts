@@ -424,12 +424,9 @@ export const recordAuditLog = pgTable(
 );
 
 /**
- * Per-(user, group) beancount account customisation for the "copy record"
- * feature. A row exists only when the user has enabled the feature for that
- * group; no row = feature off (the copy button stays hidden). `personAccounts`
- * maps a member's user id (as a string key) to the account leaf to use under
- * `receivablePrefix`; members absent from the map fall back to an auto-derived
- * name.
+ * Per-(user, group) beancount export settings: the three accounts and where the
+ * last export stopped. No row = the defaults and never exported; the export
+ * creates one to remember its watermark.
  */
 export const userBeancountConfigs = pgTable(
   "user_beancount_configs",
@@ -443,7 +440,23 @@ export const userBeancountConfigs = pgTable(
       .references(() => groups.id, { onDelete: "cascade" }),
     expensesAccount: text("expenses_account").notNull(),
     cashAccount: text("cash_account").notNull(),
-    receivablePrefix: text("receivable_prefix").notNull(),
+    /**
+     * NULL = the default, `Assets:Receivable:<group title>` (`resolveBeancountAccounts`).
+     * The first 全部 / 上次匯出後 export pins it, so a later group rename can't move it.
+     */
+    eventAccount: text("event_account"),
+    /**
+     * `created_at` of the newest record the last 全部 / 上次匯出後 export covered; the next
+     * "since last" export takes records created after it. NULL = never exported.
+     */
+    lastExportedAt: timestamp("last_exported_at", { withTimezone: true }),
+    /**
+     * @deprecated Per-person receivables were replaced by one event account (issue #117).
+     * Kept, with a default so new rows needn't set it, while the previous release can
+     * still be serving; drop it in the next one.
+     */
+    receivablePrefix: text("receivable_prefix").notNull().default("Assets:Receivable"),
+    /** @deprecated As `receivablePrefix`; drop together with `rekeyPersonAccounts`. */
     personAccounts: jsonb("person_accounts")
       .$type<Record<string, string>>()
       .notNull()

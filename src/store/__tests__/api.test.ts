@@ -219,34 +219,54 @@ describe("optimistic edits", () => {
 });
 
 describe("the beancount setting", () => {
-  it("is switched on and off in the cache by the response itself", async () => {
-    const config = {
+  it("takes the saved accounts from the PUT response, without a refetch", async () => {
+    const defaults = {
       expensesAccount: "Expenses:Uncategorized",
       cashAccount: "Assets:Cash",
-      receivablePrefix: "Assets:Receivable",
-      personAccounts: {},
+      eventAccount: "Assets:Receivable:Japan",
     };
+    const saved = { ...defaults, expensesAccount: "Expenses:Travel" };
     const request = fakeRequest({
       "/api/groups/7/beancount": (init) =>
-        init?.method === "PUT"
-          ? { config }
-          : init?.method === "DELETE"
-            ? { ok: true }
-            : { config: null },
+        init?.method === "PUT" ? { config: saved } : { config: defaults },
     });
     const store = makeStore(request);
     store.dispatch(api.endpoints.getBeancountConfig.initiate(7));
     await settle();
     const current = () => api.endpoints.getBeancountConfig.select(7)(store.getState()).data;
-    expect(current()).toEqual({ config: null });
+    expect(current()).toEqual({ config: defaults });
 
-    await store.dispatch(api.endpoints.putBeancountConfig.initiate({ groupId: 7, config }));
+    await store.dispatch(api.endpoints.putBeancountConfig.initiate({ groupId: 7, config: saved }));
     await settle();
-    expect(current()).toEqual({ config });
+    expect(current()).toEqual({ config: saved });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
 
-    await store.dispatch(api.endpoints.deleteBeancountConfig.initiate({ groupId: 7 }));
+  it("re-reads the export summary after a send moves the watermark", async () => {
+    const params = { range: "new" };
+    let sent = false;
+    const request = fakeRequest({
+      "/api/groups/7/beancount/export/summary?range=new": () => ({
+        included: sent ? 0 : 3,
+        skipped: 0,
+        lastExportedAt: sent ? "2026-11-01T00:00:00.000Z" : null,
+        telegramLinked: true,
+      }),
+      "/api/groups/7/beancount/export/send": () => {
+        sent = true;
+        return { ok: true, included: 3 };
+      },
+    });
+    const store = makeStore(request);
+    store.dispatch(api.endpoints.getBeancountExportSummary.initiate({ groupId: 7, params }));
     await settle();
-    expect(current()).toEqual({ config: null });
+    const current = () =>
+      api.endpoints.getBeancountExportSummary.select({ groupId: 7, params })(store.getState()).data;
+    expect(current()?.included).toBe(3);
+
+    await store.dispatch(api.endpoints.sendBeancountExport.initiate({ groupId: 7, params }));
+    await settle();
+    expect(current()?.included).toBe(0);
   });
 });
 

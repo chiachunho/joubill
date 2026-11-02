@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import type { MembersResponse } from "@/lib/api-types";
 import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
+import { saveResponseAsFile } from "@/lib/download";
 import { labelMember, labelUser } from "@/lib/label";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 import {
@@ -151,19 +152,7 @@ export function GroupSettings({
         setExportMessage({ ok: false, text: "匯出失敗，請再試一次" });
         return;
       }
-      // The server names the file after the group; read it back from the header.
-      const disposition = res.headers.get("Content-Disposition") ?? "";
-      const encoded = /filename\*=UTF-8''([^;]+)/.exec(disposition)?.[1];
-      const filename = encoded ? decodeURIComponent(encoded) : "export.csv";
-      const url = URL.createObjectURL(await res.blob());
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // Revoking synchronously can cancel the download in Safari; give it a moment to start.
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      await saveResponseAsFile(res, "export.csv");
     } catch {
       setExportMessage({ ok: false, text: "匯出失敗，請再試一次" });
     } finally {
@@ -274,11 +263,11 @@ export function GroupSettings({
         </div>
       </section>
 
-      {/* Beancount 複製 — 帳戶名稱設定 has its own form fields (3 prefixes +
-          per-member accounts), so it's a nav row into its own sub-page too. */}
+      {/* Beancount — a personal ledger export, so it stays apart from the group's CSV:
+          its accounts and its export (range, watermark) each get a sub-page. */}
       <section className="px-4">
-        <p className="sect mb-2.5">Beancount 複製</p>
-        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+        <p className="sect mb-2.5">Beancount</p>
+        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
           <Link
             href={`${platform.basePath}/groups/${id}/settings/beancount`}
             className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
@@ -286,7 +275,17 @@ export function GroupSettings({
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
               <BookOpen className="size-3.5" />
             </span>
-            <p className="min-w-0 flex-1 text-sm">帳戶名稱設定</p>
+            <p className="min-w-0 flex-1 text-sm">帳戶設定</p>
+            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+          </Link>
+          <Link
+            href={`${platform.basePath}/groups/${id}/settings/beancount/export`}
+            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Download className="size-3.5" />
+            </span>
+            <p className="min-w-0 flex-1 text-sm">匯出 beancount</p>
             <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
           </Link>
         </div>

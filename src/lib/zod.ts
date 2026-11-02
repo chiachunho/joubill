@@ -247,24 +247,20 @@ export type SettlementFormValues = z.infer<typeof settlementFormSchema>;
  */
 export const BEANCOUNT_ACCOUNT_RE =
   /^(Assets|Liabilities|Equity|Income|Expenses)(:[\p{L}\p{N}][\p{L}\p{N}-]*)+$/u;
-/** A single account leaf component (a person's name under the receivable prefix). */
+/** A single account leaf component (the group's name under the event account's prefix). */
 export const BEANCOUNT_LEAF_RE = /^[\p{L}\p{N}][\p{L}\p{N}-]*$/u;
 
 /** Shared with the settings-page inputs so the inline hint matches the API's rejection reason. */
 export const BEANCOUNT_ACCOUNT_HINT =
   "每段路徑須以字母或數字開頭，例如 Assets:Cash 或 Assets:Flow:現金";
-export const BEANCOUNT_LEAF_HINT = "須以字母或數字開頭，例如 Kevin 或 阿明";
 
 const beancountAccount = z.string().trim().regex(BEANCOUNT_ACCOUNT_RE, BEANCOUNT_ACCOUNT_HINT);
-const beancountLeaf = z.string().trim().regex(BEANCOUNT_LEAF_RE, BEANCOUNT_LEAF_HINT);
 
-/** PUT body for a user's per-group beancount config. */
+/** PUT body for a user's per-group beancount accounts. */
 export const beancountConfigInputSchema = z.object({
   expensesAccount: beancountAccount,
   cashAccount: beancountAccount,
-  receivablePrefix: beancountAccount,
-  /** memberUserId (as string key) → account leaf. Blank/omitted leaves fall back to auto-derived. */
-  personAccounts: z.record(z.string().regex(/^\d+$/), beancountLeaf).default({}),
+  eventAccount: beancountAccount,
 });
 
 export type BeancountConfigInput = z.infer<typeof beancountConfigInputSchema>;

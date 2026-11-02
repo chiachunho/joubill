@@ -7,6 +7,7 @@ import type {
   AvatarsResponse,
   BalanceResponse,
   BeancountConfigResponse,
+  BeancountExportSummary,
   CreateGroupResponse,
   DeleteGroupResponse,
   DeleteRequestResponse,
@@ -65,6 +66,7 @@ const tagTypes = [
   "Rates",
   "EffectiveRate",
   "Beancount",
+  "BeancountExport",
   "DeleteRequest",
   "Invite",
   "PushSubscriptions",
@@ -97,6 +99,7 @@ function ledgerTags(groupId: GroupId): Tag[] {
     tag("Balance", g(groupId)),
     tag("Stats", g(groupId)),
     tag("Activity", g(groupId)),
+    tag("BeancountExport", g(groupId)),
   ];
 }
 
@@ -253,6 +256,19 @@ const baseApi = createApi({
     getBeancountConfig: build.query<BeancountConfigResponse, GroupId>({
       query: (groupId) => ({ url: `/api/groups/${groupId}/beancount` }),
       providesTags: (_r, _e, groupId) => [tag("Beancount", g(groupId))],
+    }),
+    /**
+     * What the beancount export would hold for a range (`beancountRangeParams`), plus the
+     * watermark. Any record change touches it (it is in `ledgerTags`), and so does an export.
+     */
+    getBeancountExportSummary: build.query<
+      BeancountExportSummary,
+      { groupId: GroupId; params: Record<string, string> }
+    >({
+      query: ({ groupId, params }) => ({
+        url: `/api/groups/${groupId}/beancount/export/summary?${new URLSearchParams(params).toString()}`,
+      }),
+      providesTags: (_r, _e, { groupId }) => [tag("BeancountExport", g(groupId))],
     }),
     getDeleteRequest: build.query<DeleteRequestResponse, GroupId>({
       query: (groupId) => ({ url: `/api/groups/${groupId}/delete-request` }),
@@ -574,9 +590,8 @@ export const api = baseApi.injectEndpoints({
       },
     }),
     /**
-     * Turn the beancount copy button on, or change its accounts. The response is the saved
-     * config, written straight into the cache so the settings page switches to its enabled
-     * layout in the same render the save finishes in, instead of a refetch later.
+     * Save the beancount accounts. The response is the saved config, written straight into
+     * the cache so the page's "已儲存" baseline is the server's copy without a refetch.
      */
     putBeancountConfig: build.mutation<
       BeancountConfigResponse,
@@ -618,17 +633,17 @@ export const api = baseApi.injectEndpoints({
         }
       },
     }),
-    /** Turn it off: the config is deleted, so the cache says so without waiting for a refetch. */
-    deleteBeancountConfig: build.mutation<unknown, { groupId: GroupId }>({
-      query: ({ groupId }) => ({ url: `/api/groups/${groupId}/beancount`, method: "DELETE" }),
-      async onQueryStarted({ groupId }, { dispatch, queryFulfilled }) {
-        try {
-          await queryFulfilled;
-          dispatch(baseApi.util.upsertQueryData("getBeancountConfig", groupId, { config: null }));
-        } catch {
-          // the page shows the error from the mutation itself
-        }
-      },
+    /** Post the beancount file to the caller's private chat with the bot; moves the watermark. */
+    sendBeancountExport: build.mutation<
+      { ok: true; included: number },
+      { groupId: GroupId; params: Record<string, string> }
+    >({
+      query: ({ groupId, params }) => ({
+        url: `/api/groups/${groupId}/beancount/export/send`,
+        method: "POST",
+        body: params,
+      }),
+      invalidatesTags: (_r, _e, { groupId }) => [tag("BeancountExport", g(groupId))],
     }),
     /** Mute or unmute push for one group. The switch flips at once and rolls back on failure. */
     updateGroupNotifications: build.mutation<
@@ -716,6 +731,7 @@ export const {
   useGetEffectiveRateQuery,
   useLazyGetEffectiveRateQuery,
   useGetBeancountConfigQuery,
+  useGetBeancountExportSummaryQuery,
   useGetDeleteRequestQuery,
   useGetActivityInfiniteQuery,
   useCreateExpenseMutation,
@@ -734,7 +750,7 @@ export const {
   usePutRateMutation,
   useDeleteRateMutation,
   usePutBeancountConfigMutation,
-  useDeleteBeancountConfigMutation,
+  useSendBeancountExportMutation,
   useCreateGroupMutation,
   useResetInviteMutation,
   useAcceptInviteMutation,
