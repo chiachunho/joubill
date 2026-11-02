@@ -18,7 +18,6 @@ export const dynamic = "force-dynamic";
 export const POST = withAuth(async (req: Request, ctx: Params) => {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const request = await readExportRequest(req, ctx, body);
-  if (!request.ok) return request.response;
   const { user, groupId, range } = request;
 
   if (user.telegramId == null) {

@@ -13,13 +13,14 @@ import { getBot } from "@/bot";
 import { refreshClaimedNotices } from "@/lib/claim-notices";
 import { mergeUserInto, type MergeResult } from "@/lib/member-merge-db";
 import { logMemberClaimed, logMemberJoined } from "@/lib/record-mutation";
+import { idSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ code: string }> };
 
-const bodySchema = z.object({ placeholderUserId: z.number().int().positive().optional() });
+const bodySchema = z.object({ placeholderUserId: idSchema.optional() });
 
 /**
  * Seats the caller in the group; an `inactive` member is reactivated. An optional

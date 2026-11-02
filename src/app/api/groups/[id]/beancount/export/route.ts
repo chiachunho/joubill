@@ -16,7 +16,6 @@ export const dynamic = "force-dynamic";
  */
 export const GET = withAuth(async (req: Request, ctx: Params) => {
   const request = await readExportRequest(req, ctx, new URL(req.url).searchParams);
-  if (!request.ok) return request.response;
   const { user, groupId, range } = request;
 
   const file = await buildBeancountExport(user.id, groupId, range);

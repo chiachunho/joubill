@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
-
 import { assertGroupMember, getAuth } from "@/lib/auth";
+import { BadRequestError } from "@/lib/auth/errors";
 import { parseBeancountRange, type BeancountRangeQuery } from "@/lib/beancount-range";
 import { requireId } from "@/lib/route-params";
 
@@ -11,21 +10,15 @@ export async function readExportRequest(
   req: Request,
   ctx: Params,
   params: URLSearchParams | Record<string, unknown>,
-): Promise<
-  | {
-      ok: true;
-      user: Awaited<ReturnType<typeof getAuth>>["user"];
-      groupId: number;
-      range: BeancountRangeQuery;
-    }
-  | { ok: false; response: NextResponse }
-> {
+): Promise<{
+  user: Awaited<ReturnType<typeof getAuth>>["user"];
+  groupId: number;
+  range: BeancountRangeQuery;
+}> {
   const auth = await getAuth(req);
   const groupId = requireId((await ctx.params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
   const range = parseBeancountRange(params);
-  if ("error" in range) {
-    return { ok: false, response: NextResponse.json({ error: range.error }, { status: 400 }) };
-  }
-  return { ok: true, user: auth.user, groupId, range };
+  if ("error" in range) throw new BadRequestError(range.error);
+  return { user: auth.user, groupId, range };
 }

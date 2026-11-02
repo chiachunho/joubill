@@ -12,6 +12,7 @@ import { mergeUserInto, previewMerge } from "@/lib/member-merge-db";
 import { refreshClaimedNotices } from "@/lib/claim-notices";
 import { logDeleted, logMemberClaimed } from "@/lib/record-mutation";
 import { requireId } from "@/lib/route-params";
+import { idSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ id: string; userId: string }> };
 
 const bodySchema = z.object({
-  intoUserId: z.number().int().positive(),
+  intoUserId: idSchema,
   /** Settlements between the two people turn into "A → A": drop them, or keep (delete-only). */
   selfSettlements: z.enum(["delete", "keep"]).default("keep"),
 });
