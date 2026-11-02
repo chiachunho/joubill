@@ -19,7 +19,7 @@ test.describe("Group and account pages", () => {
 
   test("beancount settings page renders", async ({ authedPage, seeded }) => {
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings/beancount`);
-    await expect(authedPage.getByRole("heading", { name: "Beancount 帳戶名稱設定" })).toBeVisible();
+    await expect(authedPage.getByRole("heading", { name: "Beancount 帳戶設定" })).toBeVisible();
   });
 
   test("personal settings page renders", async ({ authedPage }) => {

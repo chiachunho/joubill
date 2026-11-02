@@ -160,18 +160,24 @@ test.describe("Merging a member without an account (database)", () => {
       cashAccount: "Assets:Cash",
       receivablePrefix: "Assets:Receivable",
     };
-    // The viewer named the placeholder.
-    const put = await request.put(`/api/groups/${g}/beancount`, {
-      data: { ...accounts, personAccounts: { [ghost]: "Ghost", [partner]: "Partner" } },
-    });
-    expect(put.ok(), await put.text()).toBe(true);
-    // The partner (who has no session) named both, so the viewer's own entry has to win.
-    await db.insert(schema.userBeancountConfigs).values({
-      userId: partner,
-      groupId: g,
-      ...accounts,
-      personAccounts: { [ghost]: "Ghost", [me]: "Mine" },
-    });
+    // person_accounts is deprecated (issue #117) and the API no longer writes it, so the
+    // rows are seeded directly; this case goes with rekeyPersonAccounts in the next release.
+    // The viewer named the placeholder; the partner named both, so the viewer's own
+    // entry has to win.
+    await db.insert(schema.userBeancountConfigs).values([
+      {
+        userId: me,
+        groupId: g,
+        ...accounts,
+        personAccounts: { [ghost]: "Ghost", [partner]: "Partner" },
+      },
+      {
+        userId: partner,
+        groupId: g,
+        ...accounts,
+        personAccounts: { [ghost]: "Ghost", [me]: "Mine" },
+      },
+    ]);
 
     const res = await request.post(`/api/groups/${g}/members/${ghost}/merge`, {
       data: { intoUserId: me },
