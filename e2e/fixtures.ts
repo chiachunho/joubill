@@ -6,6 +6,7 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import { test as base, type BrowserContext, type Page } from "@playwright/test";
 
 import * as schema from "../src/db/schema";
+import { requireTelegramChatId } from "../src/lib/chat";
 
 // Web App auth is a `session` cookie whose value is a row id in `sessions`.
 // Seeding that row directly skips the Telegram login, which can't be automated.
@@ -15,13 +16,20 @@ const SESSION_TTL_MS = 60 * 60 * 1000;
 export type Seeded = {
   /** The signed-in user. Pays 300 of the seeded expense and owes 150 of it. */
   userId: number;
+  /** The signed-in user's Telegram id and first name, for signing Mini App initData. */
+  telegramId: number;
+  firstName: string;
   groupId: number;
   groupTitle: string;
+  /** The group's Telegram chat id, as a `startapp=group_<chatId>` deep link carries it. */
+  chatId: number;
   /** Second group member who has no session. Owes 150 of the seeded expense. */
   partnerId: number;
   partnerName: string;
   /** A user who is not a member of `groupId` at all. */
   outsiderId: number;
+  outsiderTelegramId: number;
+  outsiderFirstName: string;
   expenseId: number;
   expenseDescription: string;
   /** A group the signed-in user does NOT belong to. */
@@ -47,12 +55,19 @@ function connectionString(): string {
   return url;
 }
 
+/**
+ * Telegram promises user ids fit in 52 significant bits, so anything from 2^52 up (still a
+ * safe JS integer) can't be a real account. That matters because the Mini App specs sign
+ * initData for these ids with the production bot's token, and a failing run's trace keeps
+ * it: an id in the real range would be a working login as some stranger for a day. It also
+ * keeps the seed from colliding with a real user in a branch database copied from production.
+ */
 function randomTelegramId(): number {
-  return 900_000_000 + Math.floor(Math.random() * 100_000_000);
+  return 2 ** 52 + Math.floor(Math.random() * 1_000_000_000);
 }
 
 function randomChatId(): string {
-  return `-100${randomTelegramId()}`;
+  return `-100${900_000_000 + Math.floor(Math.random() * 100_000_000)}`;
 }
 
 /**
@@ -198,11 +213,16 @@ export const test = base.extend<
 
       await use({
         userId: user.id,
+        telegramId: user.telegramId!,
+        firstName: user.firstName,
         groupId: group.id,
         groupTitle,
+        chatId: requireTelegramChatId(group),
         partnerId: partner.id,
         partnerName,
         outsiderId: outsider.id,
+        outsiderTelegramId: outsider.telegramId!,
+        outsiderFirstName: outsider.firstName,
         expenseId: expense.id,
         expenseDescription,
         foreignGroupId: foreign.id,

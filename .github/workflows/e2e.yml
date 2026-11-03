@@ -103,6 +103,9 @@ jobs:
         continue-on-error: true
         env:
           E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+          # Signs Mini App initData (e2e/mini.ts). Must equal the preview's TELEGRAM_BOT_TOKEN;
+          # when the secret is unset the Mini App cases skip instead of failing.
+          E2E_TELEGRAM_BOT_TOKEN: ${{ secrets.E2E_TELEGRAM_BOT_TOKEN }}
           CI: true
         run: pnpm e2e
       - name: Post E2E results to the pull request

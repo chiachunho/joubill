@@ -1,26 +1,11 @@
-import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 
-import { verifyInitData } from "../initData";
+import { signInitData as sign, verifyInitData } from "../initData";
 
 const BOT_TOKEN = "123456:test-bot-token";
 
-/**
- * Build a signed initData string the same way Telegram does, so we can verify
- * the round trip. `extra` lets a test inject fields like `signature` that must
- * still participate in the HMAC.
- */
 function signInitData(params: Record<string, string>, botToken = BOT_TOKEN): string {
-  const dataCheckString = Object.entries(params)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => `${k}=${v}`)
-    .join("\n");
-  const secretKey = crypto.createHmac("sha256", "WebAppData").update(botToken).digest();
-  const hash = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
-
-  const qs = new URLSearchParams(params);
-  qs.set("hash", hash);
-  return qs.toString();
+  return sign(params, botToken);
 }
 
 function freshParams(overrides: Record<string, string> = {}) {
