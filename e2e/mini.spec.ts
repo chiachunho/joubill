@@ -8,18 +8,13 @@ import { initDataFor, miniBotToken, openMini, tmaHeaders } from "./mini";
 test.describe("Mini App", () => {
   test.skip(!miniBotToken(), "E2E_TELEGRAM_BOT_TOKEN is not set");
 
-  const me = (s: { telegramId: number; firstName: string }) => ({
-    telegramId: s.telegramId,
-    firstName: s.firstName,
-  });
-
   test.describe("initData auth", () => {
     test("API accepts signed initData and resolves the seeded user", async ({
       request,
       seeded,
     }) => {
       const res = await request.get("/api/me/groups", {
-        headers: tmaHeaders(initDataFor(me(seeded))),
+        headers: tmaHeaders(initDataFor(seeded)),
       });
       expect(res.status(), await res.text()).toBe(200);
       const body = (await res.json()) as { userId: number; groups: { id: number }[] };
@@ -28,19 +23,19 @@ test.describe("Mini App", () => {
     });
 
     test("API refuses a tampered hash", async ({ request, seeded }) => {
-      const initData = initDataFor(me(seeded)).replace(/hash=[0-9a-f]+/, `hash=${"0".repeat(64)}`);
+      const initData = initDataFor(seeded).replace(/hash=[0-9a-f]+/, `hash=${"0".repeat(64)}`);
       const res = await request.get("/api/me/groups", { headers: tmaHeaders(initData) });
       expect(res.status()).toBe(401);
     });
 
     test("API refuses initData signed with another bot's token", async ({ request, seeded }) => {
-      const initData = initDataFor(me(seeded), { botToken: "123456:not-the-real-token" });
+      const initData = initDataFor(seeded, { botToken: "123456:not-the-real-token" });
       const res = await request.get("/api/me/groups", { headers: tmaHeaders(initData) });
       expect(res.status()).toBe(401);
     });
 
     test("API refuses initData older than a day", async ({ request, seeded }) => {
-      const initData = initDataFor(me(seeded), {
+      const initData = initDataFor(seeded, {
         authDate: Math.floor(Date.now() / 1000) - 25 * 60 * 60,
       });
       const res = await request.get("/api/me/groups", { headers: tmaHeaders(initData) });
@@ -49,7 +44,7 @@ test.describe("Mini App", () => {
 
     test("API refuses a group the user is not a member of", async ({ request, seeded }) => {
       const res = await request.get(`/api/groups/${seeded.foreignGroupId}/members`, {
-        headers: tmaHeaders(initDataFor(me(seeded))),
+        headers: tmaHeaders(initDataFor(seeded)),
       });
       expect(res.status()).toBe(403);
     });
@@ -57,13 +52,13 @@ test.describe("Mini App", () => {
 
   test.describe("deep links", () => {
     test("a group link opens the group page", async ({ page, seeded }) => {
-      await openMini(page, "", me(seeded), { startParam: `group_${seeded.chatId}` });
+      await openMini(page, "", seeded, { startParam: `group_${seeded.chatId}` });
       await expect(page).toHaveURL(new RegExp(`/mini/groups/${seeded.groupId}$`));
       await expect(page.getByRole("heading", { name: seeded.groupTitle })).toBeVisible();
     });
 
     test("an expense link opens that expense's edit page", async ({ page, seeded }) => {
-      await openMini(page, "", me(seeded), {
+      await openMini(page, "", seeded, {
         startParam: `group_${seeded.chatId}_exp_${seeded.expenseId}`,
       });
       await expect(page).toHaveURL(
@@ -100,12 +95,12 @@ test.describe("Mini App", () => {
 
   test.describe("pages", () => {
     test("group list shows the seeded group", async ({ page, seeded }) => {
-      await openMini(page, "", me(seeded));
+      await openMini(page, "", seeded);
       await expect(page.getByText(seeded.groupTitle, { exact: true }).first()).toBeVisible();
     });
 
     test("group page lists the seeded expense", async ({ page, seeded }) => {
-      await openMini(page, `/groups/${seeded.groupId}`, me(seeded));
+      await openMini(page, `/groups/${seeded.groupId}`, seeded);
       await expect(page.getByRole("heading", { name: seeded.groupTitle })).toBeVisible();
       await expect(
         page.getByText(seeded.expenseDescription, { exact: true }).first(),
@@ -117,7 +112,7 @@ test.describe("Mini App", () => {
       seeded,
     }) => {
       const description = `E2E mini lunch ${Date.now()}`;
-      await openMini(page, `/groups/${seeded.groupId}/expenses/new`, me(seeded));
+      await openMini(page, `/groups/${seeded.groupId}/expenses/new`, seeded);
       await page.getByLabel("金額", { exact: true }).fill("150");
       await page.getByLabel("說明", { exact: true }).fill(description);
       await page.getByRole("button", { name: "儲存", exact: true }).click();

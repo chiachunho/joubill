@@ -56,4 +56,17 @@ export async function openMini(
     tgWebAppThemeParams: "{}",
   });
   await page.goto(`/mini${path}#${fragment.toString()}`);
+  // Without Telegram's script there is no initData, and every request would just 401,
+  // which reads like an auth bug; fail here with the real cause instead.
+  await page
+    .waitForFunction(
+      () =>
+        !!(window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp
+          ?.initData,
+      undefined,
+      { timeout: 15_000 },
+    )
+    .catch(() => {
+      throw new Error("telegram-web-app.js did not load, so the Mini App has no initData");
+    });
 }
