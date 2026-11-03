@@ -1,7 +1,7 @@
 import { BadRequestError } from "@/lib/auth/errors";
+import { MAX_ID } from "@/lib/zod";
 
-/** Every id in the schema is a Postgres `integer` (int4). */
-export const MAX_ID = 2_147_483_647;
+export { MAX_ID };
 
 /**
  * Reads a database id from a route segment or query parameter: a positive integer in

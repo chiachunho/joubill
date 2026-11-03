@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { MAX_ID } from "@/lib/route-params";
+/** Every id in the schema is a Postgres `integer` (int4). */
+export const MAX_ID = 2_147_483_647;
 
 /** A database id in a request body: the same int4 range `requireId` accepts from a URL. */
 export const idSchema = z.number().int().positive().max(MAX_ID);

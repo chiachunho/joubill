@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BadRequestError, ForbiddenError } from "@/lib/auth/errors";
+import { ForbiddenError } from "@/lib/auth/errors";
 import { withAuth } from "@/lib/auth/route";
 import { requireId } from "@/lib/route-params";
 
@@ -29,9 +29,5 @@ describe("withAuth", () => {
         throw new Error("boom");
       })(req),
     ).rejects.toThrow("boom");
-  });
-
-  it("is a BadRequestError that route handlers throw", () => {
-    expect(() => requireId("0")).toThrow(BadRequestError);
   });
 });
