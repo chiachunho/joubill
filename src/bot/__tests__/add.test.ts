@@ -1,15 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { addAwaiting } from "@/db/schema";
 import { BTN } from "@/lib/buttons";
 
 import { addCommand } from "../commands/add";
-import { CHAT_ID, dbUser, resetTestDb, testBot, testDb } from "./harness";
+import { CHAT_ID, dbUser, expectAllCallsStubbed, resetTestDb, testBot, testDb } from "./harness";
 
 vi.mock("@/db", async () => ({ db: (await import("./harness")).testDb.db }));
 
 beforeEach(() => {
   resetTestDb();
+});
+afterEach(() => {
+  expectAllCallsStubbed();
 });
 
 describe("/add", () => {

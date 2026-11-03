@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { User } from "@/db/schema";
 import { BTN } from "@/lib/buttons";
@@ -9,6 +9,7 @@ import {
   BOT_INFO,
   dbUser,
   groupMessage,
+  expectAllCallsStubbed,
   resetTestDb,
   testBot,
   testDb,
@@ -35,6 +36,9 @@ const BOB: TgUser = { id: 1002, first_name: "Bob", username: "bob" };
 
 beforeEach(() => {
   resetTestDb();
+});
+afterEach(() => {
+  expectAllCallsStubbed();
 });
 
 /** The bot is an administrator, so getChatMember about other people can be trusted. */

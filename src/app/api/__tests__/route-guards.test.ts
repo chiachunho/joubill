@@ -16,10 +16,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *   checks membership second fails here instead of quietly leaking another group's data.
  */
 
-const auth = vi.hoisted(() => ({ mode: "forbidden" as "forbidden" | "unauthorized" }));
+const auth = vi.hoisted(() => ({
+  mode: "forbidden" as "forbidden" | "unauthorized",
+  /** Set by any database access, so a handler that swallows the throw is still caught. */
+  dbTouched: false,
+}));
 
 vi.mock("@/db", () => {
   const touched = () => {
+    auth.dbTouched = true;
     throw new Error("the handler read the database before checking membership");
   };
   return { db: new Proxy({}, { get: touched }) };
@@ -38,6 +43,7 @@ vi.mock("@/lib/auth", async (importOriginal) => {
       throw new ForbiddenError("not a member of this group");
     }),
     findUsersNotInGroup: vi.fn(async () => {
+      auth.dbTouched = true;
       throw new Error("the handler read the database before checking membership");
     }),
   };
@@ -108,14 +114,22 @@ type Handler = (
   ctx: { params: Promise<Record<string, string>> },
 ) => Promise<Response>;
 
-const groupHandlers = GROUP_ROUTES.flatMap((file) =>
-  METHODS.map((method) => [`${method} ${label(file)}`, file, method] as const),
+type Method = (typeof METHODS)[number];
+
+// Only the methods each module really exports, so no case passes by testing nothing.
+const groupModules = await Promise.all(
+  GROUP_ROUTES.map(async (file) => ({
+    file,
+    mod: (await import(file)) as Partial<Record<Method, Handler>>,
+  })),
+);
+const groupHandlers = groupModules.flatMap(({ file, mod }) =>
+  METHODS.filter((m) => typeof mod[m] === "function").map(
+    (m) => [`${m} ${label(file)}`, mod[m]!, file] as const,
+  ),
 );
 
-async function call(file: string, method: (typeof METHODS)[number]) {
-  const mod = (await import(file)) as Partial<Record<(typeof METHODS)[number], Handler>>;
-  const handler = mod[method];
-  if (!handler) return null;
+async function call(handler: Handler, file: string, method: string) {
   const { url, params } = routeUrlAndParams(file);
   const hasBody = method !== "GET" && method !== "DELETE";
   const req = new Request(url, {
@@ -129,18 +143,29 @@ async function call(file: string, method: (typeof METHODS)[number]) {
 describe("group-scoped handlers", () => {
   beforeEach(() => {
     auth.mode = "forbidden";
+    auth.dbTouched = false;
   });
 
-  it.each(groupHandlers)("%s refuses a non-member before reading anything", async (_, file, m) => {
-    const res = await call(file, m);
-    if (!res) return; // the module doesn't export this method
-    expect(res.status).toBe(403);
-  });
+  it.each(groupModules.map(({ file, mod }) => [label(file), mod] as const))(
+    "%s exports at least one handler",
+    (_, mod) => {
+      expect(METHODS.some((m) => typeof mod[m] === "function")).toBe(true);
+    },
+  );
 
-  it.each(groupHandlers)("%s refuses a caller who isn't signed in", async (_, file, m) => {
+  it.each(groupHandlers)(
+    "%s refuses a non-member before reading anything",
+    async (name, handler, file) => {
+      const res = await call(handler, file, name.split(" ")[0]);
+      expect(res.status).toBe(403);
+      expect(auth.dbTouched).toBe(false);
+    },
+  );
+
+  it.each(groupHandlers)("%s refuses a caller who isn't signed in", async (name, handler, file) => {
     auth.mode = "unauthorized";
-    const res = await call(file, m);
-    if (!res) return;
+    const res = await call(handler, file, name.split(" ")[0]);
     expect(res.status).toBe(401);
+    expect(auth.dbTouched).toBe(false);
   });
 });

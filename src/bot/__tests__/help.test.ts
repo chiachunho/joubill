@@ -1,10 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { BTN } from "@/lib/buttons";
 import { HELP_URL } from "@/lib/help-url";
 
 import { helpCommand } from "../commands/help";
-import { testBot } from "./harness";
+import { expectAllCallsStubbed, testBot } from "./harness";
+
+afterEach(() => {
+  expectAllCallsStubbed();
+});
 
 describe("/help", () => {
   it("names the panel buttons by their current labels", async () => {

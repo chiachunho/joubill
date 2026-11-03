@@ -8,9 +8,11 @@ import type { BotContext } from "../context";
 
 /**
  * Runs one bot Composer against hand-built updates with no network: every Bot API call
- * goes through a transformer that records it and answers from `answers` (or a plausible
- * default). `registerUser` is skipped; the test sets `ctx.dbUser` / `ctx.dbGroup` itself,
- * which is what that middleware would have attached.
+ * goes through a transformer that records it and answers from `answers`. Only `send*`
+ * methods have a default answer (the sent message); any other method the test didn't
+ * stub fails and is listed by `expectAllCallsStubbed`, so a forgotten stub can't quietly
+ * steer a command down another path. `registerUser` is skipped; the test sets
+ * `ctx.dbUser` / `ctx.dbGroup` itself, which is what that middleware would have attached.
  */
 
 export const BOT_INFO: UserFromGetMe = {
@@ -31,7 +33,7 @@ export const BOT_INFO: UserFromGetMe = {
 export const CHAT_ID = -1001234567;
 
 /** An API call the bot made. */
-export type ApiCall = { method: string; payload: Record<string, unknown>; result: unknown };
+type ApiCall = { method: string; payload: Record<string, unknown>; result: unknown };
 
 /** Answer an API call with a Bot API error (grammY throws a GrammyError for it). */
 export class ApiFailure {
@@ -45,9 +47,12 @@ type Answer = (payload: Record<string, unknown>) => unknown;
 
 export type TgUser = { id: number; first_name: string; username?: string };
 
-export const SENDER: TgUser = { id: 1001, first_name: "Alice", username: "alice" };
+const SENDER: TgUser = { id: 1001, first_name: "Alice", username: "alice" };
 
 let messageIds = 500;
+
+/** Methods a test called without stubbing, across every bot made since the last check. */
+const unstubbed: string[] = [];
 
 function defaultAnswer(method: string, payload: Record<string, unknown>): unknown {
   if (method.startsWith("send")) {
@@ -58,7 +63,16 @@ function defaultAnswer(method: string, payload: Record<string, unknown>): unknow
       text: payload.text,
     };
   }
-  return true;
+  unstubbed.push(method);
+  return new ApiFailure(500, `${method} is not stubbed in this test`);
+}
+
+/** Call from `afterEach`: fails if a command made a Bot API call the test didn't stub. */
+export function expectAllCallsStubbed() {
+  const methods = unstubbed.splice(0);
+  if (methods.length > 0) {
+    throw new Error(`unstubbed Bot API calls: ${methods.join(", ")} (stub them with answer())`);
+  }
 }
 
 export function dbUser(over: Partial<User> = {}): User {
@@ -112,8 +126,6 @@ export function testBot(
   });
 
   return {
-    bot,
-    calls,
     /** Replace the answer for one Bot API method. */
     answer(method: string, fn: Answer) {
       answers[method] = fn;
@@ -145,7 +157,7 @@ type SendOptions = {
 let updateIds = 1;
 
 /** A text message; a leading `/command` gets its `bot_command` entity like Telegram adds. */
-export function messageUpdate(text: string, opts: SendOptions = {}): Update {
+function messageUpdate(text: string, opts: SendOptions = {}): Update {
   const from = { is_bot: false, ...(opts.from ?? SENDER) };
   const chat = opts.privateChat
     ? { id: from.id, type: "private" as const, first_name: from.first_name }
@@ -186,7 +198,7 @@ export function groupMessage(from: TgUser, text = "hi"): Partial<Message> {
  * conflict fired, i.e. the row already existed). Anything else throws, so a test can't
  * pass on a query it didn't plan for.
  */
-export function fakeDb() {
+function fakeDb() {
   const inserts: { table: unknown; values: unknown }[] = [];
   const state = { returning: [{}] as unknown[] };
   const db = {
