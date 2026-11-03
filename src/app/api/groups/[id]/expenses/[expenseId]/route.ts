@@ -11,6 +11,7 @@ import { n } from "@/lib/money";
 import { loadLastActivity } from "@/lib/record-history";
 import { logDeleted, logUpdated } from "@/lib/record-mutation";
 import { resolveReceiptFileIds } from "@/lib/receipts";
+import { receiptPhotoUrl } from "@/lib/tg-photo-sign";
 import { expenseInputSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -98,6 +99,8 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     payers: payers.map((p) => ({ payerId: p.payerId, amount: n(p.amount) })),
     spentAt: expense.spentAt,
     receiptFileIds,
+    // Signed proxy links, by file id: <img> cannot send the auth header (see tg-photo-sign.ts).
+    receiptUrls: Object.fromEntries(receiptFileIds.map((id) => [id, receiptPhotoUrl(id)])),
     splits: splits.map((s) => ({
       debtorId: s.debtorId,
       amount: n(s.amount),

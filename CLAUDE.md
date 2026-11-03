@@ -316,7 +316,7 @@ The response has three sections, each answering a different question, and **two 
 
 ### Receipt photos (`src/app/api/tg-photo/` and `src/app/api/tg-upload/`)
 
-Receipts are stored on Telegram's servers — only the permanent `file_id` is persisted. An expense can have **up to 5 receipt photos**, stored as rows in `expense_receipts` (`position` sets display order). The legacy single-photo column `expenses.receipt_file_id` still exists and is written by the bot's `/add`; the expenses API merges it with `expense_receipts` rows. Serving goes through the `/api/tg-photo` proxy (accepts `?fileId=` or `?path=`) so the bot token never appears in client URLs.
+Receipts are stored on Telegram's servers — only the permanent `file_id` is persisted. An expense can have **up to 5 receipt photos**, stored as rows in `expense_receipts` (`position` sets display order). The legacy single-photo column `expenses.receipt_file_id` still exists and is written by the bot's `/add`; the expenses API merges it with `expense_receipts` rows. Serving goes through the `/api/tg-photo` proxy (accepts `?fileId=` or `?path=`) so the bot token never appears in client URLs. **Every proxy link is signed** (`src/lib/tg-photo-sign.ts`: HMAC keyed off the bot token over the file id or path, built and verified in one file): `<img>` can't send the Mini App's `Authorization` header, so the proxy can't ask for a login, and the signature is what stops a leaked `fileId` or a guessed `photos/file_N.jpg` path from reading receipts. Authenticated routes mint the links (`receiptUrls` on the expense detail response, `url` from `/api/tg-upload`, avatar and group-photo URLs); a new place that shows a Telegram photo must use `receiptPhotoUrl` / `pathPhotoUrl`, never build `/api/tg-photo?…` by hand. The proxy rejects `..` in paths, forces an image content type, sets `nosniff` and caches `private`.
 
 Upload flow (Mini App): `POST /api/tg-upload` (auth-protected) → `sendPhoto` to the private storage channel → returns `file_id` → saved with the expense.
 
@@ -492,6 +492,8 @@ The prefix is for humans only: the release workflow's semver bump is a manual `w
 Production runs on **Vercel** (frontend + bot webhook + API in one deploy), served from a **custom domain** (not the default `*.vercel.app`), backed by **Neon Postgres**, with the Mini App registered in **BotFather**. The repo is `chiachunho/splitbill-telegram-bot` (private); `origin` is HTTPS. The **default branch is `dev`** — open all PRs against `dev`, not `main`. Pushing to the default branch triggers Vercel auto-deploy. Full step-by-step in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 Node runtime is **24.x**, pinned in two places that must agree: `engines.node` in `package.json` (Vercel reads this and it overrides the dashboard's Node.js Version setting) and `.nvmrc` (CI's `setup-node` reads it via `node-version-file`). Vercel only honours the major version and patches it on its own, so a security release on that line (e.g. CVE-2026-111497 "Node2Shell", fixed in 24.22.1) is picked up on the next deploy, not by editing the pin. CI mirrors that with `check-latest: true` — without it `setup-node` silently uses whatever 24.x the runner image has cached, which lagged behind the Node2Shell fix.
+
+Baseline security headers (`nosniff`, `Referrer-Policy`, and `X-Frame-Options: DENY` on `/app`, `/login`, `/join`) are set in `next.config.mjs`; `/mini` is deliberately frameable because Telegram embeds it, so don't add a site-wide `frame-ancestors`.
 
 Things that bite, in priority order:
 

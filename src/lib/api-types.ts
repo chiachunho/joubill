@@ -162,6 +162,8 @@ export type ExpenseDetail = {
   payers: Array<{ payerId: number; amount: number }>;
   spentAt: string;
   receiptFileIds: string[];
+  /** Signed `/api/tg-photo` link for each id in `receiptFileIds`. */
+  receiptUrls: Record<string, string>;
   splits: Array<{
     debtorId: number;
     amount: number;

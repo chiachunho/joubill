@@ -8,6 +8,7 @@ import { telegramChatId } from "@/lib/chat";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { serverEnv } from "@/lib/env";
+import { pathPhotoUrl } from "@/lib/tg-photo-sign";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export const GET = withAuth(async (req: Request) => {
         if (!photo?.big_file_id) return { id, url: null };
         const file = await tgApi.getFile(photo.big_file_id);
         if (!file.file_path) return { id, url: null };
-        return { id, url: `/api/tg-photo?path=${encodeURIComponent(file.file_path)}` };
+        return { id, url: pathPhotoUrl(file.file_path) };
       } catch {
         return { id, url: null };
       }

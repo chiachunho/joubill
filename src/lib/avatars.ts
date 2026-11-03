@@ -4,6 +4,7 @@ import { Api } from "grammy";
 import { db } from "@/db";
 import { authIdentities, users } from "@/db/schema";
 import { serverEnv } from "@/lib/env";
+import { pathPhotoUrl } from "@/lib/tg-photo-sign";
 import { avatarOptions, pickAvatar, type AvatarCandidate, type AvatarInput } from "@/lib/profile";
 
 /**
@@ -66,7 +67,7 @@ export function botApi(): Api {
 /** The proxy URL for a Telegram file. Throws when the bot API call fails. */
 async function fileUrlOrThrow(fileId: string): Promise<string | null> {
   const file = await botApi().getFile(fileId);
-  return file.file_path ? `/api/tg-photo?path=${encodeURIComponent(file.file_path)}` : null;
+  return file.file_path ? pathPhotoUrl(file.file_path) : null;
 }
 
 export async function telegramFileUrl(fileId: string): Promise<string | null> {
