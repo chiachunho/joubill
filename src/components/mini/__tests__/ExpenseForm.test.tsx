@@ -1,13 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/components/AuthProvider";
 import { ExpenseForm } from "@/components/mini/ExpenseForm";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
-const push = vi.fn();
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push }),
 }));
@@ -36,6 +35,16 @@ const MEMBERS = [
 
 type Initial = NonNullable<Parameters<typeof ExpenseForm>[0]["initial"]>;
 
+const SPENT_AT = "2026-07-10T04:00:00Z";
+/** The local day of SPENT_AT, as the form asks the rate endpoint for it. */
+const SPENT_DAY = (() => {
+  const d = new Date(SPENT_AT);
+  return [d.getFullYear(), d.getMonth() + 1, d.getDate()]
+    .map((n) => String(n).padStart(2, "0"))
+    .join("-");
+})();
+const RATE_PATH = `/api/groups/7/rates/effective?base=JPY&date=${SPENT_DAY}`;
+
 function initial(over: Partial<Initial> = {}): Initial {
   return {
     id: 11,
@@ -48,7 +57,7 @@ function initial(over: Partial<Initial> = {}): Initial {
     fxQuote: null,
     description: "晚餐",
     payers: [{ payerId: 1, amount: 300 }],
-    spentAt: "2026-07-10T04:00:00Z",
+    spentAt: SPENT_AT,
     receiptFileIds: [],
     splits: [
       { debtorId: 1, amount: 150, shareType: "equal", splitValue: null },
@@ -86,25 +95,20 @@ function renderForm(
   routes: Parameters<typeof fakeRequest>[0],
   mode: "tma" | "web" = "tma",
 ) {
-  const request = fakeRequest(routes);
-  const wrap = (children: ReactNode) => (
-    <AuthProvider mode={mode}>
-      <StoreWrapper request={request}>{children}</StoreWrapper>
-    </AuthProvider>
-  );
   render(
-    wrap(
-      <ExpenseForm
-        groupId={7}
-        defaultCurrency="TWD"
-        currentUserId={ME}
-        members={MEMBERS}
-        returnPath="/mini/groups/7"
-        {...props}
-      />,
-    ),
+    <AuthProvider mode={mode}>
+      <StoreWrapper request={fakeRequest(routes)}>
+        <ExpenseForm
+          groupId={7}
+          defaultCurrency="TWD"
+          currentUserId={ME}
+          members={MEMBERS}
+          returnPath="/mini/groups/7"
+          {...props}
+        />
+      </StoreWrapper>
+    </AuthProvider>,
   );
-  return request;
 }
 
 const save = () => screen.getByRole("button", { name: "儲存" });
@@ -279,35 +283,39 @@ describe("ExpenseForm: editing", () => {
     ]);
   });
 
-  it("restores a rate pinned against the current default currency", async () => {
-    const spent = new Date("2026-07-10T04:00:00Z");
-    const day = `${spent.getFullYear()}-${String(spent.getMonth() + 1).padStart(2, "0")}-${String(spent.getDate()).padStart(2, "0")}`;
+  it("keeps a rate pinned against the current default currency when saving", async () => {
+    const w = writes({ ok: true });
     renderForm(
       { initial: initial({ currency: "JPY", fxRate: 0.21, fxQuote: "TWD" }) },
       {
-        [`/api/groups/7/rates/effective?base=JPY&date=${day}`]: {
-          rate: 0.2,
-          source: "market",
-        },
+        [RATE_PATH]: { rate: 0.2, source: "market" },
+        "/api/groups/7/expenses/11": w.handler,
       },
     );
-    await waitFor(() => expect(screen.getByDisplayValue("0.21")).toBeInTheDocument());
+    // The placeholder only shows once the rate query answered, so the route matched.
+    expect(await screen.findByPlaceholderText("0.2（自動）")).toHaveValue(0.21);
+    await submit();
+
+    await waitFor(() => expect(w.sent).toHaveLength(1));
+    expect(w.sent[0].body).toMatchObject({ currency: "JPY", fxRate: 0.21 });
   });
 
-  it("leaves a dormant pin (quoted in an old default currency) blank", async () => {
-    const spent = new Date("2026-07-10T04:00:00Z");
-    const day = `${spent.getFullYear()}-${String(spent.getMonth() + 1).padStart(2, "0")}-${String(spent.getDate()).padStart(2, "0")}`;
+  it("doesn't revive a dormant pin (quoted in an old default currency) on save", async () => {
+    const w = writes({ ok: true });
     renderForm(
       { initial: initial({ currency: "JPY", fxRate: 0.21, fxQuote: "USD" }) },
       {
-        [`/api/groups/7/rates/effective?base=JPY&date=${day}`]: {
-          rate: 0.2,
-          source: "market",
-        },
+        [RATE_PATH]: { rate: 0.2, source: "market" },
+        "/api/groups/7/expenses/11": w.handler,
       },
     );
-    await screen.findByPlaceholderText("0.2（自動）");
-    expect(screen.queryByDisplayValue("0.21")).not.toBeInTheDocument();
+    expect(await screen.findByPlaceholderText("0.2（自動）")).toHaveValue(null);
+    await submit();
+
+    // Sending 0.21 would have the server stamp it as a TWD pin; null leaves the dormant
+    // one alone (the PATCH preserves it).
+    await waitFor(() => expect(w.sent).toHaveLength(1));
+    expect(w.sent[0].body).toMatchObject({ currency: "JPY", fxRate: null });
   });
 });
 
