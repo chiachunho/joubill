@@ -6,12 +6,14 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { ExpenseForm } from "@/components/mini/ExpenseForm";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+const { push, upload } = vi.hoisted(() => ({ push: vi.fn(), upload: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push }),
 }));
 // Loads @twa-dev/sdk, which has nothing to talk to outside Telegram.
 vi.mock("@/lib/use-tg-back-button", () => ({ useTelegramBackButton: () => {} }));
+// The receipt upload bypasses the store (the cache has no use for it), so it is stubbed here.
+vi.mock("@/lib/tma-fetch", () => ({ tmaRawFetch: upload }));
 
 // Radix's Checkbox measures itself; jsdom has no ResizeObserver.
 globalThis.ResizeObserver ??= class {
@@ -23,6 +25,7 @@ globalThis.ResizeObserver ??= class {
 afterEach(() => {
   cleanup();
   push.mockReset();
+  upload.mockReset();
 });
 
 const ME = 1;
@@ -59,6 +62,7 @@ function initial(over: Partial<Initial> = {}): Initial {
     payers: [{ payerId: 1, amount: 300 }],
     spentAt: SPENT_AT,
     receiptFileIds: [],
+    receiptUrls: {},
     splits: [
       { debtorId: 1, amount: 150, shareType: "equal", splitValue: null },
       { debtorId: 2, amount: 150, shareType: "equal", splitValue: null },
@@ -69,6 +73,7 @@ function initial(over: Partial<Initial> = {}): Initial {
 
 type Body = {
   amount: number;
+  receiptFileIds: string[];
   currency: string;
   fxRate: number | null;
   description: string | null;
@@ -316,6 +321,57 @@ describe("ExpenseForm: editing", () => {
     // one alone (the PATCH preserves it).
     await waitFor(() => expect(w.sent).toHaveLength(1));
     expect(w.sent[0].body).toMatchObject({ currency: "JPY", fxRate: null });
+  });
+});
+
+describe("ExpenseForm: receipts", () => {
+  it("shows a saved receipt from its signed link and keeps it on save", async () => {
+    const w = writes({ ok: true });
+    renderForm(
+      {
+        initial: initial({
+          receiptFileIds: ["file-a"],
+          receiptUrls: { "file-a": "/api/tg-photo?fileId=file-a&sig=abc" },
+        }),
+      },
+      { "/api/groups/7/expenses/11": w.handler },
+    );
+    // Only the server can sign the link; the form must use it, not build its own.
+    expect(screen.getByRole("img", { name: "收據 1" })).toHaveAttribute(
+      "src",
+      "/api/tg-photo?fileId=file-a&sig=abc",
+    );
+    fireEvent.change(screen.getByLabelText("說明"), { target: { value: "宵夜" } });
+    await submit();
+
+    await waitFor(() => expect(w.sent).toHaveLength(1));
+    expect(w.sent[0].body).toMatchObject({ receiptFileIds: ["file-a"] });
+  });
+
+  it("shows an uploaded receipt from the link the upload returned, and saves its id", async () => {
+    upload.mockResolvedValue(
+      new Response(JSON.stringify({ fileId: "file-b", url: "/api/tg-photo?fileId=file-b&sig=x" })),
+    );
+    const w = writes();
+    renderForm({}, { "/api/groups/7/expenses": w.handler });
+
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    fireEvent.change(input, {
+      target: { files: [new File(["x"], "r.jpg", { type: "image/jpeg" })] },
+    });
+    expect(await screen.findByRole("img", { name: "收據 1" })).toHaveAttribute(
+      "src",
+      "/api/tg-photo?fileId=file-b&sig=x",
+    );
+    expect(upload).toHaveBeenCalledWith(
+      "/api/tg-upload",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    fireEvent.change(screen.getByLabelText("金額"), { target: { value: "300" } });
+    await submit();
+    await waitFor(() => expect(w.sent).toHaveLength(1));
+    expect(w.sent[0].body).toMatchObject({ receiptFileIds: ["file-b"] });
   });
 });
 
