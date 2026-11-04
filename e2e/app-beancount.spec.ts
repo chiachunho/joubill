@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { addExpense, addSettlement } from "./helpers";
+import { addExpense, addSettlement, editExpense } from "./helpers";
 
 // The seeded expense is 300 paid by the user and split 150/150 with the partner.
 // Nothing seeds a beancount row: every case starts from the defaults and no export.
@@ -69,6 +69,69 @@ test.describe("beancount export", () => {
     expect(text).toMatch(/Assets:Cash\s+150\.00 TWD/);
     expect(text).toMatch(/^; \d{4}-\d{2}-\d{2} open Assets:Receivable:/m);
     expect((await summary("new")).included).toBe(0);
+  });
+
+  test("上次匯出後 writes corrections for records edited or deleted since", async ({
+    authedPage,
+    seeded,
+  }) => {
+    const { request } = authedPage;
+    const base = `/api/groups/${seeded.groupId}`;
+    const mine = (amount: number) => ({
+      amount,
+      shareType: "equal" as const,
+      payers: [{ payerId: seeded.userId, amount }],
+      splits: [
+        { debtorId: seeded.userId, amount: amount / 2 },
+        { debtorId: seeded.partnerId, amount: amount / 2 },
+      ],
+    });
+    const second = await addExpense(request, seeded.groupId, mine(100));
+
+    // Export everything: both records are in the ledger now.
+    await request.get(`${base}/beancount/export?range=all`);
+
+    // Edit the seeded 300 to 360 and delete the new one.
+    expect((await editExpense(request, seeded.groupId, seeded.expenseId, mine(360))).ok()).toBe(
+      true,
+    );
+    expect((await request.delete(`${base}/expenses/${second}`)).ok()).toBe(true);
+
+    const summary = await (await request.get(`${base}/beancount/export/summary?range=new`)).json();
+    expect(summary).toMatchObject({ included: 0, corrected: 2 });
+
+    const text = await (await request.get(`${base}/beancount/export?range=new`)).text();
+    expect(text.match(/splitbill_correction: "edited"/g)).toHaveLength(2);
+    expect(text.match(/splitbill_correction: "deleted"/g)).toHaveLength(1);
+    // The exported 300 is reversed, then the 360 version is written.
+    expect(text).toMatch(/Assets:Cash\s+300\.00 TWD/);
+    expect(text).toMatch(/Assets:Cash\s+-360\.00 TWD/);
+
+    // Handed over, so the next one starts clean.
+    expect(
+      await (await request.get(`${base}/beancount/export/summary?range=new`)).json(),
+    ).toMatchObject({ included: 0, corrected: 0 });
+  });
+
+  test("a record created and edited before the export is not corrected", async ({
+    authedPage,
+    seeded,
+  }) => {
+    const { request } = authedPage;
+    const base = `/api/groups/${seeded.groupId}`;
+    await editExpense(request, seeded.groupId, seeded.expenseId, {
+      amount: 400,
+      shareType: "equal",
+      payers: [{ payerId: seeded.userId, amount: 400 }],
+      splits: [
+        { debtorId: seeded.userId, amount: 200 },
+        { debtorId: seeded.partnerId, amount: 200 },
+      ],
+    });
+    await request.get(`${base}/beancount/export?range=all`);
+    expect(
+      await (await request.get(`${base}/beancount/export/summary?range=new`)).json(),
+    ).toMatchObject({ included: 0, corrected: 0 });
   });
 
   test("a custom range doesn't move the watermark", async ({ authedPage, seeded }) => {

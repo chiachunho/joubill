@@ -94,7 +94,8 @@ export function BeancountExportSection({
   if (lastExportedAt === undefined) return <BeancountExportSkeleton />;
 
   const count = summary ? summary.included : null;
-  const empty = count === 0;
+  const corrected = summary?.corrected ?? 0;
+  const empty = count === 0 && corrected === 0;
   const busy = pending !== null;
   const ready = !!params && !!summary && !empty && !busy;
 
@@ -131,8 +132,9 @@ export function BeancountExportSection({
     setPending("send");
     setMessage(null);
     try {
-      const { included } = await sendExport({ groupId, params }).unwrap();
-      setMessage({ ok: true, text: `已傳 ${included} 筆到你和機器人的私訊` });
+      const { included, corrected } = await sendExport({ groupId, params }).unwrap();
+      const fixes = corrected > 0 ? `、修正 ${corrected} 筆` : "";
+      setMessage({ ok: true, text: `已傳 ${included} 筆${fixes}到你和機器人的私訊` });
     } catch (e) {
       setMessage({ ok: false, text: apiErrorText(e, "傳送失敗，請再試一次") });
     } finally {
@@ -144,7 +146,9 @@ export function BeancountExportSection({
     if (choice !== c) return null;
     if (c === "custom" && !params) return "選擇日期範圍";
     if (count === null) return error ? "無法計算筆數" : "計算中…";
-    return count === 0 ? "沒有跟你有關的紀錄" : `${count} 筆`;
+    if (empty) return c === "new" ? "沒有新的變動" : "沒有跟你有關的紀錄";
+    // Only 上次匯出後 has corrections to tell apart from the new records.
+    return c === "new" ? `新增 ${count} 筆，修正 ${corrected} 筆` : `${count} 筆`;
   };
 
   const options: { key: Choice; label: string; hint: string | null }[] = [
@@ -152,7 +156,7 @@ export function BeancountExportSection({
       ? [
           {
             key: "new" as const,
-            label: "上次匯出後新增的紀錄",
+            label: "上次匯出後的變動",
             hint: `上次：${formatWhen(lastExportedAt)}`,
           },
         ]
@@ -219,7 +223,8 @@ export function BeancountExportSection({
           })}
         </div>
         <p className="mt-2 px-1 text-xs text-muted-foreground">
-          上次匯出後才修改或刪除的紀錄不會重新匯出；每筆都帶 splitbill_id，可以用來對照。
+          上次匯出後的變動包含新增的紀錄，以及已匯出、之後被修改或刪除的紀錄。修正會寫成沖銷分錄，帶有
+          splitbill_correction 標記；每筆都帶 splitbill_id，可以用來對照。
         </p>
       </section>
 

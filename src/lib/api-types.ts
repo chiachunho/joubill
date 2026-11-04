@@ -220,6 +220,8 @@ export type BeancountConfigResponse = { config: BeancountConfigInput };
 export type BeancountExportSummary = {
   /** Records the file would hold. */
   included: number;
+  /** Records an earlier export covered that the file would correct (issue #124). */
+  corrected: number;
   /** Records in the range that don't touch the caller's ledger. */
   skipped: number;
   /** ISO; null = never exported, so 上次匯出後 means everything. */
