@@ -18,7 +18,15 @@ if is_production || is_preview; then
   pnpm db:migrate
 
   echo "[vercel-build] syncing database schema..."
-  pnpm db:push
+  # drizzle-kit can print an error and still exit 0 (an ambiguous rename needs a prompt it
+  # can't show without a TTY), which would ship a release against an unsynced schema.
+  # Fail the build on its error output too, not just on the exit status.
+  push_log=$(pnpm db:push 2>&1) || { printf '%s\n' "$push_log"; exit 1; }
+  printf '%s\n' "$push_log"
+  if printf '%s\n' "$push_log" | grep -q '^Error'; then
+    echo "[vercel-build] db:push reported an error; failing the build" >&2
+    exit 1
+  fi
 fi
 
 if is_production || is_dev_preview; then
