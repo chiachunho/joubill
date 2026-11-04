@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Maintenance rule:** When implementing a feature that changes architecture, env vars, DB schema, or testing conventions, update this file in the same PR/commit. Feature design that is too detailed for this file lives in `docs/architecture/*.md` (auth, groups and members, stats, push, exports); when a change touches one of those features, update that file too and keep the short rule list here in step. Also check whether the public help site (`src/app/help/**`, see "Help site" below) needs updating — it describes user-visible behaviour, so a changed bot reply, button label, form field, or permission goes stale there silently if not updated in the same commit.
+> **Maintenance rule:** When implementing a feature that changes architecture, env vars, DB schema, or testing conventions, update this file in the same PR/commit. Feature design that is too detailed for this file lives in `docs/architecture/*.md`; when a change touches one of those features, update that file too and keep the short rule list here in step. Also check whether the public help site (`src/app/help/**`, see "Help site" below) needs updating — it describes user-visible behaviour, so a changed bot reply, button label, form field, or permission goes stale there silently if not updated in the same commit.
 
 ## Commands
 
@@ -232,6 +232,7 @@ Linking, display names, avatars and account merging are described in full in [`d
 - **Email auto-linking is on for GitHub and Google only, deliberately off for LINE**: LINE doesn't promise the email is verified, so matching on it would allow account takeover. Telegram has no email, so a Telegram user who signs in with Google/LINE without linking first gets a new, empty user.
 - **Two users are only ever merged by the explicit, confirmed merge flow** (`src/lib/account-merge.ts` + `account-merge-db.ts`). Signing in with an identity that belongs to another user, while signed in, turns into a merge offer (`mergeRedirect`); the ticket id travels only in the httpOnly `merge_ticket` cookie, never a URL. Linking and merging are web-only (`Platform.linkIdentity` / `openInBrowser`), since OAuth can't run in Telegram's webview.
 - **A new column referencing `users.id` must be moved in `mergeAccounts`**; a non-cascading one goes in `repointUserReferences` (`member-merge-db.ts`), which claiming a placeholder shares.
+- **Telegram is linkable from the web too**: the adapter's `linkAccount` sets `users.telegram_id` (what the bot and Mini App key on) in the same transaction as the identity insert, and becomes a merge offer when another account already owns that id.
 - Unlink only through `DELETE /api/me/identities/[provider]` (409s on the last method, `canUnlink`). **Never call the adapter's `unlinkAccount`**, which has no guard. Telegram can't be unlinked.
 - **Names**: `first_name` / `last_name` are the provider's and `upsertTelegramUser` overwrites them on every update; `display_name` is the person's own choice and only `PATCH /api/me/profile` writes it. **Every rendered name goes through `displayName()`** (usually via `labelUser` / `labelMember`); `display-name-coverage.test.ts` fails any file that selects `users.firstName` without `users.displayName`. Names aren't unique; `memberLabels` disambiguates them.
 - **Avatars** are resolved per request by `pickAvatar` / `resolveAvatars` (`src/lib/avatars.ts`) from `users.avatar_source` (null = automatic) and each login's `auth_identities.picture_url`. `upsertTelegramUser` writes `avatar_url` only when Telegram sent a photo.
@@ -252,7 +253,7 @@ Web groups, `/link`, invites, placeholder members, claiming and one-person group
 - **Invite codes are 10 Crockford base32 characters (~50 bits) and there is no rate limit, so don't shorten them.** Every unusable code (and `/link` from a sender who isn't a member) gets the same 404 / `INVITE_NOT_FOUND`, so no response says which codes exist. A group has at most one live code (`rotateInvite` + partial unique index). `invite.ts` builds and parses the `/join/<code>` link. Invites work for Telegram groups too.
 - **Placeholder members** (no account) are `users` rows with `placeholder_group_id` set, cascading with the group; the Auth.js adapter filters them out. Names are unique per group, under an advisory lock (`src/lib/member-name-lock.ts`).
 - **Delete a group only through `deleteGroup` (`src/lib/group-delete.ts`)**, never a bare `DELETE FROM groups`: placeholders' non-cascading payer/debtor foreign keys would fail it.
-- **Claiming a placeholder** (`mergeUserInto`, `src/lib/member-merge-db.ts`; decisions in the pure `member-merge.ts`) must combine split rows itself: they have no unique key, so a skipped combine leaves two rows for one person without an error. It writes in bulk, logs `member_claimed` after commit, and refreshes only the newest chat cards (`refreshClaimedNotices`).
+- **Claiming a placeholder** (`mergeUserInto`, `src/lib/member-merge-db.ts`; decisions in the pure `member-merge.ts`) must combine split rows itself: they have no unique key, so a skipped combine leaves two rows for one person without an error. Any member may merge, with no consent and no undo, by decision (`MergeMemberDialog` shows what moves before confirming). It writes in bulk, logs `member_claimed` after commit, and refreshes only the newest chat cards (`refreshClaimedNotices`).
 - **Adding people has one entry, `AddMemberDialog`** (placeholder or invite code), used by 群組設定 and the one-person group card.
 
 **Multi-payer model**: An expense has one or more payers in `expense_payers` (who paid, how much each) and one or more debtors in `expense_splits` (who owes, how much each). Both tables reference `expenses.id` with `ON DELETE CASCADE`. `expense_payers` has a `UNIQUE(expense_id, payer_id)` constraint. Both sides must sum to `expenses.amount`.
@@ -294,6 +295,7 @@ When existing records would be re-converted, the settings page asks for the scop
 
 Personalised (`userId`, defaults to the caller) and range-scoped (`3m` / `6m` / `1y` / `all` / `custom`), with the same pure/DB split as settlement logic. Full design in [`docs/architecture/stats.md`](docs/architecture/stats.md). The rules that are easy to break:
 
+- A `userId` other than the caller **must pass `assertGroupMember`** (no extra permission beyond that, since there's no per-record privacy).
 - `custom` takes `from` / `to` as **full ISO instants resolved in the browser** (`customRangeToQueryBounds`); the route never reinterprets a bare date, and the picker uses `parseLocalDay`, never `new Date(str)`.
 - `netTrend` (a day-count window that carries the earlier total in) and `monthly` / `byPayer` (the last N calendar months, `recentMonthKeys`) use **different windows on purpose**; `monthly` and `byPayer` must always share one.
 - `byPayer` reads `expense_payers` (who paid); `monthly`'s member line reads `expense_splits` (their share). Don't conflate them.
@@ -396,7 +398,8 @@ Web App only; the Mini App fills these `Platform` slots with nothing. Full desig
 - The interface says **加到主畫面, never 安裝 App**.
 - `public/sw.js` is hand-written and push-only: no fetch handler, no offline cache, no build plugin (keeps `next dev --turbopack` working). `AuthProvider mode="web"` registers it.
 - The manifest's `scope` is `/`, not `/app`, so `/login`, the OAuth callbacks and `/join/<code>` stay inside the home-screen app. `LAUNCH_SCRIPT` (`src/lib/pwa.ts`) is a **string, not a function**, because the bundler rewrites function bodies; `pwa.test.ts` runs that string.
-- Recipients come from the pure `pushRecipients` (`src/lib/push-plan.ts`) and **never include the actor**. Pushes ride on `logCreated` / `logUpdated` / `logDeleted` and are delivered in `after()`, swallowing errors.
+- Recipients come from the pure `pushRecipients` (`src/lib/push-plan.ts`) and **never include the actor**. Pushes ride on `logCreated` / `logUpdated` / `logDeleted` and are delivered in `after()`, swallowing errors; a 404/410 from the push service deletes that subscription.
+- **Signing out deletes and unsubscribes this browser's subscription first** (`useForgetPushDevice`), so a signed-out device stops receiving the account's records.
 - `requestPermission()` is the first call in the tap handler, before any `await` (iOS refuses it otherwise). Subscription endpoints must pass `isPushServiceUrl`, because the server POSTs to them.
 - Optional: without all three VAPID variables nothing is sent and the UI hides itself. Headless Chromium has no push service, so delivery isn't E2E-tested.
 
@@ -415,6 +418,7 @@ A member's personal export, from their own ledger's point of view; it never goes
 - One event account instead of one receivable per person, on purpose: min-transfer settle-ups would leave per-person receivables that never return to zero.
 - `recordPostings` / `recordToBeancount` / `groupToBeancount` are pure. Loading is shared with the CSV (`loadGroupRecords`), so the two exports agree on rates.
 - Range `new` compares `created_at` (not `spent_at`) with the `last_exported_at` watermark at millisecond precision; only `new` and `all` advance it, through `greatest()`.
+- The first export pins an unsaved `event_account` to the default it used, because the default follows the group title and a rename would otherwise move later 上次匯出後 files to an account the ledger never opened.
 
 ### Environment variables
 

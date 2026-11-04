@@ -21,7 +21,7 @@ import { useGetMergePreviewQuery, useMergeMemberMutation } from "@/store/api";
 
 /**
  * 合併到…: fold a 無帳號 member into a real one. Irreversible and needs nobody's approval
- * (a decision, see CLAUDE.md), so the dialog says how many records move and the balance they
+ * (a decision, see docs/architecture/groups-and-members.md), so the dialog says how many records move and the balance they
  * carry before the confirm button is enabled.
  */
 export function MergeMemberDialog({

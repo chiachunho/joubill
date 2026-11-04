@@ -2,7 +2,7 @@
  * Render splitbill records as beancount transactions, from the **personal-ledger
  * perspective** of one user (U), for the group's beancount export (issue #117).
  *
- * Three accounts, configurable per (user, group) (see CLAUDE.md, "Beancount 匯出"):
+ * Three accounts, configurable per (user, group) (see docs/architecture/exports.md):
  * - expenses (`Expenses:Uncategorized`) — U's own share of consumption.
  * - cash (`Assets:Cash`)                — cash U actually moved.
  * - event (`Assets:Receivable:<group>`) — everything between U and the rest of the
