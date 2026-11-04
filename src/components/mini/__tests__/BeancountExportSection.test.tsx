@@ -10,7 +10,14 @@ afterEach(cleanup);
 const SUMMARY = "/api/groups/9/beancount/export/summary";
 
 function summary(over: Record<string, unknown> = {}) {
-  return { included: 4, skipped: 1, lastExportedAt: null, telegramLinked: true, ...over };
+  return {
+    included: 4,
+    corrected: 0,
+    skipped: 1,
+    lastExportedAt: null,
+    telegramLinked: true,
+    ...over,
+  };
 }
 
 function renderSection(routes: Parameters<typeof fakeRequest>[0], canDownloadExport = true) {
@@ -44,14 +51,26 @@ describe("BeancountExportSection", () => {
       "aria-checked",
       "true",
     );
-    expect(screen.getByText(/2 筆/)).toBeInTheDocument();
+    expect(screen.getByText(/新增 2 筆，修正 0 筆/)).toBeInTheDocument();
+  });
+
+  it("counts corrections apart from new records, and lets a corrections-only file go out", async () => {
+    renderSection({
+      [`${SUMMARY}?range=new`]: summary({
+        included: 0,
+        corrected: 3,
+        lastExportedAt: "2026-10-20T13:14:00Z",
+      }),
+    });
+    expect(await screen.findByText(/新增 0 筆，修正 3 筆/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "傳到我的私訊" })).toBeEnabled();
   });
 
   it("disables both actions when the range holds nothing of the viewer's", async () => {
     renderSection({
       [`${SUMMARY}?range=new`]: summary({ included: 0, lastExportedAt: "2026-10-20T13:14:00Z" }),
     });
-    expect(await screen.findByText(/沒有跟你有關的紀錄/)).toBeInTheDocument();
+    expect(await screen.findByText(/沒有新的變動/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "下載 .beancount" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "傳到我的私訊" })).toBeDisabled();
   });

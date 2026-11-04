@@ -653,7 +653,7 @@ export const api = baseApi.injectEndpoints({
     }),
     /** Post the beancount file to the caller's private chat with the bot; moves the watermark. */
     sendBeancountExport: build.mutation<
-      { ok: true; included: number },
+      { ok: true; included: number; corrected: number },
       { groupId: GroupId; params: Record<string, string> }
     >({
       query: ({ groupId, params }) => ({

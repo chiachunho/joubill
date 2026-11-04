@@ -450,6 +450,13 @@ export const userBeancountConfigs = pgTable(
      * "since last" export takes records created after it. NULL = never exported.
      */
     lastExportedAt: timestamp("last_exported_at", { withTimezone: true }),
+    /**
+     * When the last 全部 / 上次匯出後 file was built (issue #124). Edits and deletes logged
+     * after it are what the next file corrects; `last_exported_at` can't say that, as it
+     * is a record's `created_at`. NULL = exported before this existed: the next file
+     * writes no corrections (it can't know which edits the old file already carried).
+     */
+    correctionsSince: timestamp("corrections_since", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

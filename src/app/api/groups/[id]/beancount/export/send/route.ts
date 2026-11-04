@@ -33,7 +33,9 @@ export const POST = withAuth(async (req: Request, ctx: Params) => {
     await getBot().api.sendDocument(
       user.telegramId,
       new InputFile(Buffer.from(file.text), file.filename),
-      { caption: `📒 beancount 帳本，${file.included} 筆` },
+      {
+        caption: `📒 beancount 帳本，${file.included} 筆${file.corrected > 0 ? `，修正 ${file.corrected} 筆` : ""}`,
+      },
     );
   } catch (err) {
     // 403: the person never opened a private chat with the bot, or blocked it.
@@ -47,8 +49,14 @@ export const POST = withAuth(async (req: Request, ctx: Params) => {
     return NextResponse.json({ error: "傳送失敗，請再試一次" }, { status: 502 });
   }
 
-  if (file.watermark) {
-    await saveBeancountWatermark(user.id, groupId, file.watermark, file.eventAccount);
+  if (file.exportedAt) {
+    await saveBeancountWatermark(
+      user.id,
+      groupId,
+      file.watermark,
+      file.eventAccount,
+      file.exportedAt,
+    );
   }
-  return NextResponse.json({ ok: true, included: file.included });
+  return NextResponse.json({ ok: true, included: file.included, corrected: file.corrected });
 });

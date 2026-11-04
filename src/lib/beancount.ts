@@ -144,6 +144,19 @@ export function recordPostings(
   return postings;
 }
 
+/** Every amount flipped: the entry that cancels `postings` out. */
+export function negatePostings(postings: Posting[]): Posting[] {
+  // `0 - x` rather than `-x`, which would turn a zero into -0 and print "-0.00".
+  return postings.map((p) => ({ account: p.account, amount: 0 - p.amount }));
+}
+
+/**
+ * How a transaction is marked when it is part of a correction (issue #124):
+ * `correction` becomes the `splitbill_correction` metadata line, `reverse` cancels
+ * the record's postings instead of repeating them.
+ */
+export type BeancountMark = { correction?: "edited" | "deleted"; reverse?: boolean };
+
 function escapeString(text: string): string {
   return text
     .replace(/\\/g, "\\\\")
@@ -176,15 +189,18 @@ export function recordToBeancount(
   accounts: BeancountAccounts,
   fx?: BeancountFx,
   narration?: string,
+  mark?: BeancountMark,
 ): string | null {
-  const postings = recordPostings(record, userId, accounts);
-  if (!postings) return null;
+  const found = recordPostings(record, userId, accounts);
+  if (!found) return null;
+  const postings = mark?.reverse ? negatePostings(found) : found;
 
   const text = narration ?? record.description ?? "";
   const lines = [
     `${beancountDate(record.spentAt)} * "${escapeString(text)}"`,
     `  splitbill_id: "${record.id}"`,
   ];
+  if (mark?.correction) lines.push(`  splitbill_correction: "${mark.correction}"`);
 
   const showPrice = !!fx && fx.quote !== record.currency;
   const amountStrs = postings.map((p) => p.amount.toFixed(2));
@@ -212,8 +228,22 @@ export type BeancountExportInput = {
   range: BeancountExportRange;
   /** Oldest first. `rate` converts to the group default; `narration` as for {@link recordToBeancount}. */
   records: { record: BeancountRecord; rate: number; narration?: string }[];
+  /**
+   * Corrections to records an earlier export already covered (issue #124), one group
+   * per record: the reversal of the exported version, then the current one.
+   */
+  corrections?: CorrectionGroup[];
   now: Date;
 };
+
+export type CorrectionEntry = {
+  record: BeancountRecord;
+  rate: number;
+  narration?: string;
+  correction: "edited" | "deleted";
+  reverse: boolean;
+};
+export type CorrectionGroup = CorrectionEntry[];
 
 function rangeLabel(range: BeancountExportRange): string {
   if (range.kind === "all") return "全部";
@@ -238,6 +268,8 @@ function rangeLabel(range: BeancountExportRange): string {
 export function groupToBeancount(input: BeancountExportInput): {
   text: string;
   included: number;
+  /** Records an earlier export covered that this file corrects. */
+  corrected: number;
   skipped: number;
 } {
   const entries: string[] = [];
@@ -253,6 +285,25 @@ export function groupToBeancount(input: BeancountExportInput): {
   const included = entries.length;
   const skipped = input.records.length - included;
 
+  const fixes: string[] = [];
+  let corrected = 0;
+  for (const group of input.corrections ?? []) {
+    const rendered = group.flatMap((e) => {
+      const fx =
+        e.record.currency === input.defaultCurrency
+          ? null
+          : { quote: input.defaultCurrency, rate: e.rate };
+      const out = recordToBeancount(e.record, input.userId, input.accounts, fx, e.narration, {
+        correction: e.correction,
+        reverse: e.reverse,
+      });
+      return out ? [out] : [];
+    });
+    if (rendered.length === 0) continue;
+    fixes.push(...rendered);
+    corrected += 1;
+  }
+
   const startsLedger =
     input.range.kind === "all" || (input.range.kind === "new" && input.range.since === null);
   const openDate = firstDate ?? beancountDate(input.now.toISOString());
@@ -260,12 +311,12 @@ export function groupToBeancount(input: BeancountExportInput): {
     `; 揪帳 · ${escapeString(input.groupTitle)}`,
     `; 匯出時間 ${formatUtcMinute(input.now)} UTC · 預設貨幣 ${input.defaultCurrency}`,
     `; 範圍：${rangeLabel(input.range)}`,
-    `; ${included} 筆${skipped > 0 ? `，略過 ${skipped} 筆跟你無關的紀錄` : ""}`,
+    `; ${included} 筆${corrected > 0 ? `，修正 ${corrected} 筆` : ""}${skipped > 0 ? `，略過 ${skipped} 筆跟你無關的紀錄` : ""}`,
     "",
     `; ${openDate} open ${input.accounts.expenses}`,
     `; ${openDate} open ${input.accounts.cash}`,
     `${startsLedger ? "" : "; "}${openDate} open ${input.accounts.event}`,
   ];
-  for (const entry of entries) lines.push("", entry);
-  return { text: lines.join("\n") + "\n", included, skipped };
+  for (const entry of [...entries, ...fixes]) lines.push("", entry);
+  return { text: lines.join("\n") + "\n", included, corrected, skipped };
 }
