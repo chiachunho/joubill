@@ -21,6 +21,7 @@ import {
 import { parseCookie, resolveSession } from "@/lib/auth";
 import { refreshClaimedNotices } from "@/lib/claim-notices";
 import { logAccountMerged, logDeleted } from "@/lib/record-mutation";
+import { idSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export const dynamic = "force-dynamic";
  */
 
 const bodySchema = z.object({
-  keepUserId: z.number().int().positive(),
+  keepUserId: idSchema,
   /** Settlements between the two accounts turn into "A → A": drop them, or keep (delete-only). */
   selfSettlements: z.enum(["delete", "keep"]).default("keep"),
 });

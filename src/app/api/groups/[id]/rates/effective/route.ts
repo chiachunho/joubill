@@ -9,6 +9,7 @@ import { withAuth } from "@/lib/auth/route";
 import { getRate, loadGroupRateOverrides, overrideKey } from "@/lib/fx";
 import { noApplicablePin } from "@/lib/rate-lock";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,10 +38,7 @@ const querySchema = z.object({
  */
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const url = new URL(req.url);

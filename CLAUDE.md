@@ -64,7 +64,7 @@ The Mini App and Web App share the same **lower-level building blocks** — `src
 
 **Where it goes:** `src/lib/**` when the bot _and_ the API or a frontend both need it (that also keeps it pure and unit-testable — see `src/lib/expense-view.ts`, `src/lib/record-notice.ts`); `src/bot/**` when only the bot does. `src/lib` may import a leaf module from `src/bot` (`notify.ts` renders the expense card), but keep those leaves dependency-free so it never becomes a cycle.
 
-**Still duplicated, and known:** the `Number.isFinite` id-parsing preamble repeated in ~15 `/api/**` route handlers. Worth collapsing; just hasn't been.
+**Route ids go through `requireId`** (`src/lib/route-params.ts`): a route segment or query id is read with `requireId(raw, "group id")`, which throws a `BadRequestError` (`src/lib/auth/errors.ts`) that `withAuth` answers as `400 invalid <label>`. It accepts only plain positive int4 digits; the `Number(x)` + `Number.isFinite` it replaced let `""`, `"1.5"` and ids past int4 through to Postgres. A new route that takes an id uses it instead of parsing by hand.
 
 ### Bot (`src/bot/`)
 
@@ -214,7 +214,7 @@ something, update `src/app/help/**` in the same commit.
 
 ### API Auth (`src/lib/auth/`)
 
-Every API route handler wraps with `withAuth` (`src/lib/auth/route.ts`), which calls `getAuth(req)`. `getAuth` accepts **two** auth sources and returns the same `Auth { user, groupFromParam? }` shape regardless:
+Every API route handler wraps with `withAuth` (`src/lib/auth/route.ts`), which turns any thrown `HttpError` (`AuthError`, `BadRequestError`) into its status; the handler calls `getAuth(req)`. `getAuth` accepts **two** auth sources and returns the same `Auth { user, groupFromParam? }` shape regardless:
 
 1. **Mini App** — `Authorization: tma <raw>` header → HMAC-verify the Telegram `initData` string (`src/lib/auth/initData.ts`) → upsert user + resolve `start_param` → group (`groupFromParam` set).
 2. **Web App** — `session` cookie → look up a non-expired row in `sessions` → user (`groupFromParam` is `null`; the web frontend picks the group itself).

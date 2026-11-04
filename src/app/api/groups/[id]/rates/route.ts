@@ -17,6 +17,7 @@ import {
   type RateLockPlan,
 } from "@/lib/rate-lock";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,10 +64,7 @@ async function planLockForPair(
 
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const [group] = await db
@@ -106,10 +104,7 @@ const putSchema = z
 
 export const PUT = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const body = putSchema.safeParse(await req.json());
@@ -201,10 +196,7 @@ const deleteSchema = z.object({
  */
 export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const url = new URL(req.url);

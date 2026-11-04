@@ -12,6 +12,7 @@ import { n } from "@/lib/money";
 import { loadLastActivity } from "@/lib/record-history";
 import { logDeleted, logUpdated } from "@/lib/record-mutation";
 import { settlementInputSchema } from "@/lib/zod";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,17 +21,14 @@ type Params = { params: Promise<{ id: string; settlementId: string }> };
 
 async function resolveParams(params: Params["params"]) {
   const p = await params;
-  const groupId = Number(p.id);
-  const settlementId = Number(p.settlementId);
+  const groupId = requireId(p.id, "group id");
+  const settlementId = requireId(p.settlementId, "settlement id");
   return { groupId, settlementId };
 }
 
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const { groupId, settlementId } = await resolveParams(params);
-  if (!Number.isFinite(groupId) || !Number.isFinite(settlementId)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
-  }
   await assertGroupMember(auth.user.id, groupId);
 
   const fromUser = alias(users, "from_user");
@@ -109,9 +107,6 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 export const PATCH = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const { groupId, settlementId } = await resolveParams(params);
-  if (!Number.isFinite(groupId) || !Number.isFinite(settlementId)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
-  }
   await assertGroupMember(auth.user.id, groupId);
 
   const parsed = settlementInputSchema.safeParse(await req.json());
@@ -210,9 +205,6 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
 export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const { groupId, settlementId } = await resolveParams(params);
-  if (!Number.isFinite(groupId) || !Number.isFinite(settlementId)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
-  }
   await assertGroupMember(auth.user.id, groupId);
 
   const [existing] = await db

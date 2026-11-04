@@ -8,6 +8,7 @@ import { telegramChatId } from "@/lib/chat";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { AVATAR_COLUMNS, botApi, resolveAvatars, telegramFileUrl, TtlCache } from "@/lib/avatars";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,10 +21,7 @@ type Params = { params: Promise<{ id: string }> };
 
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const [memberRows, groupRows] = await Promise.all([

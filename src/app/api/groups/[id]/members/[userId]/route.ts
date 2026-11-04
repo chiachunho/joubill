@@ -8,6 +8,7 @@ import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { lockGroupMemberNames } from "@/lib/member-name-lock";
 import { isDuplicateName, placeholderNameSchema } from "@/lib/placeholder";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,12 +24,8 @@ const patchSchema = z.union([
 export const PATCH = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const { id, userId } = await params;
-  const groupId = Number(id);
-  const targetUserId = Number(userId);
-
-  if (!Number.isFinite(groupId) || !Number.isFinite(targetUserId)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
-  }
+  const groupId = requireId(id, "group id");
+  const targetUserId = requireId(userId, "user id");
   await assertGroupMember(auth.user.id, groupId);
 
   const body = patchSchema.safeParse(await req.json());
@@ -93,12 +90,8 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
 export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const { id, userId } = await params;
-  const groupId = Number(id);
-  const targetUserId = Number(userId);
-
-  if (!Number.isFinite(groupId) || !Number.isFinite(targetUserId)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
-  }
+  const groupId = requireId(id, "group id");
+  const targetUserId = requireId(userId, "user id");
   await assertGroupMember(auth.user.id, groupId);
 
   if (auth.user.id === targetUserId) {

@@ -12,6 +12,7 @@ import { n } from "@/lib/money";
 import { logCreated } from "@/lib/record-mutation";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,10 +21,7 @@ type Params = { params: Promise<{ id: string }> };
 
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const rawCursor = new URL(req.url).searchParams.get("cursor");
@@ -175,10 +173,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 
 export const POST = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const parsed = expenseInputSchema.safeParse(await req.json());

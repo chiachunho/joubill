@@ -10,6 +10,7 @@ import { withAuth } from "@/lib/auth/route";
 import { BTN } from "@/lib/buttons";
 import { deleteGroup } from "@/lib/group-delete";
 import { labelUser } from "@/lib/label";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,11 +22,7 @@ const EXPIRY_MS = 48 * 60 * 60 * 1000; // 48 hours
 export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const { id } = await params;
-  const groupId = Number(id);
-
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
-  }
+  const groupId = requireId(id, "group id");
 
   await assertGroupMember(auth.user.id, groupId);
 

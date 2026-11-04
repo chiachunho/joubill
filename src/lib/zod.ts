@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+/** Every id in the schema is a Postgres `integer` (int4). */
+export const MAX_ID = 2_147_483_647;
+
+/** A database id in a request body: the same int4 range `requireId` accepts from a URL. */
+export const idSchema = z.number().int().positive().max(MAX_ID);
+
 export const SUPPORTED_CURRENCIES = [
   "TWD",
   "USD",
@@ -16,13 +22,13 @@ export const SUPPORTED_CURRENCIES = [
 export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 
 const splitItemSchema = z.object({
-  debtorId: z.number().int().positive(),
+  debtorId: idSchema,
   amount: z.number().nonnegative(),
   splitValue: z.number().nullable().optional(),
 });
 
 const payerItemSchema = z.object({
-  payerId: z.number().int().positive(),
+  payerId: idSchema,
   amount: z.number().positive(),
 });
 
@@ -85,8 +91,8 @@ export type ExpenseInput = z.infer<typeof expenseInputSchema>;
  * default currency), same semantics as on expenses.
  */
 export const settlementInputSchema = z.object({
-  fromUserId: z.number().int().positive(),
-  toUserId: z.number().int().positive(),
+  fromUserId: idSchema,
+  toUserId: idSchema,
   amount: z.number().positive().max(10_000_000),
   currency: z.enum(SUPPORTED_CURRENCIES),
   fxRate: z.number().positive().max(1_000_000_000).nullable().optional(),
@@ -132,7 +138,7 @@ export const expenseFormSchema = z
     shareType: z.enum(SHARE_TYPES),
     participants: z.array(
       z.object({
-        userId: z.number().int().positive(),
+        userId: idSchema,
         included: z.boolean(),
         value: z.string(),
       }),

@@ -16,9 +16,10 @@ export const dynamic = "force-dynamic";
  * goes to the person, never the group: the file is their personal ledger.
  */
 export const POST = withAuth(async (req: Request, ctx: Params) => {
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const json: unknown = await req.json().catch(() => null);
+  // `null` or a bare number is valid JSON but not a body to read fields from.
+  const body = json && typeof json === "object" ? (json as Record<string, unknown>) : {};
   const request = await readExportRequest(req, ctx, body);
-  if (!request.ok) return request.response;
   const { user, groupId, range } = request;
 
   if (user.telegramId == null) {

@@ -17,6 +17,7 @@ import {
   type NetLeg,
   type StatsRangeKey,
 } from "@/lib/stats-core";
+import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,6 @@ type Params = { params: Promise<{ id: string }> };
 const MAX_MONTHS = 24;
 
 const querySchema = z.object({
-  userId: z.coerce.number().int().positive().optional(),
   range: z.enum(["3m", "6m", "1y", "all", "custom"]).default("6m"),
   // Full ISO instants, not bare "YYYY-MM-DD" — only the browser knows the
   // viewer's local day boundaries, so it resolves those itself
@@ -40,15 +40,12 @@ const querySchema = z.object({
 
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
-  const groupId = Number((await params).id);
-  if (!Number.isFinite(groupId)) {
-    return NextResponse.json({ error: "invalid group id" }, { status: 400 });
-  }
+  const groupId = requireId((await params).id, "group id");
   await assertGroupMember(auth.user.id, groupId);
 
   const url = new URL(req.url);
+  const userIdParam = url.searchParams.get("userId");
   const parsed = querySchema.safeParse({
-    userId: url.searchParams.get("userId") ?? undefined,
     range: url.searchParams.get("range") ?? undefined,
     from: url.searchParams.get("from") ?? undefined,
     to: url.searchParams.get("to") ?? undefined,
@@ -57,7 +54,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     return NextResponse.json({ error: "invalid query params" }, { status: 400 });
   }
   const { range, from: customFrom, to: customTo } = parsed.data;
-  const selectedUserId = parsed.data.userId ?? auth.user.id;
+  const selectedUserId = userIdParam != null ? requireId(userIdParam, "userId") : auth.user.id;
   // Already proven a member above when selectedUserId === auth.user.id (the
   // common case: viewing your own stats) — skip the redundant lookup.
   if (selectedUserId !== auth.user.id) {

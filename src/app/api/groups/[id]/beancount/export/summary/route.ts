@@ -11,7 +11,6 @@ export const dynamic = "force-dynamic";
 /** What the export page shows before the user commits: counts, the watermark, and whether a DM can reach them. */
 export const GET = withAuth(async (req: Request, ctx: Params) => {
   const request = await readExportRequest(req, ctx, new URL(req.url).searchParams);
-  if (!request.ok) return request.response;
   const { user, groupId, range } = request;
 
   const summary = await summariseBeancountExport(user.id, groupId, range);

@@ -11,6 +11,8 @@ import { withAuth } from "@/lib/auth/route";
 import { mergeUserInto, previewMerge } from "@/lib/member-merge-db";
 import { refreshClaimedNotices } from "@/lib/claim-notices";
 import { logDeleted, logMemberClaimed } from "@/lib/record-mutation";
+import { requireId } from "@/lib/route-params";
+import { idSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +20,7 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ id: string; userId: string }> };
 
 const bodySchema = z.object({
-  intoUserId: z.number().int().positive(),
+  intoUserId: idSchema,
   /** Settlements between the two people turn into "A → A": drop them, or keep (delete-only). */
   selfSettlements: z.enum(["delete", "keep"]).default("keep"),
 });
@@ -31,13 +33,9 @@ const bodySchema = z.object({
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const { id, userId } = await params;
-  const groupId = Number(id);
-  const fromId = Number(userId);
-  const intoParam = new URL(req.url).searchParams.get("intoUserId");
-  const toId = Number(intoParam);
-  if (!intoParam || ![groupId, fromId, toId].every(Number.isFinite)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
-  }
+  const groupId = requireId(id, "group id");
+  const fromId = requireId(userId, "user id");
+  const toId = requireId(new URL(req.url).searchParams.get("intoUserId"), "intoUserId");
   await assertGroupMember(auth.user.id, groupId);
   await assertGroupMember(toId, groupId);
 
@@ -50,11 +48,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 export const POST = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
   const { id, userId } = await params;
-  const groupId = Number(id);
-  const fromId = Number(userId);
-  if (!Number.isFinite(groupId) || !Number.isFinite(fromId)) {
-    return NextResponse.json({ error: "invalid id" }, { status: 400 });
-  }
+  const groupId = requireId(id, "group id");
+  const fromId = requireId(userId, "user id");
   await assertGroupMember(auth.user.id, groupId);
 
   const body = bodySchema.safeParse(await req.json().catch(() => null));
