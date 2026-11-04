@@ -49,12 +49,10 @@ export const GET = withAuth(async (req: Request) => {
   return NextResponse.json(profileOf(auth.user, await avatarInputsOf(auth.user)));
 });
 
-const patchSchema = z
-  .object({
-    displayName: z.string().max(200).nullable().optional(),
-    avatarSource: z.string().nullable().optional(),
-  })
-  .strict();
+const patchSchema = z.strictObject({
+  displayName: z.string().max(200).nullable().optional(),
+  avatarSource: z.string().nullable().optional(),
+});
 
 /** Sets the name and avatar the person chose (issue #101). An omitted key is left as it is. */
 export const PATCH = withAuth(async (req: Request) => {

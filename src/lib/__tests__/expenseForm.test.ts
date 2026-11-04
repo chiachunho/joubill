@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { expenseFormSchema } from "../zod";
 
@@ -101,7 +102,7 @@ describe("expenseFormSchema", () => {
       });
       expect(r.success).toBe(false);
       if (!r.success) {
-        const msg = r.error.flatten().fieldErrors.payers;
+        const msg = z.flattenError(r.error).fieldErrors.payers;
         expect(msg).toBeDefined();
       }
     });
@@ -117,7 +118,7 @@ describe("expenseFormSchema", () => {
       });
       expect(r.success).toBe(false);
       if (!r.success) {
-        const msg = r.error.flatten().fieldErrors.payers;
+        const msg = z.flattenError(r.error).fieldErrors.payers;
         expect(msg).toBeDefined();
       }
     });
@@ -133,7 +134,7 @@ describe("expenseFormSchema", () => {
       });
       expect(r.success).toBe(false);
       if (!r.success) {
-        const msg = r.error.flatten().fieldErrors.payers;
+        const msg = z.flattenError(r.error).fieldErrors.payers;
         expect(msg).toBeDefined();
       }
     });
