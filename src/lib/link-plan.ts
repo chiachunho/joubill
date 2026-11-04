@@ -6,10 +6,7 @@
  * so `not_found` is decided before anything that would reveal the group exists.
  */
 export type LinkRefusal =
-  | "not_found"
-  | "already_linked"
-  | "chat_already_linked"
-  | "both_have_records";
+  "not_found" | "already_linked" | "chat_already_linked" | "both_have_records";
 
 export type LinkPlan = { ok: true; absorb: boolean } | { ok: false; reason: LinkRefusal };
 

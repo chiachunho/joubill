@@ -10,9 +10,7 @@
  *   knows the viewer's day boundaries; see the stats page for the bug a bare date caused.
  */
 export type BeancountRangeQuery =
-  | { kind: "new" }
-  | { kind: "all" }
-  | { kind: "custom"; from: Date; to: Date };
+  { kind: "new" } | { kind: "all" } | { kind: "custom"; from: Date; to: Date };
 
 export function beancountRangeParams(range: BeancountRangeQuery): Record<string, string> {
   if (range.kind !== "custom") return { range: range.kind };

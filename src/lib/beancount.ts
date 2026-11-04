@@ -216,9 +216,7 @@ export function recordToBeancount(
 }
 
 export type BeancountExportRange =
-  | { kind: "new"; since: Date | null }
-  | { kind: "all" }
-  | { kind: "custom"; from: Date; to: Date };
+  { kind: "new"; since: Date | null } | { kind: "all" } | { kind: "custom"; from: Date; to: Date };
 
 export type BeancountExportInput = {
   groupTitle: string;

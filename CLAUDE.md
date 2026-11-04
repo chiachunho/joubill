@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 pnpm dev            # Next.js dev server on http://localhost:3000
 pnpm build          # Production build
 pnpm typecheck      # tsc --noEmit
-pnpm lint           # ESLint via next lint
+pnpm lint           # ESLint (flat config, eslint.config.mjs)
 pnpm format         # Prettier (writes)
 pnpm format:check   # Prettier (read-only; what PR check runs — keep the tree formatted)
 

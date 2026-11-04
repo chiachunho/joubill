@@ -413,7 +413,6 @@ export function ExpenseForm(props: Props) {
         distributePayerAmounts(prev, lockedPayerAmounts.current, parseFloat(amount) || 0),
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount, multiPayerMode]);
 
   // Reconcile members that load/join after mount (e.g. a background refetch) into the
@@ -427,7 +426,6 @@ export function ExpenseForm(props: Props) {
         .map((m) => ({ userId: m.id, included: false, amount: "" }));
       return additions.length > 0 ? [...prev, ...additions] : prev;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [members, multiPayerMode]);
 
   // Keep the form's payers field in sync with multi-payer entries so zod validation fires correctly
@@ -485,8 +483,7 @@ export function ExpenseForm(props: Props) {
   async function onSubmit(values: ExpenseFormValues) {
     const initialSplits = initial?.splits ?? [];
     const initialShareType = initialSplits[0]?.shareType as
-      | ExpenseFormValues["shareType"]
-      | undefined;
+      ExpenseFormValues["shareType"] | undefined;
     // Old records without splitValues (pre-migration) load as "exact" in buildDefaults.
     // Preserve the original stored shareType so a description-only edit doesn't corrupt the DB.
     const RESTORABLE = new Set<string>(["percent", "shares", "adjustment"]);
