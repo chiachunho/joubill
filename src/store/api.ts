@@ -14,6 +14,7 @@ import type {
   EffectiveRateResponse,
   ExpenseDetail,
   ExpensesResponse,
+  GroupChatResponse,
   GroupNotificationsResponse,
   GroupPhotosResponse,
   InvitePreviewResponse,
@@ -71,6 +72,7 @@ const tagTypes = [
   "Invite",
   "PushSubscriptions",
   "GroupNotifications",
+  "GroupChat",
 ] as const;
 
 type Tag = { type: (typeof tagTypes)[number]; id: string };
@@ -504,6 +506,10 @@ const baseApi = createApi({
     sendTestPush: build.mutation<unknown, { endpoint: string }>({
       query: (body) => ({ url: "/api/me/push-subscriptions/test", method: "POST", body }),
     }),
+    getGroupChat: build.query<GroupChatResponse, GroupId>({
+      query: (groupId) => ({ url: `/api/groups/${groupId}/chat` }),
+      providesTags: (_r, _e, groupId) => [tag("GroupChat", g(groupId))],
+    }),
     getGroupNotifications: build.query<GroupNotificationsResponse, GroupId>({
       query: (groupId) => ({ url: `/api/groups/${groupId}/notifications` }),
       providesTags: (_r, _e, groupId) => [tag("GroupNotifications", g(groupId))],
@@ -633,6 +639,18 @@ export const api = baseApi.injectEndpoints({
         }
       },
     }),
+    /**
+     * Detach the group from its Telegram chat. Push is held back for groups with a chat (the chat
+     * already says what changed), so the notifications read is stale too, and the feed gains a row.
+     */
+    unlinkChat: build.mutation<{ ok: true }, { groupId: GroupId }>({
+      query: ({ groupId }) => ({ url: `/api/groups/${groupId}/chat`, method: "DELETE" }),
+      invalidatesTags: (_r, _e, { groupId }) => [
+        tag("GroupChat", g(groupId)),
+        tag("GroupNotifications", g(groupId)),
+        tag("Activity", g(groupId)),
+      ],
+    }),
     /** Post the beancount file to the caller's private chat with the bot; moves the watermark. */
     sendBeancountExport: build.mutation<
       { ok: true; included: number },
@@ -717,6 +735,7 @@ export const {
   useSavePushSubscriptionMutation,
   useDeletePushSubscriptionMutation,
   useSendTestPushMutation,
+  useGetGroupChatQuery,
   useGetGroupNotificationsQuery,
   useUpdateGroupNotificationsMutation,
   useGetMembersQuery,
@@ -753,6 +772,7 @@ export const {
   useSendBeancountExportMutation,
   useCreateGroupMutation,
   useResetInviteMutation,
+  useUnlinkChatMutation,
   useAcceptInviteMutation,
   useDeleteGroupMutation,
   useApproveDeleteRequestMutation,

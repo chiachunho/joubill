@@ -31,6 +31,7 @@ const HELP_TEXT = [
   "`/settle` — 還款建議",
   "`/export` — 匯出全部帳目（CSV）",
   "`/link 邀請碼` — 綁定網頁建立的群組",
+  "`/unlink` — 解除綁定（bot 會離開）",
   "`/app` — 開啟 Mini App",
   "",
   "*把人加進揪帳*",

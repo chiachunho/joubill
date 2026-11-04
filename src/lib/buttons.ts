@@ -49,6 +49,10 @@ export const BTN = {
   /** `/help`'s variant: the reply already *is* help, so the button offers the rest. */
   helpFull: "📖 完整使用說明",
 
+  /* /unlink confirmation */
+  confirmUnlink: "✅ 解除綁定",
+  cancelUnlink: "取消",
+
   /* group deletion approval */
   approveDeleteGroup: "✓ 同意刪除",
   rejectDeleteGroup: "✗ 拒絕",

@@ -321,6 +321,23 @@ export async function logChatLinked(
   });
 }
 
+/** Logs a group being detached from its Telegram chat; the title is captured as it was then. */
+export async function logChatUnlinked(
+  groupId: number,
+  actor: Actor,
+  chatTitle: string,
+): Promise<void> {
+  await writeLog({
+    groupId,
+    recordId: null,
+    recordType: "group",
+    action: "chat_unlinked",
+    actor,
+    before: null,
+    after: { kind: "chatUnlinked", chatTitle },
+  });
+}
+
 /**
  * Logs a placeholder being merged into a real account. Call it after the merge
  * transaction commits; `recordIds` are every expense and settlement rewritten.

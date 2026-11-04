@@ -52,7 +52,7 @@ export type ActivityEntry = {
     expenses: number;
     settlements: number;
   };
-  /** 'member_joined': who made the invite the member used. 'chat_linked': the chat it was bound to. */
+  /** 'member_joined': who made the invite the member used. 'chat_linked' / 'chat_unlinked': the chat it was bound to, or detached from. */
   groupEvent?: {
     inviterName?: string;
     chatTitle?: string;
@@ -139,7 +139,7 @@ function toEntry(row: Row): ActivityEntry {
   if (isGroupEventPayload(row.after)) {
     if (row.after.kind === "memberJoined") {
       entry.groupEvent = { inviterName: row.after.inviterName };
-    } else if (row.after.kind === "chatLinked") {
+    } else if (row.after.kind === "chatLinked" || row.after.kind === "chatUnlinked") {
       entry.groupEvent = { chatTitle: row.after.chatTitle };
     } else if (row.after.kind === "memberClaimed") {
       entry.groupEvent = {

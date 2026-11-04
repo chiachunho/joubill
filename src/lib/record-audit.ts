@@ -18,6 +18,7 @@ export type AuditAction =
   | "member_joined"
   | "invite_reset"
   | "chat_linked"
+  | "chat_unlinked"
   | "member_claimed"
   | "account_merged";
 export type AuditSource = "bot" | "app";
@@ -70,7 +71,8 @@ export function isRateLockPayload(value: unknown): value is RateLockPayload {
 /**
  * Group-level membership events (`recordType: 'group'`, no record id).
  * `memberJoined` names who invited the member, captured as the name was then;
- * `chatLinked` names the Telegram chat a web group was bound to;
+ * `chatLinked` names the Telegram chat a web group was bound to, `chatUnlinked` the chat it was
+ * detached from (the title as it was then, since the group no longer has the chat to ask);
  * `memberClaimed` records a placeholder being merged into a real account. Its
  * `recordIds` are the records that were rewritten, so a single record's history
  * can explain why a name on it changed (`loadRecordHistory` matches them with `@>`).
@@ -79,6 +81,7 @@ export type GroupEventPayload =
   | { kind: "memberJoined"; inviterId: number; inviterName: string }
   | { kind: "inviteReset" }
   | { kind: "chatLinked"; chatTitle: string }
+  | { kind: "chatUnlinked"; chatTitle: string }
   | {
       kind: "memberClaimed";
       placeholderId: number;
@@ -103,6 +106,7 @@ export function isGroupEventPayload(value: unknown): value is GroupEventPayload 
     kind === "memberJoined" ||
     kind === "inviteReset" ||
     kind === "chatLinked" ||
+    kind === "chatUnlinked" ||
     kind === "memberClaimed" ||
     kind === "accountMerged"
   );
@@ -349,6 +353,10 @@ export function changeHeading(entry: HeadingInput, withRecordName: boolean): str
       return entry.groupEvent?.chatTitle
         ? `綁定了 Telegram 群組（${entry.groupEvent.chatTitle}）`
         : "綁定了 Telegram 群組";
+    case "chat_unlinked":
+      return entry.groupEvent?.chatTitle
+        ? `解除了與 Telegram 群組「${entry.groupEvent.chatTitle}」的綁定`
+        : "解除了與 Telegram 群組的綁定";
     case "member_claimed":
       if (!entry.groupEvent?.claimedName) return "認領了無帳號成員";
       return entry.groupEvent.claimerName

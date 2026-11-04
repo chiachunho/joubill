@@ -19,6 +19,7 @@ import {
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
+import { TelegramChatSection } from "@/components/mini/TelegramChatSection";
 import { AddMemberDialog } from "@/components/mini/AddMemberDialog";
 import { MergeMemberDialog } from "@/components/mini/MergeMemberDialog";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
@@ -444,6 +445,8 @@ export function GroupSettings({
           </button>
         </div>
       )}
+
+      <TelegramChatSection groupId={id} />
 
       <DangerZoneSection
         groupId={id}
