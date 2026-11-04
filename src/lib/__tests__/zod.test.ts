@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   beancountConfigInputSchema,
   expenseInputSchema,
+  groupCreateSchema,
+  idSchema,
   isPushServiceUrl,
+  pushSubscriptionSchema,
   settlementInputSchema,
 } from "../zod";
 
@@ -296,5 +299,61 @@ describe("isPushServiceUrl", () => {
     ]) {
       expect(isPushServiceUrl(url)).toBe(false);
     }
+  });
+});
+
+describe("idSchema", () => {
+  it("accepts plain positive int4 values", () => {
+    expect(idSchema.safeParse(1).success).toBe(true);
+    expect(idSchema.safeParse(2_147_483_647).success).toBe(true);
+  });
+
+  it("rejects zero, fractions, negatives, overflow and non-numbers", () => {
+    for (const v of [0, 1.5, -1, 2_147_483_648, Number.NaN, Infinity, "1", null]) {
+      expect(idSchema.safeParse(v).success).toBe(false);
+    }
+  });
+});
+
+describe("groupCreateSchema", () => {
+  it("trims the title and keeps the Chinese messages", () => {
+    const ok = groupCreateSchema.safeParse({ title: "  日本旅行  ", defaultCurrency: "JPY" });
+    expect(ok.success && ok.data.title).toBe("日本旅行");
+
+    const empty = groupCreateSchema.safeParse({ title: "   ", defaultCurrency: "JPY" });
+    expect(!empty.success && empty.error.issues[0]?.message).toBe("請輸入群組名稱");
+
+    const long = groupCreateSchema.safeParse({ title: "x".repeat(51), defaultCurrency: "JPY" });
+    expect(!long.success && long.error.issues[0]?.message).toBe("群組名稱最多 50 字");
+  });
+
+  it("rejects an unsupported default currency", () => {
+    expect(groupCreateSchema.safeParse({ title: "a", defaultCurrency: "XYZ" }).success).toBe(false);
+  });
+});
+
+describe("pushSubscriptionSchema", () => {
+  const valid = {
+    endpoint: "https://fcm.googleapis.com/fcm/send/abc",
+    keys: { p256dh: "p", auth: "a" },
+  };
+
+  it("accepts a known push service with keys", () => {
+    expect(pushSubscriptionSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects an unknown host, empty keys and an over-long endpoint", () => {
+    expect(
+      pushSubscriptionSchema.safeParse({ ...valid, endpoint: "https://example.com/x" }).success,
+    ).toBe(false);
+    expect(
+      pushSubscriptionSchema.safeParse({ ...valid, keys: { p256dh: "", auth: "a" } }).success,
+    ).toBe(false);
+    expect(
+      pushSubscriptionSchema.safeParse({
+        ...valid,
+        endpoint: `https://fcm.googleapis.com/${"x".repeat(2048)}`,
+      }).success,
+    ).toBe(false);
   });
 });
