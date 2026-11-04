@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 const env = {
@@ -31,7 +31,7 @@ export default defineConfig({
           name: "node",
           environment: "node",
           include: ["src/**/*.test.ts", "src/**/*.test.tsx", "scripts/**/*.test.mjs"],
-          exclude: ["src/components/**/*.test.tsx", "**/node_modules/**"],
+          exclude: [...configDefaults.exclude, "src/components/**/*.test.tsx"],
           env,
         },
       },

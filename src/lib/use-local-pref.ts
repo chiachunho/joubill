@@ -15,10 +15,17 @@ const listeners = new Set<() => void>();
 
 function subscribe(onChange: () => void): () => void {
   listeners.add(onChange);
-  window.addEventListener("storage", onChange);
+  // A write from another tab is newer than anything this tab kept in memory after storage
+  // refused a write, and it shows storage works again: stop letting the old copy win.
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === null) unpersisted.clear();
+    else unpersisted.delete(e.key);
+    onChange();
+  };
+  window.addEventListener("storage", onStorage);
   return () => {
     listeners.delete(onChange);
-    window.removeEventListener("storage", onChange);
+    window.removeEventListener("storage", onStorage);
   };
 }
 

@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -425,6 +425,24 @@ describe("GroupDetailPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "只看我的" }));
       expect(screen.queryByText(NOT_MINE)).not.toBeInTheDocument();
       expect(localStorage.getItem(EXPENSE_ONLY_MINE_KEY)).toBe("0");
+    });
+
+    it("takes another tab's change over the copy kept after a refused write", async () => {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new DOMException("quota", "QuotaExceededError");
+      });
+      await renderPage(fakePlatform("/app"));
+      fireEvent.click(screen.getByRole("button", { name: "只看我的" }));
+      expect(screen.getByText(NOT_MINE)).toBeInTheDocument();
+
+      // Another tab turns the filter off; storage works there, and that value is newer.
+      vi.restoreAllMocks();
+      localStorage.setItem(EXPENSE_ONLY_MINE_KEY, "0");
+      act(() => {
+        window.dispatchEvent(new StorageEvent("storage", { key: EXPENSE_ONLY_MINE_KEY }));
+      });
+
+      expect(screen.queryByText(NOT_MINE)).not.toBeInTheDocument();
     });
   });
 });

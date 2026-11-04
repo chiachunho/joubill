@@ -139,9 +139,6 @@ export function GroupDetailPage({
   const [storedOnlyMine, setStoredOnlyMine] = useLocalPref(EXPENSE_ONLY_MINE_KEY);
   const viewMode: ExpenseViewMode = storedViewMode === "balance" ? "balance" : "total";
   const onlyMine = storedOnlyMine === "1";
-  function changeViewMode(mode: ExpenseViewMode) {
-    setStoredViewMode(mode);
-  }
   function toggleOnlyMine() {
     setStoredOnlyMine(onlyMine ? "0" : "1");
   }
@@ -414,7 +411,7 @@ export function GroupDetailPage({
             ).map(([mode, label]) => (
               <button
                 key={mode}
-                onClick={() => changeViewMode(mode)}
+                onClick={() => setStoredViewMode(mode)}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   viewMode === mode
                     ? "bg-background text-foreground shadow-sm"
