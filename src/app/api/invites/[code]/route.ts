@@ -7,6 +7,7 @@ import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { INVITE_NOT_FOUND } from "@/lib/invite";
 import { findActiveInvite } from "@/lib/invites";
+import { enforceInviteRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ type Params = { params: Promise<{ code: string }> };
 /** Preview of what a code opens. Login is required so it can't be used to enumerate codes. */
 export const GET = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
+  await enforceInviteRateLimit(req, auth.user.id);
   const invite = await findActiveInvite((await params).code);
   if (!invite) {
     return NextResponse.json(

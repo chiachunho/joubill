@@ -1,8 +1,8 @@
 /**
  * Invite codes: Crockford base32, 10 characters (~50 bits), shown as `K7M2Q-X9PAB`.
  * The alphabet has no I, L, O or U, so a code read aloud can't be misheard.
- * There is no rate limit in this app, so the length is the only defence against
- * guessing. Don't shorten it.
+ * Lookups are rate limited per user and per IP (`rate-limits.ts`), but that bounds one
+ * guesser, not many: the length is still the main defence against guessing. Don't shorten it.
  *
  * Both ends of the contract live here: `inviteLink` builds the URL that
  * `parseInviteCode` / `normalizeInviteCode` read back.

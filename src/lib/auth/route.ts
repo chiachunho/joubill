@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { HttpError } from "./errors";
+import { HttpError, TooManyRequestsError } from "./errors";
 
 /**
  * Wraps a route handler so an HttpError (AuthError, BadRequestError, …) surfaces as
@@ -15,7 +15,11 @@ export function withAuth<TArgs extends unknown[]>(
       return await handler(req, ...args);
     } catch (err) {
       if (err instanceof HttpError) {
-        return NextResponse.json({ error: err.message }, { status: err.status });
+        const headers =
+          err instanceof TooManyRequestsError
+            ? { "Retry-After": String(err.retryAfter) }
+            : undefined;
+        return NextResponse.json({ error: err.message }, { status: err.status, headers });
       }
       throw err;
     }

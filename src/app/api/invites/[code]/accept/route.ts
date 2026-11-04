@@ -8,6 +8,7 @@ import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { CLAIM_UNAVAILABLE, INVITE_NOT_FOUND } from "@/lib/invite";
 import { findActiveInvite } from "@/lib/invites";
+import { enforceInviteRateLimit } from "@/lib/rate-limit";
 import { labelUser } from "@/lib/label";
 import { getBot } from "@/bot";
 import { refreshClaimedNotices } from "@/lib/claim-notices";
@@ -29,6 +30,7 @@ const bodySchema = z.object({ placeholderUserId: idSchema.optional() });
  */
 export const POST = withAuth(async (req: Request, { params }: Params) => {
   const auth = await getAuth(req);
+  await enforceInviteRateLimit(req, auth.user.id);
   const invite = await findActiveInvite((await params).code);
   if (!invite) {
     return NextResponse.json(
