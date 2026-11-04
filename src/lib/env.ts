@@ -8,11 +8,11 @@ const serverSchema = z.object({
   TELEGRAM_MINI_APP_NAME: z.string().min(1),
   // Private channel where the bot stores receipt photos; chat_id is a large negative number.
   TELEGRAM_STORAGE_CHAT_ID: z.string().min(1),
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.url(),
 });
 
 const clientSchema = z.object({
-  NEXT_PUBLIC_MINI_APP_URL: z.string().url(),
+  NEXT_PUBLIC_MINI_APP_URL: z.url(),
 });
 
 type ServerEnv = z.infer<typeof serverSchema>;

@@ -8,11 +8,10 @@ const VALID = {
   DATABASE_URL: "postgres://user:pw@ep-cool-123.ap-southeast-1.aws.neon.tech/db?sslmode=require",
 };
 
-async function loadEnv(overrides: Record<string, string | undefined>) {
+async function loadEnv(overrides: Record<string, string>) {
   vi.resetModules();
   for (const [k, v] of Object.entries({ ...VALID, ...overrides })) {
-    if (v === undefined) vi.stubEnv(k, "");
-    else vi.stubEnv(k, v);
+    vi.stubEnv(k, v);
   }
   return import("../env");
 }

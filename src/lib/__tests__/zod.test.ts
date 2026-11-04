@@ -210,6 +210,24 @@ describe("expenseInputSchema", () => {
   });
 });
 
+describe("expenseInputSchema: malformed bodies", () => {
+  // The cross-field refines read splits/payers; a body that breaks the base shape must come
+  // back as a failed parse, never a throw (which would surface as a 500).
+  it("fails cleanly when nested items have the wrong type", () => {
+    for (const bad of [
+      { ...validExpense, splits: [{ debtorId: 1, amount: "x" }] },
+      { ...validExpense, payers: [{ payerId: "1", amount: 300 }] },
+      { ...validExpense, splits: null },
+      { ...validExpense, payers: undefined },
+      null,
+      "nope",
+    ]) {
+      expect(() => expenseInputSchema.safeParse(bad)).not.toThrow();
+      expect(expenseInputSchema.safeParse(bad).success).toBe(false);
+    }
+  });
+});
+
 describe("settlementInputSchema", () => {
   const valid = { fromUserId: 1, toUserId: 2, amount: 50, currency: "USD" as const };
 

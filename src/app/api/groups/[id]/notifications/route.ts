@@ -41,7 +41,7 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
   return NextResponse.json(body);
 });
 
-const patchSchema = z.object({ muted: z.boolean() }).strict();
+const patchSchema = z.strictObject({ muted: z.boolean() });
 
 export const PATCH = withAuth(async (req: Request, ctx: Params) => {
   const ids = await resolve(req, ctx);
