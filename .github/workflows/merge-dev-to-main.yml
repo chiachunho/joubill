@@ -21,11 +21,15 @@ jobs:
       contents: write
 
     steps:
+      # Push with a deploy key, not GITHUB_TOKEN: the dev/main rulesets require
+      # a pull request, and GitHub never lets github-actions[bot] bypass a
+      # ruleset. The deploy key is on those rulesets' bypass lists, and
+      # checkout points origin at SSH so the push below uses it.
       - name: Checkout with full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - name: Configure git
         run: |

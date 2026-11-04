@@ -485,7 +485,7 @@ Commit subjects and PR titles follow **Conventional Commits**: `type(scope): imp
 - The body carries the _why_. Explanations that a user can't act on belong here, not in the bot's replies (see `src/bot/commands/help.ts`).
 - Every PR names its issue in the PR description, on its own line: `Closes #N` when it completes the issue (GitHub closes it when the PR merges into `dev`), `Part of #N` when it is one step of a larger issue, or `No-issue` when none applies. A plain mention such as `See #N` links the issue but leaves it open. When the last checkbox of an issue is ticked outside such a merge, close the issue in the same step.
 
-The prefix is for humans only: the release workflow's semver bump is a manual `workflow_dispatch` input (`.github/workflows/merge-dev-to-main.yml`), **not** parsed from commit types, so a wrong prefix can't mis-release anything.
+The prefix is for humans only: the release workflow's semver bump is a manual `workflow_dispatch` input (`.github/workflows/merge-dev-to-main.yml`), **not** parsed from commit types, so a wrong prefix can't mis-release anything. `dev` and `main` are protected by rulesets that require a pull request, so changes land through PRs; only that release workflow pushes directly, with the `RELEASE_DEPLOY_KEY` deploy key on the rulesets' bypass list (`GITHUB_TOKEN` can't be a bypass actor; setup in `docs/DEPLOYMENT.md` → Releasing).
 
 ### Deployment
 
