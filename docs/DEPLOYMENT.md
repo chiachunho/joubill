@@ -261,6 +261,24 @@ Push to the default branch on GitHub → Vercel auto-redeploys.
 **If the domain hasn't changed you don't need to re-set the webhook** — only
 re-run step 8 when the domain, the secret, or the `allowed_updates` list changes.
 
+## Releasing (dev → main)
+
+The **Merge dev → main & tag** workflow (`.github/workflows/merge-dev-to-main.yml`,
+run by hand from the Actions tab) bumps the version on `dev`, fast-forwards `main`
+and pushes both with the tag. The `dev` and `main` rulesets require a pull request,
+and `GITHUB_TOKEN` can never be added to a ruleset's bypass list, so the workflow
+pushes with a deploy key instead. One-time setup:
+
+1. `ssh-keygen -t ed25519 -N "" -C "release-workflow" -f release_key`
+2. Settings → Deploy keys → add `release_key.pub` with **Allow write access**.
+3. Settings → Secrets and variables → Actions → secret `RELEASE_DEPLOY_KEY` = the
+   contents of `release_key`. Delete both local files afterwards.
+4. Settings → Rules → Rulesets → every ruleset covering `dev`, `main` (or tags) →
+   Bypass list → **Deploy keys**, mode **Always allow**.
+
+Anything holding that secret can push straight to `main`, so use it in this
+workflow only.
+
 ## Troubleshooting
 
 - **Domains never goes Valid**: DNS hasn't propagated, or the CNAME/A record is wrong. Wait, or re-check against the values Vercel showed.
