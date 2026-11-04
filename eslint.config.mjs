@@ -10,16 +10,14 @@ const config = [
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      // eslint-config-next 16 ships eslint-plugin-react-hooks 7, whose React
-      // Compiler rules flag patterns this codebase uses deliberately (a ref
-      // written during render as "latest value", state reset in an effect when
-      // a dialog opens). We don't use the compiler, so these are style
-      // suggestions, not bugs. Revisit if the compiler is ever adopted.
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/refs": "off",
-      "react-hooks/purity": "off",
-      "react-hooks/preserve-manual-memoization": "off",
-      "react-hooks/incompatible-library": "off",
+      // Temporary: eslint-config-next 16 brings react-hooks 7, whose React Compiler rules
+      // flag existing code. Kept visible as warnings until the next commit fixes them and
+      // restores these to their default `error`.
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/refs": "warn",
+      "react-hooks/purity": "warn",
+      "react-hooks/preserve-manual-memoization": "warn",
+      "react-hooks/incompatible-library": "warn",
     },
   },
   {
