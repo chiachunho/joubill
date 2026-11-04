@@ -150,17 +150,17 @@ export const expenseFormSchema = z
     if (total > 0) {
       const emptyPayer = data.payers.some((p) => !p.userId);
       if (emptyPayer) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "請選擇付款人", path: ["payers"] });
+        ctx.addIssue({ code: "custom", message: "請選擇付款人", path: ["payers"] });
       } else if (
         data.payers.length > 1 &&
         data.payers.some((p) => !Number.isFinite(parseFloat(p.amount)))
       ) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "請輸入有效金額", path: ["payers"] });
+        ctx.addIssue({ code: "custom", message: "請輸入有效金額", path: ["payers"] });
       } else {
         const payerSum = data.payers.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
         if (Math.abs(payerSum - total) >= 0.005) {
           ctx.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: "custom",
             message: "付款人金額加總需等於總金額",
             path: ["payers"],
           });
@@ -172,7 +172,7 @@ export const expenseFormSchema = z
     const included = data.participants.filter((p) => p.included);
     if (included.length === 0) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "至少選一位參與者",
         path: ["participants"],
       });
@@ -184,7 +184,7 @@ export const expenseFormSchema = z
     if (data.shareType === "percent") {
       if (Math.abs(sum - 100) >= 0.005) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "比例加總需為 100%",
           path: ["participants"],
         });
@@ -192,7 +192,7 @@ export const expenseFormSchema = z
     } else if (data.shareType === "shares") {
       if (sum <= 0) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "份數合計須大於 0",
           path: ["participants"],
         });
@@ -200,7 +200,7 @@ export const expenseFormSchema = z
     } else if (data.shareType === "adjustment") {
       if (sum > total) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "額外金額加總不能超過總金額",
           path: ["participants"],
         });
@@ -208,7 +208,7 @@ export const expenseFormSchema = z
     } else {
       if (Math.abs(sum - total) >= 0.005) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "分帳金額加總與總金額不符",
           path: ["participants"],
         });

@@ -34,8 +34,8 @@ const querySchema = z.object({
   // Full ISO instants, not bare "YYYY-MM-DD" — only the browser knows the
   // viewer's local day boundaries, so it resolves those itself
   // (`customRangeToQueryBounds` in stats-core.ts) before this ever sees them.
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
+  from: z.iso.datetime().optional(),
+  to: z.iso.datetime().optional(),
 });
 
 export const GET = withAuth(async (req: Request, { params }: Params) => {
