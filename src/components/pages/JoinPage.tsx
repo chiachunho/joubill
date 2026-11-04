@@ -11,6 +11,7 @@ import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { Button } from "@/components/ui/button";
 import { apiErrorStatus, apiErrorText } from "@/lib/api-error";
 import { decodeInviteParam, INVITE_NOT_FOUND, normalizeInviteCode } from "@/lib/invite";
+import { RATE_LIMITED } from "@/lib/rate-limits";
 import { useAcceptInviteMutation, useGetInvitePreviewQuery } from "@/store/api";
 
 const INVALID = INVITE_NOT_FOUND.error;
@@ -47,7 +48,10 @@ export function JoinPage({
         ...(claimed ? { placeholderUserId: claimed.id } : {}),
       }).unwrap();
       router.replace(`${platform.basePath}/groups/${groupId}`);
-    } catch {
+    } catch (err) {
+      // Over the attempt limit: the server's text is shown below, and a refetch would only
+      // spend another attempt.
+      if (apiErrorStatus(err) === RATE_LIMITED.status) return;
       // The error is shown below. Re-read the list: the name picked may have been claimed
       // or removed since this page loaded, and the preview is not otherwise invalidated.
       // A pick the new list no longer offers falls back to 都不是 on its own (`claimed`), while
@@ -69,6 +73,28 @@ export function JoinPage({
         <Link href={platform.basePath} className="mt-6 inline-block text-sm text-primary">
           回首頁
         </Link>
+      </div>
+    );
+  }
+
+  // Too many attempts. Never the invalid-code text (the code may be fine), and no wait time:
+  // knowing when the window resets only helps a script time its next burst.
+  if (error && apiErrorStatus(error) === RATE_LIMITED.status) {
+    return (
+      <div className="px-4 py-16 text-center">
+        <p className="font-semibold">{RATE_LIMITED.error}</p>
+        <p className="mt-1 text-sm text-muted-foreground">請過一段時間再試一次</p>
+        <Button className="mt-6" variant="secondary" onClick={() => refetch()}>
+          重試
+        </Button>
+        <div className="mt-6 flex flex-col items-center gap-3 text-sm">
+          <Link href={`${platform.basePath}/groups/join`} className="text-primary">
+            重新輸入邀請碼
+          </Link>
+          <Link href={platform.basePath} className="text-primary">
+            回首頁
+          </Link>
+        </div>
       </div>
     );
   }

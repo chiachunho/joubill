@@ -6,6 +6,8 @@ import { groupMembers, groups, recordAuditLog } from "@/db/schema";
 import { telegramChatColumns } from "@/lib/chat";
 import { findActiveInvite, INVITE_NOT_FOUND } from "@/lib/invites";
 import { planLink } from "@/lib/link-plan";
+import { consumeRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMITED, RATE_RULES } from "@/lib/rate-limits";
 import { logChatLinked } from "@/lib/record-mutation";
 
 import { actorOf } from "../actor";
@@ -45,6 +47,18 @@ linkCommand.command("link", async (ctx) => {
   const raw = ctx.match.trim();
   if (!raw) {
     await ctx.reply(USAGE, { parse_mode: "HTML" });
+    return;
+  }
+
+  // Counted before the code is looked up, per sender and per chat (issue #121). Only the
+  // first refusal in a window gets a reply, so a script can't flood the chat through the bot,
+  // and the reply never says how long to wait.
+  const limit = await consumeRateLimit([
+    { rule: RATE_RULES.linkSender, id: ctx.from?.id ?? `u${ctx.dbUser.id}` },
+    { rule: RATE_RULES.linkChat, id: ctx.chat.id },
+  ]);
+  if (!limit.ok) {
+    if (limit.firstRefusal) await ctx.reply(`${RATE_LIMITED.error}。`);
     return;
   }
 

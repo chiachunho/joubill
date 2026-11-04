@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { JoinPage } from "@/components/pages/JoinPage";
 import { webPlatform } from "@/components/pages/platform.web";
 import { CLAIM_UNAVAILABLE } from "@/lib/invite";
+import { RATE_LIMITED } from "@/lib/rate-limits";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 const mockReplace = vi.fn();
@@ -165,6 +166,38 @@ describe("JoinPage", () => {
 
     expect(await screen.findByRole("button", { name: "重試" })).toBeInTheDocument();
     expect(screen.queryByText("邀請碼無效或已失效")).not.toBeInTheDocument();
+  });
+
+  describe("over the attempt limit", () => {
+    const limited = new Failure(429, { error: RATE_LIMITED.error });
+
+    it("says so instead of calling the code invalid, without a wait time", async () => {
+      renderJoin({ [`/api/invites/${CODE}`]: limited });
+
+      expect(await screen.findByText(RATE_LIMITED.error)).toBeInTheDocument();
+      expect(screen.queryByText("邀請碼無效或已失效")).not.toBeInTheDocument();
+      expect(screen.queryByText(/分鐘|秒/)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "重試" })).toBeEnabled();
+      expect(screen.getByRole("link", { name: "重新輸入邀請碼" })).toHaveAttribute(
+        "href",
+        "/app/groups/join",
+      );
+    });
+
+    it("keeps the preview when accepting is refused, and doesn't spend another try", async () => {
+      const preview = vi.fn(() => PREVIEW);
+      renderJoin({
+        [`/api/invites/${CODE}`]: preview,
+        [`/api/invites/${CODE}/accept`]: limited,
+      });
+
+      fireEvent.click(await screen.findByRole("button", { name: "加入" }));
+
+      expect(await screen.findByText(RATE_LIMITED.error)).toBeInTheDocument();
+      expect(screen.getByText("東京旅行")).toBeInTheDocument();
+      expect(preview).toHaveBeenCalledTimes(1);
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
   });
 
   it("treats a malformed link parameter as an invalid code instead of crashing", async () => {

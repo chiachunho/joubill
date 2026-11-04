@@ -511,6 +511,25 @@ export type NewUserBeancountConfig = typeof userBeancountConfigs.$inferInsert;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 
 /**
+ * Attempt counters for `src/lib/rate-limit.ts` (issue #121): one row per key per fixed
+ * window. `key` is `<rule>:<id>` (a user id, an HMAC of an IP, a Telegram id or chat id)
+ * and deliberately has no foreign key: a merged account's counter simply expires. Old rows
+ * are swept on use via the `window_start` index.
+ */
+export const rateLimitHits = pgTable(
+  "rate_limit_hits",
+  {
+    key: text("key").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(1),
+  },
+  (t) => [
+    primaryKey({ columns: [t.key, t.windowStart] }),
+    index("rate_limit_hits_window_idx").on(t.windowStart),
+  ],
+);
+
+/**
  * Applied data migrations (scripts/migrate.ts creates it with the same shape).
  * Declared here only so `db:push` doesn't see an unknown table and drop it.
  */

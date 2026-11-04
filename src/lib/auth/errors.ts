@@ -36,3 +36,14 @@ export class BadRequestError extends HttpError {
     this.name = "BadRequestError";
   }
 }
+
+/** Over a rate limit. `retryAfter` (seconds) becomes the `Retry-After` header, not the body. */
+export class TooManyRequestsError extends HttpError {
+  constructor(
+    message: string,
+    public readonly retryAfter: number,
+  ) {
+    super(429, message);
+    this.name = "TooManyRequestsError";
+  }
+}

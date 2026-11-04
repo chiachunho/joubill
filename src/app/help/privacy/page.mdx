@@ -26,6 +26,7 @@ import { ContactEmail } from "@/components/help/ContactEmail";
 
 - 登入用的 Session Cookie（必要，用於維持登入狀態）。
 - 若你開啟推播通知：瀏覽器提供的推播訂閱端點與金鑰。
+- 防止猜測邀請碼：查詢或使用邀請碼時，我們會記錄嘗試次數，以帳號以及你 IP 位址經過不可逆雜湊後的值為單位。不保存 IP 位址本身，這些計數最多保留一天。
 - 瀏覽器本機儲存（localStorage / sessionStorage）：例如「下次再說」等提示的選擇，只存在你的裝置上。
 - Vercel Web Analytics 與 Speed Insights：匿名的瀏覽量與頁面效能統計，不使用追蹤 Cookie，不用來識別個人。
 
