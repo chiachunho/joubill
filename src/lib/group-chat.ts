@@ -4,7 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { expenses, groups, recordAuditLog } from "@/db/schema";
 import { noChatColumns, telegramChatId } from "@/lib/chat";
-import { planUnlink, type UnlinkRefusal } from "@/lib/unlink-plan";
+import { planUnlink } from "@/lib/unlink-plan";
 
 /**
  * Detaching a group from its Telegram chat, shared by `DELETE /api/groups/[id]/chat` and the
@@ -31,9 +31,7 @@ export async function chatTitleOf(groupId: number): Promise<string> {
   return group?.title ?? "";
 }
 
-export type UnlinkOutcome =
-  | { ok: true; chatId: number }
-  | { ok: false; reason: Exclude<UnlinkRefusal, "not_member"> };
+export type UnlinkOutcome = { ok: true; chatId: number } | { ok: false; reason: "no_chat" };
 
 /**
  * Clears the chat and every record's pointer into it, in one transaction.
@@ -43,15 +41,15 @@ export type UnlinkOutcome =
  * The group is locked first and the chat re-read under the lock, so two members unlinking at
  * once get one success and one `no_chat`.
  *
- * The caller must have checked membership; the plan is run here with `isMember: true` only to
- * keep `hasChat` decided in the one place both entry points share.
+ * The caller must have checked membership.
  */
 export async function unlinkChat(groupId: number): Promise<UnlinkOutcome> {
   return db.transaction(async (tx) => {
     const [group] = await tx.select().from(groups).where(eq(groups.id, groupId)).for("update");
     const chatId = group ? telegramChatId(group) : null;
-    const plan = planUnlink({ isMember: true, hasChat: chatId !== null });
-    if (!plan.ok || chatId === null) return { ok: false, reason: "no_chat" } as const;
+    const plan = planUnlink({ hasChat: chatId !== null });
+    if (!plan.ok || chatId === null)
+      return { ok: false, reason: plan.ok ? "no_chat" : plan.reason };
 
     await tx
       .update(groups)

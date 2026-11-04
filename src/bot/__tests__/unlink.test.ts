@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BTN } from "@/lib/buttons";
 
-import { unlinkCommand } from "../commands/unlink";
+import { UNLINK_PROMPT_TTL_SECONDS, unlinkCommand } from "../commands/unlink";
 import { dbGroup, expectAllCallsStubbed, testBot } from "./harness";
 
 const { unlinkChat, chatTitleOf, logChatUnlinked } = vi.hoisted(() => ({
@@ -107,6 +107,29 @@ describe("/unlink", () => {
 
     expect(logChatUnlinked).not.toHaveBeenCalled();
     expect(t.callsOf("leaveChat")).toEqual([]);
+  });
+
+  it("ignores a prompt nobody pressed for too long", async () => {
+    const t = testBot(unlinkCommand);
+    stubReplies(t);
+    const old = Math.floor(Date.now() / 1000) - UNLINK_PROMPT_TTL_SECONDS - 5;
+    await t.press("unlink:yes:7", { messageDate: old });
+
+    expect(unlinkChat).not.toHaveBeenCalled();
+    expect(t.callsOf("leaveChat")).toEqual([]);
+    expect(t.callsOf("editMessageText")[0].text).toContain("已過期");
+  });
+
+  it("answers the button and keeps the bot in the chat when the unlink itself fails", async () => {
+    unlinkChat.mockRejectedValue(new Error("db down"));
+    const t = testBot(unlinkCommand);
+    stubReplies(t);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await t.press("unlink:yes:7");
+
+    expect(t.callsOf("answerCallbackQuery")).toHaveLength(1);
+    expect(t.callsOf("leaveChat")).toEqual([]);
+    expect(logChatUnlinked).not.toHaveBeenCalled();
   });
 
   it("won't act on a tap it can't attribute to a user", async () => {

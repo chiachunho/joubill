@@ -65,6 +65,28 @@ describe("TelegramChatSection", () => {
     expect(screen.queryByRole("button", { name: /解除綁定/ })).not.toBeInTheDocument();
   });
 
+  it("treats a 409 as done: another member unlinked first", async () => {
+    let linked = true;
+    renderSection(
+      fakeRequest({
+        [CHAT]: (init) => {
+          if (init?.method === "DELETE") {
+            linked = false;
+            return new Failure(409);
+          }
+          return { linked, title: linked ? "日本行" : null };
+        },
+      }),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /解除綁定/ }));
+    const confirm = await screen.findAllByRole("button", { name: "解除綁定" });
+    fireEvent.click(confirm[confirm.length - 1]);
+
+    expect(await screen.findByText("尚未綁定")).toBeInTheDocument();
+    expect(screen.queryByText("解除失敗，請再試一次")).not.toBeInTheDocument();
+  });
+
   it("says so when the unlink fails, and keeps the group bound", async () => {
     renderSection(
       fakeRequest({

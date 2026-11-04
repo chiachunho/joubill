@@ -1,6 +1,6 @@
 import { Composer, InlineKeyboard } from "grammy";
 
-import { BTN } from "@/lib/buttons";
+import { BTN, TOAST } from "@/lib/buttons";
 import { telegramChatId } from "@/lib/chat";
 import { chatTitleOf, leaveUnlinkedChat, UNLINK_FAREWELL, unlinkChat } from "@/lib/group-chat";
 import { logChatUnlinked } from "@/lib/record-mutation";
@@ -10,6 +10,13 @@ import type { BotContext } from "../context";
 import { escapeHtml } from "../format";
 
 export const unlinkCommand = new Composer<BotContext>();
+
+/**
+ * How long a prompt stays live. The bot leaves the chat, so a prompt nobody pressed must not
+ * remain a loaded button for days: a later tap would detach a group (possibly one re-linked here
+ * since) on a decision made long ago.
+ */
+export const UNLINK_PROMPT_TTL_SECONDS = 10 * 60;
 
 /**
  * `/unlink` never acts on its own: a mistyped command in a chat must not detach a group and make
@@ -59,9 +66,26 @@ unlinkCommand.callbackQuery(/^unlink:yes:(\d+)$/, async (ctx) => {
     return;
   }
 
-  // Read first: once the chat is cleared the group no longer remembers what it was called.
-  const title = await chatTitleOf(groupId);
-  const outcome = await unlinkChat(groupId);
+  const promptDate = ctx.callbackQuery.message?.date ?? 0;
+  if (Date.now() / 1000 - promptDate > UNLINK_PROMPT_TTL_SECONDS) {
+    await ctx.answerCallbackQuery({ text: "這個確認已過期，請重新輸入 /unlink", show_alert: true });
+    await ctx.editMessageText("這個確認已過期。").catch(() => null);
+    return;
+  }
+
+  // Always answer the callback query, so a database error can't leave the button spinning.
+  let outcome: Awaited<ReturnType<typeof unlinkChat>>;
+  try {
+    // Read first: once the chat is cleared the group no longer remembers what it was called.
+    const title = await chatTitleOf(groupId);
+    outcome = await unlinkChat(groupId);
+    if (outcome.ok) await logChatUnlinked(groupId, actorOf(ctx), title);
+  } catch (err) {
+    console.error("[unlink] failed:", err);
+    await ctx.answerCallbackQuery({ text: TOAST.actionFailed, show_alert: true }).catch(() => null);
+    return;
+  }
+
   if (!outcome.ok) {
     // Another member confirmed first.
     await ctx.answerCallbackQuery({ text: "已經解除綁定了" });
@@ -69,7 +93,6 @@ unlinkCommand.callbackQuery(/^unlink:yes:(\d+)$/, async (ctx) => {
     return;
   }
 
-  await logChatUnlinked(groupId, actorOf(ctx), title);
   await ctx.answerCallbackQuery({ text: "已解除綁定" });
   await leaveUnlinkedChat(ctx.api, outcome.chatId, async () => {
     await ctx.editMessageText(UNLINK_FAREWELL);
