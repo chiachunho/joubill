@@ -1,123 +1,82 @@
-# Splitbill Telegram Bot
+# 揪帳 Splitbill
 
 > 中文版：[README.zh-TW.md](README.zh-TW.md)
 
-A Splitwise-style group expense-splitting Telegram Bot + Mini App. A single
-Next.js (App Router) app serves the Mini App frontend, a standalone web
-frontend, the grammY webhook, and the data API at once.
+Split group expenses without leaving the chat. Add the 揪帳 bot to a Telegram
+group, type `/add 300 lunch`, and it works out who owes whom and the fewest
+transfers that settle everyone up. Friends without Telegram can use the same
+ledger from a browser.
 
-## Stack
+## What it does
 
-- **Frontend / Server**: Next.js 15 (App Router) + React 19
-- **UI**: Tailwind CSS + shadcn/ui
-- **Bot**: grammY (webhook mode)
-- **DB**: Neon Serverless Postgres + Drizzle ORM
-- **Validation**: Zod
-- **Web login**: Auth.js (NextAuth v5) — Telegram OAuth, optional GitHub / Google
-- **Deploy**: Vercel
+- **One-line expenses**: `/add 500 dinner` in the group chat. Amounts can be
+  written loosely: `1,200`, `$300`, `1.5k`, `150+200`.
+- **Fix it with buttons, not syntax**: every expense gets a card with a
+  **⚙️ 調整** button for who paid, who splits, shares per person and currency.
+- **Clear balances**: `/balance` shows each person's net amount, and `/settle`
+  suggests the fewest transfers that clear the group.
+- **Many currencies**: each record can be in a different currency. Balances are
+  converted to the group's currency at that day's rate, or at a rate the group
+  agrees on.
+- **Flexible splits**: several people can pay for one expense, and the cost can
+  be split equally, by shares, by exact amounts, by percentage or with
+  adjustments. Up to 5 receipt photos per expense.
+- **Everyone can fix mistakes**: any member can edit or delete any record. Each
+  change shows who made it in the chat and in the activity history.
+- **Members without an account**: add someone by name only and merge them into
+  their real account if they join later.
+- **Stats and exports**: per-person spending trends, CSV export, and a personal
+  [beancount](https://beancount.github.io/) export for your own ledger.
 
-## Prerequisites
+## Getting started
 
-1. Create a Telegram Bot: register with [@BotFather](https://t.me/BotFather) and get the `TELEGRAM_BOT_TOKEN`.
-2. Register a direct-link Mini App (so it opens inside groups too):
-   ```
-   @BotFather → /newapp → pick your bot
-     - Title: Splitbill
-     - Description: Group expense splitting
-     - Photo: any 640x360
-     - Web App URL: https://<your-public-url>/mini
-       (use an ngrok URL for local dev; change later with /editapp)
-     - Short name: splitbill  ← this goes into TELEGRAM_MINI_APP_NAME
-   ```
-3. (Optional, for web login) BotFather → Bot Settings → Web Login → note the Client ID / Secret.
-4. Create a Neon project: [neon.tech](https://neon.tech) → get `DATABASE_URL` (use the pooled connection + `?sslmode=require`).
-5. Copy the environment variables:
-   ```bash
-   cp .env.example .env.local
-   # fill in the values — see .env.example for the full list
-   ```
+1. Find the 揪帳 bot in Telegram and **add it to the group** you want to split
+   expenses in. It greets the group with an **開啟揪帳 →** button (type
+   `/start` if it doesn't).
+2. Record the first expense: `/add 300 lunch`. Tap **⚙️ 調整** on the card to
+   change who paid or who splits.
+3. Use `/balance` and `/settle` when it's time to pay each other back.
 
-## Local development
+The bot only sees commands, @mentions of it and replies to it, so people show up
+in the ledger as they use the bot. To add someone right away, reply to one of
+their messages and type `/join`.
 
-```bash
-pnpm install
-pnpm db:push           # sync the schema to Neon
-pnpm dev               # http://localhost:3000
-```
+## Commands (in a group)
 
-### Exposing to Telegram
+| Command        | What it does                                              |
+| -------------- | --------------------------------------------------------- |
+| `/add`         | Record an expense, e.g. `/add 500 dinner`                 |
+| `/list`        | The 10 most recent expenses                               |
+| `/balance`     | Each person's net amount                                  |
+| `/settle`      | The fewest transfers that settle everyone up              |
+| `/export`      | Post every record as a CSV file                           |
+| `/join`        | Reply to someone's message, then type `/join` to add them |
+| `/link <code>` | Bind a group created on the web to this chat              |
+| `/app`         | Open the Mini App                                         |
+| `/help`        | Command help, with a link to the full guide               |
 
-Telegram webhooks require HTTPS; for local dev use ngrok / cloudflared:
+In a private chat with the bot, `/start` and `/help` work.
 
-```bash
-# either one
-ngrok http 3000
-cloudflared tunnel --url http://localhost:3000
-```
+## Two ways in, one ledger
 
-### Setting the webhook
+- **Mini App**: opens inside Telegram, from `/app` or any button on the bot's
+  messages.
+- **Web App**: the same features in a browser at `/app`. Sign in with Telegram,
+  or with GitHub, Google or LINE where the site enables them. You can create a
+  group on the web and invite friends with an invite code, with no Telegram
+  needed. On a phone you can add it to the home screen and get notified when
+  someone records something that involves you.
 
-Once you have a public URL (e.g. `https://abc.ngrok.app`):
+Both show the same data. The full user guide (in Traditional Chinese) is at
+`/help` on the site, and the bot's `/help` reply links to it.
 
-```bash
-pnpm bot:set-webhook https://abc.ngrok.app
-```
+## Running your own instance
 
-The script appends `/api/telegram`, sets the `secret_token` from
-`TELEGRAM_WEBHOOK_SECRET`, and prints `getWebhookInfo` to confirm.
+揪帳 is one Next.js app (bot webhook, Mini App, Web App and API) on Vercel with a
+Neon Postgres database.
 
-Then add the bot to a Telegram group and send `/start`.
-
-## Commands
-
-- `/start` — register yourself + the group in the current chat
-- `/help` — command reference
-- `/add <amount> <description> @user1 @user2 ...` — add an expense (split evenly)
-- `/list` — list recent expenses
-- `/balance` — show current balances
-- `/settle` — produce the minimum-transfer repayment plan
-- Open the Mini App: use the button in the `/start` reply
-
-## Two entry points
-
-- **Mini App** (`/mini`) — opens inside Telegram via the bot's `web_app` button (carries `initData`). Opening it directly in a browser only shows a preview.
-- **Web App** (`/app`, sign in at `/login`) — a standalone browser app for users without Telegram, authenticated with an Auth.js session cookie.
-
-## Structure
-
-```
-src/
-├── app/
-│   ├── api/telegram/route.ts     # grammY webhook
-│   ├── api/auth/...              # Auth.js handlers (web login)
-│   ├── api/groups/[id]/...       # REST API (shared by both frontends)
-│   ├── api/me/groups/...         # current user's groups
-│   ├── api/tg-photo, tg-upload   # receipt-photo proxy + upload
-│   ├── mini/                     # Mini App pages (Telegram)
-│   ├── app/                      # Web App pages (browser)
-│   ├── login/                    # web login
-│   ├── layout.tsx
-│   └── page.tsx                  # public landing
-├── auth.ts                       # Auth.js config (Telegram / GitHub / Google)
-├── bot/
-│   ├── index.ts                  # lazy bot singleton
-│   ├── commands/                 # /start, /add, /balance, ...
-│   └── middleware/               # auto-registration
-├── components/                   # shadcn ui + mini/web components
-├── db/
-│   ├── index.ts                  # Drizzle client
-│   └── schema.ts                 # 12 tables
-└── lib/
-    ├── env.ts                    # typed env
-    ├── auth/                     # initData HMAC, sessions, route guard
-    ├── settlement-core.ts        # pure greedy min-transfer algorithm
-    ├── settlement.ts             # DB-backed balance queries
-    ├── fx.ts                     # exchange-rate cache
-    └── zod.ts                    # input schemas
-```
-
-## Deployment
-
-Production runs on Vercel (frontend + bot webhook + API in one deploy) behind a
-custom domain, backed by Neon Postgres. Full step-by-step in
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local setup, scripts and tests
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): deploying to Vercel with a custom
+  domain
+- [CLAUDE.md](CLAUDE.md) and [docs/architecture/](docs/architecture/): how the
+  code is organised and why
