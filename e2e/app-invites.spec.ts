@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, like, or } from "drizzle-orm";
 import type { Pool } from "@neondatabase/serverless";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import { drizzle } from "drizzle-orm/neon-serverless";
@@ -206,9 +206,17 @@ test.describe("Creating groups and joining by invite", () => {
       await expect(page.getByText(INVALID)).toHaveCount(0);
     } finally {
       await context.close();
+      // Also the per-IP counters: every case in the run shares the runner's one address, so
+      // leaving this burst in that bucket could push other invite cases into 429. Each
+      // preview has its own database, so nothing real is in there.
       await db
         .delete(schema.rateLimitHits)
-        .where(eq(schema.rateLimitHits.key, `invite:user:${seeded.outsiderId}`));
+        .where(
+          or(
+            eq(schema.rateLimitHits.key, `invite:user:${seeded.outsiderId}`),
+            like(schema.rateLimitHits.key, `${RATE_RULES.inviteIp.name}:%`),
+          ),
+        );
     }
   });
 

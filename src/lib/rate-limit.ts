@@ -19,14 +19,22 @@ import {
   windowStart,
 } from "@/lib/rate-limits";
 
+/** Runs work after the reply: `after` in a route handler, fire-and-forget otherwise. */
+export type Defer = (fn: () => Promise<void>) => void;
+
+const fireAndForget: Defer = (fn) => void fn();
+
 /**
  * Counts one attempt against every rule in `entries` (one statement) and says whether it is
  * over. Fails open: the limit is defence in depth on top of a 50-bit code, and a limiter
  * that throws would take legitimate joins down with it.
+ *
+ * Old rows are swept only when this attempt opened a new window row (a count of 1), so the
+ * cleanup costs one DELETE per key per window instead of one per request.
  */
 export async function consumeRateLimit(
   entries: { rule: RateRule; id: string | number }[],
-  now = new Date(),
+  { now = new Date(), defer = fireAndForget }: { now?: Date; defer?: Defer } = {},
 ): Promise<RateDecision> {
   if (entries.length === 0) return { ok: true };
   const rows = entries.map(({ rule, id }) => ({
@@ -44,6 +52,7 @@ export async function consumeRateLimit(
       })
       .returning({ key: rateLimitHits.key, count: rateLimitHits.count });
     const byKey = new Map(counted.map((r) => [r.key, r.count]));
+    if (counted.some((r) => r.count === 1)) defer(() => sweepRateLimits(now));
     return decide(
       entries.map(({ rule, id }) => ({ rule, count: byKey.get(rateKey(rule, id)) ?? 1 })),
     );
@@ -80,15 +89,23 @@ export function ipKey(headers: Headers): string | null {
 
 /**
  * The guard for the invite routes: counts the attempt per user and per IP, throws a 429
- * (`withAuth` adds `Retry-After`) when over, and sweeps old rows after the response.
+ * (`withAuth` adds `Retry-After`) when over. Any sweep runs in `after()`.
  * Call it after `getAuth` and before anything looks the code up.
  */
 export async function enforceInviteRateLimit(req: Request, userId: number): Promise<void> {
-  const ip = ipKey(req.headers);
-  const decision = await consumeRateLimit([
-    { rule: RATE_RULES.inviteUser, id: userId },
-    ...(ip ? [{ rule: RATE_RULES.inviteIp, id: ip }] : []),
-  ]);
-  after(() => sweepRateLimits());
+  let ip: string | null = null;
+  try {
+    ip = ipKey(req.headers);
+  } catch (err) {
+    // Same fail-open stance as the count: without a key, only the per-user rule applies.
+    console.error("[rate-limit] could not derive the IP key", err);
+  }
+  const decision = await consumeRateLimit(
+    [
+      { rule: RATE_RULES.inviteUser, id: userId },
+      ...(ip ? [{ rule: RATE_RULES.inviteIp, id: ip }] : []),
+    ],
+    { defer: after },
+  );
   if (!decision.ok) throw new TooManyRequestsError(RATE_LIMITED.error, decision.retryAfter);
 }

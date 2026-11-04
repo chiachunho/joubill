@@ -6,16 +6,15 @@ import { linkCommand } from "../commands/link";
 import { expectAllCallsStubbed, resetTestDb, testBot } from "./harness";
 
 vi.mock("@/db", async () => ({ db: (await import("./harness")).testDb.db }));
-const consume = vi.fn();
-vi.mock("@/lib/rate-limit", () => ({
-  consumeRateLimit: (...args: unknown[]) => consume(...args),
-  sweepRateLimits: async () => {},
+const { consume, findActiveInvite } = vi.hoisted(() => ({
+  consume: vi.fn(),
+  // A refused /link must stop before the code is looked up.
+  findActiveInvite: vi.fn(async (_raw: string) => null),
 }));
-// A refused /link must stop before the code is looked up.
-const findActiveInvite = vi.fn(async () => null);
+vi.mock("@/lib/rate-limit", () => ({ consumeRateLimit: consume }));
 vi.mock("@/lib/invites", async (orig) => ({
   ...(await orig<typeof import("@/lib/invites")>()),
-  findActiveInvite: (...args: unknown[]) => findActiveInvite(...(args as [])),
+  findActiveInvite,
 }));
 
 beforeEach(() => {

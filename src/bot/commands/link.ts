@@ -6,7 +6,7 @@ import { groupMembers, groups, recordAuditLog } from "@/db/schema";
 import { telegramChatColumns } from "@/lib/chat";
 import { findActiveInvite, INVITE_NOT_FOUND } from "@/lib/invites";
 import { planLink } from "@/lib/link-plan";
-import { consumeRateLimit, sweepRateLimits } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit";
 import { RATE_LIMITED, RATE_RULES } from "@/lib/rate-limits";
 import { logChatLinked } from "@/lib/record-mutation";
 
@@ -57,7 +57,6 @@ linkCommand.command("link", async (ctx) => {
     { rule: RATE_RULES.linkSender, id: ctx.from?.id ?? `u${ctx.dbUser.id}` },
     { rule: RATE_RULES.linkChat, id: ctx.chat.id },
   ]);
-  void sweepRateLimits();
   if (!limit.ok) {
     if (limit.firstRefusal) await ctx.reply(`${RATE_LIMITED.error}。`);
     return;
