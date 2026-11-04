@@ -146,6 +146,25 @@ describe("ActivityList", () => {
     expect(container).toHaveTextContent("小明 綁定了 Telegram 群組（日本行）");
   });
 
+  it("says which chat a group was detached from", () => {
+    const { container } = render(
+      <ActivityList
+        {...props}
+        entries={[
+          entry({
+            action: "chat_unlinked",
+            recordId: null,
+            recordType: "group",
+            groupEvent: { chatTitle: "日本行" },
+          }),
+        ]}
+      />,
+    );
+
+    expect(container).toHaveTextContent("小明 解除了與 Telegram 群組「日本行」的綁定");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
   it("groups rows under a heading per day", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 9, 28, 12));

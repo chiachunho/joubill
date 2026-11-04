@@ -143,6 +143,9 @@ export function testBot(
       return calls.filter((c) => c.method === "sendMessage").map((c) => String(c.payload.text));
     },
     send: (text: string, opts: SendOptions = {}) => bot.handleUpdate(messageUpdate(text, opts)),
+    /** Tap an inline button: a callback query carrying `data` on one of the bot's messages. */
+    press: (data: string, opts: { from?: TgUser } = {}) =>
+      bot.handleUpdate(callbackUpdate(data, opts)),
   };
 }
 
@@ -178,6 +181,26 @@ function messageUpdate(text: string, opts: SendOptions = {}): Update {
       entities,
       ...(opts.replyTo ? { reply_to_message: opts.replyTo as Message } : {}),
     } as Message,
+  } as Update;
+}
+
+/** A tap on an inline button of a message in the group. */
+function callbackUpdate(data: string, opts: { from?: TgUser } = {}): Update {
+  const from = { is_bot: false, ...(opts.from ?? SENDER) };
+  return {
+    update_id: updateIds++,
+    callback_query: {
+      id: String(++messageIds),
+      from,
+      chat_instance: "test",
+      data,
+      message: {
+        message_id: ++messageIds,
+        date: Math.floor(Date.now() / 1000),
+        chat: { id: CHAT_ID, type: "supergroup", title: "Test" },
+        text: "prompt",
+      },
+    },
   } as Update;
 }
 

@@ -283,6 +283,14 @@ export type PushSubscriptionsResponse = {
   count: number;
 };
 
+/** GET /api/groups/[id]/chat */
+export type GroupChatResponse = {
+  /** The group is bound to a Telegram chat. */
+  linked: boolean;
+  /** The chat's name when it was bound; null when the group has no chat. */
+  title: string | null;
+};
+
 /** GET /api/groups/[id]/notifications */
 export type GroupNotificationsResponse = {
   muted: boolean;

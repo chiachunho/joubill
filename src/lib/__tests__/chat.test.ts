@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {
+  noChatColumns,
   requireTelegramChatId,
   telegramChatColumns,
   telegramChatId,
@@ -36,6 +37,13 @@ describe("requireTelegramChatId", () => {
 
   it("throws for a non-telegram group", () => {
     expect(() => requireTelegramChatId({ chatType: "line", chatId: "42" })).toThrow();
+  });
+});
+
+describe("noChatColumns", () => {
+  it("nulls both columns together, as the groups_chat_pair CHECK requires", () => {
+    expect(noChatColumns()).toEqual({ chatType: null, chatId: null });
+    expect(telegramChatId(noChatColumns())).toBeNull();
   });
 });
 

@@ -35,6 +35,11 @@ export function whereTelegramChat(id: number): SQL {
   return and(eq(groups.chatType, TELEGRAM_CHAT_TYPE), eq(groups.chatId, String(id)))!;
 }
 
+/** The column values that detach a group from its chat. Both go NULL together (`groups_chat_pair`). */
+export function noChatColumns() {
+  return { chatType: null, chatId: null };
+}
+
 /** The column values to insert/set for a Telegram chat. */
 export function telegramChatColumns(id: number) {
   return { chatType: TELEGRAM_CHAT_TYPE, chatId: String(id) };

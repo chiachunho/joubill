@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, KeyRound, Link2, Lock, UserCheck } from "lucide-react";
+import { ChevronRight, KeyRound, Link2, Link2Off, Lock, UserCheck } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { dayLabel, stampLabel } from "@/lib/format";
@@ -111,6 +111,7 @@ function Row({
       {entry.action === "rate_locked" ||
       entry.action === "invite_reset" ||
       entry.action === "chat_linked" ||
+      entry.action === "chat_unlinked" ||
       entry.action === "member_claimed" ||
       entry.action === "account_merged" ? (
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -118,6 +119,8 @@ function Row({
             <Lock className="size-3.5" />
           ) : entry.action === "chat_linked" ? (
             <Link2 className="size-3.5" />
+          ) : entry.action === "chat_unlinked" ? (
+            <Link2Off className="size-3.5" />
           ) : entry.action === "member_claimed" || entry.action === "account_merged" ? (
             <UserCheck className="size-3.5" />
           ) : (

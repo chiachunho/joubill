@@ -321,6 +321,29 @@ describe("changeHeading chat_linked", () => {
   });
 });
 
+describe("changeHeading chat_unlinked", () => {
+  it("names the chat the group was detached from", () => {
+    expect(
+      changeHeading(
+        { action: "chat_unlinked", recordType: "group", groupEvent: { chatTitle: "日本行" } },
+        true,
+      ),
+    ).toBe("解除了與 Telegram 群組「日本行」的綁定");
+  });
+
+  it("still reads without a title", () => {
+    expect(changeHeading({ action: "chat_unlinked", recordType: "group" }, true)).toBe(
+      "解除了與 Telegram 群組的綁定",
+    );
+  });
+});
+
+describe("isGroupEventPayload chatUnlinked", () => {
+  it("accepts the unlink payload, so record-history doesn't read it as an expense snapshot", () => {
+    expect(isGroupEventPayload({ kind: "chatUnlinked", chatTitle: "日本行" })).toBe(true);
+  });
+});
+
 describe("rateLockImpact", () => {
   it("leaves out a kind that nothing happened to", () => {
     expect(rateLockImpact({ expenses: 12, settlements: 3 })).toBe("影響 12 筆支出 · 3 筆轉帳");
