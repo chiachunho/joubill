@@ -51,7 +51,10 @@ export function EChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<ECharts | null>(null);
   const latestOptionRef = useRef(option);
-  latestOptionRef.current = option;
+  // Declared before the init effect so the ref is current by the time echarts loads.
+  useEffect(() => {
+    latestOptionRef.current = option;
+  });
 
   // Initialise once; dispose on unmount. Reading the option from a ref avoids
   // stale closures and keeps the option-change effect below as the single

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowLeft, Calendar as CalendarIcon, ChevronRight } from "lucide-react";
@@ -152,9 +152,9 @@ export function SettlementForm({
     },
   });
 
-  const amount = form.watch("amount");
-  const currency = form.watch("currency");
-  const settledDate = form.watch("settledDate");
+  const amount = useWatch({ control: form.control, name: "amount" });
+  const currency = useWatch({ control: form.control, name: "currency" });
+  const settledDate = useWatch({ control: form.control, name: "settledDate" });
   const isForeignCurrency = currency !== defaultCurrency;
 
   // A rate typed for one currency is meaningless for another — clear the field

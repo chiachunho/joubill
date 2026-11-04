@@ -18,8 +18,39 @@ import {
   PROVIDER_LABEL,
   type LoginProvider,
 } from "@/lib/identities";
-import { takeLinking } from "@/lib/linking-attempt";
+import { forgetLinking, peekLinking } from "@/lib/linking-attempt";
 import { useGetIdentitiesQuery, useUnlinkIdentityMutation } from "@/store/api";
+
+type Alert = { text: string; retry: LoginProvider | null };
+
+/**
+ * What the page was sent back with: the outcome of a link that didn't finish (/login,
+ * issue #105) or of the merge page (/app/settings/merge). Only reads, so it is safe to run
+ * while rendering. The server has no URL to read, but this section renders nothing until its
+ * data has loaded, so what the server and the first client render show cannot differ.
+ */
+function readArrival(): { alert: Alert | null; notice: string | null } {
+  if (typeof window === "undefined") return { alert: null, notice: null };
+  const params = new URLSearchParams(window.location.search);
+  const merge = params.get("merge");
+  const linkError = params.get(LINK_ERROR_PARAM);
+  if (linkError !== null) {
+    const provider = peekLinking();
+    return {
+      alert: { text: linkErrorMessage(linkError, provider), retry: provider },
+      notice: null,
+    };
+  }
+  if (merge === "done") {
+    return {
+      alert: null,
+      notice: "已合併，兩個帳號原本的登入方式現在都會登入這個帳號。",
+    };
+  }
+  if (merge === "expired")
+    return { alert: { text: MERGE_TICKET_NOT_FOUND, retry: null }, notice: null };
+  return { alert: null, notice: null };
+}
 
 /**
  * 個人設定的「登入方式」: the login methods on this account, with link / unlink. Linking is
@@ -31,29 +62,21 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
   const [unlink, { isLoading: unlinking }] = useUnlinkIdentityMutation();
   const [confirming, setConfirming] = useState<LoginProvider | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [arrival] = useState(readArrival);
+  const notice = arrival.notice;
   // A link or merge that came back unfinished. Shown above the list, where the person will
   // look for the provider they just tried; `retry` is that provider when it is known.
-  const [alert, setAlert] = useState<{ text: string; retry: LoginProvider | null } | null>(null);
+  const [alert, setAlert] = useState<Alert | null>(arrival.alert);
   const alertRef = useRef<HTMLDivElement>(null);
 
-  // The merge page (/app/settings/merge) and a link that didn't complete (/login, issue #105)
-  // send people back here with the outcome. The parameters are dropped once read, so a reload
-  // doesn't announce the same thing again.
+  // What `readArrival` showed is now on screen, so drop it from the URL; a reload doesn't
+  // announce the same thing again.
   useEffect(() => {
-    // Consumed on every visit, so an attempt that ended in a link or a merge offer can't be
+    // Forgotten on every visit, so an attempt that ended in a link or a merge offer can't be
     // blamed for a later error that started somewhere else (such as the login page).
-    const provider = takeLinking();
+    forgetLinking();
+    if (!arrival.alert && !arrival.notice) return;
     const params = new URLSearchParams(window.location.search);
-    const merge = params.get("merge");
-    const linkError = params.get(LINK_ERROR_PARAM);
-    if (linkError !== null) {
-      setAlert({ text: linkErrorMessage(linkError, provider), retry: provider });
-    } else if (merge === "done") {
-      setNotice("已合併，兩個帳號原本的登入方式現在都會登入這個帳號。");
-    } else if (merge === "expired") {
-      setAlert({ text: MERGE_TICKET_NOT_FOUND, retry: null });
-    } else return;
     params.delete("merge");
     params.delete(LINK_ERROR_PARAM);
     const query = params.toString();
@@ -62,7 +85,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
       "",
       `${window.location.pathname}${query ? `?${query}` : ""}`,
     );
-  }, []);
+  }, [arrival]);
 
   // The section sits below the profile card, so bring the message into view once it renders.
   // Keyed on "loaded", not `data`, so a refetch (after an unlink) doesn't scroll the page again.

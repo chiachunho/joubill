@@ -38,50 +38,51 @@ export function OnboardingPromptCard() {
 
 type Stored = { records: Record<PromptKind, PromptRecord>; shownThisVisit: PromptKind | null };
 
+function readStored(): Stored {
+  return {
+    records: { "home-screen": readPromptRecord("home-screen"), push: readPromptRecord("push") },
+    shownThisVisit: readShownThisVisit(),
+  };
+}
+
 function PromptCard({ env }: { env: PwaEnv }) {
   const device = usePushDevice(env);
   const hasInstallPrompt = useHasInstallPrompt();
-  const [stored, setStored] = useState<Stored | null>(null);
+  // Read at mount, not in an effect: this only mounts once `usePwaEnv` has resolved on the
+  // client, so the server never renders it and there is no hydration to disagree with.
+  const [stored, setStored] = useState<Stored>(readStored);
+  // The time the card appeared. Snooze windows are days long, so this is as good as "now".
+  const [now] = useState(() => Date.now());
   const [stepsOpen, setStepsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
-    setStored({
-      records: { "home-screen": readPromptRecord("home-screen"), push: readPromptRecord("push") },
-      shownThisVisit: readShownThisVisit(),
-    });
-  }, []);
-
-  const kind =
-    stored && !device.loading
-      ? nextPrompt({
-          env,
-          homeScreen: homeScreenOffer(env, hasInstallPrompt),
-          pushConfigured: device.configured,
-          permission: device.permission,
-          subscribed: device.endpoint !== null,
-          records: stored.records,
-          now: Date.now(),
-          hasOtherMembers: true,
-          shownThisVisit: stored.shownThisVisit,
-        })
-      : null;
+  const kind = !device.loading
+    ? nextPrompt({
+        env,
+        homeScreen: homeScreenOffer(env, hasInstallPrompt),
+        pushConfigured: device.configured,
+        permission: device.permission,
+        subscribed: device.endpoint !== null,
+        records: stored.records,
+        now,
+        hasOtherMembers: true,
+        shownThisVisit: stored.shownThisVisit,
+      })
+    : null;
 
   useEffect(() => {
-    if (kind && stored?.shownThisVisit !== kind) writeShownThisVisit(kind);
-  }, [kind, stored?.shownThisVisit]);
+    if (kind && stored.shownThisVisit !== kind) writeShownThisVisit(kind);
+  }, [kind, stored.shownThisVisit]);
 
   function answer(which: PromptKind, record: PromptRecord) {
     writePromptRecord(which, record);
-    setStored((s) =>
-      s ? { records: { ...s.records, [which]: record }, shownThisVisit: which } : s,
-    );
+    setStored((s) => ({ records: { ...s.records, [which]: record }, shownThisVisit: which }));
   }
 
   function later(which: PromptKind, days?: number) {
-    answer(which, snooze(stored?.records[which] ?? null, Date.now(), days));
+    answer(which, snooze(stored.records[which] ?? null, Date.now(), days));
   }
 
   if (message) {

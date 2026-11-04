@@ -40,9 +40,9 @@ export function DangerZoneSection({ groupId, membersCount, selfUserId, redirectP
   const [cancelDeleteRequestMutation] = useCancelDeleteRequestMutation();
 
   const pendingRequest = deleteRequestData?.request ?? null;
-  useEffect(() => {
-    setPolling(pendingRequest !== null);
-  }, [pendingRequest]);
+  // `polling` feeds the query that produces `pendingRequest`, so it can't simply be derived
+  // above the hook; follow it while rendering instead.
+  if (polling !== (pendingRequest !== null)) setPolling(pendingRequest !== null);
   // `pendingRequest` and `selfUserId` come from two independent, unordered
   // fetches. Until both have resolved we can't yet tell whether there's an
   // actionable pending request, so we must not fall through to the collapsed

@@ -16,13 +16,21 @@ export function rememberLinking(provider: LoginProvider): void {
   }
 }
 
-/** Reads and forgets the attempt, so a later, unrelated error can't be blamed on it. */
-export function takeLinking(): LoginProvider | null {
+/** The remembered attempt, without forgetting it (safe to call while rendering). */
+export function peekLinking(): LoginProvider | null {
   try {
     const value = sessionStorage.getItem(KEY);
-    sessionStorage.removeItem(KEY);
     return value && isLoginProvider(value) ? value : null;
   } catch {
     return null;
+  }
+}
+
+/** Forgets the attempt, so a later, unrelated error can't be blamed on it. */
+export function forgetLinking(): void {
+  try {
+    sessionStorage.removeItem(KEY);
+  } catch {
+    // nothing to forget
   }
 }

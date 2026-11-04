@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -200,13 +200,13 @@ export function ExpenseForm(props: Props) {
 
   // Anyone in the group may edit or delete any record, so who entered it is
   // shown rather than enforced — attribution in place of a lock (see CLAUDE.md).
+  const createdBy = initial?.createdBy;
   const recordedBy = useMemo(() => {
-    if (initial?.createdBy == null) return null;
-    const m = members.find((x) => x.id === initial.createdBy);
+    if (createdBy == null) return null;
+    const m = members.find((x) => x.id === createdBy);
     return m ? labelUser({ ...m, userId: m.id }, props.currentUserId) : null;
-  }, [initial?.createdBy, members, props.currentUserId]);
-  const recordedBySomeoneElse =
-    initial?.createdBy != null && initial.createdBy !== props.currentUserId;
+  }, [createdBy, members, props.currentUserId]);
+  const recordedBySomeoneElse = createdBy != null && createdBy !== props.currentUserId;
 
   // Only rendered once someone has actually edited the record: until then
   // "由 X 記錄" above already says everything there is to know.
@@ -365,12 +365,12 @@ export function ExpenseForm(props: Props) {
     };
   }
 
-  const amount = form.watch("amount");
-  const currency = form.watch("currency");
-  const spentDate = form.watch("spentDate");
-  const shareType = form.watch("shareType");
-  const participants = form.watch("participants");
-  const payers = form.watch("payers");
+  const amount = useWatch({ control: form.control, name: "amount" });
+  const currency = useWatch({ control: form.control, name: "currency" });
+  const spentDate = useWatch({ control: form.control, name: "spentDate" });
+  const shareType = useWatch({ control: form.control, name: "shareType" });
+  const participants = useWatch({ control: form.control, name: "participants" });
+  const payers = useWatch({ control: form.control, name: "payers" });
 
   // A rate typed for one currency is meaningless for another — clear the field
   // when the currency changes, restoring the saved pin when switching back to
@@ -417,16 +417,15 @@ export function ExpenseForm(props: Props) {
 
   // Reconcile members that load/join after mount (e.g. a background refetch) into the
   // payer entries so they become selectable; existing entries keep their edited state.
-  useEffect(() => {
-    if (!multiPayerMode) return;
-    setMultiPayerEntries((prev) => {
-      const known = new Set(prev.map((e) => e.userId));
-      const additions = members
-        .filter((m) => !known.has(m.id))
-        .map((m) => ({ userId: m.id, included: false, amount: "" }));
-      return additions.length > 0 ? [...prev, ...additions] : prev;
-    });
-  }, [members, multiPayerMode]);
+  // Done while rendering rather than in an effect: it converges (once every member has an
+  // entry there is nothing left to add), and no frame shows a member without a row.
+  if (multiPayerMode) {
+    const known = new Set(multiPayerEntries.map((e) => e.userId));
+    const additions = members
+      .filter((m) => !known.has(m.id))
+      .map((m) => ({ userId: m.id, included: false, amount: "" }));
+    if (additions.length > 0) setMultiPayerEntries([...multiPayerEntries, ...additions]);
+  }
 
   // Keep the form's payers field in sync with multi-payer entries so zod validation fires correctly
   useEffect(() => {
@@ -466,11 +465,8 @@ export function ExpenseForm(props: Props) {
             : Math.abs(inputSum - totalAmount) < 0.005;
 
   // Default value per userId for shares inputs (used for focus-clear / blur-restore UX).
-  const defaultValueByUserId = useMemo(() => {
-    const map = new Map<number, string>();
-    if (shareType === "shares") included.forEach((p) => map.set(p.userId, "1"));
-    return map;
-  }, [shareType, included]);
+  const defaultValueByUserId = new Map<number, string>();
+  if (shareType === "shares") included.forEach((p) => defaultValueByUserId.set(p.userId, "1"));
 
   const adjBases = (() => {
     if (shareType !== "adjustment" || included.length === 0) return new Map<number, number>();

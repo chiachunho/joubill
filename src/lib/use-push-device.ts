@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 import { pushSupport, type PushSupport, type PwaEnv } from "@/lib/pwa";
 import {
@@ -44,6 +44,41 @@ async function currentSubscription(): Promise<PushSubscription | null> {
  */
 const healed = new Set<string>();
 
+/**
+ * The browser's notification permission as an external store. It changes outside React (the
+ * person flips it in the browser's site settings, or answers our own prompt), so components read
+ * it with `useSyncExternalStore` instead of copying it into state.
+ *
+ * The Permissions API announces changes made in settings; our own `requestPermission` call
+ * announces itself through `permissionChanged`, since not every browser supports that API.
+ */
+const permissionListeners = new Set<() => void>();
+
+function permissionChanged(): void {
+  permissionListeners.forEach((listener) => listener());
+}
+
+function subscribePermission(onChange: () => void): () => void {
+  permissionListeners.add(onChange);
+  let status: PermissionStatus | null = null;
+  let closed = false;
+  navigator.permissions
+    ?.query({ name: "notifications" })
+    .then((s) => {
+      if (closed) return;
+      status = s;
+      s.addEventListener("change", onChange);
+    })
+    .catch(() => {
+      // Not supported (older Safari): only our own prompt's answer is announced.
+    });
+  return () => {
+    closed = true;
+    permissionListeners.delete(onChange);
+    status?.removeEventListener("change", onChange);
+  };
+}
+
 async function registration(): Promise<ServiceWorkerRegistration> {
   const existing = await navigator.serviceWorker.getRegistration("/");
   if (!existing) await navigator.serviceWorker.register("/sw.js", { scope: "/" });
@@ -79,13 +114,17 @@ export function usePushDevice(env: PwaEnv): PushDevice {
   const [remove] = useDeletePushSubscriptionMutation();
   const configured = !!VAPID_PUBLIC_KEY && server?.configured === true;
 
-  const [permission, setPermission] = useState<NotificationPermission | null>(null);
+  // `null` on the server and until push is usable here, then the browser's own answer.
+  const permission = useSyncExternalStore(
+    subscribePermission,
+    () => (support === "supported" ? Notification.permission : null),
+    () => null,
+  );
   const [endpoint, setEndpoint] = useState<string | null>(null);
   const [browserLoading, setBrowserLoading] = useState(support === "supported");
 
   useEffect(() => {
     if (support !== "supported") return;
-    setPermission(Notification.permission);
     let cancelled = false;
     (async () => {
       try {
@@ -127,7 +166,7 @@ export function usePushDevice(env: PwaEnv): PushDevice {
     // First, while the tap still counts as a user gesture.
     const result =
       Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
-    setPermission(result);
+    permissionChanged();
     if (result === "denied") return "denied";
     if (result !== "granted") return "dismissed";
     try {
@@ -153,7 +192,9 @@ export function usePushDevice(env: PwaEnv): PushDevice {
     }
   }, [support, configured, save]);
 
-  const disable = useCallback(async (): Promise<boolean> => {
+  // Drops this browser's subscription on the server and in the browser. Touches no React state,
+  // so an effect can start it; whoever calls it clears `endpoint` once it has finished.
+  const unsubscribe = useCallback(async (): Promise<boolean> => {
     try {
       const reg = await navigator.serviceWorker.getRegistration("/");
       const sub = await reg?.pushManager.getSubscription();
@@ -162,7 +203,6 @@ export function usePushDevice(env: PwaEnv): PushDevice {
         await sub.unsubscribe();
         healed.delete(sub.endpoint);
       }
-      setEndpoint(null);
       return true;
     } catch (err) {
       console.error("[push] unsubscribe failed:", err);
@@ -170,13 +210,22 @@ export function usePushDevice(env: PwaEnv): PushDevice {
     }
   }, [remove]);
 
+  const disable = useCallback(async (): Promise<boolean> => {
+    const ok = await unsubscribe();
+    if (ok) setEndpoint(null);
+    return ok;
+  }, [unsubscribe]);
+
   // Notifications were blocked in the browser's settings after subscribing, and the browser
   // kept the subscription: nothing it receives will be shown, so drop it on both sides
   // rather than leave the server pushing to it and the switch stuck "on". If that fails, the
   // settings switch stays usable for turning it off by hand.
   useEffect(() => {
-    if (permission === "denied" && endpoint) void disable();
-  }, [permission, endpoint, disable]);
+    if (permission !== "denied" || !endpoint) return;
+    void unsubscribe().then((ok) => {
+      if (ok) setEndpoint(null);
+    });
+  }, [permission, endpoint, unsubscribe]);
 
   return {
     support,

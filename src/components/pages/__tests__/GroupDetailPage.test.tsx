@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { GroupDetailPage } from "@/components/pages/GroupDetailPage";
 import type { Platform } from "@/components/pages/platform";
+import { EXPENSE_ONLY_MINE_KEY } from "@/lib/expense-view";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 vi.mock("next/navigation", () => ({
@@ -13,6 +14,8 @@ vi.mock("next/navigation", () => ({
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
+  localStorage.clear();
 });
 
 const ME = {
@@ -389,6 +392,39 @@ describe("GroupDetailPage", () => {
       await renderSolo(fakePlatform(basePath));
       const link = await screen.findByRole("link", { name: /到群組設定/ });
       expect(link).toHaveAttribute("href", `${basePath}/groups/7/settings`);
+    });
+  });
+
+  // The "only mine" filter is the one preference with a visible effect that doesn't depend on
+  // styling: the sample expense has no payer or split, so it isn't the viewer's.
+  describe("the 只看我的 preference", () => {
+    const NOT_MINE = "沒有與你相關的支出";
+
+    it("is restored from storage and saved when toggled", async () => {
+      localStorage.setItem(EXPENSE_ONLY_MINE_KEY, "1");
+      await renderPage(fakePlatform("/app"));
+      expect(screen.getByText(NOT_MINE)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "只看我的" }));
+
+      expect(screen.queryByText(NOT_MINE)).not.toBeInTheDocument();
+      expect(localStorage.getItem(EXPENSE_ONLY_MINE_KEY)).toBe("0");
+    });
+
+    it("still toggles when storage refuses the write", async () => {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new DOMException("quota", "QuotaExceededError");
+      });
+      await renderPage(fakePlatform("/app"));
+
+      fireEvent.click(screen.getByRole("button", { name: "只看我的" }));
+      expect(screen.getByText(NOT_MINE)).toBeInTheDocument();
+
+      // Storage works again: the next toggle persists, and the in-memory copy stops overriding.
+      vi.restoreAllMocks();
+      fireEvent.click(screen.getByRole("button", { name: "只看我的" }));
+      expect(screen.queryByText(NOT_MINE)).not.toBeInTheDocument();
+      expect(localStorage.getItem(EXPENSE_ONLY_MINE_KEY)).toBe("0");
     });
   });
 });
