@@ -3,7 +3,7 @@ import { and, type AnyColumn, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { expenses } from "@/db/schema";
 
-import { getRate, type RateOverrides } from "./fx";
+import { fxDateKey, getRate, type RateOverrides } from "./fx";
 
 export { affectedCurrencyFor } from "./fx-shared";
 
@@ -85,7 +85,7 @@ export async function planRateLock(
 
   const rateByDay = new Map<string, number>();
   async function rateFor(at: Date): Promise<number> {
-    const day = at.toISOString().slice(0, 10);
+    const day = fxDateKey(at);
     let r = rateByDay.get(day);
     if (r === undefined) {
       r = await getRate(currency, quote, at, overrides);

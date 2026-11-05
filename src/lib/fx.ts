@@ -15,7 +15,7 @@ import { n } from "./money";
  * Response format: { date: "YYYY-MM-DD", "<base>": { "<quote>": number, ... } }
  * Currency codes are lowercase in both URL paths and response keys.
  */
-const FX_API_BASE = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api";
+export const FX_API_BASE = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api";
 
 type FxResponse = {
   date: string;

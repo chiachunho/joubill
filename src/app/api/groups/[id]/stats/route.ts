@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { loadGroupRateOverrides, resolveRate } from "@/lib/fx";
+import { fxDateKey, loadGroupRateOverrides, resolveRate } from "@/lib/fx";
 import { n } from "@/lib/money";
 import {
   computeNetTrend,
@@ -112,7 +112,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     record: { currency: string; fxRate: string | number | null; fxQuote: string | null },
     at: Date,
   ): Promise<number> {
-    const key = `${record.currency}|${at.toISOString().slice(0, 10)}|${record.fxRate ?? ""}|${record.fxQuote ?? ""}`;
+    const key = `${record.currency}|${fxDateKey(at)}|${record.fxRate ?? ""}|${record.fxQuote ?? ""}`;
     let rate = rateCache.get(key);
     if (!rate) {
       rate = resolveRate(record, group.defaultCurrency, at, overrides);

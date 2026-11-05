@@ -23,7 +23,6 @@ async function main() {
   const fx = await import("../src/lib/fx.js");
   const { n } = await import("../src/lib/money.js");
 
-  const apiBase = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api";
   const apiCache = new Map<string, number>();
   const oldCache = new Map<string, { rate: number; asOfDate: string } | null>();
   const today = fx.fxDateKey(new Date());
@@ -54,7 +53,7 @@ async function main() {
     const key = `${b}|${q}|${day}`;
     if (!apiCache.has(key)) {
       const path = day >= today ? "latest" : day;
-      const res = await fetch(`${apiBase}@${path}/v1/currencies/${b.toLowerCase()}.json`);
+      const res = await fetch(`${fx.FX_API_BASE}@${path}/v1/currencies/${b.toLowerCase()}.json`);
       if (!res.ok) throw new Error(`FX fetch failed (${res.status}) for ${key}`);
       apiCache.set(key, fx.parseFxResponse(await res.json(), b, q));
     }
