@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -40,12 +40,16 @@ export function MemberNameDialog({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  // Start from the initial name each time the dialog opens. Adjusted while rendering rather
+  // than in an effect, so there is no frame with the previous text.
+  const [seen, setSeen] = useState({ open, initialName });
+  if (seen.open !== open || seen.initialName !== initialName) {
+    setSeen({ open, initialName });
     if (open) {
       setName(initialName);
       setError(null);
     }
-  }, [open, initialName]);
+  }
 
   async function submit() {
     if (loading || !name.trim()) return;

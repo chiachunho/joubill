@@ -35,7 +35,10 @@ export function useAutoLoadMore({
   const [capped, setCapped] = useState(false);
   const streak = useRef(0);
   const onLoadMoreRef = useRef(onLoadMore);
-  onLoadMoreRef.current = onLoadMore;
+  // Before the observer effect below, so a fired callback is never stale.
+  useEffect(() => {
+    onLoadMoreRef.current = onLoadMore;
+  });
 
   const supported = typeof IntersectionObserver !== "undefined";
   const active = supported && hasMore && !loading && !error;

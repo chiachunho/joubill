@@ -25,11 +25,12 @@ export function GroupExpenseNewPage({
 
   const selfPhotoUrl = platform.useSelfPhoto();
 
+  const selfId = me?.userId;
   const photos = useMemo<Record<number, string | null>>(() => {
     const base: Record<number, string | null> = { ...(avatars?.userPhotos ?? {}) };
-    if (me?.userId && selfPhotoUrl && !base[me.userId]) base[me.userId] = selfPhotoUrl;
+    if (selfId && selfPhotoUrl && !base[selfId]) base[selfId] = selfPhotoUrl;
     return base;
-  }, [avatars, me?.userId, selfPhotoUrl]);
+  }, [avatars, selfId, selfPhotoUrl]);
 
   if (meError || msError) {
     return (

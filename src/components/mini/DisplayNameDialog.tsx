@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,12 +36,16 @@ export function DisplayNameDialog({ open, onOpenChange, current, providerName }:
   const [error, setError] = useState<string | null>(null);
   const [updateProfile, { isLoading }] = useUpdateProfileMutation();
 
-  useEffect(() => {
+  // Start from the saved name each time the dialog opens (or the saved name changes under it).
+  // Adjusted while rendering rather than in an effect, so there is no frame with the old text.
+  const [seen, setSeen] = useState({ open, current });
+  if (seen.open !== open || seen.current !== current) {
+    setSeen({ open, current });
     if (open) {
       setName(current ?? "");
       setError(null);
     }
-  }, [open, current]);
+  }
 
   const check = normaliseDisplayName(name);
   const shown = error ?? (check.ok ? null : check.error);

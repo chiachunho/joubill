@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, use, useEffect, useMemo, useOptimistic, useState } from "react";
+import { startTransition, use, useMemo, useOptimistic, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -31,6 +31,7 @@ import {
   settlementParties,
   type ExpenseViewMode,
 } from "@/lib/expense-view";
+import { useLocalPref } from "@/lib/use-local-pref";
 import { describeError } from "@/lib/api-error";
 import { fmt, monthLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
@@ -132,24 +133,14 @@ export function GroupDetailPage({
   );
   const [settleError, setSettleError] = useState<string | null>(null);
 
-  // Expense-list view preferences, persisted in localStorage (shared with the Web App page).
-  // Initialise to defaults to avoid a hydration mismatch, then hydrate from storage on mount.
-  const [viewMode, setViewMode] = useState<ExpenseViewMode>("total");
-  const [onlyMine, setOnlyMine] = useState(false);
-  useEffect(() => {
-    if (localStorage.getItem(EXPENSE_VIEW_MODE_KEY) === "balance") setViewMode("balance");
-    if (localStorage.getItem(EXPENSE_ONLY_MINE_KEY) === "1") setOnlyMine(true);
-  }, []);
-  function changeViewMode(mode: ExpenseViewMode) {
-    setViewMode(mode);
-    localStorage.setItem(EXPENSE_VIEW_MODE_KEY, mode);
-  }
+  // Expense-list view preferences, persisted in localStorage. The defaults render until the
+  // browser's value is read, so the server and the first client render agree.
+  const [storedViewMode, setStoredViewMode] = useLocalPref(EXPENSE_VIEW_MODE_KEY);
+  const [storedOnlyMine, setStoredOnlyMine] = useLocalPref(EXPENSE_ONLY_MINE_KEY);
+  const viewMode: ExpenseViewMode = storedViewMode === "balance" ? "balance" : "total";
+  const onlyMine = storedOnlyMine === "1";
   function toggleOnlyMine() {
-    setOnlyMine((prev) => {
-      const next = !prev;
-      localStorage.setItem(EXPENSE_ONLY_MINE_KEY, next ? "1" : "0");
-      return next;
-    });
+    setStoredOnlyMine(onlyMine ? "0" : "1");
   }
 
   function getPhoto(userId: number): string | null {
@@ -420,7 +411,7 @@ export function GroupDetailPage({
             ).map(([mode, label]) => (
               <button
                 key={mode}
-                onClick={() => changeViewMode(mode)}
+                onClick={() => setStoredViewMode(mode)}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   viewMode === mode
                     ? "bg-background text-foreground shadow-sm"

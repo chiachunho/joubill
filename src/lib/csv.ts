@@ -62,12 +62,7 @@ export function exportFilename(groupTitle: string, now: Date, extension = "csv")
   const base =
     // Cut by code point, not UTF-16 unit: slicing through an emoji's surrogate pair leaves a
     // lone surrogate, which makes `encodeURIComponent` in `contentDisposition` throw.
-    Array.from(
-      groupTitle
-        // eslint-disable-next-line no-control-regex
-        .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
-        .trim(),
-    )
+    Array.from(groupTitle.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").trim())
       .slice(0, 60)
       .join("") || "group";
   return `${base}-${now.toISOString().slice(0, 10)}.${extension}`;
