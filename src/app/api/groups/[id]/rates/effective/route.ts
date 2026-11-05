@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { expenses, groups } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { getRate, loadGroupRateOverrides, overrideKey } from "@/lib/fx";
+import { getRateWithDate, loadGroupRateOverrides, overrideKey } from "@/lib/fx";
 import { noApplicablePin } from "@/lib/rate-lock";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 import { requireId } from "@/lib/route-params";
@@ -28,7 +28,9 @@ const querySchema = z.object({
  * Effective rate to convert `base` into the group's default currency:
  * the group custom rate when one is set, otherwise the market rate as of
  * `date` (default today). `marketRate` is always included as a reference
- * (null when the FX API is unreachable and the cache is empty).
+ * (null when the FX API is unreachable and the cache is empty);
+ * `marketRateDate` is the day that market rate is actually from (a weekend
+ * request answers with Friday).
  *
  * With `?counts=1`, the response also includes `affectedExpenses` /
  * `affectedSettlements` — the group's existing records in `base` that a group
@@ -106,8 +108,15 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const override = overrides.get(overrideKey(base, quote)) ?? null;
 
   let marketRate: number | null = null;
+  let marketRateDate: string | null = null;
   try {
-    marketRate = await getRate(base, quote, date ? new Date(`${date}T12:00:00Z`) : new Date());
+    const market = await getRateWithDate(
+      base,
+      quote,
+      date ? new Date(`${date}T12:00:00Z`) : new Date(),
+    );
+    marketRate = market.rate;
+    marketRateDate = market.asOfDate;
   } catch {
     // FX API unreachable and no cached rate — leave marketRate null.
   }
@@ -119,6 +128,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     rate,
     source: override != null ? "group" : marketRate != null ? "market" : null,
     marketRate,
+    marketRateDate,
     ...counts,
   });
 });

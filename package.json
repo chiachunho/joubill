@@ -20,6 +20,7 @@
     "bot:set-commands": "tsx scripts/set-commands.ts",
     "check:page-pairs": "node scripts/check-page-pairs.mjs",
     "db:migrate-identities": "tsx scripts/migrate-identities.ts",
+    "fx:impact": "tsx scripts/fx-impact.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test"

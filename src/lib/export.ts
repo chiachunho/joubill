@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
 
 import { buildCsv, formatLegs, formatUtcMinute, exportFilename, type CsvCell } from "./csv";
-import { loadGroupRateOverrides, resolveRate } from "./fx";
+import { fxDateKey, loadGroupRateOverrides, resolveRate } from "./fx";
 import { labelUser } from "./label";
 import { n } from "./money";
 
@@ -156,7 +156,7 @@ export async function loadGroupRecords(
   // combination once and all of them concurrently instead of one round trip per row.
   const rateCache = new Map<string, Promise<number>>();
   const rateOf = (r: (typeof rows)[number]) => {
-    const key = [r.currency, r.fxRate, r.fxQuote, r.spentAt.toISOString().slice(0, 10)].join("|");
+    const key = [r.currency, r.fxRate, r.fxQuote, fxDateKey(r.spentAt)].join("|");
     let rate = rateCache.get(key);
     if (!rate) {
       rate = resolveRate(r, quote, r.spentAt, overrides);

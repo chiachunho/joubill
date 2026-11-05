@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { useAuthMode } from "@/components/AuthProvider";
 import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
+import { rateSourceLabel } from "@/lib/rate-source-label";
 import { stampLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
@@ -367,11 +368,7 @@ export function SettlementForm({
                   {rateInUse != null && total > 0 && (
                     <p className="num text-xs text-muted-foreground">
                       ≈ {(total * rateInUse).toFixed(2)} {defaultCurrency} ·{" "}
-                      {usingCustom
-                        ? "此筆自訂匯率"
-                        : effectiveRate?.source === "group"
-                          ? "群組自訂匯率"
-                          : "市場匯率"}
+                      {rateSourceLabel(usingCustom, effectiveRate)}
                     </p>
                   )}
                   <FormMessage />

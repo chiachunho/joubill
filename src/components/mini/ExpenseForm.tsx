@@ -44,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
+import { rateSourceLabel } from "@/lib/rate-source-label";
 import { stampLabel } from "@/lib/format";
 import { labelUser, memberLabels } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
@@ -721,11 +722,7 @@ export function ExpenseForm(props: Props) {
                     {rateInUse != null && totalAmount > 0 && (
                       <p className="num text-xs text-muted-foreground">
                         ≈ {(totalAmount * rateInUse).toFixed(2)} {props.defaultCurrency} ·{" "}
-                        {usingCustom
-                          ? "此筆自訂匯率"
-                          : effectiveRate?.source === "group"
-                            ? "群組自訂匯率"
-                            : "市場匯率"}
+                        {rateSourceLabel(usingCustom, effectiveRate)}
                       </p>
                     )}
                     <FormMessage />
