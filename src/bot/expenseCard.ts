@@ -7,6 +7,8 @@ import { getRate, loadGroupRateContext } from "@/lib/fx";
 import { BTN } from "@/lib/buttons";
 import { expenseLink } from "@/lib/deep-link";
 import { labelUser } from "@/lib/label";
+import { loadCreatedVia } from "@/lib/record-via";
+import { formatMcpLine } from "@/lib/record-notice";
 import { fmtGrouped, n, splitEqual } from "@/lib/money";
 import { computeSplits } from "@/lib/splits";
 
@@ -127,6 +129,11 @@ type CardData = {
     spentAt: string;
   };
   defaultCurrency: string;
+  /**
+   * The AI assistant that entered it and the person whose connection it was (issue #150),
+   * for the "✦ 小明 透過 Claude 記錄" line. Null for anything a person entered.
+   */
+  mcp: { via: string; creator: DbUser | null } | null;
   payers: DbUser[];
   splits: Array<{ user: DbUser; amount: number; weight: number }>;
   /** False for Mini-App-entered exact/percent/adjustment splits — see PANEL_SHARE_TYPES. */
@@ -156,7 +163,7 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
     .where(eq(expenses.id, expenseId));
   if (!expense) return null;
 
-  const [payerRows, splitRows] = await Promise.all([
+  const [payerRows, splitRows, viaByRecord] = await Promise.all([
     db
       .select(USER_COLUMNS)
       .from(expensePayers)
@@ -174,7 +181,13 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
       .innerJoin(users, eq(users.id, expenseSplits.debtorId))
       .where(eq(expenseSplits.expenseId, expenseId))
       .orderBy(expenseSplits.id),
+    loadCreatedVia([expenseId]),
   ]);
+
+  const via = viaByRecord.get(expenseId) ?? null;
+  const [creator] = via
+    ? await db.select(USER_COLUMNS).from(users).where(eq(users.id, expense.createdBy))
+    : [];
 
   return {
     expense: {
@@ -182,6 +195,7 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
       amount: n(expense.amount),
     },
     defaultCurrency: expense.defaultCurrency,
+    mcp: via ? { via, creator: creator ?? null } : null,
     payers: payerRows,
     splits: splitRows.map((r) => ({
       user: {
@@ -277,6 +291,8 @@ async function cardText(card: CardData, mode: CardMode): Promise<string> {
   }
 
   lines.push(splitLine(card));
+  // Kept in every mode, so the ⚙️ panel doesn't hide where the record came from.
+  if (card.mcp) lines.push(formatMcpLine(card.mcp.creator, card.mcp.via));
 
   const hint =
     mode === "adjust" && !card.panelEditable

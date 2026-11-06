@@ -153,7 +153,9 @@ export type ExpenseDetail = {
   id: number;
   createdBy: number | null;
   createdAt: string | null;
-  lastActivity: { actorId: number | null; at: string } | null;
+  /** The AI assistant it was entered through (issue #150), or null. */
+  createdVia: string | null;
+  lastActivity: { actorId: number | null; at: string; via: string | null } | null;
   amount: number;
   currency: string;
   fxRate: number | null;
@@ -176,7 +178,9 @@ export type SettlementDetail = {
   id: number;
   createdBy: number | null;
   createdAt: string | null;
-  lastActivity: { actorId: number | null; at: string } | null;
+  /** The AI assistant it was entered through (issue #150), or null. */
+  createdVia: string | null;
+  lastActivity: { actorId: number | null; at: string; via: string | null } | null;
   amount: number;
   currency: string;
   fxRate: number | null;
@@ -299,3 +303,24 @@ export type GroupNotificationsResponse = {
   /** The group has a Telegram chat, whose messages already tell its members what changed. */
   telegramLinked: boolean;
 };
+
+/** One row of `GET /api/me/app-connections` (never the token hash). Dates are ISO strings. */
+export type AppConnectionItem = {
+  id: number;
+  kind: "token" | "oauth";
+  name: string;
+  /** The first characters of the token, for telling two apart. */
+  tokenPrefix: string;
+  access: "read" | "write";
+  allGroups: boolean;
+  groupIds: number[];
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+};
+
+export type AppConnectionsResponse = { connections: AppConnectionItem[] };
+
+/** `POST /api/me/app-connections`: the only time the plaintext token is ever returned. */
+export type CreateAppConnectionResponse = { connection: AppConnectionItem; token: string };

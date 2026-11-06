@@ -7,6 +7,9 @@ export const HELP_PATH = "/help";
 export const PRIVACY_PATH = "/help/privacy";
 export const TERMS_PATH = "/help/terms";
 
+/** How to connect Claude, Cursor, n8n and the like through the MCP server (issue #150). */
+export const MCP_HELP_PATH = "/help/mcp";
+
 /**
  * Absolute URL of the help site.
  *

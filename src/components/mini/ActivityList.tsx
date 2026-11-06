@@ -1,10 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Clock, KeyRound, Link2, Link2Off, Lock, UserCheck } from "lucide-react";
+import {
+  ChevronRight,
+  Clock,
+  KeyRound,
+  Link2,
+  Link2Off,
+  Lock,
+  Sparkles,
+  UserCheck,
+} from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { activityFeedHref, recordHistoryHref } from "@/lib/activity-link";
+import { viaText } from "@/lib/app-ui";
 import { dayLabel, stampLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { changeHeading, rateLockImpact } from "@/lib/record-audit";
@@ -136,16 +146,29 @@ function Row({
           )}
         </span>
       ) : (
-        <Avatar
-          src={entry.actor ? photos?.[entry.actor.userId] : null}
-          name={who}
-          userId={entry.actor?.userId ?? 0}
-          size="sm"
-        />
+        <span className="relative shrink-0">
+          <Avatar
+            src={entry.actor ? photos?.[entry.actor.userId] : null}
+            name={who}
+            userId={entry.actor?.userId ?? 0}
+            size="sm"
+          />
+          {entry.via && (
+            // The corner mark for a change a linked application made, named for screen readers.
+            <span
+              role="img"
+              aria-label={viaText(entry.via)}
+              className="absolute -bottom-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background"
+            >
+              <Sparkles className="size-2" />
+            </span>
+          )}
+        </span>
       )}
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-snug">
-          <span className="font-semibold">{who}</span> {changeHeading(entry, showRecordLabel)}
+          <span className="font-semibold">{who}</span>
+          {entry.via && ` ${viaText(entry.via)}`} {changeHeading(entry, showRecordLabel)}
         </p>
         <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
           <ChangeLine entry={entry} />

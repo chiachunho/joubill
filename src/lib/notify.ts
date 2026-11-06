@@ -23,6 +23,7 @@ import {
   type NoticeLeg,
   type NoticePerson,
 } from "@/lib/record-notice";
+import { loadCreatedVia } from "@/lib/record-via";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 
 /**
@@ -64,6 +65,8 @@ export type LoadedNotice = {
   noticeMessageId: number | null;
   /** Who recorded it, for the deleted-record line. */
   creator: NoticePerson | null;
+  /** The AI assistant it was entered through (issue #150), or null for a person's own entry. */
+  createdVia: string | null;
   /**
    * Full snapshot rather than just what the message renders. The audit log
    * (`src/lib/record-mutation.ts`) stores this same object as its before/after,
@@ -117,7 +120,7 @@ export async function loadNoticeRecord(
   // but the snapshot itself must still load or the audit row for the record is never written.
   const chatId = telegramChatId(row);
 
-  const [payerRows, splitRows, receiptRows] = await Promise.all([
+  const [payerRows, splitRows, receiptRows, viaByRecord] = await Promise.all([
     exec
       .select({
         amount: expensePayers.amount,
@@ -150,6 +153,7 @@ export async function loadNoticeRecord(
       .select({ fileId: expenseReceipts.fileId })
       .from(expenseReceipts)
       .where(eq(expenseReceipts.expenseId, recordId)),
+    loadCreatedVia([recordId], exec),
   ]);
 
   const toLeg = (r: (typeof payerRows)[number]): NoticeLeg => ({
@@ -180,6 +184,7 @@ export async function loadNoticeRecord(
             telegramId: row.creatorTelegramId,
           }
         : null,
+    createdVia: viaByRecord.get(recordId) ?? null,
     record: {
       type: row.type === "settlement" ? "settlement" : "expense",
       amount: n(row.amount),
@@ -251,7 +256,10 @@ async function render(
 
   if (loaded.record.type === "settlement") {
     return {
-      text: formatSettlementNotice(loaded.record),
+      text: formatSettlementNotice(
+        loaded.record,
+        loaded.createdVia ? { creator: loaded.creator, via: loaded.createdVia } : null,
+      ),
       reply_markup: settlementKeyboard(username, loaded),
     };
   }
@@ -345,6 +353,7 @@ export async function markNoticeDeleted(
   api: Api,
   snapshot: LoadedNotice | null,
   deleter: NoticePerson,
+  deleterVia: string | null = null,
 ): Promise<void> {
   if (!snapshot?.noticeMessageId || snapshot.chatId === null) return;
   try {
@@ -352,7 +361,13 @@ export async function markNoticeDeleted(
     await api.editMessageText(
       snapshot.chatId,
       snapshot.noticeMessageId,
-      formatDeletedNotice({ record: snapshot.record, creator: snapshot.creator, deleter }),
+      formatDeletedNotice({
+        record: snapshot.record,
+        creator: snapshot.creator,
+        deleter,
+        creatorVia: snapshot.createdVia,
+        deleterVia,
+      }),
       { parse_mode: "HTML" },
     );
   } catch (err) {

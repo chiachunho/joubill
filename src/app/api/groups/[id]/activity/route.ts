@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { assertGroupMember, getAuth } from "@/lib/auth";
+import { parseActivitySource } from "@/lib/activity-source";
+import { BadRequestError } from "@/lib/auth/errors";
 import { withAuth } from "@/lib/auth/route";
 import { loadGroupActivity, loadRecordHistory } from "@/lib/record-history";
 import { requireId } from "@/lib/route-params";
@@ -39,5 +41,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const cursorParam = url.searchParams.get("cursor");
   const cursor = cursorParam != null ? requireId(cursorParam, "cursor") : undefined;
 
-  return NextResponse.json(await loadGroupActivity(groupId, cursor));
+  const source = parseActivitySource(url.searchParams.get("source"));
+  if (!source) throw new BadRequestError("invalid source");
+
+  return NextResponse.json(await loadGroupActivity(groupId, cursor, source));
 });

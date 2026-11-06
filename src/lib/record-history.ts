@@ -1,7 +1,8 @@
-import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { recordAuditLog, users } from "@/db/schema";
+import type { ActivitySource } from "@/lib/activity-source";
+import { appConnections, recordAuditLog, users } from "@/db/schema";
 import {
   diffRecords,
   isGroupEventPayload,
@@ -35,6 +36,8 @@ export type ActivityEntry = {
   /** ISO timestamp. */
   at: string;
   actor: ActivityActor | null;
+  /** The AI assistant the actor worked through (issue #150), or null for a person's own change. */
+  via: string | null;
   /** NULL for group-level events. */
   recordId: number | null;
   recordType: string;
@@ -78,6 +81,7 @@ type Row = {
   actorFirstName: string | null;
   actorLastName: string | null;
   actorUsername: string | null;
+  viaName: string | null;
 };
 
 const SELECT = {
@@ -93,6 +97,7 @@ const SELECT = {
   actorFirstName: users.firstName,
   actorLastName: users.lastName,
   actorUsername: users.username,
+  viaName: appConnections.name,
 };
 
 function asSnapshot(value: unknown): RecordSnapshot | null {
@@ -123,6 +128,7 @@ function toEntry(row: Row): ActivityEntry {
             username: row.actorUsername,
           }
         : null,
+    via: row.viaName,
     recordId: row.recordId,
     recordType: row.recordType,
     recordLabel: after?.description ?? before?.description ?? null,
@@ -183,6 +189,7 @@ export async function loadLastActivity(recordId: number): Promise<ActivityEntry 
     .select(SELECT)
     .from(recordAuditLog)
     .leftJoin(users, eq(users.id, recordAuditLog.actorId))
+    .leftJoin(appConnections, eq(appConnections.id, recordAuditLog.appConnectionId))
     .where(and(eq(recordAuditLog.recordId, recordId), eq(recordAuditLog.action, "updated")))
     .orderBy(desc(recordAuditLog.id))
     .limit(1);
@@ -206,6 +213,7 @@ export async function loadRecordHistory(
     .select(SELECT)
     .from(recordAuditLog)
     .leftJoin(users, eq(users.id, recordAuditLog.actorId))
+    .leftJoin(appConnections, eq(appConnections.id, recordAuditLog.appConnectionId))
     .where(
       and(
         eq(recordAuditLog.groupId, groupId),
@@ -235,20 +243,29 @@ export async function loadRecordHistory(
 
 export const ACTIVITY_PAGE_SIZE = 30;
 
-/** The group's whole feed, newest first. `cursor` is the last id already seen. */
+/**
+ * The group's whole feed, newest first. `cursor` is the last id already seen. `source`
+ * narrows it to changes a linked application made, or to everything else; filtering here
+ * rather than in the page keeps every page full, since a page of 30 that the filter empties
+ * would look like the end of the feed.
+ */
 export async function loadGroupActivity(
   groupId: number,
   cursor?: number,
+  source: ActivitySource = "all",
 ): Promise<{ entries: ActivityEntry[]; nextCursor: number | null }> {
+  const where = and(
+    eq(recordAuditLog.groupId, groupId),
+    cursor != null ? lt(recordAuditLog.id, cursor) : undefined,
+    source === "mcp" ? eq(recordAuditLog.source, "mcp") : undefined,
+    source === "manual" ? ne(recordAuditLog.source, "mcp") : undefined,
+  );
   const rows = await db
     .select(SELECT)
     .from(recordAuditLog)
     .leftJoin(users, eq(users.id, recordAuditLog.actorId))
-    .where(
-      cursor != null
-        ? and(eq(recordAuditLog.groupId, groupId), lt(recordAuditLog.id, cursor))
-        : eq(recordAuditLog.groupId, groupId),
-    )
+    .leftJoin(appConnections, eq(appConnections.id, recordAuditLog.appConnectionId))
+    .where(where)
     .orderBy(desc(recordAuditLog.id))
     .limit(ACTIVITY_PAGE_SIZE + 1);
 

@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { AvatarSourceDialog } from "@/components/mini/AvatarSourceDialog";
 import { DisplayNameDialog } from "@/components/mini/DisplayNameDialog";
+import { LinkedAppsSection } from "@/components/pages/LinkedAppsSection";
 import { LoginMethodsSection } from "@/components/pages/LoginMethodsSection";
 import { PersonalSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
@@ -101,6 +102,8 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
       </section>
 
       <LoginMethodsSection platform={platform} />
+
+      <LinkedAppsSection platform={platform} />
 
       <platform.DeviceSettings />
 

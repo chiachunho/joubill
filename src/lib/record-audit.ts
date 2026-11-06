@@ -23,7 +23,11 @@ export type AuditAction =
   | "timezone_changed"
   | "member_claimed"
   | "account_merged";
-export type AuditSource = "bot" | "app" | "agent";
+/**
+ * Where a change came from. `"app"` is the Mini App / Web App; `"mcp"` is a linked
+ * application writing through the MCP server (its `app_connection_id` says which one).
+ */
+export type AuditSource = "bot" | "app" | "mcp";
 
 /**
  * The stored before/after shape.

@@ -1,3 +1,4 @@
+import { viaText } from "@/lib/app-ui";
 import { labelUser, type Profile } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { escapeHtml, mention } from "@/lib/telegram-html";
@@ -48,13 +49,26 @@ function money(record: NoticeRecord): string {
   return `${fmtGrouped(record.amount)} ${record.currency}`;
 }
 
-/** The group notice for a settlement: "💸 A → B　1,200 TWD". */
-export function formatSettlementNotice(record: NoticeRecord): string {
+/**
+ * "✦ 小明 透過 Claude 記錄": the line under a card or notice that an AI assistant entered.
+ * `creator` is the person whose connection it was; a deleted account leaves just "透過 Claude 記錄".
+ */
+export function formatMcpLine(creator: Profile | null, via: string): string {
+  const by = creator ? `${escapeHtml(labelUser(creator))} ` : "";
+  return `✦ ${by}${escapeHtml(viaText(via))} 記錄`;
+}
+
+/** The group notice for a settlement: "💸 A → B　1,200 TWD", plus who it was entered through when an assistant did. */
+export function formatSettlementNotice(
+  record: NoticeRecord,
+  mcp?: { creator: Profile | null; via: string } | null,
+): string {
   const from = record.payers[0]?.user;
   const to = record.splits[0]?.user;
   const amount = `<b>${money(record)}</b>`;
-  if (!from || !to) return `💸 轉帳　${amount}`;
-  return `💸 ${nameOf(from)} → ${nameOf(to)}　${amount}`;
+  const line =
+    !from || !to ? `💸 轉帳　${amount}` : `💸 ${nameOf(from)} → ${nameOf(to)}　${amount}`;
+  return mcp ? `${line}\n${formatMcpLine(mcp.creator, mcp.via)}` : line;
 }
 
 /** Short description of what was deleted, for the tombstone line. */
@@ -81,13 +95,22 @@ export function formatDeletedNotice(params: {
   /** Who recorded it. Left out of the text when they are also the deleter. */
   creator: (Profile & { userId: number }) | null;
   deleter: NoticePerson & { userId: number };
+  /** The assistant the record was entered through, when it was. */
+  creatorVia?: string | null;
+  /** The assistant that did the deleting, when it was one. */
+  deleterVia?: string | null;
 }): string {
-  const { record, creator, deleter } = params;
+  const { record, creator, deleter, creatorVia, deleterVia } = params;
 
-  const origin =
-    creator && creator.userId !== deleter.userId
-      ? `，原本由 ${escapeHtml(labelUser(creator))} 記錄`
+  const by = creator && creator.userId !== deleter.userId ? escapeHtml(labelUser(creator)) : null;
+  const via = creatorVia ? escapeHtml(viaText(creatorVia)) : null;
+  // Same person deleting what their own assistant entered still says so: "原本是透過 Claude 記錄".
+  const origin = by
+    ? `，原本由 ${by}${via ? ` ${via}` : ""} 記錄`
+    : via
+      ? `，原本是${via} 記錄`
       : "";
+  const deletedBy = `${nameOf(deleter)}${deleterVia ? ` ${escapeHtml(viaText(deleterVia))}` : ""}`;
 
-  return `🗑 已刪除 ${whatWasDeleted(record)}${origin}\n— ${nameOf(deleter)}`;
+  return `🗑 已刪除 ${whatWasDeleted(record)}${origin}\n— ${deletedBy}`;
 }

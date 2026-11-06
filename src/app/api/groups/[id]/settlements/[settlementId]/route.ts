@@ -7,6 +7,7 @@ import { expensePayers, expenseSplits, expenses, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { n } from "@/lib/money";
+import { loadCreatedVia } from "@/lib/record-via";
 import { loadLastActivity } from "@/lib/record-history";
 import { deleteRecord, updateSettlement } from "@/lib/records";
 import { settlementInputSchema } from "@/lib/zod";
@@ -68,17 +69,23 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
 
   if (!row) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const lastActivity = await loadLastActivity(settlementId);
+  const [lastActivity, createdVia] = await Promise.all([
+    loadLastActivity(settlementId),
+    loadCreatedVia([settlementId]),
+  ]);
 
   return NextResponse.json({
     id: row.id,
     createdBy: row.createdBy,
+    // The AI assistant it was entered through, shown as 「由 X 透過 Claude 記錄」.
+    createdVia: createdVia.get(settlementId) ?? null,
     // Same pair as the expense endpoint: when it was entered, and the most
     // recent edit if there has been one. Both feed the form's attribution lines.
     createdAt: row.createdAt,
     lastActivity: lastActivity && {
       actorId: lastActivity.actor?.userId ?? null,
       at: lastActivity.at,
+      via: lastActivity.via,
     },
     amount: n(row.amount),
     currency: row.currency,

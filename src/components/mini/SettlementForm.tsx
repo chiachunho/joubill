@@ -36,6 +36,7 @@ import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-erro
 import { rateSourceLabel } from "@/lib/rate-source-label";
 import { recordHistoryHref } from "@/lib/activity-link";
 import { stampLabel } from "@/lib/format";
+import { viaText } from "@/lib/app-ui";
 import { labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
@@ -63,8 +64,10 @@ type Initial = {
   /** When it was entered — distinct from settledAt, the date of the repayment.
    *  Required for the same reason createdBy is. */
   createdAt: string | null;
+  /** The AI assistant it was entered through (issue #150): required, like createdBy. */
+  createdVia: string | null;
   /** The most recent edit, or null when nobody has touched it since. */
-  lastActivity: { actorId: number | null; at: string } | null;
+  lastActivity: { actorId: number | null; at: string; via: string | null } | null;
   amount: number;
   currency: string;
   fxRate?: number | null;
@@ -122,6 +125,7 @@ export function SettlementForm({
     ? {
         by: lastEditor ? labelUser({ ...lastEditor, userId: lastEditor.id }, currentUserId) : "?",
         at: initial.lastActivity.at,
+        via: initial.lastActivity.via,
       }
     : null;
   const back = returnPath ?? `/mini/groups/${groupId}`;
@@ -433,7 +437,8 @@ export function SettlementForm({
         {isEdit && recordedBy && (
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">
-              由 {recordedBy} {initial?.createdAt ? `於 ${stampLabel(initial.createdAt)} ` : ""}記錄
+              由 {recordedBy} {initial?.createdVia ? `${viaText(initial.createdVia)} ` : ""}
+              {initial?.createdAt ? `於 ${stampLabel(initial.createdAt)} ` : ""}記錄
             </p>
             {lastEdit && (
               <Link
@@ -446,7 +451,8 @@ export function SettlementForm({
                 className="-mx-2 flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary"
               >
                 <span>
-                  最後由 {lastEdit.by} 於 {stampLabel(lastEdit.at)} 修改
+                  最後由 {lastEdit.by} {lastEdit.via ? `${viaText(lastEdit.via)} ` : ""}於{" "}
+                  {stampLabel(lastEdit.at)} 修改
                 </span>
                 <ChevronRight className="size-3.5 shrink-0" />
               </Link>

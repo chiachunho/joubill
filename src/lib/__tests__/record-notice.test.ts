@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatMcpLine,
   formatDeletedNotice,
   formatSettlementNotice,
   type NoticePerson,
@@ -157,5 +158,47 @@ describe("formatDeletedNotice", () => {
     expect(formatDeletedNotice({ record: expense(), creator: null, deleter })).toContain(
       "tg://user?id=222",
     );
+  });
+});
+
+describe("linked application attribution", () => {
+  it("writes the line under a card or notice, without a name once the account is gone", () => {
+    expect(formatMcpLine(alice, "Claude")).toBe("✦ Alice 透過 Claude 記錄");
+    expect(formatMcpLine(null, "Claude")).toBe("✦ 透過 Claude 記錄");
+  });
+
+  it("escapes a connection name, which the person typed", () => {
+    expect(formatMcpLine(alice, "<b>x</b>")).toBe("✦ Alice 透過 &lt;b&gt;x&lt;/b&gt; 記錄");
+  });
+
+  it("adds the line to a settlement notice only when an assistant entered it", () => {
+    const plain = formatSettlementNotice(settlement());
+    expect(plain).not.toContain("✦");
+    const text = formatSettlementNotice(settlement(), { creator: alice, via: "Claude" });
+    expect(text.split("\n")).toEqual([plain, "✦ Alice 透過 Claude 記錄"]);
+  });
+
+  it("says in the tombstone which assistant entered the record and which one deleted it", () => {
+    expect(
+      formatDeletedNotice({
+        record: expense(),
+        creator: alice,
+        deleter: bob,
+        creatorVia: "Claude",
+        deleterVia: "我的 n8n",
+      }),
+    ).toBe(
+      '🗑 已刪除 500 TWD（晚餐），原本由 Alice 透過 Claude 記錄\n— <a href="tg://user?id=222">Bob</a> 透過 我的 n8n',
+    );
+  });
+
+  it("keeps the assistant in the tombstone when the same person deletes what it entered", () => {
+    const text = formatDeletedNotice({
+      record: expense(),
+      creator: alice,
+      deleter: alice,
+      creatorVia: "Claude",
+    });
+    expect(text.split("\n")[0]).toBe("🗑 已刪除 500 TWD（晚餐），原本是透過 Claude 記錄");
   });
 });

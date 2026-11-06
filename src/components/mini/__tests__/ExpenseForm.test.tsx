@@ -54,6 +54,7 @@ function initial(over: Partial<Initial> = {}): Initial {
     id: 11,
     createdBy: ME,
     createdAt: "2026-07-10T04:00:00Z",
+    createdVia: null,
     lastActivity: null,
     amount: 300,
     currency: "TWD",
@@ -186,7 +187,7 @@ describe("ExpenseForm: editing", () => {
       {
         initial: initial({
           createdBy: 2,
-          lastActivity: { actorId: 1, at: "2026-07-11T04:00:00Z" },
+          lastActivity: { actorId: 1, at: "2026-07-11T04:00:00Z", via: null },
         }),
       },
       {},
@@ -199,10 +200,27 @@ describe("ExpenseForm: editing", () => {
     );
   });
 
+  it("names the AI assistant that entered or last edited the record", () => {
+    renderForm(
+      {
+        initial: initial({
+          createdBy: 2,
+          createdVia: "Claude",
+          lastActivity: { actorId: 1, at: "2026-07-11T04:00:00Z", via: "我的 n8n" },
+        }),
+      },
+      {},
+    );
+    expect(screen.getByText(/由 Bob 透過 Claude .*記錄/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /最後由 .* 透過 我的 n8n .*修改/ }),
+    ).toBeInTheDocument();
+  });
+
   it("links the history under /app in the Web App", () => {
     nav.pathname = "/app/groups/7/expenses/11/edit";
     renderForm(
-      { initial: initial({ lastActivity: { actorId: 2, at: "2026-07-11T04:00:00Z" } }) },
+      { initial: initial({ lastActivity: { actorId: 2, at: "2026-07-11T04:00:00Z", via: null } }) },
       {},
       "web",
     );

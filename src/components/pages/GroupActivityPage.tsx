@@ -1,14 +1,21 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { History } from "lucide-react";
 
 import { ActivityList } from "@/components/mini/ActivityList";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { ActivitySkeleton } from "@/components/mini/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Platform } from "@/components/pages/platform";
 import { parseHistoryFrom } from "@/lib/activity-link";
+import {
+  ACTIVITY_SOURCE_LABEL,
+  ACTIVITY_SOURCES,
+  type ActivitySource,
+} from "@/lib/activity-source";
+import { cn } from "@/lib/utils";
 import { useAutoLoadMore } from "@/lib/use-auto-load-more";
 import { useGetActivityInfiniteQuery, useGetAvatarsQuery, useGetMeQuery } from "@/store/api";
 
@@ -29,6 +36,7 @@ export function GroupActivityPage({
   const { id } = use(params);
   const searchParams = useSearchParams();
   const recordId = searchParams.get("record");
+  const [source, setSource] = useState<ActivitySource>("all");
 
   // A record's history is reached from its edit form or from the feed, and 返回
   // goes back to whichever it was (`from`, validated to a page inside this
@@ -48,13 +56,17 @@ export function GroupActivityPage({
   // is short and always comes back whole (nextCursor null).
   const {
     data: result,
+    currentData,
     error,
     hasNextPage,
     fetchNextPage,
     refetch,
     isFetching,
-  } = useGetActivityInfiniteQuery({ groupId: id, recordId });
+  } = useGetActivityInfiniteQuery({ groupId: id, recordId, source: recordId ? "all" : source });
   const pages = result?.pages;
+  // `data` keeps the previous filter's pages while a new one loads; the list must not show
+  // them (or the empty message) under a filter they were not fetched for.
+  const switching = !currentData && !error;
 
   const entries = pages?.flatMap((p) => p.entries) ?? [];
   const hasMore = hasNextPage;
@@ -87,13 +99,49 @@ export function GroupActivityPage({
         <h1 className="text-lg font-semibold">{recordId ? "變更紀錄" : "動態紀錄"}</h1>
       </div>
 
-      {entries.length === 0 ? (
+      {!recordId && (
+        <div className="px-4">
+          <div
+            role="radiogroup"
+            aria-label="篩選動態"
+            className="grid grid-cols-3 gap-1 rounded-lg bg-secondary/60 p-1"
+          >
+            {ACTIVITY_SOURCES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                role="radio"
+                aria-checked={source === s}
+                onClick={() => setSource(s)}
+                className={cn(
+                  "rounded-md py-1.5 text-sm transition-colors",
+                  source === s ? "bg-background font-semibold shadow-sm" : "text-muted-foreground",
+                )}
+              >
+                {ACTIVITY_SOURCE_LABEL[s]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {switching ? (
+        <div className="space-y-2 px-4" aria-busy="true">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : entries.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
           <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
             <History className="size-6" />
           </span>
           <p className="max-w-[24ch] text-sm text-muted-foreground">
-            {recordId ? "這筆記錄還沒有被改動過" : "這個群組還沒有任何改動紀錄"}
+            {recordId
+              ? "這筆記錄還沒有被改動過"
+              : source === "all"
+                ? "這個群組還沒有任何改動紀錄"
+                : "沒有符合的動態"}
           </p>
         </div>
       ) : (
@@ -109,7 +157,7 @@ export function GroupActivityPage({
         />
       )}
 
-      {(hasMore || error) && (
+      {!switching && (hasMore || error) && (
         <LoadMoreFooter
           sentinelRef={sentinelRef}
           needsButton={needsButton || !!error}

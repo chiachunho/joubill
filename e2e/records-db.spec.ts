@@ -140,14 +140,14 @@ test.describe("Record writes (database)", () => {
     expect((await request.delete(`/api/groups/${g}/expenses/${id}`)).status()).toBe(200);
 
     const rows = await dbPool.query(
-      "SELECT action, source, actor_id, agent_connection_id FROM record_audit_log WHERE record_id=$1 ORDER BY id",
+      "SELECT action, source, actor_id, app_connection_id FROM record_audit_log WHERE record_id=$1 ORDER BY id",
       [id],
     );
     expect(rows.rows.map((r) => r.action)).toEqual(["created", "updated", "deleted"]);
     for (const r of rows.rows) {
       expect(r.source).toBe("app");
       expect(r.actor_id).toBe(seeded.userId);
-      expect(r.agent_connection_id).toBeNull();
+      expect(r.app_connection_id).toBeNull();
     }
   });
 

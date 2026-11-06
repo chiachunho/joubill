@@ -16,6 +16,7 @@ function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
     action: "updated",
     at: "2026-10-28T04:00:00Z",
     actor: { userId: 1, displayName: null, firstName: "小明", lastName: null, username: null },
+    via: null,
     recordId: 7,
     recordType: "expense",
     recordLabel: "晚餐",
@@ -24,6 +25,21 @@ function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
 }
 
 const props = { appBase: "/mini", groupId: 1 };
+
+describe("ActivityList: linked applications", () => {
+  it("names the application on its row and marks the avatar", () => {
+    render(<ActivityList {...props} entries={[entry({ action: "created", via: "Claude" })]} />);
+
+    expect(screen.getByText(/小明/).closest("p")).toHaveTextContent("小明 透過 Claude");
+    expect(screen.getByRole("img", { name: "透過 Claude" })).toBeInTheDocument();
+  });
+
+  it("shows nothing extra for a person's own change", () => {
+    render(<ActivityList {...props} entries={[entry({})]} />);
+
+    expect(screen.queryByText(/透過/)).not.toBeInTheDocument();
+  });
+});
 
 describe("ActivityList", () => {
   it("shows a changed field as its old value, then the new one", () => {
