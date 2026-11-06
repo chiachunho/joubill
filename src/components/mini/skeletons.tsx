@@ -418,3 +418,29 @@ export function JoinSkeleton() {
     </div>
   );
 }
+
+export function AgentsSkeleton() {
+  return (
+    <div className="space-y-6 py-4" aria-busy="true" aria-label="載入中">
+      <div className="space-y-2 px-4">
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-3 w-3/4" />
+      </div>
+      <section className="px-4">
+        <Skeleton className="mb-2.5 h-3 w-14" />
+        <Skeleton className="h-10 rounded-lg" />
+      </section>
+      <section className="px-4">
+        <Skeleton className="mb-2.5 h-3 w-12" />
+        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          {[0, 1].map((i) => (
+            <div key={i} className="space-y-1.5 px-4 py-3">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-48" />
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

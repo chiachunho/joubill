@@ -182,6 +182,7 @@ Stateless Streamable HTTP over `@modelcontextprotocol/sdk`, authenticated by per
 - **Results carry the data as `structuredContent` and as one JSON text block in `content`** (some clients show a model only `content`). The first text block is a fixed sentence of ids and numbers; user-controlled text (descriptions, names) appears only as string values inside the JSON, never in prose.
 - People are matched exactly within the group and never guessed (`agent-names.ts`).
 - A new column referencing `users.id` on connection tables is moved in `mergeAccounts` (`agent_connections` is).
+- The settings UI is `AgentsPage` (`src/components/pages/`, routes `/{mini,app}/settings/agents`, row in 個人設定 via `AgentsSection`). The forms start on the narrowest grant (唯讀, no group, no "all groups"); the token lives in `CreateAgentTokenDialog` state only; `PATCH` changes permission and scope, never name or expiry; wording and scope text come from `src/lib/agent-ui.ts`.
 
 ### Help site (`src/app/help/`)
 
