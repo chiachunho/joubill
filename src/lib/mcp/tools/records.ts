@@ -30,6 +30,7 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
         spentAt: expenses.spentAt,
         createdBy: expenses.createdBy,
         createdAt: expenses.createdAt,
+        updatedAt: expenses.updatedAt,
       })
       .from(expenses)
       .where(and(eq(expenses.groupId, groupId), inArray(expenses.id, ids))),
@@ -50,6 +51,7 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
       spentAt: r.spentAt,
       createdByMemberId: r.createdBy,
       createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
       payers: payers
         .filter((p) => p.expenseId === r.id)
         .map((p) => ({ memberId: p.payerId, label: label(p.payerId), amount: n(p.amount) })),
@@ -161,7 +163,7 @@ export function registerRecordTools(server: McpServer, auth: AppAuth) {
     {
       title: "Get record",
       description:
-        "One expense or settlement with its payers and splits. Use before changing or deleting a record, to show the user what it is.",
+        "One expense or settlement with its payers and splits. Use before changing or deleting a record, to show the user what it is. Its updatedAt is what update_record needs as expectedUpdatedAt.",
       inputSchema: { groupId: idSchema, recordId: idSchema },
       annotations: READ,
     },

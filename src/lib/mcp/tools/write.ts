@@ -24,7 +24,7 @@ import { guarded, ok, ToolError } from "../result";
 
 const WRITE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
 
-const memberRef = z
+export const memberRef = z
   .union([idSchema, z.string().trim().min(1).max(100)])
   .describe("a memberId from get_group (preferred), or a name / @username in this group");
 const keySchema = z
@@ -37,7 +37,7 @@ const keySchema = z
 
 const ME_WORDS = new Set(["me", "myself", "self", "我", "本人"]);
 
-function makeResolver(members: McpMember[], meId: number) {
+export function makeResolver(members: McpMember[], meId: number) {
   return (ref: number | string): McpMember => {
     if (typeof ref === "string" && ME_WORDS.has(ref.trim().toLowerCase())) {
       const me = members.find((m) => m.id === meId);
@@ -51,7 +51,7 @@ function makeResolver(members: McpMember[], meId: number) {
   };
 }
 
-const splitSchema = z.discriminatedUnion("type", [
+export const splitSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("equal"),
     among: z.array(memberRef).min(1).max(50).optional().describe("Default: every active member."),
@@ -72,8 +72,36 @@ const splitSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
+type SplitArg = z.infer<typeof splitSchema>;
+
+/** The agent's split argument with every person resolved to a member id. */
+export function toMcpSplit(
+  split: SplitArg,
+  find: (ref: number | string) => McpMember,
+  members: McpMember[],
+): McpSplit {
+  if (split.type === "equal") {
+    return {
+      type: "equal",
+      userIds: split.among
+        ? split.among.map((r) => find(r).id)
+        : members.filter((m) => m.active).map((m) => m.id),
+    };
+  }
+  if (split.type === "shares") {
+    return {
+      type: "shares",
+      shares: split.shares.map((s) => ({ userId: find(s.member).id, weight: s.weight })),
+    };
+  }
+  return {
+    type: "exact",
+    amounts: split.amounts.map((s) => ({ userId: find(s.member).id, amount: s.amount })),
+  };
+}
+
 /** The currency of a call: the argument, else one written into the amount, else the group's. */
-function resolveCurrency(
+export function resolveCurrency(
   explicit: SupportedCurrency | undefined,
   fromAmount: SupportedCurrency | null,
   groupDefault: string,
@@ -88,7 +116,7 @@ function resolveCurrency(
   return currency as SupportedCurrency;
 }
 
-const mcpActor = (auth: AppAuth) => ({
+export const mcpActor = (auth: AppAuth) => ({
   userId: auth.user.id,
   source: "mcp" as const,
   appConnectionId: auth.grant.connectionId,
@@ -171,26 +199,7 @@ export function registerWriteTools(server: McpServer, auth: AppAuth) {
           ? args.payers.map((p) => ({ userId: find(p.member).id, amount: p.amount }))
           : [{ userId: args.paidBy !== undefined ? find(args.paidBy).id : auth.user.id }];
 
-        const split = args.split ?? { type: "equal" as const };
-        let mcpSplit: McpSplit;
-        if (split.type === "equal") {
-          mcpSplit = {
-            type: "equal",
-            userIds: split.among
-              ? split.among.map((r) => find(r).id)
-              : members.filter((m) => m.active).map((m) => m.id),
-          };
-        } else if (split.type === "shares") {
-          mcpSplit = {
-            type: "shares",
-            shares: split.shares.map((s) => ({ userId: find(s.member).id, weight: s.weight })),
-          };
-        } else {
-          mcpSplit = {
-            type: "exact",
-            amounts: split.amounts.map((s) => ({ userId: find(s.member).id, amount: s.amount })),
-          };
-        }
+        const mcpSplit = toMcpSplit(args.split ?? { type: "equal" as const }, find, members);
 
         const built = buildExpenseInput({
           amount: parsed.amount,

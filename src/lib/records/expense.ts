@@ -7,8 +7,13 @@ import { resolveRecordFx } from "@/lib/fx";
 import { logCreated, logUpdated } from "@/lib/record-mutation";
 import type { ExpenseInput } from "@/lib/zod";
 
-import { assertUsersInGroup, replacePayersAndSplits, resolveUpdateFx } from "./shared";
-import { apiOf, type RecordContext } from "./types";
+import {
+  assertUnchangedSince,
+  assertUsersInGroup,
+  replacePayersAndSplits,
+  resolveUpdateFx,
+} from "./shared";
+import { apiOf, type RecordContext, type UpdateOptions } from "./types";
 
 const payerRows = (id: number, input: ExpenseInput) =>
   input.payers.map((p) => ({
@@ -78,6 +83,7 @@ export async function updateExpense(
   expenseId: number,
   input: ExpenseInput,
   ctx: RecordContext,
+  opts: UpdateOptions = {},
 ): Promise<void> {
   const [existing] = await db
     .select({ id: expenses.id, currency: expenses.currency, fxQuote: expenses.fxQuote })
@@ -96,6 +102,7 @@ export async function updateExpense(
   // logUpdated snapshots the record either side of the write, logs the diff and
   // refreshes the group message. Anything that edits a record goes through it.
   await logUpdated(apiOf(ctx), expenseId, ctx.actor, async (tx) => {
+    await assertUnchangedSince(tx, expenseId, opts.expectedUpdatedAt);
     await tx
       .update(expenses)
       .set({

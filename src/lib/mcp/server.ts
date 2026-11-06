@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AppAuth } from "@/lib/auth/mcp";
 
 import { MCP_INSTRUCTIONS } from "./instructions";
+import { registerEditTools } from "./tools/edit";
 import { registerGroupTools } from "./tools/groups";
 import { registerRecordTools } from "./tools/records";
 import { registerWriteTools } from "./tools/write";
@@ -16,5 +17,6 @@ export function createMcpServer(auth: AppAuth): McpServer {
   registerGroupTools(server, auth);
   registerRecordTools(server, auth);
   registerWriteTools(server, auth);
+  registerEditTools(server, auth);
   return server;
 }

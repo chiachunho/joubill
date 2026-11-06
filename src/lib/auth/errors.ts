@@ -48,6 +48,14 @@ export class TooManyRequestsError extends HttpError {
   }
 }
 
+/** The record changed since the caller read it (`expectedUpdatedAt` no longer matches). */
+export class ConflictError extends HttpError {
+  constructor(message = "conflict") {
+    super(409, message);
+    this.name = "ConflictError";
+  }
+}
+
 export class NotFoundError extends HttpError {
   constructor(message = "not found") {
     super(404, message);

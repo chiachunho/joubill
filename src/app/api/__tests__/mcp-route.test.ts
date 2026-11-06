@@ -71,7 +71,7 @@ describe("/api/mcp", () => {
     const res = await POST(rpc({ jsonrpc: "2.0", id: 1, method: "tools/list" }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
-      result: { tools: { name: string; annotations?: { readOnlyHint?: boolean } }[] };
+      result: { tools: { name: string; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } }[] };
     };
     const tools = new Map(json.result.tools.map((t) => [t.name, t]));
     expect([...tools.keys()].sort()).toEqual(
@@ -82,11 +82,15 @@ describe("/api/mcp", () => {
         "get_group",
         "get_record",
         "list_groups",
+        "delete_record",
         "list_records",
+        "update_record",
       ].sort(),
     );
     expect(tools.get("list_groups")?.annotations?.readOnlyHint).toBe(true);
     expect(tools.get("add_expense")?.annotations?.readOnlyHint).toBe(false);
+    expect(tools.get("delete_record")?.annotations?.destructiveHint).toBe(true);
+    expect(tools.get("update_record")?.annotations?.destructiveHint).toBe(false);
     expect(state.dbTouched).toBe(false);
   });
 });

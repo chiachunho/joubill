@@ -38,7 +38,21 @@ longer one is a new token. A revoked connection answers 404. The client side is 
 ## Tools
 
 Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. Write:
-`add_expense`, `add_settlement`. `update_record` / `delete_record` are phase 2.
+`add_expense`, `add_settlement`, `update_record`, `delete_record`.
+
+- **Agent-facing text** (issue #151): the server `instructions` live in `src/lib/mcp/instructions.ts`,
+  every tool has a description saying when to use it and its defaults, and every write tool takes
+  `dryRun` (counted against the read bucket). A name error's `message` lists the candidates and the
+  next step (`describeUnresolved`), and `NEXT_STEP` (`result.ts`) appends one to `forbidden`,
+  `rate_limited`, `conflict` and the rest, because the agent may see only the message.
+- **`update_record`** overlays the arguments on the stored record (`mcp-edit.ts`): a sole payer and
+  an equal / shares split follow a new total; several payers or a per-person split must be re-sent
+  when the amount moves, never guessed. It needs `expectedUpdatedAt` (from `get_record`). A stale one
+  is `conflict` with the current record; the check is repeated inside the row-locked transaction
+  (`assertUnchangedSince`), so two writers cannot both pass it. An active pinned rate is kept while
+  the currency stays the same.
+- **`delete_record`** is `destructiveHint`, previews with `dryRun`, and goes through `deleteRecord`,
+  so the group message becomes the tombstone naming the connection.
 
 - **Data twice, prose never.** Every result has `structuredContent` and the same data as a
   JSON text block in `content` (`src/lib/mcp/result.ts`), because some clients show a model

@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { expensePayers, expenseSplits, groups } from "@/db/schema";
+import { expensePayers, expenseSplits, expenses, groups } from "@/db/schema";
 import { findUsersNotInGroup } from "@/lib/auth";
-import { BadRequestError, NotFoundError } from "@/lib/auth/errors";
+import { BadRequestError, ConflictError, NotFoundError } from "@/lib/auth/errors";
 import { fxColumnsFor } from "@/lib/fx";
 import type { Tx } from "@/lib/record-mutation";
 
@@ -52,6 +52,31 @@ export async function resolveUpdateFx(
     defaultCurrency: group.defaultCurrency,
   });
   return keep ? null : fxColumnsFor(group.defaultCurrency, input.currency, input.fxRate);
+}
+
+/** Two timestamps within the precision a JS Date round trip keeps (the column holds µs). */
+export function sameInstant(a: Date, b: Date): boolean {
+  return Math.abs(a.getTime() - b.getTime()) < 2;
+}
+
+/**
+ * Inside a `logUpdated` callback (the row is already locked): refuses the write when the
+ * record was changed after `expected`, so an edit made from an old read can't overwrite a
+ * newer one.
+ */
+export async function assertUnchangedSince(
+  tx: Tx,
+  recordId: number,
+  expected: Date | undefined,
+): Promise<void> {
+  if (!expected) return;
+  const [row] = await tx
+    .select({ updatedAt: expenses.updatedAt })
+    .from(expenses)
+    .where(eq(expenses.id, recordId));
+  if (!row || !sameInstant(row.updatedAt, expected)) {
+    throw new ConflictError("the record was changed after it was read");
+  }
 }
 
 /** Replaces a record's payers and splits wholesale. */

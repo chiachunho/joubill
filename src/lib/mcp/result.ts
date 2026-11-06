@@ -17,6 +17,7 @@ export type ToolErrorCode =
   | "member_not_found"
   | "member_ambiguous"
   | "in_progress"
+  | "conflict"
   | "internal";
 
 export class ToolError extends Error {
@@ -63,6 +64,8 @@ export const NEXT_STEP: Partial<Record<ToolErrorCode, string>> = {
   not_found: "Check the ids with list_groups, get_group or list_records.",
   rate_limited: "Wait for retryAfterSeconds before calling again, or tell the user.",
   in_progress: "Retry shortly with the same idempotencyKey.",
+  conflict:
+    "Read the record again (get_record), show the user what changed and ask before retrying with the new updatedAt.",
 };
 
 /** Appends the next step unless the message already tells one (member errors do). */
@@ -76,6 +79,7 @@ const CODE_BY_STATUS: Record<number, ToolErrorCode> = {
   401: "forbidden",
   403: "forbidden",
   404: "not_found",
+  409: "conflict",
   429: "rate_limited",
 };
 
