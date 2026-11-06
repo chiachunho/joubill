@@ -11,7 +11,13 @@ import { buildExpenseInput, type AgentPayer, type AgentSplit } from "@/lib/agent
 import type { AgentAuth } from "@/lib/auth/agent";
 import { todayIn } from "@/lib/day";
 import { createExpense, createSettlement } from "@/lib/records";
-import { daySchema, idSchema, SUPPORTED_CURRENCIES, type SupportedCurrency } from "@/lib/zod";
+import {
+  daySchema,
+  idSchema,
+  settlementInputSchema,
+  SUPPORTED_CURRENCIES,
+  type SupportedCurrency,
+} from "@/lib/zod";
 
 import { openGroup, type McpMember } from "../context";
 import { guarded, ok, ToolError } from "../result";
@@ -32,13 +38,12 @@ const keySchema = z
 const ME_WORDS = new Set(["me", "myself", "self", "我", "本人"]);
 
 function makeResolver(members: McpMember[], meId: number) {
-  const active = members;
   return (ref: number | string): McpMember => {
     if (typeof ref === "string" && ME_WORDS.has(ref.trim().toLowerCase())) {
       const me = members.find((m) => m.id === meId);
       if (me) return me;
     }
-    const r = resolveMember(ref, active);
+    const r = resolveMember(ref, members);
     if (r.ok) return r.member;
     throw new ToolError(
       r.code,
@@ -70,6 +75,28 @@ const splitSchema = z.discriminatedUnion("type", [
       .max(50),
   }),
 ]);
+
+/** The currency of a call: the argument, else one written into the amount, else the group's. */
+function resolveCurrency(
+  explicit: SupportedCurrency | undefined,
+  fromAmount: SupportedCurrency | null,
+  groupDefault: string,
+): SupportedCurrency {
+  if (fromAmount && explicit && fromAmount !== explicit) {
+    throw new ToolError("bad_request", "currency in amount conflicts with the currency argument");
+  }
+  const currency = explicit ?? fromAmount ?? groupDefault;
+  if (!(SUPPORTED_CURRENCIES as readonly string[]).includes(currency)) {
+    throw new ToolError("bad_request", `unsupported currency ${currency}`);
+  }
+  return currency as SupportedCurrency;
+}
+
+const agentActor = (auth: AgentAuth) => ({
+  userId: auth.user.id,
+  source: "agent" as const,
+  agentConnectionId: auth.grant.connectionId,
+});
 
 type Reservation = { release: () => Promise<void>; bind: (id: number) => Promise<void> };
 
@@ -134,25 +161,14 @@ export function registerWriteTools(server: McpServer, auth: AgentAuth) {
     },
     (args) =>
       guarded(async () => {
-        const { group, members } = await openGroup(auth, args.groupId, "write", {
+        const { group, members, labels } = await openGroup(auth, args.groupId, "write", {
           countAs: args.dryRun ? "read" : "write",
         });
         const find = makeResolver(members, auth.user.id);
 
         const parsed = parseAgentAmount(args.amount);
         if (!parsed.ok) throw new ToolError("bad_request", parsed.message);
-        if (parsed.currency && args.currency && parsed.currency !== args.currency) {
-          throw new ToolError(
-            "bad_request",
-            "currency in amount conflicts with the currency argument",
-          );
-        }
-        const currency = (args.currency ??
-          parsed.currency ??
-          group.defaultCurrency) as SupportedCurrency;
-        if (!(SUPPORTED_CURRENCIES as readonly string[]).includes(currency)) {
-          throw new ToolError("bad_request", `unsupported currency ${currency}`);
-        }
+        const currency = resolveCurrency(args.currency, parsed.currency, group.defaultCurrency);
         const spentAt = args.spentAt ?? todayIn(group.timezone);
 
         if (args.payers && args.paidBy !== undefined) {
@@ -193,10 +209,7 @@ export function registerWriteTools(server: McpServer, auth: AgentAuth) {
         });
         if (!built.ok) throw new ToolError("bad_request", built.message);
 
-        const label = (id: number) => {
-          const m = members.find((x) => x.id === id);
-          return m ? (m.displayName ?? m.firstName) : "?";
-        };
+        const label = (id: number) => labels.get(id) ?? "?";
         const preview = {
           amount: built.input.amount,
           currency,
@@ -247,13 +260,11 @@ export function registerWriteTools(server: McpServer, auth: AgentAuth) {
             }
           }
           const { id } = await createExpense(args.groupId, built.input, {
-            actor: {
-              userId: auth.user.id,
-              source: "agent",
-              agentConnectionId: auth.grant.connectionId,
-            },
+            actor: agentActor(auth),
           });
-          await reservation?.bind(id);
+          // The record exists now: a failed bind must not free the key, or a retry would
+          // book it twice.
+          await reservation?.bind(id).catch((err) => console.error("[mcp] bindKey failed", err));
           return ok(`created expense ${id}`, { status: "created", recordId: id, preview });
         } catch (err) {
           await reservation?.release().catch(() => {});
@@ -287,18 +298,7 @@ export function registerWriteTools(server: McpServer, auth: AgentAuth) {
         const find = makeResolver(members, auth.user.id);
         const parsed = parseAgentAmount(args.amount);
         if (!parsed.ok) throw new ToolError("bad_request", parsed.message);
-        if (parsed.currency && args.currency && parsed.currency !== args.currency) {
-          throw new ToolError(
-            "bad_request",
-            "currency in amount conflicts with the currency argument",
-          );
-        }
-        const currency = (args.currency ??
-          parsed.currency ??
-          group.defaultCurrency) as SupportedCurrency;
-        if (!(SUPPORTED_CURRENCIES as readonly string[]).includes(currency)) {
-          throw new ToolError("bad_request", `unsupported currency ${currency}`);
-        }
+        const currency = resolveCurrency(args.currency, parsed.currency, group.defaultCurrency);
         const fromId = args.from !== undefined ? find(args.from).id : auth.user.id;
         const toId = find(args.to).id;
         if (fromId === toId) throw new ToolError("bad_request", "from and to must differ");
@@ -306,25 +306,25 @@ export function registerWriteTools(server: McpServer, auth: AgentAuth) {
         const held = await reserve(auth, args.idempotencyKey);
         if (held.early) return held.early;
         const reservation = held.reservation;
+
+        // Same schema as the REST route: the tool's own checks don't cover the amount range.
+        const input = settlementInputSchema.safeParse({
+          fromUserId: fromId,
+          toUserId: toId,
+          amount: parsed.amount,
+          currency,
+          settledAt: args.settledAt,
+        });
+        if (!input.success) {
+          await reservation?.release().catch(() => {});
+          throw new ToolError("bad_request", input.error.issues[0].message);
+        }
+
         try {
-          const { id } = await createSettlement(
-            args.groupId,
-            {
-              fromUserId: fromId,
-              toUserId: toId,
-              amount: parsed.amount,
-              currency,
-              settledAt: args.settledAt,
-            },
-            {
-              actor: {
-                userId: auth.user.id,
-                source: "agent",
-                agentConnectionId: auth.grant.connectionId,
-              },
-            },
-          );
-          await reservation?.bind(id);
+          const { id } = await createSettlement(args.groupId, input.data, {
+            actor: agentActor(auth),
+          });
+          await reservation?.bind(id).catch((err) => console.error("[mcp] bindKey failed", err));
           return ok(`created settlement ${id}`, {
             status: "created",
             recordId: id,

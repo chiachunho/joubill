@@ -42,17 +42,19 @@ export function registerGroupTools(server: McpServer, auth: AgentAuth) {
               .groupBy(groupMembers.groupId)
           : [];
         const countOf = new Map(counts.map((c) => [c.groupId, c.n]));
-        const out = [];
-        for (const g of allowed) {
-          const balances = await computeGroupBalances(g.id, g.defaultCurrency);
-          out.push({
-            groupId: g.id,
-            title: g.title,
-            defaultCurrency: g.defaultCurrency,
-            memberCount: countOf.get(g.id) ?? 0,
-            myNet: balances.find((b) => b.userId === auth.user.id)?.amount ?? 0,
-          });
-        }
+        // Each balance is its own set of queries (and possibly a rate lookup); run them together.
+        const out = await Promise.all(
+          allowed.map(async (g) => {
+            const balances = await computeGroupBalances(g.id, g.defaultCurrency);
+            return {
+              groupId: g.id,
+              title: g.title,
+              defaultCurrency: g.defaultCurrency,
+              memberCount: countOf.get(g.id) ?? 0,
+              myNet: balances.find((b) => b.userId === auth.user.id)?.amount ?? 0,
+            };
+          }),
+        );
         return ok(`${out.length} group(s)`, { groups: out });
       }),
   );

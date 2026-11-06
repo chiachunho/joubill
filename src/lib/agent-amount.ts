@@ -14,8 +14,9 @@ const isSupported = (c: string): c is SupportedCurrency =>
  */
 export function parseAgentAmount(raw: number | string): AgentAmount {
   if (typeof raw === "number") {
-    return Number.isFinite(raw) && raw > 0
-      ? { ok: true, amount: Math.round(raw * 100) / 100, currency: null }
+    const rounded = Math.round(raw * 100) / 100;
+    return Number.isFinite(rounded) && rounded > 0
+      ? { ok: true, amount: rounded, currency: null }
       : { ok: false, message: "amount must be a positive number" };
   }
   const norm = normalizeWidth(raw).trim();

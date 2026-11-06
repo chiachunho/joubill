@@ -1,4 +1,4 @@
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, isNull, lt, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { agentIdempotency } from "@/db/schema";
@@ -7,6 +7,9 @@ import { agentIdempotency } from "@/db/schema";
 export const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 /** Same group, amount, currency and payer within this window is a likely double entry. */
 export const DUPLICATE_WINDOW_MS = 10 * 60 * 1000;
+
+/** A claim that never got a record this long ago was abandoned (the call died). */
+export const CLAIM_STALE_MS = 2 * 60 * 1000;
 
 export const idempotencyCutoff = (now: Date) => new Date(now.getTime() - IDEMPOTENCY_TTL_MS);
 export const duplicateSince = (now: Date) => new Date(now.getTime() - DUPLICATE_WINDOW_MS);
@@ -17,14 +20,26 @@ export type Claim =
 /**
  * Takes `key` for this connection. The insert is the lock: of two calls with one key only
  * one inserts, the other reads what the first left. Expired rows are removed first, so an
- * old key is free again, and the same delete is the sweep.
+ * old key is free again, and the same delete is the sweep. A claim with no record after
+ * `CLAIM_STALE_MS` belonged to a call that died, so it is freed too (else the key would
+ * answer `in_progress` for 24 h).
  */
 export async function claimKey(
   connectionId: number,
   key: string,
   now = new Date(),
 ): Promise<Claim> {
-  await db.delete(agentIdempotency).where(lt(agentIdempotency.createdAt, idempotencyCutoff(now)));
+  await db
+    .delete(agentIdempotency)
+    .where(
+      or(
+        lt(agentIdempotency.createdAt, idempotencyCutoff(now)),
+        and(
+          isNull(agentIdempotency.recordId),
+          lt(agentIdempotency.createdAt, new Date(now.getTime() - CLAIM_STALE_MS)),
+        ),
+      ),
+    );
   const inserted = await db
     .insert(agentIdempotency)
     .values({ connectionId, key, createdAt: now })
