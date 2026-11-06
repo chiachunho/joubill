@@ -393,7 +393,9 @@ export function ExpenseForm(props: Props) {
   // as of the spend date). Goes through the surrounding store, so it works in
   // both the Mini App and the Web App.
   const isForeignCurrency = currency !== props.defaultCurrency;
-  const { data: effectiveRate } = useGetEffectiveRateQuery(
+  // `data` keeps the previous date's result while the new one loads, so nothing derived
+  // from it is shown while `isFetching` (the ≈ line is a skeleton instead).
+  const { data: effectiveRate, isFetching: rateFetching } = useGetEffectiveRateQuery(
     isForeignCurrency ? { groupId, base: currency, date: ymd(spentDate) } : skipToken,
   );
   const [createExpense] = useCreateExpenseMutation();
@@ -714,17 +716,21 @@ export function ExpenseForm(props: Props) {
                         inputMode="decimal"
                         className="num"
                         placeholder={
-                          effectiveRate?.rate != null ? `${effectiveRate.rate}（自動）` : "自動"
+                          effectiveRate?.rate != null && !rateFetching
+                            ? `${effectiveRate.rate}（自動）`
+                            : "自動"
                         }
                         {...field}
                       />
                     </FormControl>
-                    {rateInUse != null && totalAmount > 0 && (
+                    {!usingCustom && rateFetching && totalAmount > 0 ? (
+                      <Skeleton className="h-4 w-48" />
+                    ) : rateInUse != null && totalAmount > 0 ? (
                       <p className="num text-xs text-muted-foreground">
                         ≈ {(totalAmount * rateInUse).toFixed(2)} {props.defaultCurrency} ·{" "}
                         {rateSourceLabel(usingCustom, effectiveRate)}
                       </p>
-                    )}
+                    ) : null}
                     <FormMessage />
                   </FormItem>
                 );

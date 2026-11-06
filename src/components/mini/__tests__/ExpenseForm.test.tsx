@@ -288,6 +288,14 @@ describe("ExpenseForm: editing", () => {
     ]);
   });
 
+  it("names the day the market rate is from once it has loaded", async () => {
+    renderForm(
+      { initial: initial({ currency: "JPY" }) },
+      { [RATE_PATH]: { rate: 0.2, source: "market", marketRateDate: "2026-07-09" } },
+    );
+    expect(await screen.findByText(/市場匯率 · 2026\/07\/09/)).toBeInTheDocument();
+  });
+
   it("keeps a rate pinned against the current default currency when saving", async () => {
     const w = writes({ ok: true });
     renderForm(

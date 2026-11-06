@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -175,7 +176,9 @@ export function SettlementForm({
   }, [currency]);
 
   // Reference rate (group custom rate if set, else market rate as of the date).
-  const { data: effectiveRate } = useGetEffectiveRateQuery(
+  // `data` keeps the previous date's result while the new one loads, so nothing derived
+  // from it is shown while `isFetching` (the ≈ line is a skeleton instead).
+  const { data: effectiveRate, isFetching: rateFetching } = useGetEffectiveRateQuery(
     isForeignCurrency ? { groupId, base: currency, date: ymd(settledDate) } : skipToken,
   );
   const [createSettlement] = useCreateSettlementMutation();
@@ -360,17 +363,21 @@ export function SettlementForm({
                       inputMode="decimal"
                       className="num"
                       placeholder={
-                        effectiveRate?.rate != null ? `${effectiveRate.rate}（自動）` : "自動"
+                        effectiveRate?.rate != null && !rateFetching
+                          ? `${effectiveRate.rate}（自動）`
+                          : "自動"
                       }
                       {...field}
                     />
                   </FormControl>
-                  {rateInUse != null && total > 0 && (
+                  {!usingCustom && rateFetching && total > 0 ? (
+                    <Skeleton className="h-4 w-48" />
+                  ) : rateInUse != null && total > 0 ? (
                     <p className="num text-xs text-muted-foreground">
                       ≈ {(total * rateInUse).toFixed(2)} {defaultCurrency} ·{" "}
                       {rateSourceLabel(usingCustom, effectiveRate)}
                     </p>
-                  )}
+                  ) : null}
                   <FormMessage />
                 </FormItem>
               );
