@@ -4,6 +4,8 @@
  * garbage (or as a live formula) in the user's spreadsheet.
  */
 
+import { fxDateKey } from "./fx-shared";
+
 /** Excel assumes a legacy codepage for CSV unless the file starts with a UTF-8 BOM. */
 const BOM = "﻿";
 
@@ -47,6 +49,11 @@ export function formatLegs(legs: readonly { name: string; amount: number }[]): s
 function formatAmount(amount: number): string {
   const s = amount.toFixed(2);
   return s.endsWith(".00") ? s.slice(0, -3) : s;
+}
+
+/** `2026-10-29` — the day a record is on (see `fxDateKey`); a record's date carries no time of day. */
+export function formatDay(d: Date): string {
+  return fxDateKey(d);
 }
 
 /** `2026-10-29 14:05` in UTC. The schema holds no group timezone, so the header says UTC. */

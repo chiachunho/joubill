@@ -1,9 +1,12 @@
-import { and, desc, eq, lte } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { exchangeRates, groupExchangeRates, groups } from "@/db/schema";
 
+import { fxDateKey } from "./fx-shared";
 import { n } from "./money";
+
+export { FX_TIME_ZONE, fxDateKey } from "./fx-shared";
 
 /**
  * Free, no-key currency API hosted on jsdelivr.
@@ -131,16 +134,36 @@ export async function resolveRecordFx(
   return fxColumnsFor(group.defaultCurrency, currency, fxRate);
 }
 
+/** The instant a bot-created record is stamped with: UTC noon of today's FX day. */
+export function spentAtForNow(now: Date = new Date()): Date {
+  return new Date(`${fxDateKey(now)}T12:00:00Z`);
+}
+
+/**
+ * Whether a fetched rate may be stored under the requested day. A past day is final
+ * (the dated URL answers a weekend with the previous business day, which is exactly
+ * what that day should keep). Today is cached only when the API's "latest" really is
+ * today's: if it lags a day, caching it would freeze yesterday's rate as today's.
+ * A day that hasn't happened yet is never cached. Pure so it can be unit-tested.
+ */
+export function cacheableRateDay(dateStr: string, today: string, apiDate: string): boolean {
+  if (dateStr < today) return true;
+  return dateStr === today && apiDate === today;
+}
+
 /**
  * Resolve a rate to convert `base` into `quote` on a given date.
  *
  * Lookup strategy:
  *   1. Group custom rate from `overrides` (date-independent — the group agreed
  *      on one fixed rate), when provided.
- *   2. Most recent cached rate with as_of_date <= date (FX doesn't move overnight,
- *      and the API itself returns Friday's rate on weekends — handled naturally
- *      by the `<=` window).
- *   3. Cache miss → fetch from API, cache by the API's response date, return.
+ *   2. The cached rate for exactly that day (`exchange_rates`, global).
+ *   3. Otherwise fetch that day from the API and cache it under the REQUESTED
+ *      day. A weekend or holiday is answered with the previous business day's
+ *      rate by the API; storing it under the day that was asked for keeps one
+ *      permanent answer per (pair, day), so a record's converted amount can't
+ *      change because some other record happened to populate a nearby day.
+ *      See `cacheableRateDay` for when the fetched rate is not stored.
  */
 export async function getRate(
   base: string,
@@ -155,7 +178,7 @@ export async function getRate(
   const override = overrides?.get(overrideKey(b, q));
   if (override != null) return override;
 
-  const dateStr = date.toISOString().slice(0, 10);
+  const dateStr = fxDateKey(date);
 
   const [cached] = await db
     .select({ rate: exchangeRates.rate })
@@ -164,14 +187,13 @@ export async function getRate(
       and(
         eq(exchangeRates.base, b),
         eq(exchangeRates.quote, q),
-        lte(exchangeRates.asOfDate, dateStr),
+        eq(exchangeRates.asOfDate, dateStr),
       ),
     )
-    .orderBy(desc(exchangeRates.asOfDate))
     .limit(1);
   if (cached) return n(cached.rate);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = fxDateKey(new Date());
   const datePath = dateStr >= today ? "latest" : dateStr;
   const url = `${FX_API_BASE}@${datePath}/v1/currencies/${b.toLowerCase()}.json`;
 
@@ -182,15 +204,12 @@ export async function getRate(
   const data = (await res.json()) as FxResponse;
   const rate = parseFxResponse(data, b, q);
 
-  await db
-    .insert(exchangeRates)
-    .values({
-      base: b,
-      quote: q,
-      rate: rate.toString(),
-      asOfDate: data.date,
-    })
-    .onConflictDoNothing();
+  if (cacheableRateDay(dateStr, today, data.date)) {
+    await db
+      .insert(exchangeRates)
+      .values({ base: b, quote: q, rate: rate.toString(), asOfDate: dateStr })
+      .onConflictDoNothing();
+  }
 
   return rate;
 }

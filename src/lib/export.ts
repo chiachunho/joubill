@@ -3,13 +3,20 @@ import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
 
-import { buildCsv, formatLegs, formatUtcMinute, exportFilename, type CsvCell } from "./csv";
-import { loadGroupRateOverrides, resolveRate } from "./fx";
+import {
+  buildCsv,
+  formatDay,
+  formatLegs,
+  formatUtcMinute,
+  exportFilename,
+  type CsvCell,
+} from "./csv";
+import { fxDateKey, loadGroupRateOverrides, resolveRate } from "./fx";
 import { labelUser } from "./label";
 import { n } from "./money";
 
 export const EXPORT_HEADER = [
-  "日期 (UTC)",
+  "日期",
   "類型",
   "說明",
   "金額",
@@ -50,7 +57,7 @@ function fixed(value: number): number {
 /** Pure: records → CSV text. */
 export function exportRecordsToCsv(records: readonly ExportRecord[], quote: string): string {
   const rows: CsvCell[][] = records.map((r) => [
-    formatUtcMinute(r.spentAt),
+    formatDay(r.spentAt),
     r.type === "settlement" ? "還款" : "支出",
     r.description ?? "",
     r.amount,
@@ -156,7 +163,7 @@ export async function loadGroupRecords(
   // combination once and all of them concurrently instead of one round trip per row.
   const rateCache = new Map<string, Promise<number>>();
   const rateOf = (r: (typeof rows)[number]) => {
-    const key = [r.currency, r.fxRate, r.fxQuote, r.spentAt.toISOString().slice(0, 10)].join("|");
+    const key = [r.currency, r.fxRate, r.fxQuote, fxDateKey(r.spentAt)].join("|");
     let rate = rateCache.get(key);
     if (!rate) {
       rate = resolveRate(r, quote, r.spentAt, overrides);

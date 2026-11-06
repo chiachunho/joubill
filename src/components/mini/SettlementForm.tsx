@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useAuthMode } from "@/components/AuthProvider";
 import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
+import { rateSourceLabel } from "@/lib/rate-source-label";
 import { stampLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
@@ -174,9 +176,17 @@ export function SettlementForm({
   }, [currency]);
 
   // Reference rate (group custom rate if set, else market rate as of the date).
-  const { data: effectiveRate } = useGetEffectiveRateQuery(
+  // `data` keeps the previous date's result while the new one loads, so nothing derived
+  // from it is shown while `isFetching` (the ≈ line is a skeleton instead).
+  const {
+    data: effectiveRate,
+    currentData: currentRate,
+    isFetching,
+  } = useGetEffectiveRateQuery(
     isForeignCurrency ? { groupId, base: currency, date: ymd(settledDate) } : skipToken,
   );
+  // Only a load for a NEW date counts; a background refresh of the same date keeps the value.
+  const rateFetching = isFetching && currentRate === undefined;
   const [createSettlement] = useCreateSettlementMutation();
   const [updateSettlement] = useUpdateSettlementMutation();
   const [deleteSettlement] = useDeleteSettlementMutation();
@@ -351,29 +361,35 @@ export function SettlementForm({
                   <FormLabel>
                     匯率（1 {currency} = ? {defaultCurrency}）
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="any"
-                      min="0"
-                      inputMode="decimal"
-                      className="num"
-                      placeholder={
-                        effectiveRate?.rate != null ? `${effectiveRate.rate}（自動）` : "自動"
-                      }
-                      {...field}
-                    />
-                  </FormControl>
-                  {rateInUse != null && total > 0 && (
+                  <div className="relative">
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="any"
+                        min="0"
+                        inputMode="decimal"
+                        className="num"
+                        placeholder={
+                          effectiveRate?.rate != null && !rateFetching
+                            ? `${effectiveRate.rate}（${rateSourceLabel(effectiveRate)}）`
+                            : rateFetching
+                              ? ""
+                              : "無法取得匯率，請手動輸入"
+                        }
+                        {...field}
+                      />
+                    </FormControl>
+                    {field.value === "" && rateFetching && (
+                      <Skeleton className="pointer-events-none absolute left-3 top-1/2 h-4 w-20 -translate-y-1/2" />
+                    )}
+                  </div>
+                  {!usingCustom && rateFetching && total > 0 ? (
+                    <Skeleton className="h-4 w-48" />
+                  ) : rateInUse != null && total > 0 ? (
                     <p className="num text-xs text-muted-foreground">
-                      ≈ {(total * rateInUse).toFixed(2)} {defaultCurrency} ·{" "}
-                      {usingCustom
-                        ? "此筆自訂匯率"
-                        : effectiveRate?.source === "group"
-                          ? "群組自訂匯率"
-                          : "市場匯率"}
+                      ≈ {(total * rateInUse).toFixed(2)} {defaultCurrency}
                     </p>
-                  )}
+                  ) : null}
                   <FormMessage />
                 </FormItem>
               );

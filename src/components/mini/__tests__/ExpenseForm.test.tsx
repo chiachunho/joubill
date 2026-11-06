@@ -288,6 +288,22 @@ describe("ExpenseForm: editing", () => {
     ]);
   });
 
+  it("says a group rate is the group's in the empty rate field", async () => {
+    renderForm(
+      { initial: initial({ currency: "JPY" }) },
+      { [RATE_PATH]: { rate: 0.22, source: "group", marketRate: 0.2 } },
+    );
+    expect(await screen.findByPlaceholderText("0.22（群組自訂匯率）")).toHaveValue(null);
+  });
+
+  it("asks for a typed rate when no rate could be found", async () => {
+    renderForm(
+      { initial: initial({ currency: "JPY" }) },
+      { [RATE_PATH]: { rate: null, source: null, marketRate: null } },
+    );
+    expect(await screen.findByPlaceholderText("無法取得匯率，請手動輸入")).toHaveValue(null);
+  });
+
   it("keeps a rate pinned against the current default currency when saving", async () => {
     const w = writes({ ok: true });
     renderForm(
@@ -298,7 +314,7 @@ describe("ExpenseForm: editing", () => {
       },
     );
     // The placeholder only shows once the rate query answered, so the route matched.
-    expect(await screen.findByPlaceholderText("0.2（自動）")).toHaveValue(0.21);
+    expect(await screen.findByPlaceholderText("0.2（當日市場匯率）")).toHaveValue(0.21);
     await submit();
 
     await waitFor(() => expect(w.sent).toHaveLength(1));
@@ -314,7 +330,7 @@ describe("ExpenseForm: editing", () => {
         "/api/groups/7/expenses/11": w.handler,
       },
     );
-    expect(await screen.findByPlaceholderText("0.2（自動）")).toHaveValue(null);
+    expect(await screen.findByPlaceholderText("0.2（當日市場匯率）")).toHaveValue(null);
     await submit();
 
     // Sending 0.21 would have the server stamp it as a TWD pin; null leaves the dormant

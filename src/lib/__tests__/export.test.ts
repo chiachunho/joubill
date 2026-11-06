@@ -24,7 +24,7 @@ describe("exportRecordsToCsv", () => {
     expect(lines).toHaveLength(2);
     expect(lines[0]).toContain("換算金額");
     expect(lines[1]).toBe(
-      "2026-10-01 12:00,支出,晚餐,1000,JPY,215.47,TWD,0.21547,Alice:1000,Alice:500; Bob:500,Alice,2026-10-01 12:05",
+      "2026-10-01,支出,晚餐,1000,JPY,215.47,TWD,0.21547,Alice:1000,Alice:500; Bob:500,Alice,2026-10-01 12:05",
     );
   });
 

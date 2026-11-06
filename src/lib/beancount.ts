@@ -22,6 +22,7 @@
  */
 
 import { formatUtcMinute } from "@/lib/csv";
+import { fxDateKey } from "@/lib/fx-shared";
 import { BEANCOUNT_LEAF_RE } from "@/lib/zod";
 
 export type BeancountParty = { userId: number; amount: number };
@@ -165,9 +166,9 @@ function escapeString(text: string): string {
     .trim();
 }
 
-/** The UTC calendar date of a timestamp, which is what the CSV export uses too. */
+/** The day a timestamp is on (`fxDateKey`), which is what the CSV export uses too. */
 export function beancountDate(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
+  return fxDateKey(new Date(iso));
 }
 
 /** Format an FX rate compactly (trim trailing zeros, no scientific notation). */
