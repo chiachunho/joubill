@@ -49,6 +49,10 @@ export type ExpenseBody = {
   splits: { debtorId: number; amount: number; splitValue?: number | null }[];
   /** `YYYY-MM-DD`; today when left out. */
   spentAt?: string;
+  /** TWD when left out. */
+  currency?: string;
+  /** A pinned rate for this record; none when left out. */
+  fxRate?: number | null;
 };
 
 function expenseData(body: ExpenseBody) {

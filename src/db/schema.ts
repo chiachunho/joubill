@@ -423,8 +423,14 @@ export const recordAuditLog = pgTable(
     actorId: integer("actor_id")
       .notNull()
       .references(() => users.id),
-    /** Which surface the change came from: 'bot' | 'app'. */
+    /** Which surface the change came from: 'bot' | 'app' | 'agent'. */
     source: varchar("source", { length: 8 }).notNull(),
+    /**
+     * The MCP connection behind an 'agent' change. No foreign key yet: the
+     * `agent_connections` table arrives with the connection work, which adds it
+     * as `ON DELETE SET NULL`.
+     */
+    agentConnectionId: integer("agent_connection_id"),
     /** RecordSnapshot; NULL on 'created'. */
     before: jsonb("before"),
     /** RecordSnapshot, or the rate-lock payload; NULL on 'deleted'. */

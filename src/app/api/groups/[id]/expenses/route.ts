@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 
-import { getBot } from "@/bot";
 import { db } from "@/db";
 import { expenseReceipts, expensePayers, expenseSplits, expenses, users } from "@/db/schema";
 import { EXPENSES_PAGE_SIZE, encodeExpenseCursor, parseExpenseCursor } from "@/lib/expense-cursor";
-import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
+import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { resolveRecordFx } from "@/lib/fx";
 import { n } from "@/lib/money";
-import { logCreated } from "@/lib/record-mutation";
+import { createExpense } from "@/lib/records";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { expenseInputSchema } from "@/lib/zod";
 import { requireId } from "@/lib/route-params";
@@ -178,73 +176,9 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }
-  const input = parsed.data;
 
-  const userIds = Array.from(
-    new Set([...input.payers.map((p) => p.payerId), ...input.splits.map((s) => s.debtorId)]),
-  );
-  const missing = await findUsersNotInGroup(groupId, userIds);
-  if (missing.length > 0) {
-    return NextResponse.json(
-      { error: `users not in group: ${missing.join(",")}` },
-      { status: 400 },
-    );
-  }
-
-  const fx = await resolveRecordFx(groupId, input.currency, input.fxRate);
-
-  const expense = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(expenses)
-      .values({
-        groupId,
-        type: "expense",
-        amount: input.amount.toFixed(2),
-        currency: input.currency,
-        description: input.description,
-        spentAt: input.spentAt,
-        createdBy: auth.user.id,
-        fxRate: fx.fxRate,
-        fxQuote: fx.fxQuote,
-      })
-      .returning();
-
-    const ops: Promise<unknown>[] = [
-      tx.insert(expensePayers).values(
-        input.payers.map((p) => ({
-          expenseId: row.id,
-          payerId: p.payerId,
-          amount: p.amount.toFixed(2),
-        })),
-      ),
-      tx.insert(expenseSplits).values(
-        input.splits.map((s) => ({
-          expenseId: row.id,
-          debtorId: s.debtorId,
-          amount: s.amount.toFixed(2),
-          shareType: input.shareType,
-          splitValue: s.splitValue != null ? String(s.splitValue) : null,
-        })),
-      ),
-    ];
-
-    if (input.receiptFileIds && input.receiptFileIds.length > 0) {
-      ops.push(
-        tx.insert(expenseReceipts).values(
-          input.receiptFileIds.map((fileId, i) => ({
-            expenseId: row.id,
-            fileId,
-            position: i,
-          })),
-        ),
-      );
-    }
-
-    await Promise.all(ops);
-    return row;
+  const { id } = await createExpense(groupId, parsed.data, {
+    actor: { userId: auth.user.id, source: "app" },
   });
-
-  await logCreated(getBot().api, expense.id, { userId: auth.user.id, source: "app" });
-
-  return NextResponse.json({ id: expense.id }, { status: 201 });
+  return NextResponse.json({ id }, { status: 201 });
 });

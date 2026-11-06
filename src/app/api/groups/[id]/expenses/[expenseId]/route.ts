@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 
-import { getBot } from "@/bot";
 import { db } from "@/db";
-import { expenseReceipts, expensePayers, expenseSplits, expenses, groups } from "@/db/schema";
-import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
+import { expenseReceipts, expensePayers, expenseSplits, expenses } from "@/db/schema";
+import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { fxColumnsFor } from "@/lib/fx";
 import { n } from "@/lib/money";
 import { loadLastActivity } from "@/lib/record-history";
-import { logDeleted, logUpdated } from "@/lib/record-mutation";
+import { deleteRecord, updateExpense } from "@/lib/records";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { receiptPhotoUrl } from "@/lib/tg-photo-sign";
 import { expenseInputSchema } from "@/lib/zod";
@@ -116,104 +114,10 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }
-  const input = parsed.data;
 
-  const [existing] = await db
-    .select({ id: expenses.id, currency: expenses.currency, fxQuote: expenses.fxQuote })
-    .from(expenses)
-    .where(
-      and(
-        eq(expenses.id, ids.eid),
-        eq(expenses.groupId, ids.groupId),
-        eq(expenses.type, "expense"),
-      ),
-    );
-  if (!existing) return NextResponse.json({ error: "expense not found" }, { status: 404 });
-
-  const userIds = Array.from(
-    new Set([...input.payers.map((p) => p.payerId), ...input.splits.map((s) => s.debtorId)]),
-  );
-  const missing = await findUsersNotInGroup(ids.groupId, userIds);
-  if (missing.length > 0) {
-    return NextResponse.json(
-      { error: `users not in group: ${missing.join(",")}` },
-      { status: 400 },
-    );
-  }
-
-  const [group] = await db
-    .select({ defaultCurrency: groups.defaultCurrency })
-    .from(groups)
-    .where(eq(groups.id, ids.groupId));
-  if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
-
-  const fx = fxColumnsFor(group.defaultCurrency, input.currency, input.fxRate);
-  // A blank rate field means "automatic", which a dormant pin (stamped for a
-  // different default currency) doesn't interfere with — keep it so it can
-  // revive if the default reverts, instead of wiping it on unrelated edits.
-  const keepDormantPin =
-    input.fxRate == null &&
-    existing.fxQuote != null &&
-    existing.fxQuote !== group.defaultCurrency &&
-    input.currency === existing.currency;
-
-  // logUpdated snapshots the record either side of the write, logs the diff and
-  // refreshes the group message. Anything that edits a record goes through it.
-  await logUpdated(getBot().api, ids.eid, { userId: auth.user.id, source: "app" }, async (tx) => {
-    await tx
-      .update(expenses)
-      .set({
-        amount: input.amount.toFixed(2),
-        currency: input.currency,
-        ...(!keepDormantPin && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
-        description: input.description,
-        spentAt: input.spentAt,
-        // When receipts are explicitly managed, also clear the legacy single-file column so
-        // the GET fallback cannot resurrect a "cleared" bot-uploaded receipt.
-        ...(input.receiptFileIds !== undefined && { receiptFileId: null }),
-        updatedAt: new Date(),
-      })
-      .where(eq(expenses.id, ids.eid));
-
-    // Replace payers and splits wholesale.
-    await Promise.all([
-      tx.delete(expensePayers).where(eq(expensePayers.expenseId, ids.eid)),
-      tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, ids.eid)),
-    ]);
-    await Promise.all([
-      tx.insert(expensePayers).values(
-        input.payers.map((p) => ({
-          expenseId: ids.eid,
-          payerId: p.payerId,
-          amount: p.amount.toFixed(2),
-        })),
-      ),
-      tx.insert(expenseSplits).values(
-        input.splits.map((s) => ({
-          expenseId: ids.eid,
-          debtorId: s.debtorId,
-          amount: s.amount.toFixed(2),
-          shareType: input.shareType,
-          splitValue: s.splitValue != null ? String(s.splitValue) : null,
-        })),
-      ),
-    ]);
-
-    // Replace receipts when client explicitly sends the field ([] = clear all).
-    if (input.receiptFileIds !== undefined) {
-      await tx.delete(expenseReceipts).where(eq(expenseReceipts.expenseId, ids.eid));
-      if (input.receiptFileIds.length > 0) {
-        await tx.insert(expenseReceipts).values(
-          input.receiptFileIds.map((fileId, i) => ({
-            expenseId: ids.eid,
-            fileId,
-            position: i,
-          })),
-        );
-      }
-    }
+  await updateExpense(ids.groupId, ids.eid, parsed.data, {
+    actor: { userId: auth.user.id, source: "app" },
   });
-
   return NextResponse.json({ ok: true });
 });
 
@@ -222,35 +126,8 @@ export const DELETE = withAuth(async (req: Request, ctx: Params) => {
   const ids = await resolveIds(ctx);
   await assertGroupMember(auth.user.id, ids.groupId);
 
-  // Group membership is the only gate: the ledger is shared, so anyone in it can
-  // fix a mistake without waiting for whoever typed it. `createdBy` is surfaced
-  // in the UI instead, so a change is attributable rather than blocked.
-  const [expense] = await db
-    .select({ id: expenses.id })
-    .from(expenses)
-    .where(
-      and(
-        eq(expenses.id, ids.eid),
-        eq(expenses.groupId, ids.groupId),
-        eq(expenses.type, "expense"),
-      ),
-    );
-  if (!expense) return NextResponse.json({ error: "expense not found" }, { status: 404 });
-
-  // logDeleted snapshots before the row (and its message id) disappear, writes
-  // the log entry and edits the group message into its tombstone.
-  await logDeleted(
-    getBot().api,
-    ids.eid,
-    { userId: auth.user.id, source: "app" },
-    auth.user,
-    async (tx) => {
-      await tx
-        .delete(expenses)
-        .where(and(eq(expenses.id, ids.eid), eq(expenses.groupId, ids.groupId)));
-      // expense_payers and expense_splits cascade-deleted via FK.
-    },
-  );
-
+  await deleteRecord(ids.groupId, ids.eid, "expense", auth.user, {
+    actor: { userId: auth.user.id, source: "app" },
+  });
   return NextResponse.json({ ok: true });
 });
