@@ -234,8 +234,8 @@ export async function handleAddParsed(
         currency: parsed.currency ?? group.defaultCurrency,
         description: parsed.description,
         createdBy: payer.id,
-        // UTC noon of today's FX day, like the forms, so the rate is that day's.
-        spentAt: spentAtForNow(),
+        // Today in the group's zone: the day the rate is looked up for.
+        spentAt: spentAtForNow(group.timezone),
         ...(opts.receiptFileId ? { receiptFileId: opts.receiptFileId } : {}),
       })
       .returning();

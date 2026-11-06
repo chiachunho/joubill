@@ -7,6 +7,7 @@ import { test as base, type BrowserContext, type Page } from "@playwright/test";
 
 import * as schema from "../src/db/schema";
 import { requireTelegramChatId } from "../src/lib/chat";
+import { todayIn } from "../src/lib/day";
 
 // Web App auth is a `session` cookie whose value is a row id in `sessions`.
 // Seeding that row directly skips the Telegram login, which can't be automated.
@@ -190,6 +191,7 @@ export const test = base.extend<
           currency: "TWD",
           description: expenseDescription,
           createdBy: user.id,
+          spentAt: todayIn("Asia/Taipei"),
         })
         .returning();
       await db
@@ -297,6 +299,7 @@ export const test = base.extend<
           currency: "TWD",
           description: `E2E merge dinner ${suffix}`,
           createdBy: web.id,
+          spentAt: todayIn("Asia/Taipei"),
         })
         .returning();
       await db

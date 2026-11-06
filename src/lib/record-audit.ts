@@ -1,3 +1,4 @@
+import { isDay, snapshotDay } from "@/lib/day";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { type NoticeLeg, type NoticeRecord } from "@/lib/record-notice";
@@ -19,6 +20,7 @@ export type AuditAction =
   | "invite_reset"
   | "chat_linked"
   | "chat_unlinked"
+  | "timezone_changed"
   | "member_claimed"
   | "account_merged";
 export type AuditSource = "bot" | "app";
@@ -36,7 +38,8 @@ export type AuditSource = "bot" | "app";
  * says what the record looked like then, not what it would look like now.
  */
 export type RecordSnapshot = NoticeRecord & {
-  /** ISO string — JSONB has no date type, and this is read back as JSON. */
+  /** `YYYY-MM-DD`. Rows logged before the date column hold an ISO instant instead; read
+   *  either with `snapshotDay`. */
   spentAt: string;
   fxRate: number | null;
   fxQuote: string | null;
@@ -73,7 +76,7 @@ export function isRateLockPayload(value: unknown): value is RateLockPayload {
  * `memberJoined` names who invited the member, captured as the name was then;
  * `chatLinked` names the Telegram chat a web group was bound to, `chatUnlinked` the chat it was
  * detached from (the title as it was then, since the group no longer has the chat to ask);
- * `memberClaimed` records a placeholder being merged into a real account. Its
+ * `timezoneChanged` records the group's time zone before and after; `memberClaimed` records a placeholder being merged into a real account. Its
  * `recordIds` are the records that were rewritten, so a single record's history
  * can explain why a name on it changed (`loadRecordHistory` matches them with `@>`).
  */
@@ -82,6 +85,7 @@ export type GroupEventPayload =
   | { kind: "inviteReset" }
   | { kind: "chatLinked"; chatTitle: string }
   | { kind: "chatUnlinked"; chatTitle: string }
+  | { kind: "timezoneChanged"; from: string; to: string }
   | {
       kind: "memberClaimed";
       placeholderId: number;
@@ -107,6 +111,7 @@ export function isGroupEventPayload(value: unknown): value is GroupEventPayload 
     kind === "inviteReset" ||
     kind === "chatLinked" ||
     kind === "chatUnlinked" ||
+    kind === "timezoneChanged" ||
     kind === "memberClaimed" ||
     kind === "accountMerged"
   );
@@ -197,10 +202,11 @@ function legAmounts(legs: NoticeLeg[]): string {
   return legs.map((l) => `${labelUser(l.user)} ${fmtGrouped(l.amount)}`).join("、");
 }
 
-function dateLabel(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+function dateLabel(spentAt: string): string {
+  const day = snapshotDay(spentAt);
+  if (!isDay(day)) return spentAt;
+  const [y, m, d] = day.split("-").map(Number);
+  return `${y}/${m}/${d}`;
 }
 
 function fxLabel(rate: number | null, quote: string | null): string {
@@ -320,6 +326,8 @@ export type HeadingInput = {
     claimedCount?: number;
     /** Set when someone other than the claimer did the merge. */
     claimerName?: string;
+    timezoneFrom?: string;
+    timezoneTo?: string;
   } | null;
 };
 
@@ -357,6 +365,10 @@ export function changeHeading(entry: HeadingInput, withRecordName: boolean): str
       return entry.groupEvent?.chatTitle
         ? `解除了與 Telegram 群組「${entry.groupEvent.chatTitle}」的綁定`
         : "解除了與 Telegram 群組的綁定";
+    case "timezone_changed":
+      return entry.groupEvent?.timezoneFrom && entry.groupEvent.timezoneTo
+        ? `把群組時區從 ${entry.groupEvent.timezoneFrom} 改成 ${entry.groupEvent.timezoneTo}`
+        : "改了群組時區";
     case "member_claimed":
       if (!entry.groupEvent?.claimedName) return "認領了無帳號成員";
       return entry.groupEvent.claimerName

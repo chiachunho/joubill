@@ -95,6 +95,7 @@ export function dbGroup(over: Partial<Group> = {}): Group {
     chatId: String(CHAT_ID),
     title: "Test",
     defaultCurrency: "TWD",
+    timezone: "Asia/Taipei",
     ...over,
   } as Group;
 }

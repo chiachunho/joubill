@@ -185,7 +185,7 @@ export async function loadNoticeRecord(
       amount: n(row.amount),
       currency: row.currency,
       description: row.description,
-      spentAt: row.spentAt.toISOString(),
+      spentAt: row.spentAt,
       fxRate: row.fxRate != null ? n(row.fxRate) : null,
       fxQuote: row.fxQuote,
       receipts: resolveReceiptFileIds(

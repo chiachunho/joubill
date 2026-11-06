@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 
 import * as schema from "../src/db/schema";
+import { addDays, todayIn } from "../src/lib/day";
 import { expect, test } from "./fixtures";
 
 test.describe("Group list and group page", () => {
@@ -34,7 +35,7 @@ test.describe("Group list and group page", () => {
   }) => {
     // 30 is the page size, so 35 more (36 with the seeded one) spill onto a second page.
     const stamp = Date.now();
-    const base = Date.now() - 86_400_000;
+    const today = todayIn("Asia/Taipei");
     const values = Array.from({ length: 35 }, (_, i) => ({
       groupId: seeded.groupId,
       type: "expense" as const,
@@ -42,8 +43,8 @@ test.describe("Group list and group page", () => {
       currency: "TWD",
       description: `E2E page ${stamp} #${i}`,
       createdBy: seeded.userId,
-      // Older than the seeded expense, one minute apart.
-      spentAt: new Date(base - i * 60_000),
+      // Older than the seeded expense (dated today), one day apart.
+      spentAt: addDays(today, -1 - i),
     }));
     const db = drizzle(dbPool, { schema });
     const rows = await db.insert(schema.expenses).values(values).returning();

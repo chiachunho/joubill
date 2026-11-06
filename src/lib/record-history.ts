@@ -59,6 +59,9 @@ export type ActivityEntry = {
     claimedName?: string;
     claimedCount?: number;
     claimerName?: string;
+    /** 'timezone_changed': the IANA names before and after. */
+    timezoneFrom?: string;
+    timezoneTo?: string;
   };
 };
 
@@ -141,6 +144,8 @@ function toEntry(row: Row): ActivityEntry {
       entry.groupEvent = { inviterName: row.after.inviterName };
     } else if (row.after.kind === "chatLinked" || row.after.kind === "chatUnlinked") {
       entry.groupEvent = { chatTitle: row.after.chatTitle };
+    } else if (row.after.kind === "timezoneChanged") {
+      entry.groupEvent = { timezoneFrom: row.after.from, timezoneTo: row.after.to };
     } else if (row.after.kind === "memberClaimed") {
       entry.groupEvent = {
         claimedName: row.after.placeholderName,

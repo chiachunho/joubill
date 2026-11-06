@@ -17,7 +17,8 @@ import { describeError } from "@/lib/api-error";
 import { fmt } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { labelUser } from "@/lib/label";
-import { customRangeToQueryBounds } from "@/lib/stats-core";
+import { dayToLocalDate } from "@/lib/day";
+import { customRangeToQuery } from "@/lib/stats-core";
 import {
   useGetAvatarsQuery,
   useGetMeQuery,
@@ -68,7 +69,7 @@ export function GroupStatsPage({
   // A custom range with no dates picked yet is not a request to make.
   const statsArg = useMemo(() => {
     if (range.key === "custom" && (!range.from || !range.to)) return skipToken;
-    const bounds = range.key === "custom" ? customRangeToQueryBounds(range) : null;
+    const bounds = range.key === "custom" ? customRangeToQuery(range) : null;
     return {
       groupId: id,
       userId: selectedUserId,
@@ -104,7 +105,7 @@ export function GroupStatsPage({
     const muted = cssVar("--muted-foreground", "#999");
     const border = cssVar("--border", "#e5e5e5");
     const bg = cssVar("--popover", "#fff");
-    const data = stats.netTrend.map((p) => [new Date(p.date).getTime(), p.net]);
+    const data = stats.netTrend.map((p) => [dayToLocalDate(p.date).getTime(), p.net]);
     return {
       textStyle: { fontFamily: FONT_FAMILY },
       grid: { top: 16, right: 12, bottom: 26, left: 48 },

@@ -128,9 +128,36 @@ function SelectItem({
   );
 }
 
+function SelectLabel({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label> & {
+  ref?: Ref<typeof SelectPrimitive.Label>;
+}) {
+  return (
+    <SelectPrimitive.Label
+      className={cn("py-1.5 pl-2 pr-2 text-xs text-muted-foreground", className)}
+      {...props}
+    />
+  );
+}
+
+function SelectSeparator({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator> & {
+  ref?: Ref<typeof SelectPrimitive.Separator>;
+}) {
+  return (
+    <SelectPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-muted", className)} {...props} />
+  );
+}
+
 export {
   Select,
   SelectGroup,
+  SelectLabel,
+  SelectSeparator,
   SelectValue,
   SelectTrigger,
   SelectContent,

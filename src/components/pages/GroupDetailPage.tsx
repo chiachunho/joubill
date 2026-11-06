@@ -19,6 +19,7 @@ import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DeleteRequestBanner } from "@/components/mini/DeleteRequestBanner";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { SoloGroupCard } from "@/components/mini/SoloGroupCard";
+import { TimezonePrompt } from "@/components/mini/TimezonePrompt";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
@@ -257,6 +258,8 @@ export function GroupDetailPage({
 
       <DeleteRequestBanner groupId={id} selfUserId={selfUserId} redirectPath={platform.basePath} />
 
+      <TimezonePrompt groupId={id} />
+
       {/* Nobody else can record anything in a group of one, so it asks nothing there. */}
       {hasOtherMembers && <platform.GroupPrompt />}
 
@@ -456,7 +459,7 @@ export function GroupDetailPage({
                 <p className="mb-2 text-xs font-medium text-muted-foreground">{month}</p>
                 <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
                   {exps.map((e) => {
-                    const day = new Date(e.spentAt).toISOString().slice(8, 10);
+                    const day = e.spentAt.slice(8, 10);
 
                     // Repayments render as a from → to row and link to the
                     // settlement form instead of the expense form.

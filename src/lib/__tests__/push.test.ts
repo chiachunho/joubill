@@ -23,7 +23,7 @@ function expense(over: Partial<RecordSnapshot> = {}): RecordSnapshot {
     amount: 12000,
     currency: "JPY",
     description: "燒肉晚餐",
-    spentAt: "2026-10-30T12:00:00.000Z",
+    spentAt: "2026-10-30",
     fxRate: null,
     fxQuote: null,
     receipts: 0,

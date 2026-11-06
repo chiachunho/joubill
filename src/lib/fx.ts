@@ -3,7 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { exchangeRates, groupExchangeRates, groups } from "@/db/schema";
 
-import { fxDateKey } from "./fx-shared";
+import { todayIn } from "./day";
+import { FX_TIME_ZONE } from "./fx-shared";
 import { n } from "./money";
 
 export { FX_TIME_ZONE, fxDateKey } from "./fx-shared";
@@ -72,8 +73,24 @@ export function buildOverrideMap(
   return map;
 }
 
+/**
+ * Everything a rate lookup needs to know about the group: its custom rates and the zone
+ * that decides which day "now" is. They travel together so a caller cannot pass the rates
+ * and forget the zone, which would quietly fall back to the wrong day.
+ */
+export type GroupRateContext = { overrides: RateOverrides; timeZone: string };
+
+/** Load a group's rate context (two small queries per request). */
+export async function loadGroupRateContext(groupId: number): Promise<GroupRateContext> {
+  const [overrides, [group]] = await Promise.all([
+    loadGroupRateOverrides(groupId),
+    db.select({ timeZone: groups.timezone }).from(groups).where(eq(groups.id, groupId)),
+  ]);
+  return { overrides, timeZone: group?.timeZone ?? FX_TIME_ZONE };
+}
+
 /** Load a group's custom rates as a RateOverrides map (one query per request). */
-export async function loadGroupRateOverrides(groupId: number): Promise<RateOverrides> {
+async function loadGroupRateOverrides(groupId: number): Promise<RateOverrides> {
   const rows = await db
     .select({
       base: groupExchangeRates.base,
@@ -134,9 +151,18 @@ export async function resolveRecordFx(
   return fxColumnsFor(group.defaultCurrency, currency, fxRate);
 }
 
-/** The instant a bot-created record is stamped with: UTC noon of today's FX day. */
-export function spentAtForNow(now: Date = new Date()): Date {
-  return new Date(`${fxDateKey(now)}T12:00:00Z`);
+/** The group's zone, which decides what day "now" is. The default when the group is gone. */
+export async function groupTimeZone(groupId: number): Promise<string> {
+  const [group] = await db
+    .select({ timeZone: groups.timezone })
+    .from(groups)
+    .where(eq(groups.id, groupId));
+  return group?.timeZone ?? FX_TIME_ZONE;
+}
+
+/** The day a bot-created record is on: today in the group's zone. */
+export function spentAtForNow(timeZone: string, now: Date = new Date()): string {
+  return todayIn(timeZone, now);
 }
 
 /**
@@ -152,10 +178,10 @@ export function cacheableRateDay(dateStr: string, today: string, apiDate: string
 }
 
 /**
- * Resolve a rate to convert `base` into `quote` on a given date.
+ * Resolve a rate to convert `base` into `quote` on a given day (`YYYY-MM-DD`).
  *
  * Lookup strategy:
- *   1. Group custom rate from `overrides` (date-independent — the group agreed
+ *   1. Group custom rate from `ctx.overrides` (date-independent — the group agreed
  *      on one fixed rate), when provided.
  *   2. The cached rate for exactly that day (`exchange_rates`, global).
  *   3. Otherwise fetch that day from the API and cache it under the REQUESTED
@@ -168,33 +194,27 @@ export function cacheableRateDay(dateStr: string, today: string, apiDate: string
 export async function getRate(
   base: string,
   quote: string,
-  date: Date,
-  overrides?: RateOverrides,
+  day: string,
+  ctx: GroupRateContext,
 ): Promise<number> {
   const b = base.toUpperCase();
   const q = quote.toUpperCase();
   if (b === q) return 1;
 
-  const override = overrides?.get(overrideKey(b, q));
+  const override = ctx.overrides.get(overrideKey(b, q));
   if (override != null) return override;
-
-  const dateStr = fxDateKey(date);
 
   const [cached] = await db
     .select({ rate: exchangeRates.rate })
     .from(exchangeRates)
     .where(
-      and(
-        eq(exchangeRates.base, b),
-        eq(exchangeRates.quote, q),
-        eq(exchangeRates.asOfDate, dateStr),
-      ),
+      and(eq(exchangeRates.base, b), eq(exchangeRates.quote, q), eq(exchangeRates.asOfDate, day)),
     )
     .limit(1);
   if (cached) return n(cached.rate);
 
-  const today = fxDateKey(new Date());
-  const datePath = dateStr >= today ? "latest" : dateStr;
+  const today = todayIn(ctx.timeZone);
+  const datePath = day >= today ? "latest" : day;
   const url = `${FX_API_BASE}@${datePath}/v1/currencies/${b.toLowerCase()}.json`;
 
   const res = await fetch(url);
@@ -204,10 +224,10 @@ export async function getRate(
   const data = (await res.json()) as FxResponse;
   const rate = parseFxResponse(data, b, q);
 
-  if (cacheableRateDay(dateStr, today, data.date)) {
+  if (cacheableRateDay(day, today, data.date)) {
     await db
       .insert(exchangeRates)
-      .values({ base: b, quote: q, rate: rate.toString(), asOfDate: dateStr })
+      .values({ base: b, quote: q, rate: rate.toString(), asOfDate: day })
       .onConflictDoNothing();
   }
 
@@ -223,8 +243,8 @@ export async function getRate(
 export async function resolveRate(
   record: { currency: string; fxRate: string | number | null; fxQuote: string | null },
   quote: string,
-  at: Date,
-  overrides?: RateOverrides,
+  day: string,
+  ctx: GroupRateContext,
 ): Promise<number> {
-  return pinnedRate(record, quote) ?? getRate(record.currency, quote, at, overrides);
+  return pinnedRate(record, quote) ?? getRate(record.currency, quote, day, ctx);
 }

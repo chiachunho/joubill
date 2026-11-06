@@ -93,7 +93,7 @@ export function DateRangeSelect({ value, onChange }: Props) {
 /**
  * The from/to calendar behind the 自訂區間 option, on its own so the beancount export's
  * custom range picks days the same way the stats page does. Days are local "YYYY-MM-DD";
- * turn them into instants with `customRangeToQueryBounds` before sending them anywhere.
+ * send them as they are (`customRangeToQuery`).
  */
 export function DateRangePicker({
   from,

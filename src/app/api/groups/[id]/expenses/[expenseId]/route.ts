@@ -167,7 +167,7 @@ export const PATCH = withAuth(async (req: Request, ctx: Params) => {
         currency: input.currency,
         ...(!keepDormantPin && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
         description: input.description,
-        spentAt: new Date(input.spentAt),
+        spentAt: input.spentAt,
         // When receipts are explicitly managed, also clear the legacy single-file column so
         // the GET fallback cannot resurrect a "cleared" bot-uploaded receipt.
         ...(input.receiptFileIds !== undefined && { receiptFileId: null }),

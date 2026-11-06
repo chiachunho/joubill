@@ -269,9 +269,7 @@ describe("groupToBeancount", () => {
     expect(lines({ kind: "all" })).toContain(open);
     expect(lines({ kind: "new", since: null })).toContain(open);
     expect(lines({ kind: "new", since: new Date("2026-06-01T00:00:00Z") })).toContain(`; ${open}`);
-    expect(
-      lines({ kind: "custom", from: new Date("2026-06-01Z"), to: new Date("2026-07-01Z") }),
-    ).toContain(`; ${open}`);
+    expect(lines({ kind: "custom", from: "2026-06-01", to: "2026-07-01" })).toContain(`; ${open}`);
     // Expenses and Cash are almost always opened already in the user's own ledger.
     expect(lines({ kind: "all" })).toContain(`; 2026-06-30 open ${ACCOUNTS.cash}`);
   });
@@ -288,8 +286,8 @@ describe("groupToBeancount", () => {
 
 describe("beancount export range", () => {
   it("round-trips every kind through the query string", () => {
-    const from = new Date("2026-10-01T00:00:00.000Z");
-    const to = new Date("2026-10-31T23:59:59.999Z");
+    const from = "2026-10-01";
+    const to = "2026-10-31";
     for (const range of [{ kind: "new" }, { kind: "all" }, { kind: "custom", from, to }] as const) {
       const qs = new URLSearchParams(beancountRangeParams(range));
       expect(parseBeancountRange(qs)).toEqual(range);
@@ -300,13 +298,13 @@ describe("beancount export range", () => {
     expect(parseBeancountRange({ range: "all" })).toEqual({ kind: "all" });
   });
 
-  it("refuses an unknown kind, a bare date and a reversed range", () => {
+  it("refuses an unknown kind, an instant, an impossible day and a reversed range", () => {
     const parse = (o: Record<string, string>) => "error" in parseBeancountRange(o);
     expect(parse({})).toBe(true);
     expect(parse({ range: "6m" })).toBe(true);
-    expect(parse({ range: "custom", from: "2026-10-01", to: "2026-10-31" })).toBe(true);
-    expect(
-      parse({ range: "custom", from: "2026-10-31T00:00:00Z", to: "2026-10-01T00:00:00Z" }),
-    ).toBe(true);
+    expect(parse({ range: "custom", from: "2026-10-01" })).toBe(true);
+    expect(parse({ range: "custom", from: "2026-10-01T00:00:00Z", to: "2026-10-31" })).toBe(true);
+    expect(parse({ range: "custom", from: "2026-02-31", to: "2026-10-31" })).toBe(true);
+    expect(parse({ range: "custom", from: "2026-10-31", to: "2026-10-01" })).toBe(true);
   });
 });

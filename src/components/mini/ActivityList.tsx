@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, KeyRound, Link2, Link2Off, Lock, UserCheck } from "lucide-react";
+import { ChevronRight, Clock, KeyRound, Link2, Link2Off, Lock, UserCheck } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { activityFeedHref, recordHistoryHref } from "@/lib/activity-link";
@@ -117,6 +117,7 @@ function Row({
       entry.action === "invite_reset" ||
       entry.action === "chat_linked" ||
       entry.action === "chat_unlinked" ||
+      entry.action === "timezone_changed" ||
       entry.action === "member_claimed" ||
       entry.action === "account_merged" ? (
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -126,6 +127,8 @@ function Row({
             <Link2 className="size-3.5" />
           ) : entry.action === "chat_unlinked" ? (
             <Link2Off className="size-3.5" />
+          ) : entry.action === "timezone_changed" ? (
+            <Clock className="size-3.5" />
           ) : entry.action === "member_claimed" || entry.action === "account_merged" ? (
             <UserCheck className="size-3.5" />
           ) : (

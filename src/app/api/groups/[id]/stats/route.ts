@@ -6,11 +6,12 @@ import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { fxDateKey, loadGroupRateOverrides, resolveRate } from "@/lib/fx";
+import { dayInZone, isDay, todayIn } from "@/lib/day";
+import { loadGroupRateContext, resolveRate } from "@/lib/fx";
 import { n } from "@/lib/money";
 import {
   computeNetTrend,
-  monthKeyToDate,
+  monthKeyToDay,
   monthKeysBetween,
   recentMonthKeys,
   resolveStatsRange,
@@ -31,11 +32,10 @@ const MAX_MONTHS = 24;
 
 const querySchema = z.object({
   range: z.enum(["3m", "6m", "1y", "all", "custom"]).default("6m"),
-  // Full ISO instants, not bare "YYYY-MM-DD" — only the browser knows the
-  // viewer's local day boundaries, so it resolves those itself
-  // (`customRangeToQueryBounds` in stats-core.ts) before this ever sees them.
-  from: z.iso.datetime().optional(),
-  to: z.iso.datetime().optional(),
+  // Bare "YYYY-MM-DD" days, inclusive: a record's date has no time and no zone,
+  // so a day the viewer picked needs no translation (`customRangeToQuery`).
+  from: z.string().refine(isDay).optional(),
+  to: z.string().refine(isDay).optional(),
 });
 
 export const GET = withAuth(async (req: Request, { params }: Params) => {
@@ -64,9 +64,15 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
   if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
 
-  let resolved: { from: Date | null; to: Date; monthsBack?: number };
+  const rateCtx = await loadGroupRateContext(groupId);
+  let resolved: { from: string | null; to: string; monthsBack?: number };
   try {
-    resolved = resolveStatsRange(range as StatsRangeKey, new Date(), customFrom, customTo);
+    resolved = resolveStatsRange(
+      range as StatsRangeKey,
+      todayIn(rateCtx.timeZone),
+      customFrom,
+      customTo,
+    );
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "invalid range" },
@@ -82,7 +88,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   // happens to be a settlement doesn't get padded with zero-filled months
   // before any real expense existed.
   let effectiveFrom = resolved.from;
-  let earliestExpenseDate: Date | null = null;
+  let earliestExpenseDate: string | null = null;
   if (!effectiveFrom) {
     const [[earliestAny], [earliestExpense]] = await Promise.all([
       db
@@ -94,28 +100,27 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
         .from(expenses)
         .where(and(eq(expenses.groupId, groupId), eq(expenses.type, "expense"))),
     ]);
-    effectiveFrom = earliestAny?.earliest ?? group.createdAt;
+    effectiveFrom = earliestAny?.earliest ?? dayInZone(group.createdAt, rateCtx.timeZone);
     // A record can be future-dated (no validation prevents it) — if the
     // "earliest" record somehow lands after `to` (=now for "all"), clamp so
     // monthKeysBetween/monthKeys[0] below never see an inverted range.
-    if (effectiveFrom.getTime() > resolvedTo.getTime()) effectiveFrom = resolvedTo;
+    if (effectiveFrom > resolvedTo) effectiveFrom = resolvedTo;
     earliestExpenseDate = earliestExpense?.earliest ?? effectiveFrom;
-    if (earliestExpenseDate.getTime() > resolvedTo.getTime()) earliestExpenseDate = resolvedTo;
+    if (earliestExpenseDate > resolvedTo) earliestExpenseDate = resolvedTo;
   }
 
-  const overrides = await loadGroupRateOverrides(groupId);
   // Per-request memoization: many rows share the same (currency, quote, day),
   // so this both avoids redundant `getRate` DB/API round-trips and lets every
   // loop below resolve its rates in parallel instead of one `await` at a time.
   const rateCache = new Map<string, Promise<number>>();
   function cachedRate(
     record: { currency: string; fxRate: string | number | null; fxQuote: string | null },
-    at: Date,
+    day: string,
   ): Promise<number> {
-    const key = `${record.currency}|${fxDateKey(at)}|${record.fxRate ?? ""}|${record.fxQuote ?? ""}`;
+    const key = `${record.currency}|${day}|${record.fxRate ?? ""}|${record.fxQuote ?? ""}`;
     let rate = rateCache.get(key);
     if (!rate) {
-      rate = resolveRate(record, group.defaultCurrency, at, overrides);
+      rate = resolveRate(record, group.defaultCurrency, day, rateCtx);
       rateCache.set(key, rate);
     }
     return rate;
@@ -134,10 +139,10 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   //   - custom: the viewer's exact picked window (no "N months" promise).
   // Monthly and the ranking always share this window with each other.
   let allMonthKeys: string[];
-  let rangeQueryStart: Date;
+  let rangeQueryStart: string;
   if (resolved.monthsBack !== undefined) {
     allMonthKeys = recentMonthKeys(resolvedTo, resolved.monthsBack);
-    rangeQueryStart = monthKeyToDate(allMonthKeys[0]);
+    rangeQueryStart = monthKeyToDay(allMonthKeys[0]);
   } else if (range === "all") {
     allMonthKeys = monthKeysBetween(earliestExpenseDate!, resolvedTo);
     rangeQueryStart = earliestExpenseDate!;
@@ -147,7 +152,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
   const isCapped = allMonthKeys.length > MAX_MONTHS;
   const monthKeys = isCapped ? allMonthKeys.slice(-MAX_MONTHS) : allMonthKeys;
-  const monthlyQueryStart = isCapped ? monthKeyToDate(monthKeys[0]) : rangeQueryStart;
+  const monthlyQueryStart = isCapped ? monthKeyToDay(monthKeys[0]) : rangeQueryStart;
 
   // All five row queries are independent of each other — one Promise.all so
   // a slow connection pays for one round trip, not two sequential ones.
@@ -268,15 +273,13 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const monthly = monthKeys.map((month) => ({ month, groupTotal: 0, memberShare: 0 }));
   const monthIndex = new Map(monthly.map((m, idx) => [m.month, idx]));
   expenseRows.forEach((r, i) => {
-    const key = `${r.spentAt.getFullYear()}-${String(r.spentAt.getMonth() + 1).padStart(2, "0")}`;
-    const idx = monthIndex.get(key);
+    const idx = monthIndex.get(r.spentAt.slice(0, 7));
     if (idx !== undefined)
       monthly[idx].groupTotal =
         Math.round((monthly[idx].groupTotal + n(r.amount) * expenseRates[i]) * 100) / 100;
   });
   memberSplitRows.forEach((r, i) => {
-    const key = `${r.spentAt.getFullYear()}-${String(r.spentAt.getMonth() + 1).padStart(2, "0")}`;
-    const idx = monthIndex.get(key);
+    const idx = monthIndex.get(r.spentAt.slice(0, 7));
     if (idx !== undefined)
       monthly[idx].memberShare =
         Math.round((monthly[idx].memberShare + n(r.amount) * memberSplitRates[i]) * 100) / 100;
@@ -320,7 +323,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   return NextResponse.json({
     currency: group.defaultCurrency,
     selectedUserId,
-    range: { key: range, from: effectiveFrom.toISOString(), to: resolvedTo.toISOString() },
+    range: { key: range, from: effectiveFrom, to: resolvedTo },
     monthly,
     netTrend,
     byPayer,

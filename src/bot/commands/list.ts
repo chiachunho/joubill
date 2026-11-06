@@ -27,7 +27,7 @@ listCommand.command("list", async (ctx) => {
     })
     .from(expenses)
     .where(eq(expenses.groupId, ctx.dbGroup.id))
-    .orderBy(desc(expenses.spentAt))
+    .orderBy(desc(expenses.spentAt), desc(expenses.id))
     .limit(10);
 
   if (rows.length === 0) {
@@ -61,7 +61,7 @@ listCommand.command("list", async (ctx) => {
   const lines = rows.map((r) => {
     const payers = payersByExpense.get(r.id) ?? [];
     const who = payers.length === 0 ? "?" : payers.join("、");
-    const date = r.spentAt.toISOString().slice(5, 10).replace("-", "/");
+    const date = r.spentAt.slice(5, 10).replace("-", "/");
     const amount = fmt(Number(r.amount));
     const desc = r.description ? `  ${r.description}` : "";
     return `${date}  ${who}  ${amount} ${r.currency}${desc}`;

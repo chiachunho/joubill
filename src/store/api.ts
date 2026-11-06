@@ -516,7 +516,10 @@ const baseApi = createApi({
     }),
 
     // ---- creating and joining a group ------------------------------------------------
-    createGroup: build.mutation<CreateGroupResponse, { title: string; defaultCurrency: string }>({
+    createGroup: build.mutation<
+      CreateGroupResponse,
+      { title: string; defaultCurrency: string; timezone: string }
+    >({
       query: (body) => ({ url: "/api/groups", method: "POST", body }),
       invalidatesTags: [tag("Me", "LIST"), tag("GroupPhotos", "LIST")],
     }),
@@ -716,11 +719,40 @@ export const api = baseApi.injectEndpoints({
         tag("Me", "LIST"),
       ],
     }),
+    /**
+     * Change the group's time zone. It moves no record (a record's date is a plain day); it
+     * decides which day "now" is, so stats ranges and the activity feed refresh, and the
+     * settings entry shows the new value at once.
+     */
+    updateGroupTimezone: build.mutation<SettingsResponse, { groupId: GroupId; timezone: string }>({
+      query: ({ groupId, timezone }) => ({
+        url: `/api/groups/${groupId}/settings`,
+        method: "PATCH",
+        body: { timezone },
+      }),
+      async onQueryStarted({ groupId, timezone }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          baseApi.util.updateQueryData("getSettings", groupId, (draft) => {
+            draft.timezone = timezone;
+          }),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patch.undo();
+        }
+      },
+      invalidatesTags: (_r, _e, { groupId }) => [
+        tag("Settings", g(groupId)),
+        ...ledgerTags(groupId),
+      ],
+    }),
   }),
 });
 
 export const {
   useGetMeQuery,
+  useUpdateGroupTimezoneMutation,
   useGetGroupPhotosQuery,
   useGetInviteQuery,
   useGetInvitePreviewQuery,

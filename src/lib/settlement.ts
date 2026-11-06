@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses } from "@/db/schema";
 
-import { loadGroupRateOverrides, resolveRate } from "./fx";
+import { loadGroupRateContext, resolveRate } from "./fx";
 import { n } from "./money";
 import type { NetBalance } from "./settlement-core";
 
@@ -22,7 +22,7 @@ const EPSILON = 0.005;
  * and need no separate handling.
  *
  * Each leg is multiplied by the FX rate from its own currency to `quoteCurrency`,
- * using the FX rate as of `spent_at` (so historical expenses don't silently
+ * using the FX rate as of `spent_date` (so historical expenses don't silently
  * rewrite history when rates move). Rate priority per leg:
  * pinned per-expense rate > group custom rate > cached market rate.
  */
@@ -32,7 +32,7 @@ export async function computeGroupBalances(
 ): Promise<NetBalance[]> {
   const balances = new Map<number, number>();
   const bump = (uid: number, delta: number) => balances.set(uid, (balances.get(uid) ?? 0) + delta);
-  const overrides = await loadGroupRateOverrides(groupId);
+  const rateCtx = await loadGroupRateContext(groupId);
 
   const paidRows = await db
     .select({
@@ -47,7 +47,7 @@ export async function computeGroupBalances(
     .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
     .where(eq(expenses.groupId, groupId));
   for (const r of paidRows) {
-    const rate = await resolveRate(r, quoteCurrency, r.spentAt, overrides);
+    const rate = await resolveRate(r, quoteCurrency, r.spentAt, rateCtx);
     bump(r.payerId, n(r.amount) * rate);
   }
 
@@ -64,7 +64,7 @@ export async function computeGroupBalances(
     .innerJoin(expenses, eq(expenses.id, expenseSplits.expenseId))
     .where(eq(expenses.groupId, groupId));
   for (const r of owedRows) {
-    const rate = await resolveRate(r, quoteCurrency, r.spentAt, overrides);
+    const rate = await resolveRate(r, quoteCurrency, r.spentAt, rateCtx);
     bump(r.debtorId, -n(r.amount) * rate);
   }
 

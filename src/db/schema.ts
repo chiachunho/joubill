@@ -59,6 +59,10 @@ export const groups = pgTable(
     chatId: text("chat_id"),
     title: text("title").notNull(),
     defaultCurrency: varchar("default_currency", { length: 3 }).notNull().default("TWD"),
+    /** IANA zone that decides which calendar day "now" is for this group: the day `/add`
+     *  records and the day a market rate is looked up for. It never reinterprets a record's
+     *  own date (`expenses.spent_date`). Validate with `isValidTimeZone`. */
+    timezone: text("timezone").notNull().default("Asia/Taipei"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -102,7 +106,14 @@ export const expenses = pgTable(
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull(),
     description: text("description"),
-    spentAt: timestamp("spent_at", { withTimezone: true }).notNull().defaultNow(),
+    /** The day the record is on: a calendar date with no time and no zone (`YYYY-MM-DD`).
+     *  Query and compare it as that string; nothing derives a day from a timestamp. */
+    spentAt: date("spent_date", { mode: "string" }).notNull(),
+    /** @deprecated Replaced by `spent_date`; dropped in the release after the one that
+     *  introduced it, because the previous release still reads and writes it while a
+     *  deploy is in flight. `expenses_sync_spent` (migrations/0004) keeps the two equal, so
+     *  nothing writes this from code. Do not read it. */
+    spentAtLegacy: timestamp("spent_at", { withTimezone: true }).notNull().defaultNow(),
     createdBy: integer("created_by")
       .notNull()
       .references(() => users.id),
@@ -123,10 +134,13 @@ export const expenses = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("expenses_group_spent_idx").on(t.groupId, t.spentAt),
-    // Matches the list's (spent_at DESC, id DESC) order and its cursor comparison, so a deep
+    // Matches the list's (spent_date DESC, id DESC) order and its cursor comparison, so a deep
     // page seeks to the cursor instead of sorting the group's rows.
-    index("expenses_group_list_idx").on(t.groupId, t.spentAt.desc(), t.id.desc()),
+    index("expenses_group_list_date_idx").on(t.groupId, t.spentAt.desc(), t.id.desc()),
+    index("expenses_group_spent_date_idx").on(t.groupId, t.spentAt),
+    // @deprecated with spent_at: the previous release still orders by it. Dropped with it.
+    index("expenses_group_spent_idx").on(t.groupId, t.spentAtLegacy),
+    index("expenses_group_list_idx").on(t.groupId, t.spentAtLegacy.desc(), t.id.desc()),
   ],
 );
 
@@ -404,7 +418,7 @@ export const recordAuditLog = pgTable(
     recordId: integer("record_id"),
     /** 'expense' | 'settlement' | 'group' */
     recordType: varchar("record_type", { length: 16 }).notNull(),
-    /** 'created' | 'updated' | 'deleted' | 'rate_locked' | 'member_joined' | 'invite_reset' | 'chat_linked' | 'chat_unlinked' | 'member_claimed' | 'account_merged' */
+    /** 'created' | 'updated' | 'deleted' | 'rate_locked' | 'member_joined' | 'invite_reset' | 'chat_linked' | 'chat_unlinked' | 'timezone_changed' | 'member_claimed' | 'account_merged' */
     action: varchar("action", { length: 24 }).notNull(),
     actorId: integer("actor_id")
       .notNull()

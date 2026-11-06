@@ -172,7 +172,7 @@ export const PATCH = withAuth(async (req: Request, { params }: Params) => {
           amount,
           currency: input.currency,
           ...(!keepDormantPin && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
-          spentAt: input.settledAt ? new Date(input.settledAt) : undefined,
+          spentAt: input.settledAt,
           updatedAt: new Date(),
         })
         .where(eq(expenses.id, settlementId));

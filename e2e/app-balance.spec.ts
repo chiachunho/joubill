@@ -1,3 +1,4 @@
+import { todayIn } from "../src/lib/day";
 import { expect, test } from "./fixtures";
 
 // The seeded expense is 300 paid by the user and split 150/150 with the partner,
@@ -42,7 +43,7 @@ test.describe("Balances and settle-up", () => {
         amount: 90,
         currency: "TWD",
         description: `E2E taxi ${Date.now()}`,
-        spentAt: new Date().toISOString(),
+        spentAt: todayIn("Asia/Taipei"),
         shareType: "exact",
         payers: [{ payerId: seeded.userId, amount: 90 }],
         splits: [
@@ -84,7 +85,7 @@ test.describe("Balances and settle-up", () => {
         amount: 100,
         currency: "TWD",
         description: "E2E outsider",
-        spentAt: new Date().toISOString(),
+        spentAt: todayIn("Asia/Taipei"),
         shareType: "exact",
         payers: [{ payerId: seeded.userId, amount: 100 }],
         splits: [{ debtorId: seeded.outsiderId, amount: 100 }],

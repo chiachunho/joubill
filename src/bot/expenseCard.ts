@@ -3,7 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groupMembers, groups, users } from "@/db/schema";
-import { getRate, loadGroupRateOverrides } from "@/lib/fx";
+import { getRate, loadGroupRateContext } from "@/lib/fx";
 import { BTN } from "@/lib/buttons";
 import { expenseLink } from "@/lib/deep-link";
 import { labelUser } from "@/lib/label";
@@ -123,7 +123,8 @@ type CardData = {
     description: string | null;
     createdBy: number;
     receiptFileId: string | null;
-    spentAt: Date;
+    /** `YYYY-MM-DD`. */
+    spentAt: string;
   };
   defaultCurrency: string;
   payers: DbUser[];
@@ -265,8 +266,8 @@ async function cardText(card: CardData, mode: CardMode): Promise<string> {
   if (expense.currency !== defaultCurrency) {
     // Best-effort only: a failed FX lookup must never block showing the expense.
     try {
-      const overrides = await loadGroupRateOverrides(expense.groupId);
-      const rate = await getRate(expense.currency, defaultCurrency, expense.spentAt, overrides);
+      const rateCtx = await loadGroupRateContext(expense.groupId);
+      const rate = await getRate(expense.currency, defaultCurrency, expense.spentAt, rateCtx);
       lines.push(
         `≈ ${fmtGrouped(Math.round(expense.amount * rate * 100) / 100)} ${defaultCurrency}`,
       );

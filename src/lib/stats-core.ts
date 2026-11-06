@@ -1,12 +1,15 @@
+import { isDay } from "./day";
+
 /** Preset windows for the stats page; "custom" requires explicit from/to. */
 export type StatsRangeKey = "3m" | "6m" | "1y" | "all" | "custom";
 
+/** All bounds are calendar days (`YYYY-MM-DD`), the same type a record's date is. */
 export type ResolvedRange = {
   /** Inclusive lower bound. Null only for "all" — the caller resolves that to
    *  the group's earliest record, since stats-core has no DB access. */
-  from: Date | null;
+  from: string | null;
   /** Inclusive upper bound. */
-  to: Date;
+  to: string;
   /** Set only for "3m"/"6m"/"1y" — the net-trend anchor (`from`) is an exact
    *  day-count window, but the monthly chart / ranking want "the last N
    *  calendar months" (matching the help doc's "選 6 個月會看到 6 根長條"),
@@ -16,21 +19,18 @@ export type ResolvedRange = {
 };
 
 /**
- * Resolves a range key (+ optional custom bounds) to concrete from/to dates.
- * Pure — no DB, no "now" side effect (caller passes `now`).
+ * Resolves a range key (+ optional custom bounds) to concrete from/to days.
+ * Pure — no DB, no "now" side effect (caller passes `today`, the group's today).
  *
- * `customFrom`/`customTo` are full ISO instants, not bare "YYYY-MM-DD" —
- * only the browser knows the viewer's local day boundaries (there's no
- * server-side timezone to guess from), so the client resolves "the day I
- * clicked" to an exact UTC instant itself (see `customRangeToQueryBounds`)
- * and this just parses what it's given.
+ * `customFrom`/`customTo` are bare `YYYY-MM-DD` days, inclusive on both ends. A
+ * record's date has no time and no zone, so a picked day needs no translation.
  *
  * Throws on a malformed or inverted custom range so the route can turn that
  * into a 400 instead of silently swapping or dropping bounds.
  */
 export function resolveStatsRange(
   range: StatsRangeKey,
-  now: Date,
+  today: string,
   customFrom?: string,
   customTo?: string,
 ): ResolvedRange {
@@ -38,40 +38,47 @@ export function resolveStatsRange(
     if (!customFrom || !customTo) {
       throw new Error("custom range requires both from and to");
     }
-    const from = new Date(customFrom);
-    const to = new Date(customTo);
-    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    if (!isDay(customFrom) || !isDay(customTo)) {
       throw new Error("invalid from/to date");
     }
-    if (from.getTime() > to.getTime()) {
+    if (customFrom > customTo) {
       throw new Error("from must not be after to");
     }
-    return { from, to };
+    return { from: customFrom, to: customTo };
   }
-  if (range === "all") return { from: null, to: now };
+  if (range === "all") return { from: null, to: today };
 
   const monthsBack = range === "3m" ? 3 : range === "6m" ? 6 : 12;
-  // Clamp the day-of-month to the target month's actual length: naively
-  // reusing now.getDate() overflows into the following month whenever the
-  // target month is shorter (e.g. Aug 31 minus 6 months would land on
-  // Mar 3 instead of Feb 28/29, via JS Date's automatic day rollover).
-  const targetYear = now.getFullYear();
-  const targetMonth = now.getMonth() - monthsBack;
-  const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
-  const day = Math.min(now.getDate(), daysInTargetMonth);
-  const from = new Date(targetYear, targetMonth, day);
-  return { from, to: now, monthsBack };
+  return { from: monthsAgo(today, monthsBack), to: today, monthsBack };
 }
 
-/** "YYYY-MM" keys for every month from `from` to `to`, inclusive on both ends. */
-export function monthKeysBetween(from: Date, to: Date): string[] {
+/**
+ * The same day-of-month `count` months before `day`, clamped to the target month's
+ * length: naively reusing the day overflows into the following month whenever the
+ * target month is shorter (Aug 31 minus 6 months would land on Mar 3, not Feb 28).
+ */
+export function monthsAgo(day: string, count: number): string {
+  const [y, m, d] = day.split("-").map(Number);
+  const index = y * 12 + (m - 1) - count;
+  const year = Math.floor(index / 12);
+  const month = (index % 12) + 1;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(Math.min(d, lastDay)).padStart(2, "0")}`;
+}
+
+function monthIndexOf(day: string): number {
+  const [y, m] = day.split("-").map(Number);
+  return y * 12 + (m - 1);
+}
+
+function keyOfMonthIndex(index: number): string {
+  return `${String(Math.floor(index / 12)).padStart(4, "0")}-${String((index % 12) + 1).padStart(2, "0")}`;
+}
+
+/** "YYYY-MM" keys for every month from `from` to `to` (days), inclusive on both ends. */
+export function monthKeysBetween(from: string, to: string): string[] {
   const keys: string[] = [];
-  const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
-  const end = new Date(to.getFullYear(), to.getMonth(), 1);
-  while (cursor.getTime() <= end.getTime()) {
-    keys.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`);
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
+  for (let i = monthIndexOf(from); i <= monthIndexOf(to); i++) keys.push(keyOfMonthIndex(i));
   return keys;
 }
 
@@ -79,17 +86,17 @@ export function monthKeysBetween(from: Date, to: Date): string[] {
  *  e.g. count=6 from an August `to` gives Mar..Aug, always exactly 6 keys
  *  regardless of day-of-month (unlike `monthKeysBetween` against an exact
  *  day-count `from`, which almost never lands on a month boundary). */
-export function recentMonthKeys(to: Date, count: number): string[] {
+export function recentMonthKeys(to: string, count: number): string[] {
   if (count <= 0) return [];
-  const end = new Date(to.getFullYear(), to.getMonth(), 1);
-  const start = new Date(end.getFullYear(), end.getMonth() - (count - 1), 1);
-  return monthKeysBetween(start, end);
+  const end = monthIndexOf(to);
+  const keys: string[] = [];
+  for (let i = end - (count - 1); i <= end; i++) keys.push(keyOfMonthIndex(i));
+  return keys;
 }
 
-/** Inverse of the key format produced by `monthKeysBetween`: "YYYY-MM" -> the 1st of that month. */
-export function monthKeyToDate(key: string): Date {
-  const [year, month] = key.split("-").map(Number);
-  return new Date(year, month - 1, 1);
+/** Inverse of the key format produced by `monthKeysBetween`: "YYYY-MM" -> the first day of that month. */
+export function monthKeyToDay(key: string): string {
+  return `${key}-01`;
 }
 
 /** Parses a "YYYY-MM-DD" string as a local calendar date (midnight in
@@ -103,30 +110,21 @@ export function parseLocalDay(ymd: string): Date {
 }
 
 /**
- * Converts the calendar days a viewer picked (in their own local time, via
- * `DateRangeSelect`'s "YYYY-MM-DD" strings) into the exact UTC instants
- * bounding that local day. A bare date string carries no timezone, so this
- * is the one place that decides what "that day" means — using whichever
- * clock calls it (the browser, for every real caller) rather than assuming
- * UTC, which would silently exclude a viewer's early-morning records in any
- * positive-UTC-offset timezone.
+ * The query parameters for a custom range: the days the viewer picked, as they are.
+ * Empty until both ends are chosen.
  */
-export function customRangeToQueryBounds(value: {
-  key: StatsRangeKey;
+export function customRangeToQuery(value: { key: StatsRangeKey; from?: string; to?: string }): {
   from?: string;
   to?: string;
-}): { from?: string; to?: string } {
+} {
   if (value.key !== "custom" || !value.from || !value.to) return {};
-  const start = parseLocalDay(value.from);
-  const end = parseLocalDay(value.to);
-  end.setHours(23, 59, 59, 999);
-  return { from: start.toISOString(), to: end.toISOString() };
+  return { from: value.from, to: value.to };
 }
 
 /** A single signed contribution to a user's net balance: positive when they
  *  paid, negative when they owed. Caller has already summed same-record
  *  payer/split legs and converted to the group's default currency. */
-export type NetLeg = { date: Date; amount: number };
+export type NetLeg = { date: string; amount: number };
 
 export type NetTrendPoint = { date: string; net: number };
 
@@ -140,8 +138,8 @@ export type NetTrendPoint = { date: string; net: number };
  *     instead of an empty chart.
  * `from: null` returns the whole history with no anchor point.
  */
-export function computeNetTrend(legs: NetLeg[], from: Date | null): NetTrendPoint[] {
-  const sorted = [...legs].sort((a, b) => a.date.getTime() - b.date.getTime());
+export function computeNetTrend(legs: NetLeg[], from: string | null): NetTrendPoint[] {
+  const sorted = [...legs].sort((a, b) => a.date.localeCompare(b.date));
   const points: NetTrendPoint[] = [];
   let running = 0;
   let carried = 0;
@@ -149,18 +147,17 @@ export function computeNetTrend(legs: NetLeg[], from: Date | null): NetTrendPoin
   for (const leg of sorted) {
     running += leg.amount;
     const rounded = Math.round(running * 100) / 100;
-    if (from && leg.date.getTime() < from.getTime()) {
+    if (from && leg.date < from) {
       carried = rounded;
       continue;
     }
-    points.push({ date: leg.date.toISOString(), net: rounded });
+    points.push({ date: leg.date, net: rounded });
   }
 
   if (from) {
-    const anchorDate = from.toISOString();
     const first = points[0];
-    if (!first || first.date !== anchorDate) {
-      points.unshift({ date: anchorDate, net: carried });
+    if (!first || first.date !== from) {
+      points.unshift({ date: from, net: carried });
     }
   }
 
