@@ -18,6 +18,7 @@ const sections = [
   { slug: "web-app", label: "網頁版" },
   { slug: "add-to-home-screen", label: "加到主畫面與通知" },
   { slug: "invite-members", label: "網頁建群組與邀請碼" },
+  { slug: "mcp", label: "用 MCP 串接 Claude 與自動化" },
   { slug: "troubleshooting", label: "常見問題" },
   { slug: "privacy", label: "隱私權政策" },
   { slug: "terms", label: "服務條款" },

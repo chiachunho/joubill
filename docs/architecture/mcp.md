@@ -76,6 +76,10 @@ copy on `expenses` to drift. `ActivityEntry.via` does the same join per row for 
   (`logDeleted` looks the connection up from the actor).
 - Forms: 由 X 透過 Claude 於 T 記錄 / 最後由 Y 透過 Claude 於 T 修改.
 - Push: the actor's name carries the connection (`PushNoticeInput.via`).
+- Group feed: the row says 透過 X and its avatar has a corner mark; the filter 全部 / 手動記錄 /
+  透過應用程式 is `?source=` on `GET …/activity` (`mcp` = `source = 'mcp'`, `manual` = everything else,
+  group events included). It is server-side because a page of 30 that a client filter empties would
+  look like the end of the feed.
 
 A connection is revoked, never deleted (except with its account), so the name stays readable.
 Records entered before the feature, or by a person, show nothing.

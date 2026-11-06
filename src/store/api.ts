@@ -34,6 +34,7 @@ import type {
   SettlementDetail,
   StatsResponse,
 } from "@/lib/api-types";
+import type { ActivitySource } from "@/lib/activity-source";
 import type { CreateConnectionInput, UpdateConnectionInput } from "@/lib/app-connection-input";
 import type { BeancountConfigInput } from "@/lib/zod";
 
@@ -292,7 +293,7 @@ const baseApi = createApi({
      */
     getActivity: build.infiniteQuery<
       ActivityResponse,
-      { groupId: GroupId; recordId?: string | null },
+      { groupId: GroupId; recordId?: string | null; source?: ActivitySource },
       /** The `nextCursor` of the page before; 0 for the first page. */
       number
     >({
@@ -300,8 +301,9 @@ const baseApi = createApi({
         initialPageParam: 0,
         getNextPageParam: (lastPage) => lastPage.nextCursor,
       },
-      query: ({ queryArg: { groupId, recordId }, pageParam }) => {
+      query: ({ queryArg: { groupId, recordId, source }, pageParam }) => {
         const params: string[] = [];
+        if (source && source !== "all") params.push(`source=${source}`);
         if (recordId) params.push(`record=${recordId}`);
         if (pageParam) params.push(`cursor=${pageParam}`);
         return {

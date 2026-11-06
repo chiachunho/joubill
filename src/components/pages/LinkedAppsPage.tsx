@@ -18,7 +18,7 @@ import {
   usableConnections,
 } from "@/lib/app-ui";
 import { describeError } from "@/lib/api-error";
-import { appUrl } from "@/lib/help-url";
+import { appUrl, MCP_HELP_PATH } from "@/lib/help-url";
 import { cn } from "@/lib/utils";
 import { useGetAppConnectionsQuery, useGetMeQuery } from "@/store/api";
 
@@ -164,6 +164,13 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
         <p className="mt-1.5 px-0.5 text-xs text-muted-foreground">
           個人存取權杖給 Claude Code、Cursor、n8n、捷徑等可以自己填 Header 的工具使用。
         </p>
+        <platform.HelpAction
+          path={MCP_HELP_PATH}
+          className="mt-3 flex w-full items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent/30 active:bg-accent/50"
+        >
+          <span className="flex-1">設定範例與說明</span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
+        </platform.HelpAction>
       </section>
 
       <CreateAppTokenDialog open={creating} onOpenChange={setCreating} groups={groups} />

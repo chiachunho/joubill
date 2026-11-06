@@ -1,56 +1,5 @@
-import type { Pool } from "@neondatabase/serverless";
-import type { APIRequestContext } from "@playwright/test";
-
-import { generateToken, hashToken, tokenDisplayPrefix } from "../src/lib/mcp-token";
+import { call, mkToken, rpc } from "./mcp";
 import { expect, test } from "./fixtures";
-
-/**
- * The MCP server (`/api/mcp`, issue #149) against the real database. Tokens are inserted
- * with a known plaintext; calls are plain JSON-RPC over HTTP with no cookie, so only the
- * bearer token is authenticating.
- */
-async function mkToken(
-  dbPool: Pool,
-  userId: number,
-  opts: { access?: "read" | "write"; groupIds?: number[]; allGroups?: boolean } = {},
-) {
-  const token = generateToken();
-  const { rows } = await dbPool.query(
-    `INSERT INTO app_connections (user_id, kind, name, token_hash, token_prefix, access, all_groups, group_ids)
-     VALUES ($1,'token','E2E token',$2,$3,$4,$5,$6) RETURNING id`,
-    [
-      userId,
-      hashToken(token),
-      tokenDisplayPrefix(token),
-      opts.access ?? "write",
-      opts.allGroups ?? false,
-      opts.groupIds ?? [],
-    ],
-  );
-  return { token, id: rows[0].id as number };
-}
-
-let rpcId = 0;
-async function rpc(request: APIRequestContext, token: string, method: string, params?: object) {
-  return request.post("/api/mcp", {
-    headers: {
-      authorization: `Bearer ${token}`,
-      accept: "application/json, text/event-stream",
-      "content-type": "application/json",
-    },
-    data: { jsonrpc: "2.0", id: ++rpcId, method, params },
-  });
-}
-
-type ToolResult = {
-  isError?: boolean;
-  structuredContent?: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-};
-async function call(request: APIRequestContext, token: string, name: string, args: object) {
-  const res = await rpc(request, token, "tools/call", { name, arguments: args });
-  expect(res.status()).toBe(200);
-  return ((await res.json()) as { result: ToolResult }).result;
-}
 
 test.describe("MCP server", () => {
   test("tools/list shows the core tools", async ({ request, seeded, dbPool }) => {
