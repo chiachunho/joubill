@@ -4,9 +4,18 @@ import { NextResponse } from "next/server";
 import { getAppAuth } from "@/lib/auth/mcp";
 import { HttpError } from "@/lib/auth/errors";
 import { createMcpServer } from "@/lib/mcp/server";
+import { metadataUrl } from "@/lib/oauth-http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * Points a client at the OAuth metadata (RFC 9728), which is how Claude.ai and ChatGPT find
+ * the sign-in. A request that carried a token the server refused says so (`invalid_token`),
+ * which is the client's cue to refresh instead of starting over.
+ */
+const challenge = (hadToken: boolean) =>
+  `Bearer resource_metadata="${metadataUrl()}"${hadToken ? ', error="invalid_token"' : ""}`;
 
 /** Stateless Streamable HTTP: one server and transport per request, JSON replies. */
 async function handle(req: Request): Promise<Response> {
@@ -19,7 +28,10 @@ async function handle(req: Request): Promise<Response> {
         { error: err.message },
         {
           status: err.status,
-          headers: err.status === 401 ? { "WWW-Authenticate": "Bearer" } : undefined,
+          headers:
+            err.status === 401
+              ? { "WWW-Authenticate": challenge(req.headers.has("authorization")) }
+              : undefined,
         },
       );
     }

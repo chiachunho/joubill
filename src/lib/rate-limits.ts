@@ -34,6 +34,12 @@ export const RATE_RULES = {
   /** MCP tool calls per connection (issue #149): reads and writes are counted apart. */
   mcpRead: { name: "mcp:read", limit: 600, windowMs: 60 * MINUTE },
   mcpWrite: { name: "mcp:write", limit: 60, windowMs: 60 * MINUTE },
+  /** OAuth dynamic client registration is open to anyone, so it is counted per address. */
+  oauthRegisterIp: { name: "oauth:register:ip", limit: 20, windowMs: 60 * MINUTE },
+  /** Code and refresh exchanges. A client retries, and one office shares an address. */
+  oauthTokenIp: { name: "oauth:token:ip", limit: 120, windowMs: 10 * MINUTE },
+  /** Consent page reads and decisions, per signed-in person. */
+  oauthConsentUser: { name: "oauth:consent:user", limit: 60, windowMs: 10 * MINUTE },
 } as const satisfies Record<string, RateRule>;
 
 /** What a refused request answers. Lives in DB-free code so the join page can match it. */

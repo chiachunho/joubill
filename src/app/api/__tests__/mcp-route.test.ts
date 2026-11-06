@@ -57,8 +57,24 @@ describe("/api/mcp", () => {
   it("answers 401 with a challenge when the token is no good, before reading anything", async () => {
     const res = await POST(rpc({ jsonrpc: "2.0", id: 1, method: "tools/list" }));
     expect(res.status).toBe(401);
-    expect(res.headers.get("www-authenticate")).toBe("Bearer");
+    const challenge = res.headers.get("www-authenticate") ?? "";
+    expect(challenge).toMatch(
+      /^Bearer resource_metadata="https?:\/\/[^"]+\/\.well-known\/oauth-protected-resource"/,
+    );
+    expect(challenge).toContain('error="invalid_token"');
     expect(state.dbTouched).toBe(false);
+  });
+
+  it("sends a client without any token to the OAuth metadata, without an error code", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/mcp", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: "{}",
+      }),
+    );
+    expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).not.toContain("error=");
   });
 
   it("is POST only", async () => {
@@ -71,7 +87,12 @@ describe("/api/mcp", () => {
     const res = await POST(rpc({ jsonrpc: "2.0", id: 1, method: "tools/list" }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
-      result: { tools: { name: string; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } }[] };
+      result: {
+        tools: {
+          name: string;
+          annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
+        }[];
+      };
     };
     const tools = new Map(json.result.tools.map((t) => [t.name, t]));
     expect([...tools.keys()].sort()).toEqual(

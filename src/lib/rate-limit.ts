@@ -119,3 +119,26 @@ export async function enforceMcpRateLimit(
   const decision = await consumeRateLimit([{ rule, id: connectionId }], { defer: after });
   if (!decision.ok) throw new TooManyRequestsError(RATE_LIMITED.error, decision.retryAfter);
 }
+
+/**
+ * Counts one OAuth request against `rule`, per caller address or, with `userId`, per person.
+ * Unlike the invite guard it has no per-user rule next to the address one: `/register` and
+ * `/token` are called without a login. Throws a 429 when over; fails open like the rest.
+ */
+export async function enforceOauthRateLimit(
+  req: Request,
+  rule: RateRule,
+  userId?: number,
+): Promise<void> {
+  let id: string | number | null = userId ?? null;
+  if (id === null) {
+    try {
+      id = ipKey(req.headers);
+    } catch (err) {
+      console.error("[rate-limit] could not derive the IP key", err);
+    }
+  }
+  if (id === null) return;
+  const decision = await consumeRateLimit([{ rule, id }], { defer: after });
+  if (!decision.ok) throw new TooManyRequestsError(RATE_LIMITED.error, decision.retryAfter);
+}

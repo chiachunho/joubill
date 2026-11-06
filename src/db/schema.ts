@@ -574,7 +574,12 @@ export const appConnections = pgTable(
     /** 'token' | 'oauth' */
     kind: varchar("kind", { length: 8 }).notNull(),
     name: text("name").notNull(),
-    tokenHash: text("token_hash").notNull().unique(),
+    /** NULL for an OAuth connection: its tokens live in `oauth_tokens`. */
+    tokenHash: text("token_hash").unique(),
+    /** The client an OAuth connection was granted to; NULL for a personal token. */
+    oauthClientId: integer("oauth_client_id").references((): AnyPgColumn => oauthClients.id, {
+      onDelete: "set null",
+    }),
     tokenPrefix: varchar("token_prefix", { length: 16 }).notNull(),
     /** 'read' | 'write' */
     access: varchar("access", { length: 8 }).notNull(),
@@ -589,6 +594,75 @@ export const appConnections = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("app_connections_user_idx").on(t.userId)],
+);
+
+/**
+ * A registered OAuth client (dynamic client registration, RFC 7591). Anyone may register one,
+ * so it grants nothing by itself: access exists only after a signed-in person approves it on
+ * the consent page. `client_secret_hash` is NULL for a public client (PKCE only).
+ */
+export const oauthClients = pgTable("oauth_clients", {
+  id: serial("id").primaryKey(),
+  clientId: varchar("client_id", { length: 64 }).notNull().unique(),
+  clientSecretHash: text("client_secret_hash"),
+  /** Shown on the consent page and in "透過 X 記錄", so it is cleaned on the way in. */
+  name: text("name").notNull(),
+  redirectUris: text("redirect_uris").array().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * An authorization code: 10 minutes, single use, and it carries what the person approved.
+ * The connection is created when the code is exchanged, so an abandoned approval leaves
+ * nothing in 連結的應用程式. `used_at` is set atomically; a replayed code revokes the
+ * connection it produced.
+ */
+export const oauthCodes = pgTable(
+  "oauth_codes",
+  {
+    id: serial("id").primaryKey(),
+    codeHash: text("code_hash").notNull().unique(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => oauthClients.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    redirectUri: text("redirect_uri").notNull(),
+    pkceChallenge: text("pkce_challenge").notNull(),
+    access: varchar("access", { length: 8 }).notNull(),
+    allGroups: boolean("all_groups").notNull().default(false),
+    groupIds: integer("group_ids")
+      .array()
+      .notNull()
+      .default(sql`'{}'::integer[]`),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    connectionId: integer("connection_id").references(() => appConnections.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("oauth_codes_expires_idx").on(t.expiresAt)],
+);
+
+/** Access (1 h) and refresh (90 d) tokens of an OAuth connection. Only the hash is stored. */
+export const oauthTokens = pgTable(
+  "oauth_tokens",
+  {
+    id: serial("id").primaryKey(),
+    connectionId: integer("connection_id")
+      .notNull()
+      .references(() => appConnections.id, { onDelete: "cascade" }),
+    /** 'access' | 'refresh' */
+    kind: varchar("kind", { length: 8 }).notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /** A refresh token is single use; presenting a used one again revokes the connection. */
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("oauth_tokens_connection_idx").on(t.connectionId)],
 );
 
 /**
@@ -614,6 +688,7 @@ export const appIdempotency = pgTable(
 );
 
 export type AppConnection = typeof appConnections.$inferSelect;
+export type OauthClient = typeof oauthClients.$inferSelect;
 
 /**
  * Applied data migrations (scripts/migrate.ts creates it with the same shape).
