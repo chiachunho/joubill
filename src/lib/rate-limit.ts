@@ -121,16 +121,16 @@ export async function enforceMcpRateLimit(
 }
 
 /**
- * Counts one OAuth request against `rule`, per caller address or, with `userId`, per person.
- * Unlike the invite guard it has no per-user rule next to the address one: `/register` and
- * `/token` are called without a login. Throws a 429 when over; fails open like the rest.
+ * Counts one OAuth request against `rule`: per caller address, or per `id` (a person or a
+ * registered client) when given. Only ids that exist are passed, so a flood of made-up ones
+ * can't grow `rate_limit_hits`. Throws a 429 when over; fails open like the rest.
  */
 export async function enforceOauthRateLimit(
   req: Request,
   rule: RateRule,
-  userId?: number,
+  id_?: string | number,
 ): Promise<void> {
-  let id: string | number | null = userId ?? null;
+  let id: string | number | null = id_ ?? null;
   if (id === null) {
     try {
       id = ipKey(req.headers);

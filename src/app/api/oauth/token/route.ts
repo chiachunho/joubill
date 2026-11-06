@@ -18,6 +18,7 @@ export const POST = withOauth(async (req) => {
       "WWW-Authenticate": "Basic",
     });
   }
+  await enforceOauthRateLimit(req, RATE_RULES.oauthTokenClient, client.id);
   try {
     const grant = form.get("grant_type");
     if (grant === "authorization_code") {

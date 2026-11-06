@@ -44,7 +44,12 @@ Claude.ai and ChatGPT can't send a custom header, so `/api/mcp` is also an OAuth
 - **Registration grants nothing.** Access exists only after a signed-in person approves on
   `/app/oauth/consent`. The client's name is attacker-controlled and ends up in "透過 X 記錄", so
   `sanitizeClientName` cleans it, and the consent page prints the redirect host. Registration is rate
-  limited per address, capped (`MAX_CLIENTS`), and unused old clients are swept.
+  limited per address (loosely: hosted connectors share egress addresses), and capped
+  (`MAX_CLIENTS`). **Every registration first sweeps abandoned clients**: no connection (even a
+  revoked one counts) and no live code after 24 h. A real client authorizes within minutes, so this
+  keeps throwaway registrations from filling the cap, and it never touches a client that has a
+  connection. `/token` and `/revoke` are counted **per client**, with a far looser per-address
+  backstop; only ids that exist are used as keys, so made-up ones can't grow `rate_limit_hits`.
 - **The grant travels in the code** (`oauth_codes`: 10 min, single use, claimed with an atomic
   `used_at`). The `mcp_connections` row (`kind = 'oauth'`, `token_hash` NULL) is created when the code
   is **exchanged**, so an abandoned approval leaves nothing in 連結的應用程式. Authorizing the same

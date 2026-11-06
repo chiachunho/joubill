@@ -34,9 +34,14 @@ import {
 } from "@/lib/oauth";
 import { mcpUrl } from "@/lib/oauth-http";
 
-/** Registered clients are capped, and ones nobody ever used are swept on registration. */
-const MAX_CLIENTS = 5000;
-const UNUSED_CLIENT_DAYS = 30;
+/**
+ * Registered clients are capped, and ones nobody ever used are swept on every registration.
+ * A real client registers and then sends the person to authorize within minutes, so one with
+ * no connection and no live code after a day is abandoned. Sweeping that quickly (instead of
+ * waiting for the cap) is what keeps throwaway registrations from filling the table.
+ */
+const MAX_CLIENTS = 50_000;
+const UNUSED_CLIENT_HOURS = 24;
 
 export type RegisteredClient = {
   clientId: string;
@@ -69,12 +74,9 @@ export async function registerClient(body: unknown): Promise<RegisteredClient> {
     throw new BadRequestError("only authorization_code and refresh_token are supported");
   }
 
+  await sweepUnusedClients().catch((err) => console.error("[oauth] client sweep failed", err));
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(oauthClients);
-  if (n >= MAX_CLIENTS) {
-    await sweepUnusedClients();
-    const [{ n: after }] = await db.select({ n: sql<number>`count(*)::int` }).from(oauthClients);
-    if (after >= MAX_CLIENTS) throw new BadRequestError("registration is full, try later");
-  }
+  if (n >= MAX_CLIENTS) throw new BadRequestError("registration is full, try later");
 
   const secret = method === "none" ? null : newClientSecret();
   const client = {
@@ -99,7 +101,7 @@ async function sweepUnusedClients(): Promise<void> {
     .delete(oauthClients)
     .where(
       and(
-        lt(oauthClients.createdAt, sql`now() - make_interval(days => ${UNUSED_CLIENT_DAYS})`),
+        lt(oauthClients.createdAt, sql`now() - make_interval(hours => ${UNUSED_CLIENT_HOURS})`),
         sql`not exists (select 1 from ${mcpConnections} where ${mcpConnections.oauthClientId} = ${oauthClients.id})`,
         sql`not exists (select 1 from ${oauthCodes} where ${oauthCodes.clientId} = ${oauthClients.id} and ${oauthCodes.expiresAt} > now())`,
       ),

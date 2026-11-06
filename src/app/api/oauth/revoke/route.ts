@@ -14,6 +14,7 @@ export const POST = withOauth(async (req) => {
   const { clientId, clientSecret } = clientCredentials(req.headers.get("authorization"), form);
   const client = await authenticateClient(clientId, clientSecret);
   if (!client) return oauthError("invalid_client", "client authentication failed", 401);
+  await enforceOauthRateLimit(req, RATE_RULES.oauthTokenClient, client.id);
   const token = form.get("token");
   if (token) await revokeByToken(client, token);
   return oauthJson({});
