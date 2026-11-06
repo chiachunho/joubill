@@ -38,13 +38,14 @@ Package manager is **pnpm**. Do not use npm or yarn.
 
 ## Architecture
 
-A single Next.js 15 (App Router) app serves five concerns simultaneously:
+A single Next.js 15 (App Router) app serves six concerns simultaneously:
 
 1. **Telegram Bot** — grammY webhook at `POST /api/telegram`
 2. **Mini App frontend** — React pages at `/mini/**` (Telegram-embedded, `initData` auth)
 3. **Web App frontend** — React pages at `/app/**` (standalone browser, Auth.js session-cookie auth) + `/login`
 4. **REST API** — Next.js route handlers at `/api/**` (shared by both frontends)
 5. **Help site** — public MDX pages at `/help/**` (no auth)
+6. **MCP server** — `POST /api/mcp` for AI assistants (bearer-token auth; see "MCP server" below)
 
 The Mini App and Web App share the same **lower-level building blocks** — `src/components/**`, `src/lib/**`, and the `/api/**` route handlers — and differ only in how auth/context is supplied (see API Auth and Web Auth below). **The top-level page bodies are shared too**, in `src/components/pages/**`. Each route's `src/app/mini/**/page.tsx` and `src/app/app/**/page.tsx` is a thin wrapper that passes in a `Platform`. The type is `src/components/pages/platform.ts`; each app implements it in its own module (`platform.mini.tsx`, `platform.web.tsx`), and a wrapper imports only its own, so a route's bundle never carries the other app's fetchers or Telegram code. The `Platform` holds everything that legitimately differs between the apps: the base path for links, the authenticated raw request, the viewer's self-photo hook, and the platform's chrome (header leading control, back navigation, the group-list header, the help row, the sign-out section, and where an unauthenticated viewer is sent, which a body acts on through `useLoginRedirect`: a 401 sends the web to `/login?next=…` and shows the Mini App its error; what counts as a 401 and where it leads live once in `src/lib/auth-redirect.ts`, used by both `useLoginRedirect` and the Web App's store-wide 401 handler). Platform differences belong in that object, so a change to a shared body reaches both apps by construction. `pnpm check:page-pairs` flags a diff that touched one copy and not the other; the `page-pairs` job in `pr-check.yml` posts the same result as an advisory PR comment (it never fails the check, since some one-sided edits are intentional). The pairs are derived from the path, so a new page needs no entry anywhere. Shared, testable logic should live in `src/lib/**` and be imported by both (see `src/lib/expense-view.ts`).
 
@@ -171,6 +172,17 @@ All client reads and writes of `/api/**` go through **RTK Query** (`@reduxjs/too
 - Response types are shared in `src/lib/api-types.ts` (types only); pages used to each declare their own `MeResponse` / `MembersResponse` / `AvatarsResponse`, and the copies had drifted.
 - **Testing**: `src/store/test-utils.tsx` has `fakeRequest(routes)` (a path → JSON map; an unlisted path answers 500 so a test can't pass on a request it never allowed; `Failure(status)` for errors) and `StoreWrapper`. Page tests render inside a `StoreWrapper` and `await` the data — it arrives asynchronously, unlike the old synchronous fallback. Cache behaviour (what a mutation refetches, rollbacks) is tested against the store directly in `src/store/__tests__/api.test.ts`.
 
+### MCP server (`src/app/api/mcp/`, `src/lib/mcp/`, issues #147/#149)
+
+Stateless Streamable HTTP over `@modelcontextprotocol/sdk`, authenticated by personal `sbk_…` tokens kept as a sha256 in `agent_connections`. Full design in [`docs/architecture/mcp.md`](docs/architecture/mcp.md). The rules that are easy to break:
+
+- **`getAuth` must keep refusing `sbk_` tokens** and `getAgentAuth` must keep refusing everything else; REST and MCP are separate doors.
+- **Every tool goes through `openGroup`** (rate limit → `assertGroupMember` → `assertGrant`), checked on every call. A new tool never reads a group before it.
+- Writes go through `src/lib/records/` with `actor: { source: "agent", agentConnectionId }`; never insert expense rows from a tool.
+- **User-controlled text (descriptions, names) only in `structuredContent`**; `content` text is a fixed sentence.
+- People are matched exactly within the group and never guessed (`agent-names.ts`).
+- A new column referencing `users.id` on connection tables is moved in `mergeAccounts` (`agent_connections` is).
+
 ### Help site (`src/app/help/`)
 
 Public Traditional-Chinese documentation, rendered from `.mdx` page files via
@@ -243,7 +255,7 @@ Requests: the Mini App's store uses `tmaRawFetch` (`src/lib/tma-fetch.ts`, attac
 ### Database (`src/db/`)
 
 Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
-`users` (`display_name` / `avatar_source`: see [`docs/architecture/auth.md`](docs/architecture/auth.md)) → `groups` (identified by `(chat_type, chat_id)`, see below) → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `account_merge_tickets` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests` + `group_invites` + `record_audit_log` + `user_beancount_configs` (per-user, per-group beancount export: three accounts and the `last_exported_at` watermark; `UNIQUE(user_id, group_id)`; `corrections_since` = when the last file was built) + `push_subscriptions` (one row per device receiving push; see "Home screen and push") + `rate_limit_hits` (attempt counters, `(key, window_start)`; see the invite rules below). `group_members.push_muted` is the per-group push switch.
+`users` (`display_name` / `avatar_source`: see [`docs/architecture/auth.md`](docs/architecture/auth.md)) → `groups` (identified by `(chat_type, chat_id)`, see below) → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `account_merge_tickets` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests` + `group_invites` + `record_audit_log` + `user_beancount_configs` (per-user, per-group beancount export: three accounts and the `last_exported_at` watermark; `UNIQUE(user_id, group_id)`; `corrections_since` = when the last file was built) + `push_subscriptions` (one row per device receiving push; see "Home screen and push") + `rate_limit_hits` (attempt counters, `(key, window_start)`; see the invite rules below; also the MCP per-connection limits) + `agent_connections` (MCP tokens, see "MCP server") + `agent_idempotency`. `group_members.push_muted` is the per-group push switch.
 
 **A group's chat is `(chat_type, chat_id)`**, not a Telegram-only column: `chat_type` is `'telegram'` today (room for other platforms), `chat_id` is text, both NULL together (`groups_chat_pair` CHECK) and `UNIQUE(chat_type, chat_id)`. **Never read or query these two columns directly — go through `src/lib/chat.ts`** (`telegramChatId(group)`, `requireTelegramChatId(group)`, `whereTelegramChat(id)`, `telegramChatColumns(id)`). A query that forgets `chat_type` doesn't error; it silently matches the wrong group once another platform issues the same id. `chatMigration` rewrites both columns when a chat is upgraded to a supergroup.
 

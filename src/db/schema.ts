@@ -426,11 +426,14 @@ export const recordAuditLog = pgTable(
     /** Which surface the change came from: 'bot' | 'app' | 'agent'. */
     source: varchar("source", { length: 8 }).notNull(),
     /**
-     * The MCP connection behind an 'agent' change. No foreign key yet: the
-     * `agent_connections` table arrives with the connection work, which adds it
-     * as `ON DELETE SET NULL`.
+     * The MCP connection behind an 'agent' change. `ON DELETE SET NULL`: the
+     * log outlives the connection (connections are revoked, not deleted, so the
+     * name normally stays readable).
      */
-    agentConnectionId: integer("agent_connection_id"),
+    agentConnectionId: integer("agent_connection_id").references(
+      (): AnyPgColumn => agentConnections.id,
+      { onDelete: "set null" },
+    ),
     /** RecordSnapshot; NULL on 'created'. */
     before: jsonb("before"),
     /** RecordSnapshot, or the rate-lock payload; NULL on 'deleted'. */
@@ -555,6 +558,63 @@ export const rateLimitHits = pgTable(
     index("rate_limit_hits_window_idx").on(t.windowStart),
   ],
 );
+
+/**
+ * An MCP client's access to a user's groups (issue #149). `kind` 'token' is a personal
+ * `sbk_…` token; 'oauth' arrives with the OAuth phase. Only the sha256 of the token is
+ * stored, so a database leak can't be replayed; `token_prefix` is for display.
+ * A revoked connection keeps its row so audit entries can still name it.
+ */
+export const agentConnections = pgTable(
+  "agent_connections",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** 'token' | 'oauth' */
+    kind: varchar("kind", { length: 8 }).notNull(),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    tokenPrefix: varchar("token_prefix", { length: 16 }).notNull(),
+    /** 'read' | 'write' */
+    access: varchar("access", { length: 8 }).notNull(),
+    allGroups: boolean("all_groups").notNull().default(false),
+    groupIds: integer("group_ids")
+      .array()
+      .notNull()
+      .default(sql`'{}'::integer[]`),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("agent_connections_user_idx").on(t.userId)],
+);
+
+/**
+ * Keys of `add_expense` / `add_settlement` calls, so a client that resends gets the
+ * original record instead of a second one. `record_id` is NULL while the first call is
+ * still running. Rows older than 24 h are ignored and swept on use.
+ */
+export const agentIdempotency = pgTable(
+  "agent_idempotency",
+  {
+    id: serial("id").primaryKey(),
+    connectionId: integer("connection_id")
+      .notNull()
+      .references(() => agentConnections.id, { onDelete: "cascade" }),
+    key: varchar("key", { length: 128 }).notNull(),
+    recordId: integer("record_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("agent_idempotency_key_uniq").on(t.connectionId, t.key),
+    index("agent_idempotency_created_idx").on(t.createdAt),
+  ],
+);
+
+export type AgentConnection = typeof agentConnections.$inferSelect;
 
 /**
  * Applied data migrations (scripts/migrate.ts creates it with the same shape).

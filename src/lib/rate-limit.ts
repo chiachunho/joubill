@@ -109,3 +109,13 @@ export async function enforceInviteRateLimit(req: Request, userId: number): Prom
   );
   if (!decision.ok) throw new TooManyRequestsError(RATE_LIMITED.error, decision.retryAfter);
 }
+
+/** Counts one MCP tool call against its connection's read or write bucket; 429 when over. */
+export async function enforceAgentRateLimit(
+  connectionId: number,
+  kind: "read" | "write",
+): Promise<void> {
+  const rule = kind === "write" ? RATE_RULES.agentWrite : RATE_RULES.agentRead;
+  const decision = await consumeRateLimit([{ rule, id: connectionId }], { defer: after });
+  if (!decision.ok) throw new TooManyRequestsError(RATE_LIMITED.error, decision.retryAfter);
+}
