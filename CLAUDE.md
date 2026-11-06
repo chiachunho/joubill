@@ -350,7 +350,7 @@ Creating, editing and deleting an expense or settlement lives in one place: `cre
 ### Audit log (`src/lib/record-mutation.ts` + `record-audit.ts` + `record-history.ts`)
 
 Every create, edit and delete of a record is logged to `record_audit_log` with
-who did it, from which surface, and a full before/after snapshot. This is the
+who did it, from which surface (`bot` / `app` / `agent`; an `agent` write also carries `agent_connection_id`, a plain nullable column until the connections table exists), and a full before/after snapshot. This is the
 accounting half of "any member may edit anything" — without it, relaxing the
 owner lock would mean changes are both unrestricted _and_ untraceable.
 
