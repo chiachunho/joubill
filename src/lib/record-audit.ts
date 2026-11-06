@@ -23,6 +23,12 @@ export type AuditAction =
   | "timezone_changed"
   | "member_claimed"
   | "account_merged";
+/**
+ * `"agent"` is what an MCP client's write is stored as, and the name of the SQL table and
+ * columns behind it (`agent_connections`, `agent_connection_id`). Code says "MCP" (issue
+ * #150); renaming stored values and tables is a two-release migration nobody needs yet, so
+ * these few spellings stay.
+ */
 export type AuditSource = "bot" | "app" | "agent";
 
 /**

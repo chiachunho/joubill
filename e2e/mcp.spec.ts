@@ -1,7 +1,7 @@
 import type { Pool } from "@neondatabase/serverless";
 import type { APIRequestContext } from "@playwright/test";
 
-import { generateToken, hashToken, tokenDisplayPrefix } from "../src/lib/agent-token";
+import { generateToken, hashToken, tokenDisplayPrefix } from "../src/lib/mcp-token";
 import { expect, test } from "./fixtures";
 
 /**
@@ -252,7 +252,7 @@ test.describe("MCP server", () => {
     request,
   }) => {
     const api = authedPage.request;
-    const created = await api.post("/api/me/agent-connections", {
+    const created = await api.post("/api/me/mcp-connections", {
       data: { name: "E2E laptop", access: "read", allGroups: false, groupIds: [seeded.groupId] },
     });
     expect(created.status()).toBe(201);
@@ -263,7 +263,7 @@ test.describe("MCP server", () => {
     expect(token).toMatch(/^sbk_/);
     expect(connection.tokenHash).toBeUndefined();
 
-    const listed = (await (await api.get("/api/me/agent-connections")).json()) as {
+    const listed = (await (await api.get("/api/me/mcp-connections")).json()) as {
       connections: { id: number; name: string }[];
     };
     expect(JSON.stringify(listed)).not.toContain(token);
@@ -271,13 +271,13 @@ test.describe("MCP server", () => {
     expect((await rpc(request, token, "tools/list")).status()).toBe(200);
 
     // A group the user isn't in can't be put in a token's scope.
-    const bad = await api.post("/api/me/agent-connections", {
+    const bad = await api.post("/api/me/mcp-connections", {
       data: { name: "x", access: "read", allGroups: false, groupIds: [seeded.foreignGroupId] },
     });
     expect(bad.status()).toBe(400);
 
-    expect((await api.delete(`/api/me/agent-connections/${connection.id}`)).status()).toBe(200);
+    expect((await api.delete(`/api/me/mcp-connections/${connection.id}`)).status()).toBe(200);
     expect((await rpc(request, token, "tools/list")).status()).toBe(401);
-    expect((await api.delete(`/api/me/agent-connections/${connection.id}`)).status()).toBe(404);
+    expect((await api.delete(`/api/me/mcp-connections/${connection.id}`)).status()).toBe(404);
   });
 });

@@ -2,10 +2,10 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
-import { agentConnections } from "@/db/schema";
-import { createConnectionSchema, MAX_AGENT_CONNECTIONS } from "@/lib/agent-connection-input";
-import { assertMemberOfAll, publicConnectionColumns } from "@/lib/agent-connections-db";
-import { generateToken, hashToken, tokenDisplayPrefix } from "@/lib/agent-token";
+import { mcpConnections } from "@/db/schema";
+import { createConnectionSchema, MAX_AGENT_CONNECTIONS } from "@/lib/mcp-connection-input";
+import { assertMemberOfAll, publicConnectionColumns } from "@/lib/mcp-connections-db";
+import { generateToken, hashToken, tokenDisplayPrefix } from "@/lib/mcp-token";
 import { getAuth } from "@/lib/auth";
 import { BadRequestError } from "@/lib/auth/errors";
 import { withAuth } from "@/lib/auth/route";
@@ -18,9 +18,9 @@ export const GET = withAuth(async (req: Request) => {
   const auth = await getAuth(req);
   const rows = await db
     .select(publicConnectionColumns)
-    .from(agentConnections)
-    .where(eq(agentConnections.userId, auth.user.id))
-    .orderBy(desc(agentConnections.createdAt));
+    .from(mcpConnections)
+    .where(eq(mcpConnections.userId, auth.user.id))
+    .orderBy(desc(mcpConnections.createdAt));
   return NextResponse.json({ connections: rows });
 });
 
@@ -40,16 +40,16 @@ export const POST = withAuth(async (req: Request) => {
   if (!input.allGroups) await assertMemberOfAll(auth.user.id, groupIds);
 
   const live = await db
-    .select({ id: agentConnections.id })
-    .from(agentConnections)
-    .where(and(eq(agentConnections.userId, auth.user.id), isNull(agentConnections.revokedAt)));
+    .select({ id: mcpConnections.id })
+    .from(mcpConnections)
+    .where(and(eq(mcpConnections.userId, auth.user.id), isNull(mcpConnections.revokedAt)));
   if (live.length >= MAX_AGENT_CONNECTIONS) {
     throw new BadRequestError(`at most ${MAX_AGENT_CONNECTIONS} active connections`);
   }
 
   const token = generateToken();
   const [row] = await db
-    .insert(agentConnections)
+    .insert(mcpConnections)
     .values({
       userId: auth.user.id,
       kind: "token",

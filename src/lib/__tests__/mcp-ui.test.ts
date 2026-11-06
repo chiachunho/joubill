@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AgentConnectionItem } from "../api-types";
+import type { McpConnectionItem } from "../api-types";
 import {
   activeConnections,
   expiryLabel,
@@ -8,10 +8,10 @@ import {
   sameScope,
   scopeSummary,
   usableConnections,
-} from "../agent-ui";
+} from "../mcp-ui";
 
 const now = new Date("2026-11-06T12:00:00Z");
-const conn = (over: Partial<AgentConnectionItem>): AgentConnectionItem => ({
+const conn = (over: Partial<McpConnectionItem>): McpConnectionItem => ({
   id: 1,
   kind: "token",
   name: "n",

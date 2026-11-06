@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatAgentLine,
+  formatMcpLine,
   formatDeletedNotice,
   formatSettlementNotice,
   type NoticePerson,
@@ -163,12 +163,12 @@ describe("formatDeletedNotice", () => {
 
 describe("agent attribution", () => {
   it("writes the line under a card or notice, without a name once the account is gone", () => {
-    expect(formatAgentLine(alice, "Claude")).toBe("✦ Alice 透過 Claude 記錄");
-    expect(formatAgentLine(null, "Claude")).toBe("✦ 透過 Claude 記錄");
+    expect(formatMcpLine(alice, "Claude")).toBe("✦ Alice 透過 Claude 記錄");
+    expect(formatMcpLine(null, "Claude")).toBe("✦ 透過 Claude 記錄");
   });
 
   it("escapes a connection name, which the person typed", () => {
-    expect(formatAgentLine(alice, "<b>x</b>")).toBe("✦ Alice 透過 &lt;b&gt;x&lt;/b&gt; 記錄");
+    expect(formatMcpLine(alice, "<b>x</b>")).toBe("✦ Alice 透過 &lt;b&gt;x&lt;/b&gt; 記錄");
   });
 
   it("adds the line to a settlement notice only when an assistant entered it", () => {

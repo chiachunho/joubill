@@ -1,4 +1,4 @@
-import { viaText } from "@/lib/agent-ui";
+import { viaText } from "@/lib/mcp-ui";
 import { labelUser, type Profile } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { escapeHtml, mention } from "@/lib/telegram-html";
@@ -53,7 +53,7 @@ function money(record: NoticeRecord): string {
  * "✦ 小明 透過 Claude 記錄": the line under a card or notice that an AI assistant entered.
  * `creator` is the person whose connection it was; a deleted account leaves just "透過 Claude 記錄".
  */
-export function formatAgentLine(creator: Profile | null, via: string): string {
+export function formatMcpLine(creator: Profile | null, via: string): string {
   const by = creator ? `${escapeHtml(labelUser(creator))} ` : "";
   return `✦ ${by}${escapeHtml(viaText(via))} 記錄`;
 }
@@ -61,14 +61,14 @@ export function formatAgentLine(creator: Profile | null, via: string): string {
 /** The group notice for a settlement: "💸 A → B　1,200 TWD", plus who it was entered through when an assistant did. */
 export function formatSettlementNotice(
   record: NoticeRecord,
-  agent?: { creator: Profile | null; via: string } | null,
+  mcp?: { creator: Profile | null; via: string } | null,
 ): string {
   const from = record.payers[0]?.user;
   const to = record.splits[0]?.user;
   const amount = `<b>${money(record)}</b>`;
   const line =
     !from || !to ? `💸 轉帳　${amount}` : `💸 ${nameOf(from)} → ${nameOf(to)}　${amount}`;
-  return agent ? `${line}\n${formatAgentLine(agent.creator, agent.via)}` : line;
+  return mcp ? `${line}\n${formatMcpLine(mcp.creator, mcp.via)}` : line;
 }
 
 /** Short description of what was deleted, for the tombstone line. */

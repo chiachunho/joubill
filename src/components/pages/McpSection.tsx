@@ -4,15 +4,15 @@ import Link from "next/link";
 import { ChevronRight, Sparkles } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
-import { activeConnections } from "@/lib/agent-ui";
-import { useGetAgentConnectionsQuery } from "@/store/api";
+import { activeConnections } from "@/lib/mcp-ui";
+import { useGetMcpConnectionsQuery } from "@/store/api";
 
 /**
  * 個人設定's MCP 連線 block, under 登入方式: both answer "who can act as my account". A
  * failed or pending read shows the row without a count rather than hiding the way in.
  */
-export function AgentsSection({ platform }: { platform: Platform }) {
-  const { data } = useGetAgentConnectionsQuery();
+export function McpSection({ platform }: { platform: Platform }) {
+  const { data } = useGetMcpConnectionsQuery();
   const active = data ? activeConnections(data.connections) : null;
 
   return (
@@ -20,7 +20,7 @@ export function AgentsSection({ platform }: { platform: Platform }) {
       <p className="sect mb-2.5">MCP 連線</p>
       <div className="overflow-hidden rounded-2xl bg-secondary/50">
         <Link
-          href={`${platform.basePath}/settings/agents`}
+          href={`${platform.basePath}/settings/mcp`}
           className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
         >
           <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">

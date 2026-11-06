@@ -3,24 +3,24 @@
 import { useState } from "react";
 import { ChevronRight, Copy, Check, Plus, Sparkles } from "lucide-react";
 
-import { AgentConnectionDialog } from "@/components/mini/AgentConnectionDialog";
-import { CreateAgentTokenDialog } from "@/components/mini/CreateAgentTokenDialog";
-import { AgentsSkeleton } from "@/components/mini/skeletons";
+import { McpConnectionDialog } from "@/components/mini/McpConnectionDialog";
+import { CreateMcpTokenDialog } from "@/components/mini/CreateMcpTokenDialog";
+import { McpSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
-import { connectionStatus } from "@/lib/agent-connection-input";
+import { connectionStatus } from "@/lib/mcp-connection-input";
 import {
   ACCESS_LABEL,
   expiryLabel,
   lastUsedLabel,
   scopeSummary,
   usableConnections,
-} from "@/lib/agent-ui";
+} from "@/lib/mcp-ui";
 import { describeError } from "@/lib/api-error";
 import { appUrl } from "@/lib/help-url";
 import { cn } from "@/lib/utils";
-import { useGetAgentConnectionsQuery, useGetMeQuery } from "@/store/api";
+import { useGetMcpConnectionsQuery, useGetMeQuery } from "@/store/api";
 
 /** The MCP endpoint people paste into Claude, ChatGPT, Cursor or n8n. */
 const MCP_PATH = "/api/mcp";
@@ -30,11 +30,11 @@ const MCP_PATH = "/api/mcp";
  * and 建立個人權杖. Shared by `/mini` and `/app`; nothing here depends on the platform but
  * the back link and where a signed-out viewer goes.
  */
-export function AgentsPage({ platform }: { platform: Platform }) {
+export function McpPage({ platform }: { platform: Platform }) {
   const back = `${platform.basePath}/settings`;
   platform.useBack(back);
 
-  const { data, error } = useGetAgentConnectionsQuery();
+  const { data, error } = useGetMcpConnectionsQuery();
   const { data: me } = useGetMeQuery();
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
   const [creating, setCreating] = useState(false);
@@ -64,7 +64,7 @@ export function AgentsPage({ platform }: { platform: Platform }) {
       </div>
     );
   }
-  if (!data) return <AgentsSkeleton />;
+  if (!data) return <McpSkeleton />;
 
   const list = usableConnections(data.connections);
   const open = list.find((c) => c.id === openId) ?? null;
@@ -166,9 +166,9 @@ export function AgentsPage({ platform }: { platform: Platform }) {
         </p>
       </section>
 
-      <CreateAgentTokenDialog open={creating} onOpenChange={setCreating} groups={groups} />
+      <CreateMcpTokenDialog open={creating} onOpenChange={setCreating} groups={groups} />
       {open && (
-        <AgentConnectionDialog
+        <McpConnectionDialog
           key={open.id}
           connection={open}
           groups={groups}

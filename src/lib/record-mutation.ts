@@ -55,7 +55,7 @@ export type Actor = {
   userId: number;
   source: AuditSource;
   /** The MCP connection that wrote this, when `source` is `"agent"`. */
-  agentConnectionId?: number;
+  mcpConnectionId?: number;
 };
 
 /**
@@ -91,7 +91,7 @@ async function writeLog(entry: {
       action: entry.action,
       actorId: entry.actor.userId,
       source: entry.actor.source,
-      agentConnectionId: entry.actor.agentConnectionId ?? null,
+      mcpConnectionId: entry.actor.mcpConnectionId ?? null,
       before: entry.before,
       after: entry.after,
     });
@@ -257,7 +257,7 @@ export async function logDeleted(
       api,
       before,
       deleterOf(deleter),
-      await connectionName(actor.agentConnectionId).catch(() => null),
+      await connectionName(actor.mcpConnectionId).catch(() => null),
     );
   }
   return before;

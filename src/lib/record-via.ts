@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { agentConnections, recordAuditLog } from "@/db/schema";
+import { mcpConnections, recordAuditLog } from "@/db/schema";
 
 /**
  * Which AI assistant entered a record (issue #150), read from the audit log rather than a
@@ -20,9 +20,9 @@ export async function loadCreatedVia(
 ): Promise<Map<number, string>> {
   if (recordIds.length === 0) return new Map();
   const rows = await exec
-    .select({ recordId: recordAuditLog.recordId, name: agentConnections.name })
+    .select({ recordId: recordAuditLog.recordId, name: mcpConnections.name })
     .from(recordAuditLog)
-    .innerJoin(agentConnections, eq(agentConnections.id, recordAuditLog.agentConnectionId))
+    .innerJoin(mcpConnections, eq(mcpConnections.id, recordAuditLog.mcpConnectionId))
     .where(
       and(
         inArray(recordAuditLog.recordId, recordIds),
@@ -40,8 +40,8 @@ export async function connectionName(
 ): Promise<string | null> {
   if (connectionId == null) return null;
   const [row] = await exec
-    .select({ name: agentConnections.name })
-    .from(agentConnections)
-    .where(eq(agentConnections.id, connectionId));
+    .select({ name: mcpConnections.name })
+    .from(mcpConnections)
+    .where(eq(mcpConnections.id, connectionId));
   return row?.name ?? null;
 }

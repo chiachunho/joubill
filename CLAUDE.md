@@ -176,14 +176,15 @@ All client reads and writes of `/api/**` go through **RTK Query** (`@reduxjs/too
 
 Stateless Streamable HTTP over `@modelcontextprotocol/sdk`, authenticated by personal `sbk_…` tokens kept as a sha256 in `agent_connections`. Full design in [`docs/architecture/mcp.md`](docs/architecture/mcp.md). The rules that are easy to break:
 
-- **`getAuth` must keep refusing `sbk_` tokens** and `getAgentAuth` must keep refusing everything else; REST and MCP are separate doors.
+- **Naming**: code and UI say MCP (`mcp-*.ts`, `McpPage`, `/api/me/mcp-connections`, `/settings/mcp`). The stored spellings are the exception: SQL tables and columns `agent_connections` / `agent_idempotency` / `agent_connection_id`, the audit `source` value `'agent'` and the `agent:read` / `agent:write` rate-limit keys. Renaming those takes a two-release migration; don't mix the two spellings elsewhere.
+- **`getAuth` must keep refusing `sbk_` tokens** and `getMcpAuth` must keep refusing everything else; REST and MCP are separate doors.
 - **Every tool goes through `openGroup`** (rate limit → `assertGroupMember` → `assertGrant`), checked on every call. A new tool never reads a group before it.
-- Writes go through `src/lib/records/` with `actor: { source: "agent", agentConnectionId }`; never insert expense rows from a tool.
+- Writes go through `src/lib/records/` with `actor: { source: "agent", mcpConnectionId }`; never insert expense rows from a tool.
 - **Results carry the data as `structuredContent` and as one JSON text block in `content`** (some clients show a model only `content`). The first text block is a fixed sentence of ids and numbers; user-controlled text (descriptions, names) appears only as string values inside the JSON, never in prose.
-- People are matched exactly within the group and never guessed (`agent-names.ts`).
+- People are matched exactly within the group and never guessed (`mcp-names.ts`).
 - A new column referencing `users.id` on connection tables is moved in `mergeAccounts` (`agent_connections` is).
-- The settings UI is `AgentsPage` (`src/components/pages/`, routes `/{mini,app}/settings/agents`, row in 個人設定 via `AgentsSection`). The forms start on the narrowest grant (唯讀, no group, no "all groups"); the token lives in `CreateAgentTokenDialog` state only; `PATCH` changes permission and scope, never name or expiry; wording and scope text come from `src/lib/agent-ui.ts`.
-- **Where an agent's record says so** (issue #150): the source is read from the audit log, not a column on `expenses` — `loadCreatedVia` (`src/lib/record-via.ts`) joins the `created` row to `agent_connections`. `LoadedNotice.createdVia` feeds the settlement notice and the tombstone, `loadCard` feeds `renderCard` (the "✦ 小明 透過 Claude 記錄" line, kept in every `CardMode`), the record GET endpoints return `createdVia` / `lastActivity.via` (required on the forms' `Initial`), and `queueRecordPush` adds the connection name to the actor. Wording is `viaText` / `formatAgentLine`; a connection is revoked, never deleted, so its name outlives it.
+- The settings UI is `McpPage` (`src/components/pages/`, routes `/{mini,app}/settings/mcp`, row in 個人設定 via `McpSection`). The forms start on the narrowest grant (唯讀, no group, no "all groups"); the token lives in `CreateMcpTokenDialog` state only; `PATCH` changes permission and scope, never name or expiry; wording and scope text come from `src/lib/mcp-ui.ts`.
+- **Where an agent's record says so** (issue #150): the source is read from the audit log, not a column on `expenses` — `loadCreatedVia` (`src/lib/record-via.ts`) joins the `created` row to `agent_connections`. `LoadedNotice.createdVia` feeds the settlement notice and the tombstone, `loadCard` feeds `renderCard` (the "✦ 小明 透過 Claude 記錄" line, kept in every `CardMode`), the record GET endpoints return `createdVia` / `lastActivity.via` (required on the forms' `Initial`), and `queueRecordPush` adds the connection name to the actor. Wording is `viaText` / `formatMcpLine`; a connection is revoked, never deleted, so its name outlives it.
 
 ### Help site (`src/app/help/`)
 

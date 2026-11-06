@@ -8,7 +8,7 @@ import { BTN } from "@/lib/buttons";
 import { expenseLink } from "@/lib/deep-link";
 import { labelUser } from "@/lib/label";
 import { loadCreatedVia } from "@/lib/record-via";
-import { formatAgentLine } from "@/lib/record-notice";
+import { formatMcpLine } from "@/lib/record-notice";
 import { fmtGrouped, n, splitEqual } from "@/lib/money";
 import { computeSplits } from "@/lib/splits";
 
@@ -133,7 +133,7 @@ type CardData = {
    * The AI assistant that entered it and the person whose connection it was (issue #150),
    * for the "✦ 小明 透過 Claude 記錄" line. Null for anything a person entered.
    */
-  agent: { via: string; creator: DbUser | null } | null;
+  mcp: { via: string; creator: DbUser | null } | null;
   payers: DbUser[];
   splits: Array<{ user: DbUser; amount: number; weight: number }>;
   /** False for Mini-App-entered exact/percent/adjustment splits — see PANEL_SHARE_TYPES. */
@@ -195,7 +195,7 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
       amount: n(expense.amount),
     },
     defaultCurrency: expense.defaultCurrency,
-    agent: via ? { via, creator: creator ?? null } : null,
+    mcp: via ? { via, creator: creator ?? null } : null,
     payers: payerRows,
     splits: splitRows.map((r) => ({
       user: {
@@ -292,7 +292,7 @@ async function cardText(card: CardData, mode: CardMode): Promise<string> {
 
   lines.push(splitLine(card));
   // Kept in every mode, so the ⚙️ panel doesn't hide where the record came from.
-  if (card.agent) lines.push(formatAgentLine(card.agent.creator, card.agent.via));
+  if (card.mcp) lines.push(formatMcpLine(card.mcp.creator, card.mcp.via));
 
   const hint =
     mode === "adjust" && !card.panelEditable

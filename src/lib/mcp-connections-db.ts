@@ -1,22 +1,22 @@
 import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { agentConnections, groupMembers } from "@/db/schema";
+import { mcpConnections, groupMembers } from "@/db/schema";
 import { BadRequestError } from "@/lib/auth/errors";
 
 /** The columns a client may see: everything but the token hash. */
 export const publicConnectionColumns = {
-  id: agentConnections.id,
-  kind: agentConnections.kind,
-  name: agentConnections.name,
-  tokenPrefix: agentConnections.tokenPrefix,
-  access: agentConnections.access,
-  allGroups: agentConnections.allGroups,
-  groupIds: agentConnections.groupIds,
-  lastUsedAt: agentConnections.lastUsedAt,
-  expiresAt: agentConnections.expiresAt,
-  revokedAt: agentConnections.revokedAt,
-  createdAt: agentConnections.createdAt,
+  id: mcpConnections.id,
+  kind: mcpConnections.kind,
+  name: mcpConnections.name,
+  tokenPrefix: mcpConnections.tokenPrefix,
+  access: mcpConnections.access,
+  allGroups: mcpConnections.allGroups,
+  groupIds: mcpConnections.groupIds,
+  lastUsedAt: mcpConnections.lastUsedAt,
+  expiresAt: mcpConnections.expiresAt,
+  revokedAt: mcpConnections.revokedAt,
+  createdAt: mcpConnections.createdAt,
 };
 
 /** Throws unless `userId` belongs to every one of `groupIds` (a scope can't name a stranger's group). */

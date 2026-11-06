@@ -1,5 +1,5 @@
-import { connectionStatus } from "@/lib/agent-connection-input";
-import type { AgentConnectionItem } from "@/lib/api-types";
+import { connectionStatus } from "@/lib/mcp-connection-input";
+import type { McpConnectionItem } from "@/lib/api-types";
 import { dayLabel } from "@/lib/format";
 
 /** The wording of the two permission levels, in one place for the list, the forms and the tests. */
@@ -19,12 +19,12 @@ export const EXPIRY_CHOICES: { days: number | null; label: string }[] = [
 export const DEFAULT_EXPIRY_DAYS = 90;
 
 /** Connections that still work. A revoked one stays in the database for the audit log only. */
-export function usableConnections(list: AgentConnectionItem[], now: Date = new Date()) {
+export function usableConnections(list: McpConnectionItem[], now: Date = new Date()) {
   return list.filter((c) => connectionStatus(c, now) !== "revoked");
 }
 
 /** Connections that can be used right now: what the count on 個人設定 shows. */
-export function activeConnections(list: AgentConnectionItem[], now: Date = new Date()) {
+export function activeConnections(list: McpConnectionItem[], now: Date = new Date()) {
   return list.filter((c) => connectionStatus(c, now) === "active");
 }
 
@@ -33,7 +33,7 @@ export function activeConnections(list: AgentConnectionItem[], now: Date = new D
  * the connection can't reach it either (membership is checked on every call).
  */
 export function scopeSummary(
-  c: Pick<AgentConnectionItem, "allGroups" | "groupIds">,
+  c: Pick<McpConnectionItem, "allGroups" | "groupIds">,
   groups: { id: number; title: string }[],
 ): string {
   if (c.allGroups) return "所有群組";

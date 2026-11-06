@@ -4,11 +4,11 @@ import { useState } from "react";
 import { Check, Copy, Loader2 } from "lucide-react";
 
 import {
-  AgentAccessPicker,
-  AgentScopePicker,
+  McpAccessPicker,
+  McpScopePicker,
   scopeIsValid,
   type Scope,
-} from "@/components/mini/AgentFormFields";
+} from "@/components/mini/McpFormFields";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,10 +19,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES } from "@/lib/agent-ui";
+import { DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES } from "@/lib/mcp-ui";
 import { apiErrorText } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
-import { useCreateAgentConnectionMutation } from "@/store/api";
+import { useCreateMcpConnectionMutation } from "@/store/api";
 
 type Groups = { id: number; title: string; defaultCurrency: string }[];
 
@@ -35,7 +35,7 @@ type Groups = { id: number; title: string; defaultCurrency: string }[];
  * clipboard refuses, a read-only field that selects itself on focus takes over, the same as
  * the invite code.
  */
-export function CreateAgentTokenDialog({
+export function CreateMcpTokenDialog({
   open,
   onOpenChange,
   groups,
@@ -44,7 +44,7 @@ export function CreateAgentTokenDialog({
   onOpenChange: (open: boolean) => void;
   groups: Groups;
 }) {
-  const [create, { isLoading, reset }] = useCreateAgentConnectionMutation();
+  const [create, { isLoading, reset }] = useCreateMcpConnectionMutation();
   const [name, setName] = useState("");
   const [access, setAccess] = useState<"read" | "write">("read");
   const [scope, setScope] = useState<Scope>({ allGroups: false, groupIds: [] });
@@ -141,13 +141,13 @@ export function CreateAgentTokenDialog({
             <div className="space-y-4">
               <div>
                 <label
-                  htmlFor="agent-token-name"
+                  htmlFor="mcp-token-name"
                   className="mb-1.5 block text-xs text-muted-foreground"
                 >
                   名稱
                 </label>
                 <Input
-                  id="agent-token-name"
+                  id="mcp-token-name"
                   value={name}
                   maxLength={60}
                   placeholder="例如：刷卡簡訊自動記帳"
@@ -155,8 +155,8 @@ export function CreateAgentTokenDialog({
                   className="rounded-lg"
                 />
               </div>
-              <AgentAccessPicker value={access} onChange={setAccess} />
-              <AgentScopePicker groups={groups} value={scope} onChange={setScope} />
+              <McpAccessPicker value={access} onChange={setAccess} />
+              <McpScopePicker groups={groups} value={scope} onChange={setScope} />
               <div>
                 <p className="mb-1.5 text-xs text-muted-foreground">到期</p>
                 <div

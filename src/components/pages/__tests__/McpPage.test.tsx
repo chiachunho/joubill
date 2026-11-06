@@ -2,10 +2,10 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AgentsPage } from "@/components/pages/AgentsPage";
-import { AgentsSection } from "@/components/pages/AgentsSection";
+import { McpPage } from "@/components/pages/McpPage";
+import { McpSection } from "@/components/pages/McpSection";
 import { miniPlatform } from "@/components/pages/platform.mini";
-import type { AgentConnectionItem } from "@/lib/api-types";
+import type { McpConnectionItem } from "@/lib/api-types";
 import { fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 // Radix's Checkbox measures itself; jsdom has no ResizeObserver.
@@ -36,7 +36,7 @@ const ME = {
   activeInviteCode: null,
 };
 
-const conn = (over: Partial<AgentConnectionItem>): AgentConnectionItem => ({
+const conn = (over: Partial<McpConnectionItem>): McpConnectionItem => ({
   id: 5,
   kind: "token",
   name: "我的 n8n",
@@ -51,15 +51,15 @@ const conn = (over: Partial<AgentConnectionItem>): AgentConnectionItem => ({
   ...over,
 });
 
-function renderPage(connections: AgentConnectionItem[], extra: Record<string, object> = {}) {
+function renderPage(connections: McpConnectionItem[], extra: Record<string, object> = {}) {
   const request = fakeRequest({
-    "/api/me/agent-connections": { connections },
+    "/api/me/mcp-connections": { connections },
     "/api/me/groups": ME,
     ...extra,
   });
   render(
     <StoreWrapper request={request}>
-      <AgentsPage platform={platform} />
+      <McpPage platform={platform} />
     </StoreWrapper>,
   );
   return request;
@@ -70,7 +70,7 @@ const bodies = (request: ReturnType<typeof fakeRequest>, method: string) =>
     .filter(([, init]) => init?.method === method)
     .map(([, init]) => JSON.parse(String(init?.body ?? "null")));
 
-describe("AgentsPage list", () => {
+describe("McpPage list", () => {
   it("shows each connection's permission and groups, and leaves revoked ones out", async () => {
     renderPage([
       conn({}),
@@ -107,7 +107,7 @@ describe("建立個人權杖", () => {
   it("sends the narrow grant by default and shows the token only until 完成", async () => {
     const request = renderPage([], {});
     request.mockImplementation(async (path, init) => {
-      if (path === "/api/me/agent-connections" && init?.method === "POST") {
+      if (path === "/api/me/mcp-connections" && init?.method === "POST") {
         return new Response(
           JSON.stringify({ connection: conn({ name: "刷卡簡訊" }), token: "sbk_SECRET123" }),
           { status: 201 },
@@ -168,7 +168,7 @@ describe("建立個人權杖", () => {
 
 describe("a connection", () => {
   it("asks before revoking, and revokes only on confirm", async () => {
-    const request = renderPage([conn({})], { "/api/me/agent-connections/5": { ok: true } });
+    const request = renderPage([conn({})], { "/api/me/mcp-connections/5": { ok: true } });
     fireEvent.click(await screen.findByText("我的 n8n"));
     fireEvent.click(screen.getByRole("button", { name: "撤銷這個連線" }));
     expect(await screen.findByText(/撤銷「我的 n8n」？/)).toBeInTheDocument();
@@ -178,7 +178,7 @@ describe("a connection", () => {
   });
 
   it("asks before widening to 可記帳 and saves a narrowing straight away", async () => {
-    const request = renderPage([conn({})], { "/api/me/agent-connections/5": { connection: {} } });
+    const request = renderPage([conn({})], { "/api/me/mcp-connections/5": { connection: {} } });
     fireEvent.click(await screen.findByText("我的 n8n"));
     const save = () => screen.getByRole("button", { name: "儲存變更" });
     expect(save()).toBeDisabled();
@@ -192,19 +192,19 @@ describe("a connection", () => {
   });
 });
 
-describe("AgentsSection on 個人設定", () => {
+describe("McpSection on 個人設定", () => {
   it("shows the number of connections that work now", async () => {
     const request = fakeRequest({
-      "/api/me/agent-connections": {
+      "/api/me/mcp-connections": {
         connections: [conn({}), conn({ id: 6, revokedAt: "2026-10-05T00:00:00Z" })],
       },
     });
     render(
       <StoreWrapper request={request}>
-        <AgentsSection platform={platform} />
+        <McpSection platform={platform} />
       </StoreWrapper>,
     );
     expect(await screen.findByText("1")).toBeInTheDocument();
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/mini/settings/agents");
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/mini/settings/mcp");
   });
 });

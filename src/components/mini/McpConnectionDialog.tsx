@@ -4,11 +4,11 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import {
-  AgentAccessPicker,
-  AgentScopePicker,
+  McpAccessPicker,
+  McpScopePicker,
   scopeIsValid,
   type Scope,
-} from "@/components/mini/AgentFormFields";
+} from "@/components/mini/McpFormFields";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,11 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { connectionStatus } from "@/lib/agent-connection-input";
-import { expiryLabel, lastUsedLabel, sameScope } from "@/lib/agent-ui";
+import { connectionStatus } from "@/lib/mcp-connection-input";
+import { expiryLabel, lastUsedLabel, sameScope } from "@/lib/mcp-ui";
 import { apiErrorText } from "@/lib/api-error";
-import type { AgentConnectionItem } from "@/lib/api-types";
-import { useRevokeAgentConnectionMutation, useUpdateAgentConnectionMutation } from "@/store/api";
+import type { McpConnectionItem } from "@/lib/api-types";
+import { useRevokeMcpConnectionMutation, useUpdateMcpConnectionMutation } from "@/store/api";
 
 /**
  * One connection: change its permission and group scope, or revoke it. The name and the
@@ -32,17 +32,17 @@ import { useRevokeAgentConnectionMutation, useUpdateAgentConnectionMutation } fr
  *
  * The parent mounts this with `key={connection.id}`, so the fields start from the saved values.
  */
-export function AgentConnectionDialog({
+export function McpConnectionDialog({
   connection,
   groups,
   onClose,
 }: {
-  connection: AgentConnectionItem;
+  connection: McpConnectionItem;
   groups: { id: number; title: string; defaultCurrency: string }[];
   onClose: () => void;
 }) {
-  const [update, { isLoading: saving }] = useUpdateAgentConnectionMutation();
-  const [revoke, { isLoading: revoking }] = useRevokeAgentConnectionMutation();
+  const [update, { isLoading: saving }] = useUpdateMcpConnectionMutation();
+  const [revoke, { isLoading: revoking }] = useRevokeMcpConnectionMutation();
   const [access, setAccess] = useState(connection.access);
   const [scope, setScope] = useState<Scope>({
     allGroups: connection.allGroups,
@@ -102,8 +102,8 @@ export function AgentConnectionDialog({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <AgentAccessPicker value={access} onChange={setAccess} />
-            <AgentScopePicker groups={groups} value={scope} onChange={setScope} />
+            <McpAccessPicker value={access} onChange={setAccess} />
+            <McpScopePicker groups={groups} value={scope} onChange={setScope} />
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">

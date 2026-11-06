@@ -440,16 +440,16 @@ describe("AI assistant connections", () => {
 
   it("refetches the list after a create, an edit or a revoke", async () => {
     const request = fakeRequest({
-      "/api/me/agent-connections": { ...list, connection: {}, token: "sbk_x" },
-      "/api/me/agent-connections/5": { ok: true },
+      "/api/me/mcp-connections": { ...list, connection: {}, token: "sbk_x" },
+      "/api/me/mcp-connections/5": { ok: true },
     });
     const store = makeStore(request);
-    store.dispatch(api.endpoints.getAgentConnections.initiate());
+    store.dispatch(api.endpoints.getMcpConnections.initiate());
     await settle();
-    expect(reads(request, "/api/me/agent-connections")).toBe(1);
+    expect(reads(request, "/api/me/mcp-connections")).toBe(1);
 
     await store.dispatch(
-      api.endpoints.createAgentConnection.initiate({
+      api.endpoints.createMcpConnection.initiate({
         name: "n",
         access: "read",
         allGroups: false,
@@ -457,14 +457,14 @@ describe("AI assistant connections", () => {
       }),
     );
     await settle();
-    expect(reads(request, "/api/me/agent-connections")).toBe(2);
+    expect(reads(request, "/api/me/mcp-connections")).toBe(2);
 
-    await store.dispatch(api.endpoints.updateAgentConnection.initiate({ id: 5, access: "write" }));
+    await store.dispatch(api.endpoints.updateMcpConnection.initiate({ id: 5, access: "write" }));
     await settle();
-    expect(reads(request, "/api/me/agent-connections")).toBe(3);
+    expect(reads(request, "/api/me/mcp-connections")).toBe(3);
 
-    await store.dispatch(api.endpoints.revokeAgentConnection.initiate({ id: 5 }));
+    await store.dispatch(api.endpoints.revokeMcpConnection.initiate({ id: 5 }));
     await settle();
-    expect(reads(request, "/api/me/agent-connections")).toBe(4);
+    expect(reads(request, "/api/me/mcp-connections")).toBe(4);
   });
 });
