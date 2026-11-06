@@ -390,7 +390,7 @@ Other things to know:
 
 Surfaces: both record forms show 由 X 於 T 記錄 and, once edited, a tappable
 最後由 Y 於 T 修改; `/{mini,app}/groups/[id]/activity` is the group feed, and the
-same page with `?record=<id>` is one record's history.
+same page with `?record=<id>` is one record's history. Rows there (including a deleted record's) link to that history through `recordHistoryHref` (`src/lib/activity-link.ts`), which also carries a `from` page, so 返回 goes back to the edit form or the feed that opened it; the same file parses `from` and accepts only a page inside the same group and front end (anything else falls back to the group home). A row shows its time top-right and `›` bottom-right in a column of fixed width, so rows without a link keep their time aligned.
 
 ### Home screen and push (`public/sw.js`, `src/lib/pwa.ts`, `src/lib/push*.ts`, issue #67)
 

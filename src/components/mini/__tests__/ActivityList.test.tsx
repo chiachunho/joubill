@@ -44,11 +44,31 @@ describe("ActivityList", () => {
   it("links an ordinary row to its record's history", () => {
     render(<ActivityList {...props} entries={[entry({})]} />);
 
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/mini/groups/1/activity?record=7");
+    expect(screen.getByRole("link")).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/mini\/groups\/1\/activity\?record=7&from=/),
+    );
+  });
+
+  it("links a deleted record too, since its history says who removed it", () => {
+    render(
+      <ActivityList {...props} entries={[entry({ action: "deleted", summary: "晚餐 $300" })]} />,
+    );
+
+    expect(screen.getByRole("link")).toHaveAttribute(
+      "href",
+      expect.stringContaining("/mini/groups/1/activity?record=7"),
+    );
+  });
+
+  it("makes the history's 返回 come back to this feed", () => {
+    render(<ActivityList {...props} entries={[entry({})]} />);
+
+    const href = screen.getByRole("link").getAttribute("href")!;
+    expect(new URL(href, "http://x").searchParams.get("from")).toBe("/mini/groups/1/activity");
   });
 
   it.each<[string, Partial<ActivityEntry>, { linkRows?: boolean }]>([
-    ["a deleted record has nowhere to go", { action: "deleted", summary: "晚餐 $300" }, {}],
     [
       "a rate lock belongs to the group, not to one row",
       {

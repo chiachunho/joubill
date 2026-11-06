@@ -8,6 +8,7 @@ import { ActivityList } from "@/components/mini/ActivityList";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { ActivitySkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
+import { parseHistoryFrom } from "@/lib/activity-link";
 import { useAutoLoadMore } from "@/lib/use-auto-load-more";
 import { useGetActivityInfiniteQuery, useGetAvatarsQuery, useGetMeQuery } from "@/store/api";
 
@@ -26,10 +27,19 @@ export function GroupActivityPage({
   platform: Platform;
 }) {
   const { id } = use(params);
-  const recordId = useSearchParams().get("record");
+  const searchParams = useSearchParams();
+  const recordId = searchParams.get("record");
 
+  // A record's history is reached from its edit form or from the feed, and 返回
+  // goes back to whichever it was (`from`, validated to a page inside this
+  // group). Opened directly, or with a `from` that doesn't check out, it falls
+  // back to the group home.
+  const from = parseHistoryFrom(searchParams.get("from"), {
+    appBase: platform.basePath,
+    groupId: id,
+  });
   const backHref = recordId
-    ? `${platform.basePath}/groups/${id}`
+    ? (from ?? `${platform.basePath}/groups/${id}`)
     : `${platform.basePath}/groups/${id}/settings`;
   platform.useBack(backHref);
 

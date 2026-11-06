@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronRight, KeyRound, Link2, Link2Off, Lock, UserCheck } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { activityFeedHref, recordHistoryHref } from "@/lib/activity-link";
 import { dayLabel, stampLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { changeHeading, rateLockImpact } from "@/lib/record-audit";
@@ -96,14 +97,18 @@ function Row({
   const [date, time] = stampLabel(entry.at).split(" ");
   const stamp = { date, time };
 
-  // A deleted record has nowhere to go, and a rate lock belongs to the group
-  // rather than to any one row — neither is tappable.
+  // A rate lock belongs to the group rather than to any one row, so it has no
+  // history to open. A deleted record does: its log rows outlive it (`record_id`
+  // has no foreign key), and that history is how you find out who removed it.
   const href =
-    linkRows &&
-    entry.recordId != null &&
-    entry.action !== "deleted" &&
-    entry.action !== "rate_locked"
-      ? `${appBase}/groups/${groupId}/activity?record=${entry.recordId}`
+    linkRows && entry.recordId != null && entry.action !== "rate_locked"
+      ? recordHistoryHref({
+          appBase,
+          groupId,
+          recordId: entry.recordId,
+          // 返回 on the history page comes back to this feed.
+          from: activityFeedHref({ appBase, groupId }),
+        })
       : null;
 
   const body = (
@@ -143,24 +148,27 @@ function Row({
           <ChangeLine entry={entry} />
         </p>
       </div>
-      <span className="num shrink-0 self-start pt-0.5 text-right text-xs leading-tight text-muted-foreground">
-        {/* Day headings carry the date on the feed, so rows there show only a
-            time; a record's own history has no headings and stacks both. */}
-        {showDate ? (
-          <>
-            {stamp.date}
-            <br />
-            {stamp.time}
-          </>
+      {/* Time top-right, chevron bottom-right, in a column of its own so a row
+          without a chevron (a rate lock, a group event) keeps its time exactly
+          where the others have it. */}
+      <div className="flex min-h-9 shrink-0 flex-col items-end justify-between self-stretch">
+        <span className="num text-right text-xs leading-tight text-muted-foreground">
+          {/* Day headings carry the date on the feed, so rows there show only a
+              time; a record's own history has no headings and shows both. */}
+          {showDate ? `${stamp.date} ${stamp.time}` : stamp.time}
+        </span>
+        {href ? (
+          <ChevronRight className="size-3.5 text-muted-foreground/70" />
         ) : (
-          stamp.time
+          // Only where some rows link: on a record's own history none do, and
+          // the spacer would just narrow every row's text.
+          linkRows && <span className="size-3.5" aria-hidden />
         )}
-      </span>
-      {href && <ChevronRight className="size-3.5 shrink-0 self-center text-muted-foreground/70" />}
+      </div>
     </>
   );
 
-  const className = "flex items-center gap-3 px-4 py-3";
+  const className = "flex items-start gap-3 px-4 py-3";
   return href ? (
     <Link
       href={href}
