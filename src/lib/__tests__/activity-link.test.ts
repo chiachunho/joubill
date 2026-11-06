@@ -43,6 +43,8 @@ describe("record history link", () => {
     ["a backslash", "/app/groups/86/\\evil.test"],
     ["a double slash", "/app/groups/86//evil.test"],
     ["whitespace", "/app/groups/86/ x"],
+    ["an encoded dot-dot segment", "/app/groups/86/%2e%2E/87/expenses"],
+    ["an encoded slash", "/app/groups/86/..%2f87"],
   ])("ignores %s", (_, raw) => {
     expect(parseHistoryFrom(raw, scope)).toBeNull();
   });

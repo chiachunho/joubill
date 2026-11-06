@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChevronRight, KeyRound, Link2, Link2Off, Lock, UserCheck } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
-import { recordHistoryHref } from "@/lib/activity-link";
+import { activityFeedHref, recordHistoryHref } from "@/lib/activity-link";
 import { dayLabel, stampLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { changeHeading, rateLockImpact } from "@/lib/record-audit";
@@ -107,7 +107,7 @@ function Row({
           groupId,
           recordId: entry.recordId,
           // 返回 on the history page comes back to this feed.
-          from: `${appBase}/groups/${groupId}/activity`,
+          from: activityFeedHref({ appBase, groupId }),
         })
       : null;
 
@@ -160,7 +160,9 @@ function Row({
         {href ? (
           <ChevronRight className="size-3.5 text-muted-foreground/70" />
         ) : (
-          <span className="size-3.5" aria-hidden />
+          // Only where some rows link: on a record's own history none do, and
+          // the spacer would just narrow every row's text.
+          linkRows && <span className="size-3.5" aria-hidden />
         )}
       </div>
     </>

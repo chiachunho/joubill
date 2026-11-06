@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { activityFeedHref } from "@/lib/activity-link";
 import type { MembersResponse } from "@/lib/api-types";
 import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
 import { saveResponseAsFile } from "@/lib/download";
@@ -252,7 +253,7 @@ export function GroupSettings({
       <section className="px-4">
         <div className="overflow-hidden rounded-2xl bg-secondary/50">
           <Link
-            href={`${platform.basePath}/groups/${id}/activity`}
+            href={activityFeedHref({ appBase: platform.basePath, groupId: id })}
             className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
           >
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
