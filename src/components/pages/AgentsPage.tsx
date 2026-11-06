@@ -26,7 +26,7 @@ import { useGetAgentConnectionsQuery, useGetMeQuery } from "@/store/api";
 const MCP_PATH = "/api/mcp";
 
 /**
- * 個人設定 → AI 助理 (issue #150): the address to connect to, the connections that exist,
+ * 個人設定 → MCP 連線 (issue #150): the address to connect to, the connections that exist,
  * and 建立個人權杖. Shared by `/mini` and `/app`; nothing here depends on the platform but
  * the back link and where a signed-out viewer goes.
  */
@@ -73,10 +73,10 @@ export function AgentsPage({ platform }: { platform: Platform }) {
     <div className="space-y-6 py-4">
       <div className="px-4">
         <platform.BackLink href={back} />
-        <h1 className="text-lg font-semibold">AI 助理</h1>
+        <h1 className="text-lg font-semibold">MCP 連線</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          讓 Claude、ChatGPT
-          或自動化流程幫你查帳、記帳。它們記的每一筆，群組都會看到是透過它記錄的。
+          MCP 是讓 Claude、ChatGPT、Cursor
+          或自動化流程連進揪帳的方式，連上後可以查帳、記帳。它們記的每一筆，群組都會看到是透過它記錄的。
         </p>
       </div>
 
