@@ -3,7 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { exchangeRates, groupExchangeRates, groups } from "@/db/schema";
 
+import { fxDateKey } from "./fx-shared";
 import { n } from "./money";
+
+export { FX_TIME_ZONE, fxDateKey } from "./fx-shared";
 
 /**
  * Free, no-key currency API hosted on jsdelivr.
@@ -129,26 +132,6 @@ export async function resolveRecordFx(
     .where(eq(groups.id, groupId));
   if (!group) return { fxRate: null, fxQuote: null };
   return fxColumnsFor(group.defaultCurrency, currency, fxRate);
-}
-
-/**
- * The zone in which "which day is this record on" is decided. Fixed, so the answer
- * doesn't depend on where the code runs. A record's `spent_at` is UTC noon of its
- * day (the forms), which is the same calendar day in every zone from UTC-12 to
- * UTC+11.
- */
-export const FX_TIME_ZONE = "Asia/Taipei";
-
-const dayFormat = new Intl.DateTimeFormat("en-CA", {
-  timeZone: FX_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
-/** `YYYY-MM-DD` of an instant in FX_TIME_ZONE. */
-export function fxDateKey(d: Date): string {
-  return dayFormat.format(d);
 }
 
 /** The instant a bot-created record is stamped with: UTC noon of today's FX day. */

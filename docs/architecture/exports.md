@@ -8,7 +8,7 @@ A group's records (expenses **and** settlements, one row each) export as CSV thr
 
 - **The Mini App has no direct download on purpose**: `WebApp.downloadFile`/`openLink` take a URL Telegram fetches itself, so they cannot carry the `tma` header. Posting to the chat avoids a signed-URL scheme.
 - **換算金額 is kept at 4 decimals** (`FX_DP` in `export.ts`) and goes through `resolveRate`, the same chain `computeGroupBalances` uses. Rounding each row to 2 dp would let the column sum drift from `/balance`, which rounds once at the end.
-- `csv.ts` is pure and tested: UTF-8 BOM (Excel), CRLF, quoting, and a `'` prefix on text starting with `= + - @` because descriptions are user-controlled (formula injection). Timestamps are UTC since the schema has no group timezone.
+- `csv.ts` is pure and tested: UTF-8 BOM (Excel), CRLF, quoting, and a `'` prefix on text starting with `= + - @` because descriptions are user-controlled (formula injection). The 日期 column is the record's day only (`formatDay` = `fxDateKey`, Asia/Taipei — the same day its rate is looked up for, and the date `beancountDate` puts on the entry); 建立時間 stays a UTC timestamp because the schema has no group timezone.
 
 ## Beancount 匯出 (`src/lib/beancount.ts` + `beancount-export.ts`, issue #117)
 
