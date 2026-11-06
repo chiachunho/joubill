@@ -48,15 +48,13 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       legacyReceiptFileId: expenses.receiptFileId,
       fxRate: expenses.fxRate,
       fxQuote: expenses.fxQuote,
-      // Full microsecond precision, which a JS Date would round off.
-      spentAtCursor: sql<string>`to_char(${expenses.spentAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
     })
     .from(expenses)
     .where(
       and(
         eq(expenses.groupId, groupId),
         cursor
-          ? sql`(${expenses.spentAt}, ${expenses.id}) < (${cursor.spentAt}::timestamptz, ${cursor.id})`
+          ? sql`(${expenses.spentAt}, ${expenses.id}) < (${cursor.spentAt}::date, ${cursor.id})`
           : undefined,
       ),
     )
@@ -75,7 +73,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   const last = expenseRows[expenseRows.length - 1];
   const nextCursor =
     fetched.length > EXPENSES_PAGE_SIZE
-      ? encodeExpenseCursor({ spentAt: last.spentAtCursor, id: last.id })
+      ? encodeExpenseCursor({ spentAt: last.spentAt, id: last.id })
       : null;
 
   const expenseIds = expenseRows.map((e) => e.id);
@@ -204,7 +202,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
         amount: input.amount.toFixed(2),
         currency: input.currency,
         description: input.description,
-        spentAt: new Date(input.spentAt),
+        spentAt: input.spentAt,
         createdBy: auth.user.id,
         fxRate: fx.fxRate,
         fxQuote: fx.fxQuote,

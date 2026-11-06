@@ -6,6 +6,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-serverless";
 
 import * as schema from "../src/db/schema";
+import { todayIn } from "../src/lib/day";
 import { setSessionCookie } from "./fixtures";
 
 /**
@@ -17,12 +18,13 @@ export async function signedInPage(
   baseURL: string | undefined,
   dbPool: Pool,
   userId: number,
+  options: { timezoneId?: string } = {},
 ) {
   const token = randomBytes(24).toString("hex");
   await drizzle(dbPool, { schema })
     .insert(schema.sessions)
     .values({ id: token, userId, expiresAt: new Date(Date.now() + 3_600_000) });
-  const context = await browser.newContext({ baseURL });
+  const context = await browser.newContext({ baseURL, timezoneId: options.timezoneId });
   await setSessionCookie(context, baseURL, token);
   return { context, page: await context.newPage() };
 }
@@ -45,13 +47,15 @@ export type ExpenseBody = {
   shareType: "equal" | "exact" | "percent" | "shares" | "adjustment";
   payers: { payerId: number; amount: number }[];
   splits: { debtorId: number; amount: number; splitValue?: number | null }[];
+  /** `YYYY-MM-DD`; today when left out. */
+  spentAt?: string;
 };
 
 function expenseData(body: ExpenseBody) {
   return {
     currency: "TWD",
     description: `E2E merge ${body.shareType} ${Date.now()}`,
-    spentAt: new Date().toISOString(),
+    spentAt: todayIn("Asia/Taipei"),
     ...body,
   };
 }

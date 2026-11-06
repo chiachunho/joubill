@@ -6,6 +6,7 @@ import {
   ArrowRightLeft,
   BookOpen,
   ChevronRight,
+  Clock,
   Coins,
   Download,
   GitMerge,
@@ -19,6 +20,7 @@ import {
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
+import { TimeZoneSelect } from "@/components/mini/TimeZoneSelect";
 import { TelegramChatSection } from "@/components/mini/TelegramChatSection";
 import { AddMemberDialog } from "@/components/mini/AddMemberDialog";
 import { MergeMemberDialog } from "@/components/mini/MergeMemberDialog";
@@ -37,6 +39,7 @@ import type { MembersResponse } from "@/lib/api-types";
 import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
 import { saveResponseAsFile } from "@/lib/download";
 import { labelMember, labelUser } from "@/lib/label";
+import { TIMEZONE_PURPOSE } from "@/lib/timezone";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 import {
   useGetAvatarsQuery,
@@ -46,6 +49,7 @@ import {
   useRemoveMemberMutation,
   useRenameMemberMutation,
   useUpdateGroupCurrencyMutation,
+  useUpdateGroupTimezoneMutation,
   useUpdateMemberStatusMutation,
 } from "@/store/api";
 
@@ -74,6 +78,7 @@ export function GroupSettings({
   const [removeMember] = useRemoveMemberMutation();
   const [updateMemberStatus] = useUpdateMemberStatusMutation();
   const [updateGroupCurrency] = useUpdateGroupCurrencyMutation();
+  const [updateGroupTimezone] = useUpdateGroupTimezoneMutation();
 
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -85,6 +90,8 @@ export function GroupSettings({
   const [mergeTarget, setMergeTarget] = useState<Member | null>(null);
   const [currencyPending, setCurrencyPending] = useState(false);
   const [pendingCurrency, setPendingCurrency] = useState<string | null>(null);
+  const [timezonePending, setTimezonePending] = useState(false);
+  const [pendingTimezone, setPendingTimezone] = useState<string | null>(null);
   const [exportPending, setExportPending] = useState<"download" | "send" | null>(null);
   const [exportMessage, setExportMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -175,6 +182,19 @@ export function GroupSettings({
     }
   }
 
+  async function updateTimezone(timezone: string) {
+    if (timezonePending) return;
+    setTimezonePending(true);
+    try {
+      // The select shows the new zone at once; the mutation puts it back on failure.
+      await updateGroupTimezone({ groupId: id, timezone }).unwrap();
+    } catch {
+      // rolled back
+    } finally {
+      setTimezonePending(false);
+    }
+  }
+
   const error = membersError ?? settingsError;
   if (error) {
     return (
@@ -230,6 +250,24 @@ export function GroupSettings({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <Clock className="size-3.5 text-primary" />
+              </div>
+              <span className="flex-1 text-sm">時區</span>
+              <div className="w-56 max-w-[60%]">
+                <TimeZoneSelect
+                  value={settings.timezone}
+                  disabled={timezonePending}
+                  onChange={(tz) => {
+                    if (tz !== settings.timezone) setPendingTimezone(tz);
+                  }}
+                />
+              </div>
+            </div>
+            <p className="text-xs leading-relaxed text-muted-foreground">{TIMEZONE_PURPOSE}</p>
           </div>
           <Link
             href={`${platform.basePath}/groups/${id}/settings/rates`}
@@ -504,6 +542,26 @@ export function GroupSettings({
           if (!pendingCurrency) return;
           await updateCurrency(pendingCurrency);
           setPendingCurrency(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={pendingTimezone !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingTimezone(null);
+        }}
+        title="變更群組時區"
+        description={
+          pendingTimezone
+            ? `要把群組時區改成 ${pendingTimezone} 嗎？這會影響整個群組：bot 記帳的日期，以及匯率使用的日期。已經記下的紀錄日期不會改變。`
+            : undefined
+        }
+        confirmLabel="變更"
+        loading={timezonePending}
+        onConfirm={async () => {
+          if (!pendingTimezone) return;
+          await updateTimezone(pendingTimezone);
+          setPendingTimezone(null);
         }}
       />
 

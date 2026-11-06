@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import { isDay } from "./day";
+import { isValidTimeZone } from "./timezone";
+
+/** A record's date in a request body: a real calendar day, `YYYY-MM-DD`. */
+export const daySchema = z.string().refine(isDay, { message: "must be a date as YYYY-MM-DD" });
+
 /** Every id in the schema is a Postgres `integer` (int4). */
 export const MAX_ID = 2_147_483_647;
 
@@ -52,9 +58,7 @@ export const expenseInputSchema = z
     fxRate: z.number().positive().max(1_000_000_000).nullable().optional(),
     description: z.string().max(500).nullable(),
     payers: z.array(payerItemSchema).min(1),
-    spentAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
-      message: "spentAt must be a valid date string",
-    }),
+    spentAt: daySchema,
     shareType: z.enum(SHARE_TYPES),
     splits: z.array(splitItemSchema).min(1),
     receiptFileIds: z.array(z.string().max(256)).max(5).optional(),
@@ -96,12 +100,8 @@ export const settlementInputSchema = z.object({
   amount: z.number().positive().max(10_000_000),
   currency: z.enum(SUPPORTED_CURRENCIES),
   fxRate: z.number().positive().max(1_000_000_000).nullable().optional(),
-  settledAt: z
-    .string()
-    .refine((s) => !Number.isNaN(Date.parse(s)), {
-      message: "settledAt must be a valid date string",
-    })
-    .optional(),
+  /** Omitted = today in the group's zone. */
+  settledAt: daySchema.optional(),
 });
 
 export type SettlementInput = z.infer<typeof settlementInputSchema>;
@@ -275,6 +275,8 @@ export type BeancountConfigInput = z.infer<typeof beancountConfigInputSchema>;
 export const groupCreateSchema = z.object({
   title: z.string().trim().min(1, "請輸入群組名稱").max(50, "群組名稱最多 50 字"),
   defaultCurrency: z.enum(SUPPORTED_CURRENCIES),
+  /** Omitted = the default zone. Checked against `Intl.supportedValuesOf("timeZone")`. */
+  timezone: z.string().refine(isValidTimeZone, "invalid timezone").optional(),
 });
 
 export type GroupCreateInput = z.infer<typeof groupCreateSchema>;

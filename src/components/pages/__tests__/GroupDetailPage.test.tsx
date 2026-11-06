@@ -32,7 +32,7 @@ const EXPENSES = {
       amount: 300,
       currency: "TWD",
       description: "午餐",
-      spentAt: "2026-07-10T04:00:00Z",
+      spentAt: "2026-07-10",
       payers: [],
       splits: [],
     },

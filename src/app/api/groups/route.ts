@@ -5,6 +5,7 @@ import { groupMembers, groups } from "@/db/schema";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { rotateInvite } from "@/lib/invites";
+import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 import { groupCreateSchema } from "@/lib/zod";
 
 export const runtime = "nodejs";
@@ -25,7 +26,11 @@ export const POST = withAuth(async (req: Request) => {
   const group = await db.transaction(async (tx) => {
     const [created] = await tx
       .insert(groups)
-      .values({ title: parsed.data.title, defaultCurrency: parsed.data.defaultCurrency })
+      .values({
+        title: parsed.data.title,
+        defaultCurrency: parsed.data.defaultCurrency,
+        timezone: parsed.data.timezone ?? DEFAULT_TIME_ZONE,
+      })
       .returning();
     await tx.insert(groupMembers).values({ groupId: created.id, userId: auth.user.id });
     await rotateInvite(tx, created.id, auth.user.id);

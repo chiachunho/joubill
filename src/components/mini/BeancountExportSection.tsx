@@ -11,7 +11,7 @@ import type { Platform } from "@/components/pages/platform";
 import { apiErrorText } from "@/lib/api-error";
 import { beancountRangeParams } from "@/lib/beancount-range";
 import { saveResponseAsFile } from "@/lib/download";
-import { customRangeToQueryBounds } from "@/lib/stats-core";
+import { customRangeToQuery } from "@/lib/stats-core";
 import {
   api,
   useGetBeancountExportSummaryQuery,
@@ -60,14 +60,10 @@ export function BeancountExportSection({
 
   let params: Record<string, string> | null;
   if (choice === "custom") {
-    const bounds = customRangeToQueryBounds({ key: "custom", from, to });
+    const bounds = customRangeToQuery({ key: "custom", from, to });
     params =
       bounds.from && bounds.to
-        ? beancountRangeParams({
-            kind: "custom",
-            from: new Date(bounds.from),
-            to: new Date(bounds.to),
-          })
+        ? beancountRangeParams({ kind: "custom", from: bounds.from, to: bounds.to })
         : null;
   } else {
     params = beancountRangeParams({ kind: picked === null ? "new" : choice });

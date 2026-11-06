@@ -22,7 +22,7 @@
  */
 
 import { formatUtcMinute } from "@/lib/csv";
-import { fxDateKey } from "@/lib/fx-shared";
+import { snapshotDay } from "@/lib/day";
 import { BEANCOUNT_LEAF_RE } from "@/lib/zod";
 
 export type BeancountParty = { userId: number; amount: number };
@@ -34,7 +34,7 @@ export type BeancountRecord = {
   amount: number;
   currency: string;
   description: string | null;
-  /** ISO timestamp; only the calendar date is used. */
+  /** `YYYY-MM-DD`; an audit snapshot from before the date column may hold an ISO timestamp. */
   spentAt: string;
   payers: BeancountParty[];
   splits: BeancountParty[];
@@ -166,9 +166,9 @@ function escapeString(text: string): string {
     .trim();
 }
 
-/** The day a timestamp is on (`fxDateKey`), which is what the CSV export uses too. */
-export function beancountDate(iso: string): string {
-  return fxDateKey(new Date(iso));
+/** The day a record is on, which is what the CSV export prints too. */
+export function beancountDate(spentAt: string): string {
+  return snapshotDay(spentAt);
 }
 
 /** Format an FX rate compactly (trim trailing zeros, no scientific notation). */
@@ -217,7 +217,9 @@ export function recordToBeancount(
 }
 
 export type BeancountExportRange =
-  { kind: "new"; since: Date | null } | { kind: "all" } | { kind: "custom"; from: Date; to: Date };
+  | { kind: "new"; since: Date | null }
+  | { kind: "all" }
+  | { kind: "custom"; from: string; to: string };
 
 export type BeancountExportInput = {
   groupTitle: string;
@@ -247,9 +249,7 @@ export type CorrectionGroup = CorrectionEntry[];
 function rangeLabel(range: BeancountExportRange): string {
   if (range.kind === "all") return "全部";
   if (range.kind === "custom") {
-    // The bounds are the viewer's local day boundaries as instants; their UTC date
-    // would be a day off for anyone not on UTC, so print the instants themselves.
-    return `消費日期 ${formatUtcMinute(range.from)} ~ ${formatUtcMinute(range.to)} UTC`;
+    return `消費日期 ${range.from} ~ ${range.to}`;
   }
   return range.since ? `${formatUtcMinute(range.since)} UTC 之後新增的紀錄` : "全部（第一次匯出）";
 }

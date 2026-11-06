@@ -339,6 +339,27 @@ export async function logChatUnlinked(
 }
 
 /**
+ * Logs the group's time zone being changed. Both names are kept as they were then.
+ * Nothing is written when the zone did not actually change.
+ */
+export async function logTimezoneChanged(
+  groupId: number,
+  actor: Actor,
+  change: { from: string; to: string },
+): Promise<void> {
+  if (change.from === change.to) return;
+  await writeLog({
+    groupId,
+    recordId: null,
+    recordType: "group",
+    action: "timezone_changed",
+    actor,
+    before: null,
+    after: { kind: "timezoneChanged", from: change.from, to: change.to },
+  });
+}
+
+/**
  * Logs a placeholder being merged into a real account. Call it after the merge
  * transaction commits; `recordIds` are every expense and settlement rewritten.
  */

@@ -3,12 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildOverrideMap,
   cacheableRateDay,
-  fxDateKey,
   getRate,
   overrideKey,
   parseFxResponse,
   pinnedRate,
   spentAtForNow,
+  type GroupRateContext,
+  type RateOverrides,
 } from "../fx";
 
 describe("parseFxResponse", () => {
@@ -36,23 +37,31 @@ describe("parseFxResponse", () => {
   });
 });
 
+/** A rate context with no custom rates unless given, in the default zone. */
+function ctx(overrides: RateOverrides = new Map()): GroupRateContext {
+  return { overrides, timeZone: "Asia/Taipei" };
+}
+
 describe("getRate", () => {
   it("short-circuits to 1 when base === quote (no db / network)", async () => {
-    await expect(getRate("TWD", "TWD", new Date())).resolves.toBe(1);
+    await expect(getRate("TWD", "TWD", "2026-03-01", ctx())).resolves.toBe(1);
     // case-insensitive
-    await expect(getRate("usd", "USD", new Date())).resolves.toBe(1);
+    await expect(getRate("usd", "USD", "2026-03-01", ctx())).resolves.toBe(1);
   });
 
   it("returns the group override without touching db / network", async () => {
     const overrides = buildOverrideMap([{ base: "JPY", quote: "TWD", rate: "0.22" }]);
-    await expect(getRate("JPY", "TWD", new Date(), overrides)).resolves.toBe(0.22);
+    await expect(getRate("JPY", "TWD", "2026-03-01", ctx(overrides))).resolves.toBe(0.22);
     // derived inverse pair
-    await expect(getRate("TWD", "JPY", new Date(), overrides)).resolves.toBeCloseTo(1 / 0.22, 10);
+    await expect(getRate("TWD", "JPY", "2026-03-01", ctx(overrides))).resolves.toBeCloseTo(
+      1 / 0.22,
+      10,
+    );
   });
 
   it("base === quote wins even when a (nonsense) override exists", async () => {
     const overrides = new Map([[overrideKey("TWD", "TWD"), 2]]);
-    await expect(getRate("TWD", "TWD", new Date(), overrides)).resolves.toBe(1);
+    await expect(getRate("TWD", "TWD", "2026-03-01", ctx(overrides))).resolves.toBe(1);
   });
 });
 
@@ -101,24 +110,11 @@ describe("pinnedRate", () => {
   });
 });
 
-describe("fxDateKey", () => {
-  it("uses the Taipei calendar day, not UTC", () => {
-    // 2026-03-01 00:30 Taipei is still 2026-02-28 in UTC.
-    expect(fxDateKey(new Date("2026-02-28T16:30:00Z"))).toBe("2026-03-01");
-    expect(fxDateKey(new Date("2026-03-01T15:59:00Z"))).toBe("2026-03-01");
-    expect(fxDateKey(new Date("2026-03-01T16:00:00Z"))).toBe("2026-03-02");
-  });
-
-  it("gives the same day for the forms' UTC-noon timestamps", () => {
-    expect(fxDateKey(new Date("2026-03-01T12:00:00Z"))).toBe("2026-03-01");
-  });
-});
-
 describe("spentAtForNow", () => {
-  it("is UTC noon of the Taipei day", () => {
-    expect(spentAtForNow(new Date("2026-02-28T16:30:00Z")).toISOString()).toBe(
-      "2026-03-01T12:00:00.000Z",
-    );
+  it("is the day in the group's zone", () => {
+    const now = new Date("2026-02-28T16:30:00Z");
+    expect(spentAtForNow("Asia/Taipei", now)).toBe("2026-03-01");
+    expect(spentAtForNow("America/Los_Angeles", now)).toBe("2026-02-28");
   });
 });
 

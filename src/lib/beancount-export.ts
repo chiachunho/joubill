@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { expenses, groups, recordAuditLog, userBeancountConfigs } from "@/db/schema";
 
 import {
+  beancountDate,
   DEFAULT_CASH_ACCOUNT,
   DEFAULT_EXPENSES_ACCOUNT,
   groupToBeancount,
@@ -20,8 +21,9 @@ import {
 } from "./beancount-corrections";
 import type { BeancountRangeQuery } from "./beancount-range";
 import { exportFilename } from "./csv";
+import { todayIn } from "./day";
 import { loadGroupRecords, type LoadedRecord } from "./export";
-import { loadGroupRateOverrides, resolveRate } from "./fx";
+import { loadGroupRateContext, resolveRate } from "./fx";
 import { labelUser } from "./label";
 import type { RecordSnapshot } from "./record-audit";
 
@@ -67,7 +69,7 @@ function toBeancountRecord(r: LoadedRecord): BeancountRecord {
     amount: r.amount,
     currency: r.currency,
     description: r.description,
-    spentAt: r.spentAt.toISOString(),
+    spentAt: r.spentAt,
     payers: r.payers,
     splits: r.splits,
   };
@@ -202,7 +204,9 @@ async function planGroupCorrections(
     if (plan.kind !== "none") planned.push({ id, snapshot, live: record, plan });
   }
   return planned.sort(
-    (a, b) => a.snapshot.spentAt.localeCompare(b.snapshot.spentAt) || a.id - b.id,
+    (a, b) =>
+      beancountDate(a.snapshot.spentAt).localeCompare(beancountDate(b.snapshot.spentAt)) ||
+      a.id - b.id,
   );
 }
 
@@ -257,10 +261,10 @@ export async function buildBeancountExport(
   const settings = await loadBeancountSettings(userId, groupId);
   if (!settings) return null;
   const range = resolveRange(query, settings);
-  const [loaded, fixes, overrides] = await Promise.all([
+  const [loaded, fixes, rateCtx] = await Promise.all([
     loadGroupRecords(groupId, { where: rangeWhere(range) }),
     planGroupCorrections(userId, groupId, settings, range, now, true),
-    loadGroupRateOverrides(groupId),
+    loadGroupRateContext(groupId),
   ]);
   if (!loaded) return null;
   const { group, records, name } = loaded;
@@ -272,7 +276,7 @@ export async function buildBeancountExport(
       r.type === "settlement" && !r.description
         ? settlementNarration(name(r.payers[0]?.userId ?? 0), name(r.splits[0]?.userId ?? 0))
         : undefined,
-    spentAt: r.spentAt.getTime(),
+    spentAt: r.spentAt,
   }));
   const corrections: CorrectionGroup[] = [];
   for (const f of fixes) {
@@ -282,7 +286,7 @@ export async function buildBeancountExport(
         record: f.plan.current,
         rate: r.rate,
         narration: undefined,
-        spentAt: r.spentAt.getTime(),
+        spentAt: r.spentAt,
       });
     } else if (f.plan.kind === "correction") {
       const snap = f.snapshot;
@@ -305,8 +309,8 @@ export async function buildBeancountExport(
             (await resolveRate(
               { currency: reverse.currency, fxRate: null, fxQuote: null },
               group.defaultCurrency,
-              new Date(reverse.spentAt),
-              overrides,
+              beancountDate(reverse.spentAt),
+              rateCtx,
             )));
       corrections.push([
         { record: reverse, rate: reverseRate, narration: old, correction, reverse: true },
@@ -331,7 +335,7 @@ export async function buildBeancountExport(
     }
   }
   // Records that became yours by an edit sit among the rest, by spending date.
-  entries.sort((a, b) => a.spentAt - b.spentAt || a.record.id - b.record.id);
+  entries.sort((a, b) => a.spentAt.localeCompare(b.spentAt) || a.record.id - b.record.id);
 
   const { text, included, corrected } = groupToBeancount({
     groupTitle: group.title,
@@ -345,7 +349,7 @@ export async function buildBeancountExport(
   });
 
   return {
-    filename: exportFilename(group.title, now, "beancount"),
+    filename: exportFilename(group.title, todayIn(group.timezone, now), "beancount"),
     text,
     included,
     corrected,

@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses } from "@/db/schema";
 import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { resolveRecordFx } from "@/lib/fx";
+import { groupTimeZone, resolveRecordFx, spentAtForNow } from "@/lib/fx";
 import { logCreated } from "@/lib/record-mutation";
 import { settlementInputSchema } from "@/lib/zod";
 import { requireId } from "@/lib/route-params";
@@ -42,6 +42,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   }
 
   const fx = await resolveRecordFx(groupId, input.currency, input.fxRate);
+  const day = input.settledAt ?? spentAtForNow(await groupTimeZone(groupId));
   const amount = input.amount.toFixed(2);
 
   const id = await db.transaction(async (tx) => {
@@ -53,7 +54,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
         amount,
         currency: input.currency,
         description: null,
-        spentAt: input.settledAt ? new Date(input.settledAt) : new Date(),
+        spentAt: day,
         createdBy: auth.user.id,
         fxRate: fx.fxRate,
         fxQuote: fx.fxQuote,

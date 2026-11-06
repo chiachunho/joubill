@@ -15,7 +15,7 @@ const validExpense = {
   currency: "TWD" as const,
   description: "dinner",
   payers: [{ payerId: 1, amount: 300 }],
-  spentAt: "2026-05-27T12:00:00.000Z",
+  spentAt: "2026-05-27",
   shareType: "equal" as const,
   splits: [
     { debtorId: 1, amount: 150 },
@@ -66,9 +66,9 @@ describe("expenseInputSchema", () => {
   });
 
   it("rejects an invalid date", () => {
-    expect(expenseInputSchema.safeParse({ ...validExpense, spentAt: "not-a-date" }).success).toBe(
-      false,
-    );
+    for (const spentAt of ["not-a-date", "2026-02-31", "2026-05-27T12:00:00.000Z", ""]) {
+      expect(expenseInputSchema.safeParse({ ...validExpense, spentAt }).success).toBe(false);
+    }
   });
 
   it("requires at least one split", () => {
@@ -236,9 +236,9 @@ describe("settlementInputSchema", () => {
   });
 
   it("accepts an optional settledAt", () => {
-    expect(
-      settlementInputSchema.safeParse({ ...valid, settledAt: "2026-01-01T00:00:00Z" }).success,
-    ).toBe(true);
+    expect(settlementInputSchema.safeParse({ ...valid, settledAt: "2026-01-01" }).success).toBe(
+      true,
+    );
   });
 
   it("rejects non-positive amount", () => {
@@ -373,5 +373,20 @@ describe("pushSubscriptionSchema", () => {
         endpoint: `https://fcm.googleapis.com/${"x".repeat(2048)}`,
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("groupCreateSchema timezone", () => {
+  const base = { title: "東京旅行", defaultCurrency: "JPY" as const };
+
+  it("is optional, and takes an IANA name", () => {
+    expect(groupCreateSchema.safeParse(base).success).toBe(true);
+    expect(groupCreateSchema.safeParse({ ...base, timezone: "Asia/Tokyo" }).success).toBe(true);
+  });
+
+  it("refuses an arbitrary string", () => {
+    for (const timezone of ["Tokyo", "UTC+9", "", "Asia/Nowhere"]) {
+      expect(groupCreateSchema.safeParse({ ...base, timezone }).success).toBe(false);
+    }
   });
 });

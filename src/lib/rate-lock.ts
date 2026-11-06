@@ -3,7 +3,7 @@ import { and, type AnyColumn, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { expenses } from "@/db/schema";
 
-import { fxDateKey, getRate, type RateOverrides } from "./fx";
+import { getRate, type GroupRateContext } from "./fx";
 
 export { affectedCurrencyFor } from "./fx-shared";
 
@@ -45,7 +45,7 @@ export function lockedIds(plan: RateLockPlan): {
 /**
  * Resolve the pins needed to freeze every record (expense + settlement) in
  * `currency` at its CURRENT effective rate against `quote` — the group rate
- * from `overrides` or the per-day market rate. Records with an applicable pin
+ * from `rateCtx.overrides` or the per-day market rate. Records with an applicable pin
  * are left alone; dormant pins get overwritten. Run this BEFORE changing or
  * deleting the group rate (network/cache lookups happen here, not inside the
  * write transaction). Throws when a market rate can't be resolved.
@@ -54,7 +54,7 @@ export async function planRateLock(
   groupId: number,
   currency: string,
   quote: string,
-  overrides: RateOverrides,
+  rateCtx: GroupRateContext,
 ): Promise<RateLockPlan> {
   // Both real expenses and repayments live in `expenses`; `type` tells them
   // apart so the rates UI can keep reporting the two counts separately.
@@ -84,17 +84,16 @@ export async function planRateLock(
   ]);
 
   const rateByDay = new Map<string, number>();
-  async function rateFor(at: Date): Promise<number> {
-    const day = fxDateKey(at);
+  async function rateFor(day: string): Promise<number> {
     let r = rateByDay.get(day);
     if (r === undefined) {
-      r = await getRate(currency, quote, at, overrides);
+      r = await getRate(currency, quote, day, rateCtx);
       rateByDay.set(day, r);
     }
     return r;
   }
 
-  async function groupByRate(rows: Array<{ id: number; at: Date }>): Promise<IdsByRate> {
+  async function groupByRate(rows: Array<{ id: number; at: string }>): Promise<IdsByRate> {
     const idsByRate = new Map<string, number[]>();
     for (const row of rows) {
       const key = String(await rateFor(row.at));

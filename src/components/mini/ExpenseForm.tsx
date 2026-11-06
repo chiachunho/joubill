@@ -43,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { dayToLocalDate, localDateToDay } from "@/lib/day";
 import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
 import { rateSourceLabel } from "@/lib/rate-source-label";
 import { recordHistoryHref } from "@/lib/activity-link";
@@ -137,14 +138,6 @@ function distributePayerAmounts(
   }));
 }
 
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function dayToNoonUtcIso(d: Date): string {
-  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)).toISOString();
-}
-
 function buildDefaults(props: Props): ExpenseFormValues {
   const { members, initial, defaultCurrency, currentUserId } = props;
   const initialSplits = initial?.splits ?? [];
@@ -174,7 +167,7 @@ function buildDefaults(props: Props): ExpenseFormValues {
     payers: initial?.payers.length
       ? initial.payers.map((p) => ({ userId: String(p.payerId), amount: p.amount.toFixed(2) }))
       : [{ userId: String(currentUserId), amount: initial ? initial.amount.toFixed(2) : "" }],
-    spentDate: initial ? new Date(initial.spentAt) : new Date(),
+    spentDate: initial ? dayToLocalDate(initial.spentAt) : new Date(),
     shareType,
     participants: members.map((m) => {
       const rawVal = splitByDebtor.get(m.id);
@@ -402,7 +395,7 @@ export function ExpenseForm(props: Props) {
     currentData: currentRate,
     isFetching,
   } = useGetEffectiveRateQuery(
-    isForeignCurrency ? { groupId, base: currency, date: ymd(spentDate) } : skipToken,
+    isForeignCurrency ? { groupId, base: currency, date: localDateToDay(spentDate) } : skipToken,
   );
   // Only a load for a NEW date counts; a background refresh of the same date keeps the value.
   const rateFetching = isFetching && currentRate === undefined;
@@ -527,7 +520,7 @@ export function ExpenseForm(props: Props) {
         payerId: Number(p.userId),
         amount: parseFloat(p.amount),
       })),
-      spentAt: dayToNoonUtcIso(values.spentDate),
+      spentAt: localDateToDay(values.spentDate),
       shareType: submittedShareType,
       receiptFileIds,
       splits: computedSplits.map((s) => ({
@@ -767,7 +760,7 @@ export function ExpenseForm(props: Props) {
                       className="w-full justify-start text-base font-normal md:text-sm"
                     >
                       <CalendarIcon />
-                      {ymd(field.value)}
+                      {localDateToDay(field.value)}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">

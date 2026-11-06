@@ -3,15 +3,9 @@ import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
 
-import {
-  buildCsv,
-  formatDay,
-  formatLegs,
-  formatUtcMinute,
-  exportFilename,
-  type CsvCell,
-} from "./csv";
-import { fxDateKey, loadGroupRateOverrides, resolveRate } from "./fx";
+import { buildCsv, formatLegs, formatUtcMinute, exportFilename, type CsvCell } from "./csv";
+import { todayIn } from "./day";
+import { loadGroupRateContext, resolveRate } from "./fx";
 import { labelUser } from "./label";
 import { n } from "./money";
 
@@ -35,7 +29,8 @@ const FX_DP = 4;
 
 export type ExportRecord = {
   type: string;
-  spentAt: Date;
+  /** `YYYY-MM-DD`. */
+  spentAt: string;
   description: string | null;
   amount: number;
   currency: string;
@@ -57,7 +52,7 @@ function fixed(value: number): number {
 /** Pure: records → CSV text. */
 export function exportRecordsToCsv(records: readonly ExportRecord[], quote: string): string {
   const rows: CsvCell[][] = records.map((r) => [
-    formatDay(r.spentAt),
+    r.spentAt,
     r.type === "settlement" ? "還款" : "支出",
     r.description ?? "",
     r.amount,
@@ -77,7 +72,8 @@ export function exportRecordsToCsv(records: readonly ExportRecord[], quote: stri
 export type LoadedRecord = {
   id: number;
   type: "expense" | "settlement";
-  spentAt: Date;
+  /** `YYYY-MM-DD`. */
+  spentAt: string;
   createdAt: Date;
   description: string | null;
   amount: number;
@@ -118,14 +114,14 @@ export async function loadGroupRecords(
     .orderBy(asc(expenses.spentAt), asc(expenses.id));
   const ids = rows.map((r) => r.id);
 
-  const [payerRows, splitRows, overrides] = await Promise.all([
+  const [payerRows, splitRows, rateCtx] = await Promise.all([
     ids.length
       ? db.select().from(expensePayers).where(inArray(expensePayers.expenseId, ids))
       : Promise.resolve([]),
     ids.length
       ? db.select().from(expenseSplits).where(inArray(expenseSplits.expenseId, ids))
       : Promise.resolve([]),
-    rates ? loadGroupRateOverrides(groupId) : Promise.resolve(undefined),
+    rates ? loadGroupRateContext(groupId) : Promise.resolve(null),
   ]);
 
   const userIds = new Set<number>(rows.map((r) => r.createdBy));
@@ -163,10 +159,10 @@ export async function loadGroupRecords(
   // combination once and all of them concurrently instead of one round trip per row.
   const rateCache = new Map<string, Promise<number>>();
   const rateOf = (r: (typeof rows)[number]) => {
-    const key = [r.currency, r.fxRate, r.fxQuote, fxDateKey(r.spentAt)].join("|");
+    const key = [r.currency, r.fxRate, r.fxQuote, r.spentAt].join("|");
     let rate = rateCache.get(key);
     if (!rate) {
-      rate = resolveRate(r, quote, r.spentAt, overrides);
+      rate = resolveRate(r, quote, r.spentAt, rateCtx!);
       rateCache.set(key, rate);
     }
     return rate;
@@ -215,7 +211,7 @@ export async function buildGroupExport(
   }));
 
   return {
-    filename: exportFilename(group.title, now),
+    filename: exportFilename(group.title, todayIn(group.timezone, now)),
     csv: exportRecordsToCsv(rows, group.defaultCurrency),
   };
 }

@@ -1,3 +1,4 @@
+import { addDays, todayIn } from "../src/lib/day";
 import { expect, test } from "./fixtures";
 import { addExpense, addSettlement, editExpense } from "./helpers";
 
@@ -136,8 +137,10 @@ test.describe("beancount export", () => {
 
   test("a custom range doesn't move the watermark", async ({ authedPage, seeded }) => {
     const { request } = authedPage;
-    const from = new Date(Date.now() - 86_400_000).toISOString();
-    const to = new Date(Date.now() + 86_400_000).toISOString();
+    // The seeded expense is dated today, so the days around it hold it.
+    const today = todayIn("Asia/Taipei");
+    const from = addDays(today, -1);
+    const to = addDays(today, 1);
     const qs = new URLSearchParams({ range: "custom", from, to }).toString();
     const res = await request.get(`/api/groups/${seeded.groupId}/beancount/export?${qs}`);
     expect(res.status()).toBe(200);
@@ -152,8 +155,9 @@ test.describe("beancount export", () => {
   test("bad ranges and other people's groups are refused", async ({ authedPage, seeded }) => {
     const { request } = authedPage;
     const bad = await request.get(
-      `/api/groups/${seeded.groupId}/beancount/export?range=custom&from=2026-10-01&to=2026-10-31`,
+      `/api/groups/${seeded.groupId}/beancount/export?range=custom&from=2026-10-01T00:00:00Z&to=2026-10-31T00:00:00Z`,
     );
+    // An instant is not a day: a custom range is `YYYY-MM-DD`.
     expect(bad.status()).toBe(400);
     const foreign = await request.get(
       `/api/groups/${seeded.foreignGroupId}/beancount/export?range=all`,

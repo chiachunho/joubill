@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { StatsRangeKey } from "@/lib/stats-core";
-import { parseLocalDay } from "@/lib/stats-core";
+import { dayToLocalDate, localDateToDay } from "@/lib/day";
 
 export type StatsRangeValue = {
   key: StatsRangeKey;
@@ -35,10 +35,6 @@ export const RANGE_LABELS: Record<StatsRangeKey, string> = {
 };
 
 const PRESET_KEYS: Array<Exclude<StatsRangeKey, "custom">> = ["3m", "6m", "1y", "all"];
-
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 type Props = {
   value: StatsRangeValue;
@@ -93,7 +89,7 @@ export function DateRangeSelect({ value, onChange }: Props) {
 /**
  * The from/to calendar behind the 自訂區間 option, on its own so the beancount export's
  * custom range picks days the same way the stats page does. Days are local "YYYY-MM-DD";
- * turn them into instants with `customRangeToQueryBounds` before sending them anywhere.
+ * send them as they are (`customRangeToQuery`).
  */
 export function DateRangePicker({
   from,
@@ -124,13 +120,13 @@ export function DateRangePicker({
         <Calendar
           mode="range"
           selected={{
-            from: from ? parseLocalDay(from) : undefined,
-            to: to ? parseLocalDay(to) : undefined,
+            from: from ? dayToLocalDate(from) : undefined,
+            to: to ? dayToLocalDate(to) : undefined,
           }}
           onSelect={(range) => {
             onChange(
-              range?.from ? ymd(range.from) : undefined,
-              range?.to ? ymd(range.to) : undefined,
+              range?.from ? localDateToDay(range.from) : undefined,
+              range?.to ? localDateToDay(range.to) : undefined,
             );
             if (range?.from && range?.to) onOpenChange(false);
           }}

@@ -36,7 +36,7 @@ test.describe("Market rate follows the record's date", () => {
             amount: 10000,
             currency: "JPY",
             description: `E2E fx ${day} ${Date.now()}`,
-            spentAt: `${day}T12:00:00.000Z`,
+            spentAt: day,
             shareType: "exact",
             payers: [{ payerId: seeded.userId, amount: 10000 }],
             splits: [{ debtorId: seeded.partnerId, amount: 10000 }],

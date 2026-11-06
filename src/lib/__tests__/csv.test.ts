@@ -6,7 +6,6 @@ import {
   escapeCsvField,
   exportFilename,
   formatLegs,
-  formatDay,
   formatUtcMinute,
 } from "@/lib/csv";
 
@@ -67,7 +66,7 @@ describe("formatUtcMinute", () => {
 });
 
 describe("exportFilename", () => {
-  const now = new Date("2026-10-29T10:00:00Z");
+  const now = "2026-10-29";
   it("appends the date", () => {
     expect(exportFilename("日本之旅", now)).toBe("日本之旅-2026-10-29.csv");
   });
@@ -88,13 +87,5 @@ describe("contentDisposition", () => {
     const h = contentDisposition("日本-2026-10-29.csv");
     expect(h).toContain('filename="__-2026-10-29.csv"');
     expect(h).toContain(`filename*=UTF-8''${encodeURIComponent("日本-2026-10-29.csv")}`);
-  });
-});
-
-describe("formatDay", () => {
-  it("is the day only, in the FX zone", () => {
-    expect(formatDay(new Date("2026-10-29T12:00:00Z"))).toBe("2026-10-29");
-    // 20:00 UTC is already the next morning in Taipei, the day the rate is looked up for.
-    expect(formatDay(new Date("2026-10-29T20:00:00Z"))).toBe("2026-10-30");
   });
 });

@@ -44,14 +44,9 @@ const MEMBERS = [
 
 type Initial = NonNullable<Parameters<typeof ExpenseForm>[0]["initial"]>;
 
-const SPENT_AT = "2026-07-10T04:00:00Z";
-/** The local day of SPENT_AT, as the form asks the rate endpoint for it. */
-const SPENT_DAY = (() => {
-  const d = new Date(SPENT_AT);
-  return [d.getFullYear(), d.getMonth() + 1, d.getDate()]
-    .map((n) => String(n).padStart(2, "0"))
-    .join("-");
-})();
+/** A record's date is a plain day: the form shows it, and asks the rate endpoint for it, as is. */
+const SPENT_AT = "2026-07-10";
+const SPENT_DAY = SPENT_AT;
 const RATE_PATH = `/api/groups/7/rates/effective?base=JPY&date=${SPENT_DAY}`;
 
 function initial(over: Partial<Initial> = {}): Initial {

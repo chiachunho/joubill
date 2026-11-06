@@ -4,8 +4,6 @@
  * garbage (or as a live formula) in the user's spreadsheet.
  */
 
-import { fxDateKey } from "./fx-shared";
-
 /** Excel assumes a legacy codepage for CSV unless the file starts with a UTF-8 BOM. */
 const BOM = "﻿";
 
@@ -51,28 +49,23 @@ function formatAmount(amount: number): string {
   return s.endsWith(".00") ? s.slice(0, -3) : s;
 }
 
-/** `2026-10-29` — the day a record is on (see `fxDateKey`); a record's date carries no time of day. */
-export function formatDay(d: Date): string {
-  return fxDateKey(d);
-}
-
 /** `2026-10-29 14:05` in UTC. The schema holds no group timezone, so the header says UTC. */
 export function formatUtcMinute(d: Date): string {
   return d.toISOString().slice(0, 16).replace("T", " ");
 }
 
 /**
- * `<group>-<YYYY-MM-DD>.csv`. Characters that are illegal in filenames (or that
+ * `<group>-<today>.csv`, today being the group's day (`YYYY-MM-DD`). Characters that are illegal in filenames (or that
  * would break the Content-Disposition header) become `_`.
  */
-export function exportFilename(groupTitle: string, now: Date, extension = "csv"): string {
+export function exportFilename(groupTitle: string, today: string, extension = "csv"): string {
   const base =
     // Cut by code point, not UTF-16 unit: slicing through an emoji's surrogate pair leaves a
     // lone surrogate, which makes `encodeURIComponent` in `contentDisposition` throw.
     Array.from(groupTitle.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").trim())
       .slice(0, 60)
       .join("") || "group";
-  return `${base}-${now.toISOString().slice(0, 10)}.${extension}`;
+  return `${base}-${today}.${extension}`;
 }
 
 /**

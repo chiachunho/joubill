@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { groupExchangeRates, groups } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { loadGroupRateOverrides } from "@/lib/fx";
+import { loadGroupRateContext } from "@/lib/fx";
 import { n } from "@/lib/money";
 import { logRateLock } from "@/lib/record-mutation";
 import {
@@ -49,8 +49,8 @@ async function planLockForPair(
   if (!lockCurrency) return { plan: null };
 
   try {
-    const overrides = await loadGroupRateOverrides(groupId);
-    return { plan: await planRateLock(groupId, lockCurrency, group.defaultCurrency, overrides) };
+    const rateCtx = await loadGroupRateContext(groupId);
+    return { plan: await planRateLock(groupId, lockCurrency, group.defaultCurrency, rateCtx) };
   } catch {
     return {
       plan: null,

@@ -4,7 +4,7 @@ import { exportRecordsToCsv, type ExportRecord } from "@/lib/export";
 
 const base: ExportRecord = {
   type: "expense",
-  spentAt: new Date("2026-10-01T12:00:00Z"),
+  spentAt: "2026-10-01",
   description: "晚餐",
   amount: 1000,
   currency: "JPY",

@@ -6,9 +6,10 @@ import { db } from "@/db";
 import { expenses, groups } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { getRate, loadGroupRateOverrides, overrideKey } from "@/lib/fx";
+import { todayIn } from "@/lib/day";
+import { getRate, loadGroupRateContext, overrideKey } from "@/lib/fx";
 import { noApplicablePin } from "@/lib/rate-lock";
-import { SUPPORTED_CURRENCIES } from "@/lib/zod";
+import { daySchema, SUPPORTED_CURRENCIES } from "@/lib/zod";
 import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
@@ -18,10 +19,7 @@ type Params = { params: Promise<{ id: string }> };
 
 const querySchema = z.object({
   base: z.enum(SUPPORTED_CURRENCIES),
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  date: daySchema.optional(),
 });
 
 /**
@@ -102,12 +100,12 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     };
   }
 
-  const overrides = await loadGroupRateOverrides(groupId);
-  const override = overrides.get(overrideKey(base, quote)) ?? null;
+  const rateCtx = await loadGroupRateContext(groupId);
+  const override = rateCtx.overrides.get(overrideKey(base, quote)) ?? null;
 
   let marketRate: number | null = null;
   try {
-    marketRate = await getRate(base, quote, date ? new Date(`${date}T12:00:00Z`) : new Date());
+    marketRate = await getRate(base, quote, date ?? todayIn(rateCtx.timeZone), rateCtx);
   } catch {
     // FX API unreachable and no cached rate — leave marketRate null.
   }

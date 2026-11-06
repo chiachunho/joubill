@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuthMode } from "@/components/AuthProvider";
+import { dayToLocalDate, localDateToDay } from "@/lib/day";
 import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
 import { rateSourceLabel } from "@/lib/rate-source-label";
 import { recordHistoryHref } from "@/lib/activity-link";
@@ -84,14 +85,6 @@ type Props = {
    *  (the merged expense/settlement list). */
   returnPath?: string;
 };
-
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function dayToNoonUtcIso(d: Date): string {
-  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)).toISOString();
-}
 
 export function SettlementForm({
   groupId,
@@ -152,7 +145,7 @@ export function SettlementForm({
         initial?.fxRate != null && initial.fxQuote === defaultCurrency
           ? String(initial.fxRate)
           : "",
-      settledDate: initial ? new Date(initial.settledAt) : new Date(),
+      settledDate: initial ? dayToLocalDate(initial.settledAt) : new Date(),
     },
   });
 
@@ -185,7 +178,7 @@ export function SettlementForm({
     currentData: currentRate,
     isFetching,
   } = useGetEffectiveRateQuery(
-    isForeignCurrency ? { groupId, base: currency, date: ymd(settledDate) } : skipToken,
+    isForeignCurrency ? { groupId, base: currency, date: localDateToDay(settledDate) } : skipToken,
   );
   // Only a load for a NEW date counts; a background refresh of the same date keeps the value.
   const rateFetching = isFetching && currentRate === undefined;
@@ -203,7 +196,7 @@ export function SettlementForm({
         values.currency !== defaultCurrency && values.fxRate !== ""
           ? parseFloat(values.fxRate)
           : null,
-      settledAt: dayToNoonUtcIso(values.settledDate),
+      settledAt: localDateToDay(values.settledDate),
     };
 
     try {
@@ -414,7 +407,7 @@ export function SettlementForm({
                     className={cn("w-full justify-start text-base font-normal md:text-sm")}
                   >
                     <CalendarIcon />
-                    {ymd(field.value)}
+                    {localDateToDay(field.value)}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">

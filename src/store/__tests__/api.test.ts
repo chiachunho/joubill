@@ -365,7 +365,11 @@ describe("invites and new groups", () => {
     await settle();
 
     await store.dispatch(
-      api.endpoints.createGroup.initiate({ title: "東京", defaultCurrency: "JPY" }),
+      api.endpoints.createGroup.initiate({
+        title: "東京",
+        defaultCurrency: "JPY",
+        timezone: "Asia/Tokyo",
+      }),
     );
     await settle();
 

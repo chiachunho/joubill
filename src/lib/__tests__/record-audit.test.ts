@@ -43,7 +43,7 @@ function snapshot(over: Partial<RecordSnapshot> = {}): RecordSnapshot {
     amount: 1200,
     currency: "TWD",
     description: "晚餐",
-    spentAt: "2026-07-25T12:00:00.000Z",
+    spentAt: "2026-07-25",
     fxRate: null,
     fxQuote: null,
     receipts: 0,
@@ -174,10 +174,20 @@ describe("diffRecords", () => {
   });
 
   it("ignores a spentAt change that stays on the same day", () => {
-    // The form submits a whole timestamp; only the date is shown, so a
-    // same-day round trip is not a change anyone can see.
-    const after = snapshot({ spentAt: "2026-07-25T18:30:00.000Z" });
-    expect(diffRecords(snapshot(), after)).toEqual([]);
+    // Snapshots logged before the date column hold an instant. 04:00 UTC and 18:30 UTC are
+    // both 2026-07-25 in the default zone, so a same-day round trip is not a change.
+    const before = snapshot({ spentAt: "2026-07-25T04:00:00.000Z" });
+    const after = snapshot({ spentAt: "2026-07-25T09:30:00.000Z" });
+    expect(diffRecords(before, after)).toEqual([]);
+  });
+
+  it("reads an old instant and a new day as the same day", () => {
+    // The log holds both shapes side by side; an edit across the cut-over must not look like
+    // a date change. UTC noon is the day itself everywhere; a real bot time is the Taipei day.
+    const old = snapshot({ spentAt: "2026-07-25T12:00:00.000Z" });
+    expect(diffRecords(old, snapshot({ spentAt: "2026-07-25" }))).toEqual([]);
+    const lateBotRecord = snapshot({ spentAt: "2026-07-24T17:00:00.000Z" });
+    expect(diffRecords(lateBotRecord, snapshot({ spentAt: "2026-07-25" }))).toEqual([]);
   });
 
   it("reports a receipt being attached", () => {
@@ -190,7 +200,7 @@ describe("diffRecords — the field shapes that had no coverage", () => {
   it("renders a real date change", () => {
     // Only the same-day non-change was covered before, so nothing pinned what
     // an actual date move looks like.
-    const [change] = diffRecords(snapshot(), snapshot({ spentAt: "2026-08-01T09:00:00.000Z" }));
+    const [change] = diffRecords(snapshot(), snapshot({ spentAt: "2026-08-01" }));
     expect(change).toMatchObject({
       key: "spentAt",
       label: "日期",
@@ -441,5 +451,29 @@ describe("changeHeading account_merged", () => {
         true,
       ),
     ).toBe("把帳號 Mei Chen 併入自己的帳號");
+  });
+});
+
+describe("timezone_changed", () => {
+  it("is a group event, so record-history doesn't read it as an expense snapshot", () => {
+    expect(
+      isGroupEventPayload({ kind: "timezoneChanged", from: "Asia/Taipei", to: "Asia/Tokyo" }),
+    ).toBe(true);
+  });
+
+  it("names the zone before and after", () => {
+    expect(
+      changeHeading(
+        {
+          action: "timezone_changed",
+          recordType: "group",
+          groupEvent: { timezoneFrom: "Asia/Taipei", timezoneTo: "Asia/Tokyo" },
+        },
+        true,
+      ),
+    ).toBe("把群組時區從 Asia/Taipei 改成 Asia/Tokyo");
+    expect(changeHeading({ action: "timezone_changed", recordType: "group" }, true)).toBe(
+      "改了群組時區",
+    );
   });
 });

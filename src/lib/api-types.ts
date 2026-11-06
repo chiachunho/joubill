@@ -93,7 +93,7 @@ export type Member = {
 
 export type MembersResponse = { members: Member[] };
 
-export type SettingsResponse = { defaultCurrency: string };
+export type SettingsResponse = { defaultCurrency: string; timezone: string };
 
 export type AvatarsResponse = {
   groupPhoto: string | null;
