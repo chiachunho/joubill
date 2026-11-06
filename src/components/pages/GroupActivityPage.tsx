@@ -7,6 +7,7 @@ import { History } from "lucide-react";
 import { ActivityList } from "@/components/mini/ActivityList";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { ActivitySkeleton } from "@/components/mini/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Platform } from "@/components/pages/platform";
 import { parseHistoryFrom } from "@/lib/activity-link";
 import {
@@ -55,6 +56,7 @@ export function GroupActivityPage({
   // is short and always comes back whole (nextCursor null).
   const {
     data: result,
+    currentData,
     error,
     hasNextPage,
     fetchNextPage,
@@ -62,6 +64,9 @@ export function GroupActivityPage({
     isFetching,
   } = useGetActivityInfiniteQuery({ groupId: id, recordId, source: recordId ? "all" : source });
   const pages = result?.pages;
+  // `data` keeps the previous filter's pages while a new one loads; the list must not show
+  // them (or the empty message) under a filter they were not fetched for.
+  const switching = !currentData && !error;
 
   const entries = pages?.flatMap((p) => p.entries) ?? [];
   const hasMore = hasNextPage;
@@ -120,7 +125,13 @@ export function GroupActivityPage({
         </div>
       )}
 
-      {entries.length === 0 ? (
+      {switching ? (
+        <div className="space-y-2 px-4" aria-busy="true">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : entries.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
           <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
             <History className="size-6" />
@@ -146,7 +157,7 @@ export function GroupActivityPage({
         />
       )}
 
-      {(hasMore || error) && (
+      {!switching && (hasMore || error) && (
         <LoadMoreFooter
           sentinelRef={sentinelRef}
           needsButton={needsButton || !!error}
