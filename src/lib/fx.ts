@@ -7,7 +7,7 @@ import { todayIn } from "./day";
 import { FX_TIME_ZONE } from "./fx-shared";
 import { n } from "./money";
 
-export { FX_TIME_ZONE, fxDateKey } from "./fx-shared";
+export { FX_TIME_ZONE } from "./fx-shared";
 
 /**
  * Free, no-key currency API hosted on jsdelivr.

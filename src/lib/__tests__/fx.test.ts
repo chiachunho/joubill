@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildOverrideMap,
   cacheableRateDay,
-  fxDateKey,
   getRate,
   overrideKey,
   parseFxResponse,
@@ -108,21 +107,6 @@ describe("pinnedRate", () => {
     expect(pinnedRate({ fxRate: null, fxQuote: null }, "TWD")).toBeNull();
     expect(pinnedRate({ fxRate: "0", fxQuote: "TWD" }, "TWD")).toBeNull();
     expect(pinnedRate({ fxRate: "-1", fxQuote: "TWD" }, "TWD")).toBeNull();
-  });
-});
-
-describe("fxDateKey", () => {
-  it("is the calendar day in the zone it is given, not UTC", () => {
-    // 2026-03-01 00:30 Taipei is still 2026-02-28 in UTC.
-    expect(fxDateKey(new Date("2026-02-28T16:30:00Z"), "Asia/Taipei")).toBe("2026-03-01");
-    expect(fxDateKey(new Date("2026-03-01T15:59:00Z"), "Asia/Taipei")).toBe("2026-03-01");
-    expect(fxDateKey(new Date("2026-03-01T16:00:00Z"), "Asia/Taipei")).toBe("2026-03-02");
-  });
-
-  it("follows the group's zone", () => {
-    const at = new Date("2026-03-01T16:30:00Z");
-    expect(fxDateKey(at, "Asia/Tokyo")).toBe("2026-03-02");
-    expect(fxDateKey(at, "America/Los_Angeles")).toBe("2026-03-01");
   });
 });
 

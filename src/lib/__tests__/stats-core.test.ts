@@ -6,7 +6,6 @@ import {
   monthKeysBetween,
   monthKeyToDay,
   monthsAgo,
-  parseLocalDay,
   recentMonthKeys,
   resolveStatsRange,
 } from "../stats-core";
@@ -161,20 +160,6 @@ describe("recentMonthKeys", () => {
 
   it("returns nothing for a non-positive count", () => {
     expect(recentMonthKeys("2026-08-15", 0)).toEqual([]);
-  });
-});
-
-describe("parseLocalDay", () => {
-  it("round-trips a YYYY-MM-DD string to the same local calendar date", () => {
-    const d = parseLocalDay("2026-01-15");
-    expect(d.getFullYear()).toBe(2026);
-    expect(d.getMonth()).toBe(0);
-    expect(d.getDate()).toBe(15);
-    expect(d.getHours()).toBe(0);
-  });
-
-  it("does not shift a day near the UTC boundary the way `new Date(str)` would", () => {
-    expect(parseLocalDay("2026-01-15").getDate()).toBe(15);
   });
 });
 

@@ -46,7 +46,8 @@ export default async function up(sql: MigrationSql) {
         -- previous release edited only spent_at
         SELECT timezone INTO tz FROM groups WHERE id = NEW.group_id;
         NEW.spent_date := (NEW.spent_at AT TIME ZONE COALESCE(tz, 'Asia/Taipei'))::date;
-      ELSIF NEW.spent_date IS DISTINCT FROM OLD.spent_date THEN
+      ELSIF OLD.spent_date IS NOT NULL AND NEW.spent_date IS DISTINCT FROM OLD.spent_date THEN
+        -- a real change of day (not the backfill filling in a NULL, which must leave spent_at alone)
         NEW.spent_at := (NEW.spent_date::timestamp + interval '12 hours') AT TIME ZONE 'UTC';
       END IF;
       RETURN NEW;

@@ -99,16 +99,6 @@ export function monthKeyToDay(key: string): string {
   return `${key}-01`;
 }
 
-/** Parses a "YYYY-MM-DD" string as a local calendar date (midnight in
- *  whatever timezone this code runs in) — the inverse of the `ymd()`
- *  formatter in `DateRangeSelect.tsx`. Deliberately not `new Date(str)`:
- *  that parses a bare date as UTC midnight, which displays as the previous
- *  day in any negative-UTC-offset timezone. */
-export function parseLocalDay(ymd: string): Date {
-  const [year, month, day] = ymd.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
 /**
  * The query parameters for a custom range: the days the viewer picked, as they are.
  * Empty until both ends are chosen.

@@ -53,25 +53,15 @@ export function dayToLocalDate(day: string): Date {
 }
 
 /**
- * The deprecated `spent_at` column's value for a day: UTC noon, which is the same
- * calendar day in every zone from UTC-12 to UTC+11. Only the dual-write needs it.
- */
-export function dayToUtcNoon(day: string): Date {
-  return new Date(`${day}T12:00:00Z`);
-}
-
-/**
  * The day of a stored `spentAt`. Audit snapshots written before the column became a date
  * hold an ISO instant instead; those are read as the day in the default zone, which is the
  * zone every group was in then and the one the migration backfilled with. A day passes through.
  */
 export function snapshotDay(value: string): string {
-  return DAY_RE.test(value) ? value : dayInZone(new Date(value), DEFAULT_TIME_ZONE);
-}
-
-/** `YYYY-MM` of a day. */
-export function monthOfDay(day: string): string {
-  return day.slice(0, 7);
+  if (DAY_RE.test(value)) return value;
+  const at = new Date(value);
+  // Not a date at all: hand it back for the caller to show, as the old label did.
+  return Number.isNaN(at.getTime()) ? value : dayInZone(at, DEFAULT_TIME_ZONE);
 }
 
 /** The day `n` days after `day` (negative for before). Calendar arithmetic, no zone involved. */

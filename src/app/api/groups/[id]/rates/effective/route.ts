@@ -9,7 +9,7 @@ import { withAuth } from "@/lib/auth/route";
 import { todayIn } from "@/lib/day";
 import { getRate, loadGroupRateContext, overrideKey } from "@/lib/fx";
 import { noApplicablePin } from "@/lib/rate-lock";
-import { SUPPORTED_CURRENCIES } from "@/lib/zod";
+import { daySchema, SUPPORTED_CURRENCIES } from "@/lib/zod";
 import { requireId } from "@/lib/route-params";
 
 export const runtime = "nodejs";
@@ -19,10 +19,7 @@ type Params = { params: Promise<{ id: string }> };
 
 const querySchema = z.object({
   base: z.enum(SUPPORTED_CURRENCIES),
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  date: daySchema.optional(),
 });
 
 /**

@@ -3,7 +3,6 @@
  * Must stay free of db / server-only imports.
  */
 
-import { dayInZone } from "./day";
 import { DEFAULT_TIME_ZONE } from "./timezone";
 
 /**
@@ -26,8 +25,3 @@ export function affectedCurrencyFor(
  * outside group creation should reach for this constant.
  */
 export const FX_TIME_ZONE = DEFAULT_TIME_ZONE;
-
-/** `YYYY-MM-DD` of an instant in `timeZone` (the group's). The zone is required on purpose. */
-export function fxDateKey(d: Date, timeZone: string): string {
-  return dayInZone(d, timeZone);
-}

@@ -301,7 +301,7 @@ When existing records would be re-converted, the settings page asks for the scop
 Personalised (`userId`, defaults to the caller) and range-scoped (`3m` / `6m` / `1y` / `all` / `custom`), with the same pure/DB split as settlement logic. Full design in [`docs/architecture/stats.md`](docs/architecture/stats.md). The rules that are easy to break:
 
 - A `userId` other than the caller **must pass `assertGroupMember`** (no extra permission beyond that, since there's no per-record privacy).
-- `custom` takes `from` / `to` as **`YYYY-MM-DD` days, inclusive** (`customRangeToQuery` just passes the picked days through; a record's date has no time and no zone, so there is nothing to translate). Presets count back from the group's today (`todayIn(group.timezone)`), clamping the day-of-month (`monthsAgo`). The picker uses `parseLocalDay`, never `new Date(str)`.
+- `custom` takes `from` / `to` as **`YYYY-MM-DD` days, inclusive** (`customRangeToQuery` just passes the picked days through; a record's date has no time and no zone, so there is nothing to translate). Presets count back from the group's today (`todayIn(group.timezone)`), clamping the day-of-month (`monthsAgo`). The picker uses `dayToLocalDate` / `localDateToDay` (`src/lib/day.ts`), never `new Date(str)`.
 - `netTrend` (a day-count window that carries the earlier total in) and `monthly` / `byPayer` (the last N calendar months, `recentMonthKeys`) use **different windows on purpose**; `monthly` and `byPayer` must always share one.
 - `byPayer` reads `expense_payers` (who paid); `monthly`'s member line reads `expense_splits` (their share). Don't conflate them.
 

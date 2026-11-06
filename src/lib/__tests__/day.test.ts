@@ -4,7 +4,6 @@ import {
   addDays,
   dayInZone,
   dayToLocalDate,
-  dayToUtcNoon,
   isDay,
   localDateToDay,
   snapshotDay,
@@ -40,16 +39,15 @@ describe("dayInZone / todayIn", () => {
 });
 
 describe("local days", () => {
+  it("reads a day as the local calendar date, not UTC midnight", () => {
+    const d = dayToLocalDate("2026-01-15");
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()]).toEqual([2026, 0, 15, 0]);
+  });
+
   it("round-trips a picker date through a day string", () => {
     expect(localDateToDay(dayToLocalDate("2026-01-05"))).toBe("2026-01-05");
     // The picker's local midnight is the day it shows, in whatever zone the device is in.
     expect(localDateToDay(new Date(2026, 11, 31, 23, 59))).toBe("2026-12-31");
-  });
-});
-
-describe("dayToUtcNoon", () => {
-  it("is the legacy column's value for a day", () => {
-    expect(dayToUtcNoon("2026-03-01").toISOString()).toBe("2026-03-01T12:00:00.000Z");
   });
 });
 
@@ -61,8 +59,9 @@ describe("addDays", () => {
 });
 
 describe("snapshotDay", () => {
-  it("passes a day through", () => {
+  it("passes a day through, and hands back what is not a date", () => {
     expect(snapshotDay("2026-07-25")).toBe("2026-07-25");
+    expect(snapshotDay("garbage")).toBe("garbage");
   });
 
   it("reads an old audit instant as its day in the default zone", () => {

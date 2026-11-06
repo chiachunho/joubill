@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import {
   Select,
   SelectContent,
@@ -27,11 +29,18 @@ export function TimeZoneSelect({
   disabled?: boolean;
   ariaLabel?: string;
 }) {
-  const common = new Set(COMMON_TIME_ZONES.map((z) => z.tz));
-  const others = supportedTimeZones().filter((tz) => !common.has(tz));
+  // ~400 zones, each described with an Intl lookup: only built once the list is opened. The
+  // chosen zone is always an item, so the closed trigger can still show it.
+  const [open, setOpen] = useState(false);
   const now = new Date();
+  const common = new Set(COMMON_TIME_ZONES.map((z) => z.tz));
+  const others = open
+    ? supportedTimeZones().filter((tz) => !common.has(tz))
+    : common.has(value)
+      ? []
+      : [value];
   return (
-    <Select value={value} onValueChange={onChange} disabled={disabled}>
+    <Select value={value} onValueChange={onChange} disabled={disabled} onOpenChange={setOpen}>
       <SelectTrigger aria-label={ariaLabel}>
         <SelectValue />
       </SelectTrigger>

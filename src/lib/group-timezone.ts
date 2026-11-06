@@ -24,17 +24,25 @@ export async function changeGroupTimezone(
 ): Promise<TimezoneChange> {
   if (!isValidTimeZone(to)) return { ok: false, reason: "invalid" };
 
-  const [group] = await db
-    .select({ timezone: groups.timezone })
-    .from(groups)
-    .where(eq(groups.id, groupId));
-  if (!group) return { ok: false, reason: "not_found" };
-  if (group.timezone === to) return { ok: true, from: to, to, changed: false };
+  // Locked, so two members changing it at once each log the zone they really replaced.
+  const from = await db.transaction(async (tx) => {
+    const [group] = await tx
+      .select({ timezone: groups.timezone })
+      .from(groups)
+      .where(eq(groups.id, groupId))
+      .for("update");
+    if (!group) return null;
+    if (group.timezone !== to) {
+      await tx
+        .update(groups)
+        .set({ timezone: to, updatedAt: new Date() })
+        .where(eq(groups.id, groupId));
+    }
+    return group.timezone;
+  });
+  if (from === null) return { ok: false, reason: "not_found" };
+  if (from === to) return { ok: true, from, to, changed: false };
 
-  await db
-    .update(groups)
-    .set({ timezone: to, updatedAt: new Date() })
-    .where(eq(groups.id, groupId));
-  await logTimezoneChanged(groupId, actor, { from: group.timezone, to });
-  return { ok: true, from: group.timezone, to, changed: true };
+  await logTimezoneChanged(groupId, actor, { from, to });
+  return { ok: true, from, to, changed: true };
 }
