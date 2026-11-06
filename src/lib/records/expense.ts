@@ -1,6 +1,5 @@
 import { and, eq } from "drizzle-orm";
 
-import { getBot } from "@/bot";
 import { db } from "@/db";
 import { expensePayers, expenseReceipts, expenseSplits, expenses } from "@/db/schema";
 import { NotFoundError } from "@/lib/auth/errors";
@@ -9,9 +8,7 @@ import { logCreated, logUpdated } from "@/lib/record-mutation";
 import type { ExpenseInput } from "@/lib/zod";
 
 import { assertUsersInGroup, replacePayersAndSplits, resolveUpdateFx } from "./shared";
-import type { RecordContext } from "./types";
-
-const apiOf = (ctx: RecordContext) => (ctx.api === undefined ? getBot().api : ctx.api);
+import { apiOf, type RecordContext } from "./types";
 
 const payerRows = (id: number, input: ExpenseInput) =>
   input.payers.map((p) => ({
@@ -117,8 +114,8 @@ export async function updateExpense(
     await replacePayersAndSplits(
       tx,
       expenseId,
-      { values: payerRows(expenseId, input) },
-      { values: splitRows(expenseId, input) },
+      payerRows(expenseId, input),
+      splitRows(expenseId, input),
     );
 
     // Replace receipts when the client explicitly sends the field ([] = clear all).

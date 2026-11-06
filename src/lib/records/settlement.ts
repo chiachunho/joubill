@@ -1,6 +1,5 @@
 import { and, eq } from "drizzle-orm";
 
-import { getBot } from "@/bot";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses } from "@/db/schema";
 import { BadRequestError, NotFoundError } from "@/lib/auth/errors";
@@ -9,25 +8,21 @@ import { logCreated, logUpdated } from "@/lib/record-mutation";
 import type { SettlementInput } from "@/lib/zod";
 
 import { assertUsersInGroup, replacePayersAndSplits, resolveUpdateFx } from "./shared";
-import type { RecordContext } from "./types";
-
-const apiOf = (ctx: RecordContext) => (ctx.api === undefined ? getBot().api : ctx.api);
+import { apiOf, type RecordContext } from "./types";
 
 // A settlement is a `type='settlement'` expense: the sole payer is the sender
 // (from) and the sole debtor is the receiver (to).
 const legs = (id: number, input: SettlementInput, amount: string) => ({
-  payers: { values: [{ expenseId: id, payerId: input.fromUserId, amount }] },
-  splits: {
-    values: [
-      {
-        expenseId: id,
-        debtorId: input.toUserId,
-        amount,
-        shareType: "exact" as const,
-        splitValue: null,
-      },
-    ],
-  },
+  payers: [{ expenseId: id, payerId: input.fromUserId, amount }],
+  splits: [
+    {
+      expenseId: id,
+      debtorId: input.toUserId,
+      amount,
+      shareType: "exact" as const,
+      splitValue: null,
+    },
+  ],
 });
 
 async function assertValid(groupId: number, input: SettlementInput): Promise<void> {
@@ -43,8 +38,12 @@ export async function createSettlement(
 ): Promise<{ id: number }> {
   await assertValid(groupId, input);
 
-  const fx = await resolveRecordFx(groupId, input.currency, input.fxRate);
-  const day = input.settledAt ?? spentAtForNow(await groupTimeZone(groupId));
+  // Independent lookups of the same group row; run them together.
+  const [fx, zone] = await Promise.all([
+    resolveRecordFx(groupId, input.currency, input.fxRate),
+    input.settledAt ? null : groupTimeZone(groupId),
+  ]);
+  const day = input.settledAt ?? spentAtForNow(zone!);
   const amount = input.amount.toFixed(2);
 
   const id = await db.transaction(async (tx) => {
@@ -65,8 +64,8 @@ export async function createSettlement(
 
     const { payers, splits } = legs(row.id, input, amount);
     await Promise.all([
-      tx.insert(expensePayers).values(payers.values),
-      tx.insert(expenseSplits).values(splits.values),
+      tx.insert(expensePayers).values(payers),
+      tx.insert(expenseSplits).values(splits),
     ]);
     return row.id;
   });

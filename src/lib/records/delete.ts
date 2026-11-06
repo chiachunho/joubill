@@ -1,12 +1,11 @@
 import { and, eq } from "drizzle-orm";
 
-import { getBot } from "@/bot";
 import { db } from "@/db";
 import { expenses, type User } from "@/db/schema";
 import { NotFoundError } from "@/lib/auth/errors";
 import { logDeleted } from "@/lib/record-mutation";
 
-import type { RecordContext } from "./types";
+import { apiOf, type RecordContext } from "./types";
 
 /**
  * Deletes an expense or settlement. Group membership is the only gate — the
@@ -27,16 +26,8 @@ export async function deleteRecord(
     .where(and(eq(expenses.id, recordId), eq(expenses.groupId, groupId), eq(expenses.type, type)));
   if (!row) throw new NotFoundError(type === "expense" ? "expense not found" : "not found");
 
-  await logDeleted(
-    ctx.api === undefined ? getBot().api : ctx.api,
-    recordId,
-    ctx.actor,
-    deleter,
-    async (tx) => {
-      // expense_payers, expense_splits and expense_receipts cascade via FK.
-      await tx
-        .delete(expenses)
-        .where(and(eq(expenses.id, recordId), eq(expenses.groupId, groupId)));
-    },
-  );
+  await logDeleted(apiOf(ctx), recordId, ctx.actor, deleter, async (tx) => {
+    // expense_payers, expense_splits and expense_receipts cascade via FK.
+    await tx.delete(expenses).where(and(eq(expenses.id, recordId), eq(expenses.groupId, groupId)));
+  });
 }

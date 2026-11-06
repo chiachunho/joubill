@@ -58,15 +58,15 @@ export async function resolveUpdateFx(
 export async function replacePayersAndSplits(
   tx: Tx,
   recordId: number,
-  payers: { values: (typeof expensePayers.$inferInsert)[] },
-  splits: { values: (typeof expenseSplits.$inferInsert)[] },
+  payers: (typeof expensePayers.$inferInsert)[],
+  splits: (typeof expenseSplits.$inferInsert)[],
 ): Promise<void> {
   await Promise.all([
     tx.delete(expensePayers).where(eq(expensePayers.expenseId, recordId)),
     tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, recordId)),
   ]);
   await Promise.all([
-    tx.insert(expensePayers).values(payers.values),
-    tx.insert(expenseSplits).values(splits.values),
+    tx.insert(expensePayers).values(payers),
+    tx.insert(expenseSplits).values(splits),
   ]);
 }
