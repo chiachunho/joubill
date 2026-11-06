@@ -8,7 +8,7 @@ import { miniBotToken, openMini } from "./mini";
 // OAuth for Claude.ai / ChatGPT connectors (issue #152): discovery, registration, the
 // consent decision (with the seeded user's session cookie), PKCE code exchange, refresh
 // rotation and revocation, then a real tool call with the access token.
-const REDIRECT = "http://127.0.0.1:8765/callback";
+const REDIRECT = "http://localhost:8765/callback";
 
 async function register(request: APIRequestContext, redirect = REDIRECT) {
   const res = await request.post("/api/oauth/register", {
@@ -282,7 +282,7 @@ test.describe("MCP OAuth", () => {
     const query = authorizeQuery(clientId, challenge);
 
     let landed = "";
-    await page.route("http://127.0.0.1:8765/**", async (route) => {
+    await page.route("http://localhost:8765/**", async (route) => {
       landed = route.request().url();
       await route.fulfill({ status: 200, body: "ok" });
     });
@@ -297,7 +297,7 @@ test.describe("MCP OAuth", () => {
       .addCookies([{ name: "session", value: seeded.sessionToken, url: page.url() }]);
     await page.goto(`/app/oauth/consent?${query}`);
     await expect(page.getByText("「E2E Claude」想要連線到你的揪帳")).toBeVisible();
-    await expect(page.getByText("127.0.0.1:8765")).toBeVisible();
+    await expect(page.getByText("localhost:8765")).toBeVisible();
     await expect(page.getByRole("button", { name: "允許" })).toBeDisabled();
     await page.getByRole("checkbox", { name: new RegExp(seeded.groupTitle) }).click();
     await page.getByRole("button", { name: "允許" }).click();

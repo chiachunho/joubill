@@ -45,6 +45,8 @@ export const RATE_RULES = {
    * ChatGPT serve every user of an instance from the same few addresses.
    */
   oauthTokenIp: { name: "oauth:token:ip", limit: 1000, windowMs: 10 * MINUTE },
+  /** The authorization endpoint does an unauthenticated lookup, so it is counted per address. */
+  oauthAuthorizeIp: { name: "oauth:authorize:ip", limit: 300, windowMs: 10 * MINUTE },
   oauthTokenClient: { name: "oauth:token:client", limit: 300, windowMs: 10 * MINUTE },
   /** Consent page reads and decisions, per signed-in person. */
   oauthConsentUser: { name: "oauth:consent:user", limit: 60, windowMs: 10 * MINUTE },

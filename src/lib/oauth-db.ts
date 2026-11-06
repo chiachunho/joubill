@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { MAX_APP_CONNECTIONS } from "@/lib/mcp-connection-input";
 import { BadRequestError } from "@/lib/auth/errors";
+import { serverEnv } from "@/lib/env";
 import { hashToken } from "@/lib/mcp-token";
 import {
   type Access,
@@ -33,6 +34,19 @@ import {
   verifyPkce,
 } from "@/lib/oauth";
 import { mcpUrl } from "@/lib/oauth-http";
+
+/**
+ * A client secret is stored as a keyed hash, not a bare SHA-256: unlike the random 256-bit
+ * tokens `hashToken` is enough for, a secret is what a scanner treats as a password. Keyed off
+ * the bot token like the other server-side keys, so a copy of the table alone proves nothing.
+ */
+export function hashClientSecret(secret: string): string {
+  const key = crypto
+    .createHmac("sha256", "oauth-client-secret")
+    .update(serverEnv().TELEGRAM_BOT_TOKEN)
+    .digest();
+  return crypto.createHmac("sha256", key).update(secret).digest("hex");
+}
 
 /**
  * Registered clients are capped, and ones nobody ever used are swept on every registration.
@@ -81,7 +95,7 @@ export async function registerClient(body: unknown): Promise<RegisteredClient> {
   const secret = method === "none" ? null : newClientSecret();
   const client = {
     clientId: newClientId(),
-    clientSecretHash: secret ? hashToken(secret) : null,
+    clientSecretHash: secret ? hashClientSecret(secret) : null,
     name: sanitizeClientName(b.client_name),
     redirectUris,
   };
@@ -123,7 +137,7 @@ export async function authenticateClient(
   if (!client) return null;
   if (!client.clientSecretHash) return client;
   if (!secret) return null;
-  const a = Buffer.from(hashToken(secret));
+  const a = Buffer.from(hashClientSecret(secret));
   const b = Buffer.from(client.clientSecretHash);
   return a.length === b.length && crypto.timingSafeEqual(a, b) ? client : null;
 }
@@ -162,10 +176,9 @@ export async function parseAuthorizeRequest(
   });
   const client = await findClient(get("client_id") ?? null);
   if (!client) return fatal("unknown client_id");
-  const redirectUri = get("redirect_uri");
-  if (!redirectUri || !client.redirectUris.includes(redirectUri)) {
-    return fatal("redirect_uri is not registered for this client");
-  }
+  // The registered string itself, never the request's: only a URI we stored can be redirected to.
+  const redirectUri = client.redirectUris.find((u) => u === get("redirect_uri"));
+  if (!redirectUri) return fatal("redirect_uri is not registered for this client");
   const state = get("state") ?? null;
   const back = (error: string, description: string): AuthorizeResult => ({
     ok: false,

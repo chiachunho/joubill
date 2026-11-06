@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { parseAuthorizeRequest, redirectWith } from "@/lib/oauth-db";
-import { consentUrl, issuer } from "@/lib/oauth-http";
+import { consentUrl, issuer, withOauth } from "@/lib/oauth-http";
+import { enforceOauthRateLimit } from "@/lib/rate-limit";
+import { RATE_RULES } from "@/lib/rate-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +13,8 @@ export const dynamic = "force-dynamic";
  * consent page, which needs a login and lives in the Web App. A client or redirect URI we
  * can't trust gets an error page, never a redirect; anything else goes back to the client.
  */
-export async function GET(req: Request) {
+export const GET = withOauth(async (req: Request) => {
+  await enforceOauthRateLimit(req, RATE_RULES.oauthAuthorizeIp);
   const params = new URL(req.url).searchParams;
   const result = await parseAuthorizeRequest((k) => params.get(k));
   if (!result.ok) {
@@ -32,4 +35,4 @@ export async function GET(req: Request) {
   const to = new URL(consentUrl());
   for (const [k, v] of params) to.searchParams.set(k, v);
   return NextResponse.redirect(to.toString(), { headers: { "Cache-Control": "no-store" } });
-}
+});
