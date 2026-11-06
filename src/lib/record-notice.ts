@@ -1,4 +1,4 @@
-import { viaText } from "@/lib/mcp-ui";
+import { viaText } from "@/lib/app-ui";
 import { labelUser, type Profile } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import { escapeHtml, mention } from "@/lib/telegram-html";

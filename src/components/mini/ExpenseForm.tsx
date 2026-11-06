@@ -48,7 +48,7 @@ import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-erro
 import { rateSourceLabel } from "@/lib/rate-source-label";
 import { recordHistoryHref } from "@/lib/activity-link";
 import { stampLabel } from "@/lib/format";
-import { viaText } from "@/lib/mcp-ui";
+import { viaText } from "@/lib/app-ui";
 import { labelUser, memberLabels } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
 import { n, splitEqual } from "@/lib/money";

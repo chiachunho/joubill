@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { mcpConnections, recordAuditLog, users } from "@/db/schema";
+import { appConnections, recordAuditLog, users } from "@/db/schema";
 import {
   diffRecords,
   isGroupEventPayload,
@@ -96,7 +96,7 @@ const SELECT = {
   actorFirstName: users.firstName,
   actorLastName: users.lastName,
   actorUsername: users.username,
-  viaName: mcpConnections.name,
+  viaName: appConnections.name,
 };
 
 function asSnapshot(value: unknown): RecordSnapshot | null {
@@ -188,7 +188,7 @@ export async function loadLastActivity(recordId: number): Promise<ActivityEntry 
     .select(SELECT)
     .from(recordAuditLog)
     .leftJoin(users, eq(users.id, recordAuditLog.actorId))
-    .leftJoin(mcpConnections, eq(mcpConnections.id, recordAuditLog.mcpConnectionId))
+    .leftJoin(appConnections, eq(appConnections.id, recordAuditLog.appConnectionId))
     .where(and(eq(recordAuditLog.recordId, recordId), eq(recordAuditLog.action, "updated")))
     .orderBy(desc(recordAuditLog.id))
     .limit(1);
@@ -212,7 +212,7 @@ export async function loadRecordHistory(
     .select(SELECT)
     .from(recordAuditLog)
     .leftJoin(users, eq(users.id, recordAuditLog.actorId))
-    .leftJoin(mcpConnections, eq(mcpConnections.id, recordAuditLog.mcpConnectionId))
+    .leftJoin(appConnections, eq(appConnections.id, recordAuditLog.appConnectionId))
     .where(
       and(
         eq(recordAuditLog.groupId, groupId),
@@ -251,7 +251,7 @@ export async function loadGroupActivity(
     .select(SELECT)
     .from(recordAuditLog)
     .leftJoin(users, eq(users.id, recordAuditLog.actorId))
-    .leftJoin(mcpConnections, eq(mcpConnections.id, recordAuditLog.mcpConnectionId))
+    .leftJoin(appConnections, eq(appConnections.id, recordAuditLog.appConnectionId))
     .where(
       cursor != null
         ? and(eq(recordAuditLog.groupId, groupId), lt(recordAuditLog.id, cursor))

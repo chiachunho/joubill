@@ -2,10 +2,10 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { McpPage } from "@/components/pages/McpPage";
-import { McpSection } from "@/components/pages/McpSection";
+import { LinkedAppsPage } from "@/components/pages/LinkedAppsPage";
+import { LinkedAppsSection } from "@/components/pages/LinkedAppsSection";
 import { miniPlatform } from "@/components/pages/platform.mini";
-import type { McpConnectionItem } from "@/lib/api-types";
+import type { AppConnectionItem } from "@/lib/api-types";
 import { fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 // Radix's Checkbox measures itself; jsdom has no ResizeObserver.
@@ -36,7 +36,7 @@ const ME = {
   activeInviteCode: null,
 };
 
-const conn = (over: Partial<McpConnectionItem>): McpConnectionItem => ({
+const conn = (over: Partial<AppConnectionItem>): AppConnectionItem => ({
   id: 5,
   kind: "token",
   name: "我的 n8n",
@@ -51,15 +51,15 @@ const conn = (over: Partial<McpConnectionItem>): McpConnectionItem => ({
   ...over,
 });
 
-function renderPage(connections: McpConnectionItem[], extra: Record<string, object> = {}) {
+function renderPage(connections: AppConnectionItem[], extra: Record<string, object> = {}) {
   const request = fakeRequest({
-    "/api/me/mcp-connections": { connections },
+    "/api/me/app-connections": { connections },
     "/api/me/groups": ME,
     ...extra,
   });
   render(
     <StoreWrapper request={request}>
-      <McpPage platform={platform} />
+      <LinkedAppsPage platform={platform} />
     </StoreWrapper>,
   );
   return request;
@@ -70,7 +70,7 @@ const bodies = (request: ReturnType<typeof fakeRequest>, method: string) =>
     .filter(([, init]) => init?.method === method)
     .map(([, init]) => JSON.parse(String(init?.body ?? "null")));
 
-describe("McpPage list", () => {
+describe("LinkedAppsPage list", () => {
   it("shows each connection's permission and groups, and leaves revoked ones out", async () => {
     renderPage([
       conn({}),
@@ -86,10 +86,10 @@ describe("McpPage list", () => {
   });
 });
 
-describe("建立個人權杖", () => {
+describe("建立個人存取權杖", () => {
   async function openCreate() {
     const request = renderPage([]);
-    fireEvent.click(await screen.findByRole("button", { name: /建立個人權杖/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /建立個人存取權杖/ }));
     return request;
   }
 
@@ -107,7 +107,7 @@ describe("建立個人權杖", () => {
   it("sends the narrow grant by default and shows the token only until 完成", async () => {
     const request = renderPage([], {});
     request.mockImplementation(async (path, init) => {
-      if (path === "/api/me/mcp-connections" && init?.method === "POST") {
+      if (path === "/api/me/app-connections" && init?.method === "POST") {
         return new Response(
           JSON.stringify({ connection: conn({ name: "刷卡簡訊" }), token: "sbk_SECRET123" }),
           { status: 201 },
@@ -116,7 +116,7 @@ describe("建立個人權杖", () => {
       const body = path === "/api/me/groups" ? ME : { connections: [] };
       return new Response(JSON.stringify(body), { status: 200 });
     });
-    fireEvent.click(await screen.findByRole("button", { name: /建立個人權杖/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /建立個人存取權杖/ }));
     fireEvent.change(screen.getByLabelText("名稱"), { target: { value: "刷卡簡訊" } });
     fireEvent.click(screen.getByRole("checkbox", { name: /室友/ }));
     fireEvent.click(screen.getByRole("button", { name: "建立" }));
@@ -135,7 +135,7 @@ describe("建立個人權杖", () => {
       expect(screen.queryByDisplayValue("sbk_SECRET123")).not.toBeInTheDocument(),
     );
     // Opening it again starts a fresh form, not the old token.
-    fireEvent.click(screen.getByRole("button", { name: /建立個人權杖/ }));
+    fireEvent.click(screen.getByRole("button", { name: /建立個人存取權杖/ }));
     expect(screen.queryByDisplayValue("sbk_SECRET123")).not.toBeInTheDocument();
     expect(screen.getByLabelText("名稱")).toHaveValue("");
   });
@@ -155,7 +155,7 @@ describe("建立個人權杖", () => {
         status: 200,
       });
     });
-    fireEvent.click(await screen.findByRole("button", { name: /建立個人權杖/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /建立個人存取權杖/ }));
     fireEvent.change(screen.getByLabelText("名稱"), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("checkbox", { name: /室友/ }));
     fireEvent.click(screen.getByRole("button", { name: "建立" }));
@@ -168,7 +168,7 @@ describe("建立個人權杖", () => {
 
 describe("a connection", () => {
   it("asks before revoking, and revokes only on confirm", async () => {
-    const request = renderPage([conn({})], { "/api/me/mcp-connections/5": { ok: true } });
+    const request = renderPage([conn({})], { "/api/me/app-connections/5": { ok: true } });
     fireEvent.click(await screen.findByText("我的 n8n"));
     fireEvent.click(screen.getByRole("button", { name: "撤銷這個連線" }));
     expect(await screen.findByText(/撤銷「我的 n8n」？/)).toBeInTheDocument();
@@ -178,7 +178,7 @@ describe("a connection", () => {
   });
 
   it("asks before widening to 可記帳 and saves a narrowing straight away", async () => {
-    const request = renderPage([conn({})], { "/api/me/mcp-connections/5": { connection: {} } });
+    const request = renderPage([conn({})], { "/api/me/app-connections/5": { connection: {} } });
     fireEvent.click(await screen.findByText("我的 n8n"));
     const save = () => screen.getByRole("button", { name: "儲存變更" });
     expect(save()).toBeDisabled();
@@ -192,19 +192,19 @@ describe("a connection", () => {
   });
 });
 
-describe("McpSection on 個人設定", () => {
+describe("LinkedAppsSection on 個人設定", () => {
   it("shows the number of connections that work now", async () => {
     const request = fakeRequest({
-      "/api/me/mcp-connections": {
+      "/api/me/app-connections": {
         connections: [conn({}), conn({ id: 6, revokedAt: "2026-10-05T00:00:00Z" })],
       },
     });
     render(
       <StoreWrapper request={request}>
-        <McpSection platform={platform} />
+        <LinkedAppsSection platform={platform} />
       </StoreWrapper>,
     );
     expect(await screen.findByText("1")).toBeInTheDocument();
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/mini/settings/mcp");
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/mini/settings/apps");
   });
 });

@@ -161,7 +161,7 @@ describe("formatDeletedNotice", () => {
   });
 });
 
-describe("agent attribution", () => {
+describe("linked application attribution", () => {
   it("writes the line under a card or notice, without a name once the account is gone", () => {
     expect(formatMcpLine(alice, "Claude")).toBe("✦ Alice 透過 Claude 記錄");
     expect(formatMcpLine(null, "Claude")).toBe("✦ 透過 Claude 記錄");

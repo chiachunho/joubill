@@ -3,38 +3,38 @@
 import { useState } from "react";
 import { ChevronRight, Copy, Check, Plus, Sparkles } from "lucide-react";
 
-import { McpConnectionDialog } from "@/components/mini/McpConnectionDialog";
-import { CreateMcpTokenDialog } from "@/components/mini/CreateMcpTokenDialog";
-import { McpSkeleton } from "@/components/mini/skeletons";
+import { AppConnectionDialog } from "@/components/mini/AppConnectionDialog";
+import { CreateAppTokenDialog } from "@/components/mini/CreateAppTokenDialog";
+import { LinkedAppsSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
-import { connectionStatus } from "@/lib/mcp-connection-input";
+import { connectionStatus } from "@/lib/app-connection-input";
 import {
   ACCESS_LABEL,
   expiryLabel,
   lastUsedLabel,
   scopeSummary,
   usableConnections,
-} from "@/lib/mcp-ui";
+} from "@/lib/app-ui";
 import { describeError } from "@/lib/api-error";
 import { appUrl } from "@/lib/help-url";
 import { cn } from "@/lib/utils";
-import { useGetMcpConnectionsQuery, useGetMeQuery } from "@/store/api";
+import { useGetAppConnectionsQuery, useGetMeQuery } from "@/store/api";
 
 /** The MCP endpoint people paste into Claude, ChatGPT, Cursor or n8n. */
 const MCP_PATH = "/api/mcp";
 
 /**
- * 個人設定 → MCP 連線 (issue #150): the address to connect to, the connections that exist,
- * and 建立個人權杖. Shared by `/mini` and `/app`; nothing here depends on the platform but
+ * 個人設定 → 連結的應用程式 (issue #150): the address to connect to, the connections that exist,
+ * and 建立個人存取權杖. Shared by `/mini` and `/app`; nothing here depends on the platform but
  * the back link and where a signed-out viewer goes.
  */
-export function McpPage({ platform }: { platform: Platform }) {
+export function LinkedAppsPage({ platform }: { platform: Platform }) {
   const back = `${platform.basePath}/settings`;
   platform.useBack(back);
 
-  const { data, error } = useGetMcpConnectionsQuery();
+  const { data, error } = useGetAppConnectionsQuery();
   const { data: me } = useGetMeQuery();
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
   const [creating, setCreating] = useState(false);
@@ -64,7 +64,7 @@ export function McpPage({ platform }: { platform: Platform }) {
       </div>
     );
   }
-  if (!data) return <McpSkeleton />;
+  if (!data) return <LinkedAppsSkeleton />;
 
   const list = usableConnections(data.connections);
   const open = list.find((c) => c.id === openId) ?? null;
@@ -73,7 +73,7 @@ export function McpPage({ platform }: { platform: Platform }) {
     <div className="space-y-6 py-4">
       <div className="px-4">
         <platform.BackLink href={back} />
-        <h1 className="text-lg font-semibold">MCP 連線</h1>
+        <h1 className="text-lg font-semibold">連結的應用程式</h1>
         <p className="mt-1 text-xs text-muted-foreground">
           MCP 是讓 Claude、ChatGPT、Cursor
           或自動化流程連進揪帳的方式，連上後可以查帳、記帳。它們記的每一筆，群組都會看到是透過它記錄的。
@@ -81,12 +81,12 @@ export function McpPage({ platform }: { platform: Platform }) {
       </div>
 
       <section className="px-4">
-        <p className="sect mb-2.5">連線網址</p>
+        <p className="sect mb-2.5">MCP 伺服器網址</p>
         <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2">
           <input
             readOnly
             value={url}
-            aria-label="連線網址"
+            aria-label="MCP 伺服器網址"
             onFocus={(e) => e.currentTarget.select()}
             className="num min-w-0 flex-1 bg-transparent text-xs outline-none"
           />
@@ -108,7 +108,7 @@ export function McpPage({ platform }: { platform: Platform }) {
       </section>
 
       <section className="px-4">
-        <p className="sect mb-2.5">已連線</p>
+        <p className="sect mb-2.5">已連結</p>
         {list.length === 0 ? (
           <div className="rounded-2xl bg-secondary/50 px-4 py-6 text-center">
             <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -116,7 +116,7 @@ export function McpPage({ platform }: { platform: Platform }) {
             </span>
             <p className="mt-2 text-sm font-semibold">還沒有連線</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              建立個人權杖，或用上面的網址新增連接器
+              建立個人存取權杖，或用上面的網址新增連接器
             </p>
           </div>
         ) : (
@@ -159,16 +159,16 @@ export function McpPage({ platform }: { platform: Platform }) {
           disabled={groups.length === 0}
         >
           <Plus className="size-4" />
-          建立個人權杖
+          建立個人存取權杖
         </Button>
         <p className="mt-1.5 px-0.5 text-xs text-muted-foreground">
-          個人權杖給 Claude Code、Cursor、n8n、捷徑等可以自己填 Header 的工具使用。
+          個人存取權杖給 Claude Code、Cursor、n8n、捷徑等可以自己填 Header 的工具使用。
         </p>
       </section>
 
-      <CreateMcpTokenDialog open={creating} onOpenChange={setCreating} groups={groups} />
+      <CreateAppTokenDialog open={creating} onOpenChange={setCreating} groups={groups} />
       {open && (
-        <McpConnectionDialog
+        <AppConnectionDialog
           key={open.id}
           connection={open}
           groups={groups}

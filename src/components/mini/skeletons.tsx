@@ -419,7 +419,7 @@ export function JoinSkeleton() {
   );
 }
 
-export function McpSkeleton() {
+export function LinkedAppsSkeleton() {
   return (
     <div className="space-y-6 py-4" aria-busy="true" aria-label="載入中">
       <div className="space-y-2 px-4">

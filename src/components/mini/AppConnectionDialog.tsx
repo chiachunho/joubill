@@ -4,11 +4,11 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import {
-  McpAccessPicker,
-  McpScopePicker,
+  AppAccessPicker,
+  AppScopePicker,
   scopeIsValid,
   type Scope,
-} from "@/components/mini/McpFormFields";
+} from "@/components/mini/AppFormFields";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,11 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { connectionStatus } from "@/lib/mcp-connection-input";
-import { expiryLabel, lastUsedLabel, sameScope } from "@/lib/mcp-ui";
+import { connectionStatus } from "@/lib/app-connection-input";
+import { expiryLabel, lastUsedLabel, sameScope } from "@/lib/app-ui";
 import { apiErrorText } from "@/lib/api-error";
-import type { McpConnectionItem } from "@/lib/api-types";
-import { useRevokeMcpConnectionMutation, useUpdateMcpConnectionMutation } from "@/store/api";
+import type { AppConnectionItem } from "@/lib/api-types";
+import { useRevokeAppConnectionMutation, useUpdateAppConnectionMutation } from "@/store/api";
 
 /**
  * One connection: change its permission and group scope, or revoke it. The name and the
@@ -32,17 +32,17 @@ import { useRevokeMcpConnectionMutation, useUpdateMcpConnectionMutation } from "
  *
  * The parent mounts this with `key={connection.id}`, so the fields start from the saved values.
  */
-export function McpConnectionDialog({
+export function AppConnectionDialog({
   connection,
   groups,
   onClose,
 }: {
-  connection: McpConnectionItem;
+  connection: AppConnectionItem;
   groups: { id: number; title: string; defaultCurrency: string }[];
   onClose: () => void;
 }) {
-  const [update, { isLoading: saving }] = useUpdateMcpConnectionMutation();
-  const [revoke, { isLoading: revoking }] = useRevokeMcpConnectionMutation();
+  const [update, { isLoading: saving }] = useUpdateAppConnectionMutation();
+  const [revoke, { isLoading: revoking }] = useRevokeAppConnectionMutation();
   const [access, setAccess] = useState(connection.access);
   const [scope, setScope] = useState<Scope>({
     allGroups: connection.allGroups,
@@ -94,7 +94,9 @@ export function McpConnectionDialog({
           <DialogHeader>
             <DialogTitle className="truncate pr-6">{connection.name}</DialogTitle>
             <DialogDescription>
-              {connection.kind === "oauth" ? "OAuth 連線" : `個人權杖 ${connection.tokenPrefix}…`}
+              {connection.kind === "oauth"
+                ? "OAuth 連線"
+                : `個人存取權杖 ${connection.tokenPrefix}…`}
               {" · "}
               {lastUsedLabel(connection.lastUsedAt)}
               {" · "}
@@ -102,8 +104,8 @@ export function McpConnectionDialog({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <McpAccessPicker value={access} onChange={setAccess} />
-            <McpScopePicker groups={groups} value={scope} onChange={setScope} />
+            <AppAccessPicker value={access} onChange={setAccess} />
+            <AppScopePicker groups={groups} value={scope} onChange={setScope} />
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">

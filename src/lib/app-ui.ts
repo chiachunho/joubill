@@ -1,5 +1,5 @@
-import { connectionStatus } from "@/lib/mcp-connection-input";
-import type { McpConnectionItem } from "@/lib/api-types";
+import { connectionStatus } from "@/lib/app-connection-input";
+import type { AppConnectionItem } from "@/lib/api-types";
 import { dayLabel } from "@/lib/format";
 
 /** The wording of the two permission levels, in one place for the list, the forms and the tests. */
@@ -10,7 +10,7 @@ export const ACCESS_HINT = {
   write: "再加上新增、編輯、刪除紀錄與還款",
 } as const;
 
-/** The expiry choices of 建立個人權杖; `null` never expires. 90 days is what the form starts on. */
+/** The expiry choices of 建立個人存取權杖; `null` never expires. 90 days is what the form starts on. */
 export const EXPIRY_CHOICES: { days: number | null; label: string }[] = [
   { days: 30, label: "30 天" },
   { days: 90, label: "90 天" },
@@ -19,12 +19,12 @@ export const EXPIRY_CHOICES: { days: number | null; label: string }[] = [
 export const DEFAULT_EXPIRY_DAYS = 90;
 
 /** Connections that still work. A revoked one stays in the database for the audit log only. */
-export function usableConnections(list: McpConnectionItem[], now: Date = new Date()) {
+export function usableConnections(list: AppConnectionItem[], now: Date = new Date()) {
   return list.filter((c) => connectionStatus(c, now) !== "revoked");
 }
 
 /** Connections that can be used right now: what the count on 個人設定 shows. */
-export function activeConnections(list: McpConnectionItem[], now: Date = new Date()) {
+export function activeConnections(list: AppConnectionItem[], now: Date = new Date()) {
   return list.filter((c) => connectionStatus(c, now) === "active");
 }
 
@@ -33,7 +33,7 @@ export function activeConnections(list: McpConnectionItem[], now: Date = new Dat
  * the connection can't reach it either (membership is checked on every call).
  */
 export function scopeSummary(
-  c: Pick<McpConnectionItem, "allGroups" | "groupIds">,
+  c: Pick<AppConnectionItem, "allGroups" | "groupIds">,
   groups: { id: number; title: string }[],
 ): string {
   if (c.allGroups) return "所有群組";

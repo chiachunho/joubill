@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { McpConnectionItem } from "../api-types";
+import type { AppConnectionItem } from "../api-types";
 import {
   activeConnections,
   expiryLabel,
@@ -8,10 +8,10 @@ import {
   sameScope,
   scopeSummary,
   usableConnections,
-} from "../mcp-ui";
+} from "../app-ui";
 
 const now = new Date("2026-11-06T12:00:00Z");
-const conn = (over: Partial<McpConnectionItem>): McpConnectionItem => ({
+const conn = (over: Partial<AppConnectionItem>): AppConnectionItem => ({
   id: 1,
   kind: "token",
   name: "n",

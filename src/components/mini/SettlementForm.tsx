@@ -36,7 +36,7 @@ import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-erro
 import { rateSourceLabel } from "@/lib/rate-source-label";
 import { recordHistoryHref } from "@/lib/activity-link";
 import { stampLabel } from "@/lib/format";
-import { viaText } from "@/lib/mcp-ui";
+import { viaText } from "@/lib/app-ui";
 import { labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";

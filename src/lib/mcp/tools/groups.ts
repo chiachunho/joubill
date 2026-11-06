@@ -4,7 +4,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { db } from "@/db";
 import { groupMembers, groups } from "@/db/schema";
 import { grantCovers } from "@/lib/mcp-grant";
-import type { McpAuth } from "@/lib/auth/mcp";
+import type { AppAuth } from "@/lib/auth/mcp";
 import { enforceMcpRateLimit } from "@/lib/rate-limit";
 import { idSchema, SUPPORTED_CURRENCIES } from "@/lib/zod";
 import { computeGroupBalances, minimizeTransfers } from "@/lib/settlement";
@@ -14,7 +14,7 @@ import { guarded, ok } from "../result";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 
-export function registerGroupTools(server: McpServer, auth: McpAuth) {
+export function registerGroupTools(server: McpServer, auth: AppAuth) {
   server.registerTool(
     "list_groups",
     {

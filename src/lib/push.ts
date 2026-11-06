@@ -123,7 +123,7 @@ export type RecordPushEvent = {
   before: RecordSnapshot | null;
   after: RecordSnapshot | null;
   creatorId: number | null;
-  actor: { userId: number; mcpConnectionId?: number };
+  actor: { userId: number; appConnectionId?: number };
 };
 
 /** Notifies the people a record change touches (`pushRecipients`), in the background. */
@@ -174,7 +174,7 @@ export function queueRecordPush(event: RecordPushEvent): void {
         })
         .from(users)
         .where(eq(users.id, event.actor.userId)),
-      connectionName(event.actor.mcpConnectionId),
+      connectionName(event.actor.appConnectionId),
     ]);
     if (!group || targets.length === 0) return;
 

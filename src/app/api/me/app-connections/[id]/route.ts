@@ -2,9 +2,9 @@ import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
-import { mcpConnections } from "@/db/schema";
-import { updateConnectionSchema } from "@/lib/mcp-connection-input";
-import { assertMemberOfAll, publicConnectionColumns } from "@/lib/mcp-connections-db";
+import { appConnections } from "@/db/schema";
+import { updateConnectionSchema } from "@/lib/app-connection-input";
+import { assertMemberOfAll, publicConnectionColumns } from "@/lib/app-connections-db";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { requireId } from "@/lib/route-params";
@@ -18,16 +18,16 @@ export const DELETE = withAuth(
     const auth = await getAuth(req);
     const id = requireId((await params).id, "connection id");
     const revoked = await db
-      .update(mcpConnections)
+      .update(appConnections)
       .set({ revokedAt: new Date() })
       .where(
         and(
-          eq(mcpConnections.id, id),
-          eq(mcpConnections.userId, auth.user.id),
-          isNull(mcpConnections.revokedAt),
+          eq(appConnections.id, id),
+          eq(appConnections.userId, auth.user.id),
+          isNull(appConnections.revokedAt),
         ),
       )
-      .returning({ id: mcpConnections.id });
+      .returning({ id: appConnections.id });
     if (revoked.length === 0) {
       return NextResponse.json({ error: "connection not found" }, { status: 404 });
     }
@@ -57,7 +57,7 @@ export const PATCH = withAuth(
     if (input.allGroups === false) await assertMemberOfAll(auth.user.id, groupIds);
 
     const [row] = await db
-      .update(mcpConnections)
+      .update(appConnections)
       .set({
         ...(input.access ? { access: input.access } : {}),
         ...(input.allGroups !== undefined
@@ -66,9 +66,9 @@ export const PATCH = withAuth(
       })
       .where(
         and(
-          eq(mcpConnections.id, id),
-          eq(mcpConnections.userId, auth.user.id),
-          isNull(mcpConnections.revokedAt),
+          eq(appConnections.id, id),
+          eq(appConnections.userId, auth.user.id),
+          isNull(appConnections.revokedAt),
         ),
       )
       .returning(publicConnectionColumns);

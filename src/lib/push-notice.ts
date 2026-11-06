@@ -1,4 +1,4 @@
-import { viaText } from "@/lib/mcp-ui";
+import { viaText } from "@/lib/app-ui";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import type { PushAction } from "@/lib/push-plan";

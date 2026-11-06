@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { mcpConnections, recordAuditLog } from "@/db/schema";
+import { appConnections, recordAuditLog } from "@/db/schema";
 
 /**
  * Which AI assistant entered a record (issue #150), read from the audit log rather than a
@@ -20,14 +20,14 @@ export async function loadCreatedVia(
 ): Promise<Map<number, string>> {
   if (recordIds.length === 0) return new Map();
   const rows = await exec
-    .select({ recordId: recordAuditLog.recordId, name: mcpConnections.name })
+    .select({ recordId: recordAuditLog.recordId, name: appConnections.name })
     .from(recordAuditLog)
-    .innerJoin(mcpConnections, eq(mcpConnections.id, recordAuditLog.mcpConnectionId))
+    .innerJoin(appConnections, eq(appConnections.id, recordAuditLog.appConnectionId))
     .where(
       and(
         inArray(recordAuditLog.recordId, recordIds),
         eq(recordAuditLog.action, "created"),
-        eq(recordAuditLog.source, "agent"),
+        eq(recordAuditLog.source, "mcp"),
       ),
     );
   return new Map(rows.flatMap((r) => (r.recordId != null ? [[r.recordId, r.name] as const] : [])));
@@ -40,8 +40,8 @@ export async function connectionName(
 ): Promise<string | null> {
   if (connectionId == null) return null;
   const [row] = await exec
-    .select({ name: mcpConnections.name })
-    .from(mcpConnections)
-    .where(eq(mcpConnections.id, connectionId));
+    .select({ name: appConnections.name })
+    .from(appConnections)
+    .where(eq(appConnections.id, connectionId));
   return row?.name ?? null;
 }

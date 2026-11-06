@@ -1,11 +1,11 @@
 "use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
-import { ACCESS_HINT, ACCESS_LABEL } from "@/lib/mcp-ui";
+import { ACCESS_HINT, ACCESS_LABEL } from "@/lib/app-ui";
 import { cn } from "@/lib/utils";
 
 /** 權限: 唯讀 or 可記帳. A two-way choice, so a segmented control rather than a select. */
-export function McpAccessPicker({
+export function AppAccessPicker({
   value,
   onChange,
 }: {
@@ -47,7 +47,7 @@ export type Scope = { allGroups: boolean; groupIds: number[] };
  * 可以存取的群組: one box per group and 所有群組，含之後加入的. Ticking the latter is the
  * wider grant, so it starts off and only the person turns it on.
  */
-export function McpScopePicker({
+export function AppScopePicker({
   groups,
   value,
   onChange,

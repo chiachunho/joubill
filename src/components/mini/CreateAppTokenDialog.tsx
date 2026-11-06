@@ -4,11 +4,11 @@ import { useState } from "react";
 import { Check, Copy, Loader2 } from "lucide-react";
 
 import {
-  McpAccessPicker,
-  McpScopePicker,
+  AppAccessPicker,
+  AppScopePicker,
   scopeIsValid,
   type Scope,
-} from "@/components/mini/McpFormFields";
+} from "@/components/mini/AppFormFields";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,15 +19,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES } from "@/lib/mcp-ui";
+import { DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES } from "@/lib/app-ui";
 import { apiErrorText } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
-import { useCreateMcpConnectionMutation } from "@/store/api";
+import { useCreateAppConnectionMutation } from "@/store/api";
 
 type Groups = { id: number; title: string; defaultCurrency: string }[];
 
 /**
- * 建立個人權杖. The form starts on the narrowest grant (唯讀, no group ticked, not "all
+ * 建立個人存取權杖. The form starts on the narrowest grant (唯讀, no group ticked, not "all
  * groups"), so doing nothing but typing a name and picking a group is the safe outcome.
  *
  * The token is shown once: it lives in this component's state only, the dialog can't be
@@ -35,7 +35,7 @@ type Groups = { id: number; title: string; defaultCurrency: string }[];
  * clipboard refuses, a read-only field that selects itself on focus takes over, the same as
  * the invite code.
  */
-export function CreateMcpTokenDialog({
+export function CreateAppTokenDialog({
   open,
   onOpenChange,
   groups,
@@ -44,7 +44,7 @@ export function CreateMcpTokenDialog({
   onOpenChange: (open: boolean) => void;
   groups: Groups;
 }) {
-  const [create, { isLoading, reset }] = useCreateMcpConnectionMutation();
+  const [create, { isLoading, reset }] = useCreateAppConnectionMutation();
   const [name, setName] = useState("");
   const [access, setAccess] = useState<"read" | "write">("read");
   const [scope, setScope] = useState<Scope>({ allGroups: false, groupIds: [] });
@@ -135,7 +135,7 @@ export function CreateMcpTokenDialog({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>建立個人權杖</DialogTitle>
+              <DialogTitle>建立個人存取權杖</DialogTitle>
               <DialogDescription>給 Claude Code、Cursor、n8n、捷徑等工具使用。</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -155,8 +155,8 @@ export function CreateMcpTokenDialog({
                   className="rounded-lg"
                 />
               </div>
-              <McpAccessPicker value={access} onChange={setAccess} />
-              <McpScopePicker groups={groups} value={scope} onChange={setScope} />
+              <AppAccessPicker value={access} onChange={setAccess} />
+              <AppScopePicker groups={groups} value={scope} onChange={setScope} />
               <div>
                 <p className="mb-1.5 text-xs text-muted-foreground">到期</p>
                 <div

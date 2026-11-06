@@ -1,22 +1,22 @@
 # MCP server (issue #147, phase 1: issue #149)
 
 `POST /api/mcp` is a sixth front end next to the REST API and the bot. It shares
-`src/lib/records/` for writes (issue #148), so an agent's record gets the same audit row,
+`src/lib/records/` for writes (issue #148), so a linked application's record gets the same audit row,
 group message and push as any other.
 
 ## Transport
 
 Stateless Streamable HTTP with the SDK's web-standard transport (`sessionIdGenerator:
 undefined`, `enableJsonResponse: true`). A new `McpServer` is built per request
-(`src/lib/mcp/server.ts`), closed over the caller's `McpAuth`. `GET` and `DELETE` answer
+(`src/lib/mcp/server.ts`), closed over the caller's `AppAuth`. `GET` and `DELETE` answer
 405: there is no session to stream to, and an open SSE stream would pin an invocation.
 
 ## Identity
 
-`getMcpAuth` (`src/lib/auth/agent.ts`) accepts only `Authorization: Bearer sbk_…`, hashes
-it (`src/lib/mcp-token.ts`, sha256) and looks the hash up in `agent_connections`. Revocation
+`getAppAuth` (`src/lib/auth/mcp.ts`) accepts only `Authorization: Bearer sbk_…`, hashes
+it (`src/lib/mcp-token.ts`, sha256) and looks the hash up in `app_connections`. Revocation
 and expiry are checked **every call**. A 401 carries `WWW-Authenticate: Bearer`.
-**`getAuth` does not accept these tokens**, so REST stays closed to agents and a token can't
+**`getAuth` does not accept these tokens**, so REST stays closed to linked applications and a token can't
 manage tokens (`mcp-token-not-session.test.ts`).
 
 Every tool runs `openGroup` (`src/lib/mcp/context.ts`): count the call against the rate limit,
@@ -26,14 +26,14 @@ access to it), then `assertGrant` (`src/lib/mcp-grant.ts`: the connection's grou
 
 ## Connections
 
-`agent_connections` stores the hash and a display prefix, never the token. `POST
-/api/me/mcp-connections` returns the plaintext once. `DELETE …/[id]` sets `revoked_at`; the
-row stays so `record_audit_log.agent_connection_id` (`ON DELETE SET NULL`) keeps a name. At
-most 20 live connections per user. `mergeAccounts` moves `agent_connections.user_id`.
+`app_connections` stores the hash and a display prefix, never the token. `POST
+/api/me/app-connections` returns the plaintext once. `DELETE …/[id]` sets `revoked_at`; the
+row stays so `record_audit_log.app_connection_id` (`ON DELETE SET NULL`) keeps a name. At
+most 20 live connections per user. `mergeAccounts` moves `app_connections.user_id`.
 `PATCH …/[id]` changes only the permission and the group scope (`updateConnectionSchema`: `allGroups` and
 `groupIds` travel together); never the name, which audit entries quote, nor the expiry, since a
 longer one is a new token. A revoked connection answers 404. The client side is the
-`McpConnections` tag in `src/store/api.ts` (issue #150).
+`AppConnections` tag in `src/store/api.ts` (issue #150).
 
 ## Tools
 
@@ -53,7 +53,7 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
 - `add_expense` amounts accept the bot's `/add` grammar (`parseMcpAmount`); splits are built
   by the pure `buildExpenseInput` and still pass `expenseInputSchema`, so sums can't drift from
   the forms. `dryRun` previews and counts against the read bucket.
-- **Idempotency** (`agent_idempotency`, `UNIQUE(connection_id, key)`, 24 h): the insert is the
+- **Idempotency** (`app_idempotency`, `UNIQUE(connection_id, key)`, 24 h): the insert is the
   lock. A repeat returns `status: "duplicate"` with the original `recordId`; a repeat while
   the first call runs is `in_progress`. A failed or held call releases its key.
 - **Possible duplicates**: same group, amount, currency and sole payer within 10 minutes is
@@ -65,9 +65,9 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
 
 ## Saying where a record came from (issue #150)
 
-A person's own entry says nothing; an agent's says so everywhere the record shows up. The
+A person's own entry says nothing; a linked application's says so everywhere the record shows up. The
 source is **derived from the audit log**: `loadCreatedVia` (`src/lib/record-via.ts`) joins the
-record's `created` row (`source = 'agent'`) to `agent_connections.name`, so there is no second
+record's `created` row (`source = 'mcp'`) to `app_connections.name`, so there is no second
 copy on `expenses` to drift. `ActivityEntry.via` does the same join per row for edits.
 
 - Group card and settlement notice: `✦ 小明 透過 Claude 記錄` (`formatMcpLine`), under the
@@ -82,5 +82,5 @@ Records entered before the feature, or by a person, show nothing.
 
 ## Testing
 
-Pure parts are unit-tested (`agent-*.test.ts`); `src/app/api/__tests__/mcp-route.test.ts`
+Pure parts are unit-tested (`mcp-*.test.ts`); `src/app/api/__tests__/mcp-route.test.ts`
 drives the real SDK transport without a database; `e2e/mcp.spec.ts` covers the database work.

@@ -24,12 +24,10 @@ export type AuditAction =
   | "member_claimed"
   | "account_merged";
 /**
- * `"agent"` is what an MCP client's write is stored as, and the name of the SQL table and
- * columns behind it (`agent_connections`, `agent_connection_id`). Code says "MCP" (issue
- * #150); renaming stored values and tables is a two-release migration nobody needs yet, so
- * these few spellings stay.
+ * Where a change came from. `"app"` is the Mini App / Web App; `"mcp"` is a linked
+ * application writing through the MCP server (its `app_connection_id` says which one).
  */
-export type AuditSource = "bot" | "app" | "agent";
+export type AuditSource = "bot" | "app" | "mcp";
 
 /**
  * The stored before/after shape.

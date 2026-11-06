@@ -1,13 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
-import type { McpAuth } from "@/lib/auth/mcp";
+import type { AppAuth } from "@/lib/auth/mcp";
 
 import { registerGroupTools } from "./tools/groups";
 import { registerRecordTools } from "./tools/records";
 import { registerWriteTools } from "./tools/write";
 
 /** A fresh server per request (stateless transport), closed over the caller's auth. */
-export function createMcpServer(auth: McpAuth): McpServer {
+export function createMcpServer(auth: AppAuth): McpServer {
   const server = new McpServer(
     { name: "splitbill", version: "1.0.0" },
     {

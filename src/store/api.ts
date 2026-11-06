@@ -2,9 +2,9 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 
 import type {
   AccountMergePreview,
-  McpConnectionItem,
-  McpConnectionsResponse,
-  CreateMcpConnectionResponse,
+  AppConnectionItem,
+  AppConnectionsResponse,
+  CreateAppConnectionResponse,
   AcceptInviteResponse,
   ActivityResponse,
   AvatarsResponse,
@@ -34,7 +34,7 @@ import type {
   SettlementDetail,
   StatsResponse,
 } from "@/lib/api-types";
-import type { CreateConnectionInput, UpdateConnectionInput } from "@/lib/mcp-connection-input";
+import type { CreateConnectionInput, UpdateConnectionInput } from "@/lib/app-connection-input";
 import type { BeancountConfigInput } from "@/lib/zod";
 
 import { apiBaseQuery } from "./base-query";
@@ -58,7 +58,7 @@ const tagTypes = [
   "Me",
   "Profile",
   "Identities",
-  "McpConnections",
+  "AppConnections",
   "GroupPhotos",
   "Members",
   "Settings",
@@ -158,9 +158,9 @@ const baseApi = createApi({
       query: () => ({ url: "/api/me/identities" }),
       providesTags: [tag("Identities", "ME")],
     }),
-    getMcpConnections: build.query<McpConnectionsResponse, void>({
-      query: () => ({ url: "/api/me/mcp-connections" }),
-      providesTags: [tag("McpConnections", "ME")],
+    getAppConnections: build.query<AppConnectionsResponse, void>({
+      query: () => ({ url: "/api/me/app-connections" }),
+      providesTags: [tag("AppConnections", "ME")],
     }),
     // The ticket rides in an httpOnly cookie; this is read once, on the confirm page.
     getAccountMergePreview: build.query<AccountMergePreview, void>({
@@ -485,24 +485,24 @@ const baseApi = createApi({
     // ---- AI assistants (issues #147, #150) ---------------------------------------------
     // The token in the response is shown once and kept in component state; the cache holds a
     // copy of it only until `keepUnusedDataFor`, so the caller calls `.unwrap()` and `reset()`.
-    createMcpConnection: build.mutation<CreateMcpConnectionResponse, CreateConnectionInput>({
-      query: (body) => ({ url: "/api/me/mcp-connections", method: "POST", body }),
-      invalidatesTags: [tag("McpConnections", "ME")],
+    createAppConnection: build.mutation<CreateAppConnectionResponse, CreateConnectionInput>({
+      query: (body) => ({ url: "/api/me/app-connections", method: "POST", body }),
+      invalidatesTags: [tag("AppConnections", "ME")],
     }),
-    updateMcpConnection: build.mutation<
-      { connection: McpConnectionItem },
+    updateAppConnection: build.mutation<
+      { connection: AppConnectionItem },
       { id: number } & UpdateConnectionInput
     >({
       query: ({ id, ...body }) => ({
-        url: `/api/me/mcp-connections/${id}`,
+        url: `/api/me/app-connections/${id}`,
         method: "PATCH",
         body,
       }),
-      invalidatesTags: [tag("McpConnections", "ME")],
+      invalidatesTags: [tag("AppConnections", "ME")],
     }),
-    revokeMcpConnection: build.mutation<unknown, { id: number }>({
-      query: ({ id }) => ({ url: `/api/me/mcp-connections/${id}`, method: "DELETE" }),
-      invalidatesTags: [tag("McpConnections", "ME")],
+    revokeAppConnection: build.mutation<unknown, { id: number }>({
+      query: ({ id }) => ({ url: `/api/me/app-connections/${id}`, method: "DELETE" }),
+      invalidatesTags: [tag("AppConnections", "ME")],
     }),
 
     updateProfile: build.mutation<ProfileResponse, ProfileUpdate>({
@@ -791,10 +791,10 @@ export const {
   useGetInvitePreviewQuery,
   useGetProfileQuery,
   useUpdateProfileMutation,
-  useGetMcpConnectionsQuery,
-  useCreateMcpConnectionMutation,
-  useUpdateMcpConnectionMutation,
-  useRevokeMcpConnectionMutation,
+  useGetAppConnectionsQuery,
+  useCreateAppConnectionMutation,
+  useUpdateAppConnectionMutation,
+  useRevokeAppConnectionMutation,
   useGetIdentitiesQuery,
   useUnlinkIdentityMutation,
   useGetAccountMergePreviewQuery,

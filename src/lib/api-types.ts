@@ -304,8 +304,8 @@ export type GroupNotificationsResponse = {
   telegramLinked: boolean;
 };
 
-/** One row of `GET /api/me/mcp-connections` (never the token hash). Dates are ISO strings. */
-export type McpConnectionItem = {
+/** One row of `GET /api/me/app-connections` (never the token hash). Dates are ISO strings. */
+export type AppConnectionItem = {
   id: number;
   kind: "token" | "oauth";
   name: string;
@@ -320,7 +320,7 @@ export type McpConnectionItem = {
   createdAt: string;
 };
 
-export type McpConnectionsResponse = { connections: McpConnectionItem[] };
+export type AppConnectionsResponse = { connections: AppConnectionItem[] };
 
-/** `POST /api/me/mcp-connections`: the only time the plaintext token is ever returned. */
-export type CreateMcpConnectionResponse = { connection: McpConnectionItem; token: string };
+/** `POST /api/me/app-connections`: the only time the plaintext token is ever returned. */
+export type CreateAppConnectionResponse = { connection: AppConnectionItem; token: string };
