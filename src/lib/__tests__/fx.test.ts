@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildOverrideMap,
+  cacheableRateDay,
   fxDateKey,
   getRate,
   overrideKey,
@@ -118,5 +119,20 @@ describe("spentAtForNow", () => {
     expect(spentAtForNow(new Date("2026-02-28T16:30:00Z")).toISOString()).toBe(
       "2026-03-01T12:00:00.000Z",
     );
+  });
+});
+
+describe("cacheableRateDay", () => {
+  it("caches a past day, even when the API answered with an earlier business day", () => {
+    expect(cacheableRateDay("2026-03-01", "2026-03-05", "2026-02-27")).toBe(true);
+  });
+
+  it("caches today only when the API's latest is today's", () => {
+    expect(cacheableRateDay("2026-03-05", "2026-03-05", "2026-03-05")).toBe(true);
+    expect(cacheableRateDay("2026-03-05", "2026-03-05", "2026-03-04")).toBe(false);
+  });
+
+  it("never caches a day that hasn't happened yet", () => {
+    expect(cacheableRateDay("2026-03-06", "2026-03-05", "2026-03-05")).toBe(false);
   });
 });

@@ -178,9 +178,15 @@ export function SettlementForm({
   // Reference rate (group custom rate if set, else market rate as of the date).
   // `data` keeps the previous date's result while the new one loads, so nothing derived
   // from it is shown while `isFetching` (the ≈ line is a skeleton instead).
-  const { data: effectiveRate, isFetching: rateFetching } = useGetEffectiveRateQuery(
+  const {
+    data: effectiveRate,
+    currentData: currentRate,
+    isFetching,
+  } = useGetEffectiveRateQuery(
     isForeignCurrency ? { groupId, base: currency, date: ymd(settledDate) } : skipToken,
   );
+  // Only a load for a NEW date counts; a background refresh of the same date keeps the value.
+  const rateFetching = isFetching && currentRate === undefined;
   const [createSettlement] = useCreateSettlementMutation();
   const [updateSettlement] = useUpdateSettlementMutation();
   const [deleteSettlement] = useDeleteSettlementMutation();
@@ -366,12 +372,14 @@ export function SettlementForm({
                         placeholder={
                           effectiveRate?.rate != null && !rateFetching
                             ? `${effectiveRate.rate}（${rateSourceLabel(effectiveRate)}）`
-                            : ""
+                            : rateFetching
+                              ? ""
+                              : "無法取得匯率，請手動輸入"
                         }
                         {...field}
                       />
                     </FormControl>
-                    {!usingCustom && rateFetching && (
+                    {field.value === "" && rateFetching && (
                       <Skeleton className="pointer-events-none absolute left-3 top-1/2 h-4 w-20 -translate-y-1/2" />
                     )}
                   </div>

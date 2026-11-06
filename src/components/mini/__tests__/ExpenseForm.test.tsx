@@ -296,6 +296,14 @@ describe("ExpenseForm: editing", () => {
     expect(await screen.findByPlaceholderText("0.22（群組自訂匯率）")).toHaveValue(null);
   });
 
+  it("asks for a typed rate when no rate could be found", async () => {
+    renderForm(
+      { initial: initial({ currency: "JPY" }) },
+      { [RATE_PATH]: { rate: null, source: null, marketRate: null } },
+    );
+    expect(await screen.findByPlaceholderText("無法取得匯率，請手動輸入")).toHaveValue(null);
+  });
+
   it("keeps a rate pinned against the current default currency when saving", async () => {
     const w = writes({ ok: true });
     renderForm(

@@ -157,6 +157,18 @@ export function spentAtForNow(now: Date = new Date()): Date {
 }
 
 /**
+ * Whether a fetched rate may be stored under the requested day. A past day is final
+ * (the dated URL answers a weekend with the previous business day, which is exactly
+ * what that day should keep). Today is cached only when the API's "latest" really is
+ * today's: if it lags a day, caching it would freeze yesterday's rate as today's.
+ * A day that hasn't happened yet is never cached. Pure so it can be unit-tested.
+ */
+export function cacheableRateDay(dateStr: string, today: string, apiDate: string): boolean {
+  if (dateStr < today) return true;
+  return dateStr === today && apiDate === today;
+}
+
+/**
  * Resolve a rate to convert `base` into `quote` on a given date.
  *
  * Lookup strategy:
@@ -168,8 +180,7 @@ export function spentAtForNow(now: Date = new Date()): Date {
  *      rate by the API; storing it under the day that was asked for keeps one
  *      permanent answer per (pair, day), so a record's converted amount can't
  *      change because some other record happened to populate a nearby day.
- *      A day that hasn't happened yet is fetched but not cached (today's
- *      "latest" is not that day's rate yet).
+ *      See `cacheableRateDay` for when the fetched rate is not stored.
  */
 export async function getRate(
   base: string,
@@ -210,7 +221,7 @@ export async function getRate(
   const data = (await res.json()) as FxResponse;
   const rate = parseFxResponse(data, b, q);
 
-  if (dateStr <= today) {
+  if (cacheableRateDay(dateStr, today, data.date)) {
     await db
       .insert(exchangeRates)
       .values({ base: b, quote: q, rate: rate.toString(), asOfDate: dateStr })
