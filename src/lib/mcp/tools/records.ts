@@ -4,7 +4,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses } from "@/db/schema";
-import type { AppAuth } from "@/lib/auth/mcp";
+import type { McpAuth } from "@/lib/auth/mcp";
 import { encodeExpenseCursor, EXPENSES_PAGE_SIZE, parseExpenseCursor } from "@/lib/expense-cursor";
 import { n } from "@/lib/money";
 import { daySchema, idSchema } from "@/lib/zod";
@@ -69,7 +69,7 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-export function registerRecordTools(server: McpServer, auth: AppAuth) {
+export function registerRecordTools(server: McpServer, auth: McpAuth) {
   server.registerTool(
     "list_records",
     {

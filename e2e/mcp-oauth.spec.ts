@@ -93,7 +93,7 @@ test.describe("MCP OAuth", () => {
     });
     // Approving alone creates no connection.
     const before = await dbPool.query(
-      "SELECT 1 FROM app_connections WHERE user_id=$1 AND kind='oauth'",
+      "SELECT 1 FROM mcp_connections WHERE user_id=$1 AND kind='oauth'",
       [seeded.userId],
     );
     expect(before.rowCount).toBe(0);
@@ -133,7 +133,7 @@ test.describe("MCP OAuth", () => {
     expect(tokens.expires_in).toBe(3600);
 
     const conn = await dbPool.query(
-      "SELECT id, name, kind, access, group_ids, token_hash FROM app_connections WHERE user_id=$1 AND kind='oauth' AND revoked_at IS NULL",
+      "SELECT id, name, kind, access, group_ids, token_hash FROM mcp_connections WHERE user_id=$1 AND kind='oauth' AND revoked_at IS NULL",
       [seeded.userId],
     );
     expect(conn.rows).toHaveLength(1);

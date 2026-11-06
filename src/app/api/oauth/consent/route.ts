@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { groupMembers, groups } from "@/db/schema";
-import { assertMemberOfAll } from "@/lib/app-connections-db";
+import { assertMemberOfAll } from "@/lib/mcp-connections-db";
 import { getAuth } from "@/lib/auth";
 import { BadRequestError, ForbiddenError } from "@/lib/auth/errors";
 import { withAuth } from "@/lib/auth/route";

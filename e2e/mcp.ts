@@ -15,7 +15,7 @@ export async function mkToken(
 ) {
   const token = generateToken();
   const { rows } = await dbPool.query(
-    `INSERT INTO app_connections (user_id, kind, name, token_hash, token_prefix, access, all_groups, group_ids)
+    `INSERT INTO mcp_connections (user_id, kind, name, token_hash, token_prefix, access, all_groups, group_ids)
      VALUES ($1,'token',$7,$2,$3,$4,$5,$6) RETURNING id`,
     [
       userId,

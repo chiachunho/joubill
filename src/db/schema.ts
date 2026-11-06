@@ -430,7 +430,7 @@ export const recordAuditLog = pgTable(
      * log outlives the connection (connections are revoked, not deleted, so the
      * name normally stays readable).
      */
-    appConnectionId: integer("app_connection_id").references((): AnyPgColumn => appConnections.id, {
+    mcpConnectionId: integer("mcp_connection_id").references((): AnyPgColumn => mcpConnections.id, {
       onDelete: "set null",
     }),
     /** RecordSnapshot; NULL on 'created'. */
@@ -564,8 +564,8 @@ export const rateLimitHits = pgTable(
  * stored, so a database leak can't be replayed; `token_prefix` is for display.
  * A revoked connection keeps its row so audit entries can still name it.
  */
-export const appConnections = pgTable(
-  "app_connections",
+export const mcpConnections = pgTable(
+  "mcp_connections",
   {
     id: serial("id").primaryKey(),
     userId: integer("user_id")
@@ -593,7 +593,7 @@ export const appConnections = pgTable(
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("app_connections_user_idx").on(t.userId)],
+  (t) => [index("mcp_connections_user_idx").on(t.userId)],
 );
 
 /**
@@ -638,7 +638,7 @@ export const oauthCodes = pgTable(
       .default(sql`'{}'::integer[]`),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
-    connectionId: integer("connection_id").references(() => appConnections.id, {
+    connectionId: integer("connection_id").references(() => mcpConnections.id, {
       onDelete: "set null",
     }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -653,7 +653,7 @@ export const oauthTokens = pgTable(
     id: serial("id").primaryKey(),
     connectionId: integer("connection_id")
       .notNull()
-      .references(() => appConnections.id, { onDelete: "cascade" }),
+      .references(() => mcpConnections.id, { onDelete: "cascade" }),
     /** 'access' | 'refresh' */
     kind: varchar("kind", { length: 8 }).notNull(),
     tokenHash: text("token_hash").notNull().unique(),
@@ -670,24 +670,24 @@ export const oauthTokens = pgTable(
  * original record instead of a second one. `record_id` is NULL while the first call is
  * still running. Rows older than 24 h are ignored and swept on use.
  */
-export const appIdempotency = pgTable(
-  "app_idempotency",
+export const mcpIdempotency = pgTable(
+  "mcp_idempotency",
   {
     id: serial("id").primaryKey(),
     connectionId: integer("connection_id")
       .notNull()
-      .references(() => appConnections.id, { onDelete: "cascade" }),
+      .references(() => mcpConnections.id, { onDelete: "cascade" }),
     key: varchar("key", { length: 128 }).notNull(),
     recordId: integer("record_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    unique("app_idempotency_key_uniq").on(t.connectionId, t.key),
-    index("app_idempotency_created_idx").on(t.createdAt),
+    unique("mcp_idempotency_key_uniq").on(t.connectionId, t.key),
+    index("mcp_idempotency_created_idx").on(t.createdAt),
   ],
 );
 
-export type AppConnection = typeof appConnections.$inferSelect;
+export type McpConnection = typeof mcpConnections.$inferSelect;
 export type OauthClient = typeof oauthClients.$inferSelect;
 
 /**

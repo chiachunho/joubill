@@ -26,7 +26,7 @@ import { UnauthorizedError } from "@/lib/auth/errors";
 
 const mcpAuth = vi.hoisted(() => ({ authed: false }));
 vi.mock("@/lib/auth/mcp", () => ({
-  getAppAuth: vi.fn(async () => {
+  getMcpAuth: vi.fn(async () => {
     if (!mcpAuth.authed) throw new UnauthorizedError("invalid, revoked or expired token");
     return {
       user: { id: 1 },

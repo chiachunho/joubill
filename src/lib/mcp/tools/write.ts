@@ -8,7 +8,7 @@ import { parseMcpAmount } from "@/lib/mcp-amount";
 import { bindKey, claimKey, duplicateSince, releaseKey } from "@/lib/mcp-idempotency";
 import { describeUnresolved, resolveMember } from "@/lib/mcp-names";
 import { buildExpenseInput, type McpPayer, type McpSplit } from "@/lib/mcp-split";
-import type { AppAuth } from "@/lib/auth/mcp";
+import type { McpAuth } from "@/lib/auth/mcp";
 import { todayIn } from "@/lib/day";
 import { createExpense, createSettlement } from "@/lib/records";
 import {
@@ -116,16 +116,16 @@ export function resolveCurrency(
   return currency as SupportedCurrency;
 }
 
-export const mcpActor = (auth: AppAuth) => ({
+export const mcpActor = (auth: McpAuth) => ({
   userId: auth.user.id,
   source: "mcp" as const,
-  appConnectionId: auth.grant.connectionId,
+  mcpConnectionId: auth.grant.connectionId,
 });
 
 type Reservation = { release: () => Promise<void>; bind: (id: number) => Promise<void> };
 
 /** Handles `idempotencyKey`; returns an early result for a repeat, else a reservation. */
-async function reserve(auth: AppAuth, key: string | undefined) {
+async function reserve(auth: McpAuth, key: string | undefined) {
   if (!key) return { reservation: null as Reservation | null };
   const connId = auth.grant.connectionId;
   const claim = await claimKey(connId, key);
@@ -148,7 +148,7 @@ async function reserve(auth: AppAuth, key: string | undefined) {
   };
 }
 
-export function registerWriteTools(server: McpServer, auth: AppAuth) {
+export function registerWriteTools(server: McpServer, auth: McpAuth) {
   server.registerTool(
     "add_expense",
     {

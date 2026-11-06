@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { ChevronRight, Copy, Check, Plus, Sparkles } from "lucide-react";
 
-import { AppConnectionDialog } from "@/components/mini/AppConnectionDialog";
+import { McpConnectionDialog } from "@/components/mini/McpConnectionDialog";
 import { CreateAppTokenDialog } from "@/components/mini/CreateAppTokenDialog";
 import { LinkedAppsSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
-import { connectionStatus } from "@/lib/app-connection-input";
+import { connectionStatus } from "@/lib/mcp-connection-input";
 import {
   ACCESS_LABEL,
   expiryLabel,
@@ -20,7 +20,7 @@ import {
 import { describeError } from "@/lib/api-error";
 import { appUrl, MCP_HELP_PATH } from "@/lib/help-url";
 import { cn } from "@/lib/utils";
-import { useGetAppConnectionsQuery, useGetMeQuery } from "@/store/api";
+import { useGetMcpConnectionsQuery, useGetMeQuery } from "@/store/api";
 
 /** The MCP endpoint people paste into Claude, ChatGPT, Cursor or n8n. */
 const MCP_PATH = "/api/mcp";
@@ -34,7 +34,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
   const back = `${platform.basePath}/settings`;
   platform.useBack(back);
 
-  const { data, error } = useGetAppConnectionsQuery();
+  const { data, error } = useGetMcpConnectionsQuery();
   const { data: me } = useGetMeQuery();
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
   const [creating, setCreating] = useState(false);
@@ -175,7 +175,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
 
       <CreateAppTokenDialog open={creating} onOpenChange={setCreating} groups={groups} />
       {open && (
-        <AppConnectionDialog
+        <McpConnectionDialog
           key={open.id}
           connection={open}
           groups={groups}

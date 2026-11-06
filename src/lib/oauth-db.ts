@@ -4,13 +4,13 @@ import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
-  appConnections,
+  mcpConnections,
   oauthClients,
   oauthCodes,
   oauthTokens,
   type OauthClient,
 } from "@/db/schema";
-import { MAX_APP_CONNECTIONS } from "@/lib/app-connection-input";
+import { MAX_APP_CONNECTIONS } from "@/lib/mcp-connection-input";
 import { BadRequestError } from "@/lib/auth/errors";
 import { hashToken } from "@/lib/mcp-token";
 import {
@@ -100,7 +100,7 @@ async function sweepUnusedClients(): Promise<void> {
     .where(
       and(
         lt(oauthClients.createdAt, sql`now() - make_interval(days => ${UNUSED_CLIENT_DAYS})`),
-        sql`not exists (select 1 from ${appConnections} where ${appConnections.oauthClientId} = ${oauthClients.id})`,
+        sql`not exists (select 1 from ${mcpConnections} where ${mcpConnections.oauthClientId} = ${oauthClients.id})`,
         sql`not exists (select 1 from ${oauthCodes} where ${oauthCodes.clientId} = ${oauthClients.id} and ${oauthCodes.expiresAt} > now())`,
       ),
     );
@@ -216,12 +216,12 @@ export async function createCode(
 ): Promise<string> {
   const [{ n }] = await db
     .select({ n: sql<number>`count(*)::int` })
-    .from(appConnections)
+    .from(mcpConnections)
     .where(
       and(
-        eq(appConnections.userId, userId),
-        isNull(appConnections.revokedAt),
-        sql`${appConnections.oauthClientId} is distinct from ${req.client.id}`,
+        eq(mcpConnections.userId, userId),
+        isNull(mcpConnections.revokedAt),
+        sql`${mcpConnections.oauthClientId} is distinct from ${req.client.id}`,
       ),
     );
   if (n >= MAX_APP_CONNECTIONS) {
@@ -303,9 +303,9 @@ async function issueTokens(connectionId: number, access: Access): Promise<TokenR
 
 async function revokeConnection(connectionId: number): Promise<void> {
   await db
-    .update(appConnections)
+    .update(mcpConnections)
     .set({ revokedAt: new Date() })
-    .where(and(eq(appConnections.id, connectionId), isNull(appConnections.revokedAt)));
+    .where(and(eq(mcpConnections.id, connectionId), isNull(mcpConnections.revokedAt)));
 }
 
 /** `grant_type=authorization_code`. The code is claimed first, so it can be used only once. */
@@ -346,18 +346,18 @@ export async function exchangeCode(
 
   // Authorizing the same client again replaces its earlier connection instead of piling up.
   await db
-    .update(appConnections)
+    .update(mcpConnections)
     .set({ revokedAt: new Date() })
     .where(
       and(
-        eq(appConnections.userId, row.userId),
-        eq(appConnections.oauthClientId, client.id),
-        isNull(appConnections.revokedAt),
+        eq(mcpConnections.userId, row.userId),
+        eq(mcpConnections.oauthClientId, client.id),
+        isNull(mcpConnections.revokedAt),
       ),
     );
   const access: Access = row.access === "write" ? "write" : "read";
   const [conn] = await db
-    .insert(appConnections)
+    .insert(mcpConnections)
     .values({
       userId: row.userId,
       kind: "oauth",
@@ -369,7 +369,7 @@ export async function exchangeCode(
       allGroups: row.allGroups,
       groupIds: row.groupIds,
     })
-    .returning({ id: appConnections.id });
+    .returning({ id: mcpConnections.id });
   await db.update(oauthCodes).set({ connectionId: conn.id }).where(eq(oauthCodes.id, row.id));
   return issueTokens(conn.id, access);
 }
@@ -381,9 +381,9 @@ export async function refreshTokens(
 ): Promise<TokenResponse> {
   if (!refreshToken) throw new OauthGrantError("invalid_request", "refresh_token is required");
   const [row] = await db
-    .select({ token: oauthTokens, conn: appConnections })
+    .select({ token: oauthTokens, conn: mcpConnections })
     .from(oauthTokens)
-    .innerJoin(appConnections, eq(appConnections.id, oauthTokens.connectionId))
+    .innerJoin(mcpConnections, eq(mcpConnections.id, oauthTokens.connectionId))
     .where(
       and(eq(oauthTokens.tokenHash, hashToken(refreshToken)), eq(oauthTokens.kind, "refresh")),
     );
@@ -412,9 +412,9 @@ export async function refreshTokens(
 /** RFC 7009: revokes the connection a presented token belongs to. Unknown tokens are fine. */
 export async function revokeByToken(client: OauthClient, token: string): Promise<void> {
   const [row] = await db
-    .select({ connectionId: oauthTokens.connectionId, clientId: appConnections.oauthClientId })
+    .select({ connectionId: oauthTokens.connectionId, clientId: mcpConnections.oauthClientId })
     .from(oauthTokens)
-    .innerJoin(appConnections, eq(appConnections.id, oauthTokens.connectionId))
+    .innerJoin(mcpConnections, eq(mcpConnections.id, oauthTokens.connectionId))
     .where(eq(oauthTokens.tokenHash, hashToken(token)));
   if (row && row.clientId === client.id) await revokeConnection(row.connectionId);
 }

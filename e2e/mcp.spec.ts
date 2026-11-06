@@ -58,11 +58,11 @@ test.describe("MCP server", () => {
     expect(mine?.amount).toBe(650);
 
     const audit = await dbPool.query(
-      "SELECT source, app_connection_id FROM record_audit_log WHERE record_id=$1",
+      "SELECT source, mcp_connection_id FROM record_audit_log WHERE record_id=$1",
       [recordId],
     );
     expect(audit.rows[0].source).toBe("mcp");
-    expect(audit.rows[0].app_connection_id).not.toBeNull();
+    expect(audit.rows[0].mcp_connection_id).not.toBeNull();
   });
 
   test("an unknown name is refused with candidates and writes nothing", async ({
@@ -145,12 +145,12 @@ test.describe("MCP server", () => {
   }) => {
     const revoked = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
     expect((await rpc(request, revoked.token, "tools/list")).status()).toBe(200);
-    await dbPool.query("UPDATE app_connections SET revoked_at = now() WHERE id=$1", [revoked.id]);
+    await dbPool.query("UPDATE mcp_connections SET revoked_at = now() WHERE id=$1", [revoked.id]);
     expect((await rpc(request, revoked.token, "tools/list")).status()).toBe(401);
 
     const expired = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
     await dbPool.query(
-      "UPDATE app_connections SET expires_at = now() - interval '1 minute' WHERE id=$1",
+      "UPDATE mcp_connections SET expires_at = now() - interval '1 minute' WHERE id=$1",
       [expired.id],
     );
     expect((await rpc(request, expired.token, "tools/list")).status()).toBe(401);
@@ -203,7 +203,7 @@ test.describe("MCP server", () => {
     request,
   }) => {
     const api = authedPage.request;
-    const created = await api.post("/api/me/app-connections", {
+    const created = await api.post("/api/me/mcp-connections", {
       data: { name: "E2E laptop", access: "read", allGroups: false, groupIds: [seeded.groupId] },
     });
     expect(created.status()).toBe(201);
@@ -214,7 +214,7 @@ test.describe("MCP server", () => {
     expect(token).toMatch(/^sbk_/);
     expect(connection.tokenHash).toBeUndefined();
 
-    const listed = (await (await api.get("/api/me/app-connections")).json()) as {
+    const listed = (await (await api.get("/api/me/mcp-connections")).json()) as {
       connections: { id: number; name: string }[];
     };
     expect(JSON.stringify(listed)).not.toContain(token);
@@ -222,14 +222,14 @@ test.describe("MCP server", () => {
     expect((await rpc(request, token, "tools/list")).status()).toBe(200);
 
     // A group the user isn't in can't be put in a token's scope.
-    const bad = await api.post("/api/me/app-connections", {
+    const bad = await api.post("/api/me/mcp-connections", {
       data: { name: "x", access: "read", allGroups: false, groupIds: [seeded.foreignGroupId] },
     });
     expect(bad.status()).toBe(400);
 
-    expect((await api.delete(`/api/me/app-connections/${connection.id}`)).status()).toBe(200);
+    expect((await api.delete(`/api/me/mcp-connections/${connection.id}`)).status()).toBe(200);
     expect((await rpc(request, token, "tools/list")).status()).toBe(401);
-    expect((await api.delete(`/api/me/app-connections/${connection.id}`)).status()).toBe(404);
+    expect((await api.delete(`/api/me/mcp-connections/${connection.id}`)).status()).toBe(404);
   });
 
   test("update_record changes only what was sent, and a stale read is a conflict", async ({
@@ -325,11 +325,11 @@ test.describe("MCP server", () => {
     expect(gone.structuredContent).toMatchObject({ status: "deleted", recordId });
     expect((await dbPool.query("SELECT 1 FROM expenses WHERE id=$1", [recordId])).rowCount).toBe(0);
     const audit = await dbPool.query(
-      "SELECT source, app_connection_id FROM record_audit_log WHERE record_id=$1 AND action='deleted'",
+      "SELECT source, mcp_connection_id FROM record_audit_log WHERE record_id=$1 AND action='deleted'",
       [recordId],
     );
     expect(audit.rows[0].source).toBe("mcp");
-    expect(audit.rows[0].app_connection_id).not.toBeNull();
+    expect(audit.rows[0].mcp_connection_id).not.toBeNull();
 
     const again = await call(request, token, "delete_record", {
       groupId: seeded.groupId,

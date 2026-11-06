@@ -8,13 +8,13 @@ group message and push as any other.
 
 Stateless Streamable HTTP with the SDK's web-standard transport (`sessionIdGenerator:
 undefined`, `enableJsonResponse: true`). A new `McpServer` is built per request
-(`src/lib/mcp/server.ts`), closed over the caller's `AppAuth`. `GET` and `DELETE` answer
+(`src/lib/mcp/server.ts`), closed over the caller's `McpAuth`. `GET` and `DELETE` answer
 405: there is no session to stream to, and an open SSE stream would pin an invocation.
 
 ## Identity
 
-`getAppAuth` (`src/lib/auth/mcp.ts`) accepts only `Authorization: Bearer sbk_…`, hashes
-it (`src/lib/mcp-token.ts`, sha256) and looks the hash up in `app_connections`. Revocation
+`getMcpAuth` (`src/lib/auth/mcp.ts`) accepts only `Authorization: Bearer sbk_…`, hashes
+it (`src/lib/mcp-token.ts`, sha256) and looks the hash up in `mcp_connections`. Revocation
 and expiry are checked **every call**. A 401 carries `WWW-Authenticate: Bearer`.
 **`getAuth` does not accept these tokens**, so REST stays closed to linked applications and a token can't
 manage tokens (`mcp-token-not-session.test.ts`).
@@ -45,11 +45,11 @@ Claude.ai and ChatGPT can't send a custom header, so `/api/mcp` is also an OAuth
   `sanitizeClientName` cleans it, and the consent page prints the redirect host. Registration is rate
   limited per address, capped (`MAX_CLIENTS`), and unused old clients are swept.
 - **The grant travels in the code** (`oauth_codes`: 10 min, single use, claimed with an atomic
-  `used_at`). The `app_connections` row (`kind = 'oauth'`, `token_hash` NULL) is created when the code
+  `used_at`). The `mcp_connections` row (`kind = 'oauth'`, `token_hash` NULL) is created when the code
   is **exchanged**, so an abandoned approval leaves nothing in 連結的應用程式. Authorizing the same
   client again revokes its previous connection. A replayed code revokes what it produced.
 - **Tokens** (`oauth_tokens`, hashes only): access `sbo_…` 1 h, refresh `sbr_…` 90 d. Refresh rotates;
-  presenting a spent refresh token revokes the connection. `getAppAuth` takes an `sbk_` token or an
+  presenting a spent refresh token revokes the connection. `getMcpAuth` takes an `sbk_` token or an
   `sbo_` access token and returns the same `Grant`, so no tool changes. Revoking in settings,
   `/api/oauth/revoke` and leaving a group all end access through the usual checks.
 - Scopes `records:read` / `records:write` only cap what the consent page offers; the group scope and
@@ -59,14 +59,14 @@ Claude.ai and ChatGPT can't send a custom header, so `/api/mcp` is also an OAuth
 
 ## Connections
 
-`app_connections` stores the hash and a display prefix, never the token. `POST
-/api/me/app-connections` returns the plaintext once. `DELETE …/[id]` sets `revoked_at`; the
-row stays so `record_audit_log.app_connection_id` (`ON DELETE SET NULL`) keeps a name. At
-most 20 live connections per user. `mergeAccounts` moves `app_connections.user_id`.
+`mcp_connections` stores the hash and a display prefix, never the token. `POST
+/api/me/mcp-connections` returns the plaintext once. `DELETE …/[id]` sets `revoked_at`; the
+row stays so `record_audit_log.mcp_connection_id` (`ON DELETE SET NULL`) keeps a name. At
+most 20 live connections per user. `mergeAccounts` moves `mcp_connections.user_id`.
 `PATCH …/[id]` changes only the permission and the group scope (`updateConnectionSchema`: `allGroups` and
 `groupIds` travel together); never the name, which audit entries quote, nor the expiry, since a
 longer one is a new token. A revoked connection answers 404. The client side is the
-`AppConnections` tag in `src/store/api.ts` (issue #150).
+`McpConnections` tag in `src/store/api.ts` (issue #150).
 
 ## Tools
 
@@ -100,7 +100,7 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
 - `add_expense` amounts accept the bot's `/add` grammar (`parseMcpAmount`); splits are built
   by the pure `buildExpenseInput` and still pass `expenseInputSchema`, so sums can't drift from
   the forms. `dryRun` previews and counts against the read bucket.
-- **Idempotency** (`app_idempotency`, `UNIQUE(connection_id, key)`, 24 h): the insert is the
+- **Idempotency** (`mcp_idempotency`, `UNIQUE(connection_id, key)`, 24 h): the insert is the
   lock. A repeat returns `status: "duplicate"` with the original `recordId`; a repeat while
   the first call runs is `in_progress`. A failed or held call releases its key.
 - **Possible duplicates**: same group, amount, currency and sole payer within 10 minutes is
@@ -114,7 +114,7 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
 
 A person's own entry says nothing; a linked application's says so everywhere the record shows up. The
 source is **derived from the audit log**: `loadCreatedVia` (`src/lib/record-via.ts`) joins the
-record's `created` row (`source = 'mcp'`) to `app_connections.name`, so there is no second
+record's `created` row (`source = 'mcp'`) to `mcp_connections.name`, so there is no second
 copy on `expenses` to drift. `ActivityEntry.via` does the same join per row for edits.
 
 - Group card and settlement notice: `✦ 小明 透過 Claude 記錄` (`formatMcpLine`), under the

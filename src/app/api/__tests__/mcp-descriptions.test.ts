@@ -10,7 +10,7 @@ vi.mock("@/db", () => ({
 }));
 vi.mock("@/lib/rate-limit", () => ({ enforceMcpRateLimit: vi.fn() }));
 vi.mock("@/lib/auth/mcp", () => ({
-  getAppAuth: vi.fn(async () => ({
+  getMcpAuth: vi.fn(async () => ({
     user: { id: 1 },
     grant: { connectionId: 1, access: "write", allGroups: true, groupIds: [] },
   })),

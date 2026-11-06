@@ -1,7 +1,7 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { NextResponse } from "next/server";
 
-import { getAppAuth } from "@/lib/auth/mcp";
+import { getMcpAuth } from "@/lib/auth/mcp";
 import { HttpError } from "@/lib/auth/errors";
 import { createMcpServer } from "@/lib/mcp/server";
 import { metadataUrl } from "@/lib/oauth-http";
@@ -21,7 +21,7 @@ const challenge = (hadToken: boolean) =>
 async function handle(req: Request): Promise<Response> {
   let auth;
   try {
-    auth = await getAppAuth(req);
+    auth = await getMcpAuth(req);
   } catch (err) {
     if (err instanceof HttpError) {
       return NextResponse.json(

@@ -4,7 +4,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { db } from "@/db";
 import { expenses } from "@/db/schema";
-import type { AppAuth } from "@/lib/auth/mcp";
+import type { McpAuth } from "@/lib/auth/mcp";
 import { HttpError } from "@/lib/auth/errors";
 import { carryOverPayers, carryOverSplit, sameInstantIso } from "@/lib/mcp-edit";
 import { parseMcpAmount } from "@/lib/mcp-amount";
@@ -56,7 +56,7 @@ async function asConflict(
   throw err;
 }
 
-export function registerEditTools(server: McpServer, auth: AppAuth) {
+export function registerEditTools(server: McpServer, auth: McpAuth) {
   server.registerTool(
     "update_record",
     {
