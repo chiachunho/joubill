@@ -1,4 +1,4 @@
-import { and, desc, eq, lte } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { exchangeRates, groupExchangeRates, groups } from "@/db/schema";
@@ -131,9 +131,6 @@ export async function resolveRecordFx(
   return fxColumnsFor(group.defaultCurrency, currency, fxRate);
 }
 
-/** Calendar days a cached market rate may trail the requested date and still be used. */
-export const FX_CACHE_MAX_AGE_DAYS = 7;
-
 /**
  * The zone in which "which day is this record on" is decided. Fixed, so the answer
  * doesn't depend on where the code runs. A record's `spent_at` is UTC noon of its
@@ -159,71 +156,48 @@ export function spentAtForNow(now: Date = new Date()): Date {
   return new Date(`${fxDateKey(now)}T12:00:00Z`);
 }
 
-function dayNumber(ymd: string): number {
-  return Date.parse(`${ymd}T00:00:00Z`) / 86_400_000;
-}
-
 /**
- * Pick the cached row to use for `dateStr`: the newest one on or before it, and only
- * when it is at most `maxAgeDays` older. The API answers a weekend or holiday with
- * the previous business day, so some slack is needed, but unbounded slack makes a
- * rate cached months ago match every later date. Pure so it can be unit-tested.
- */
-export function pickCachedRate<T extends { asOfDate: string }>(
-  rows: T[],
-  dateStr: string,
-  maxAgeDays: number = FX_CACHE_MAX_AGE_DAYS,
-): T | null {
-  const target = dayNumber(dateStr);
-  let best: T | null = null;
-  for (const row of rows) {
-    const age = target - dayNumber(row.asOfDate);
-    if (age < 0 || age > maxAgeDays) continue;
-    if (!best || row.asOfDate > best.asOfDate) best = row;
-  }
-  return best;
-}
-
-/**
- * Resolve a rate to convert `base` into `quote` on a given date, together with the
- * day the rate is actually from (`null` for a group custom rate, which has none).
+ * Resolve a rate to convert `base` into `quote` on a given date.
  *
  * Lookup strategy:
  *   1. Group custom rate from `overrides` (date-independent — the group agreed
  *      on one fixed rate), when provided.
- *   2. Cached rate from the last FX_CACHE_MAX_AGE_DAYS days up to the date (see
- *      `pickCachedRate`).
- *   3. Otherwise fetch that day from the API, cache by the API's response date.
+ *   2. The cached rate for exactly that day (`exchange_rates`, global).
+ *   3. Otherwise fetch that day from the API and cache it under the REQUESTED
+ *      day. A weekend or holiday is answered with the previous business day's
+ *      rate by the API; storing it under the day that was asked for keeps one
+ *      permanent answer per (pair, day), so a record's converted amount can't
+ *      change because some other record happened to populate a nearby day.
+ *      A day that hasn't happened yet is fetched but not cached (today's
+ *      "latest" is not that day's rate yet).
  */
-export async function getRateWithDate(
+export async function getRate(
   base: string,
   quote: string,
   date: Date,
   overrides?: RateOverrides,
-): Promise<{ rate: number; asOfDate: string | null }> {
+): Promise<number> {
   const b = base.toUpperCase();
   const q = quote.toUpperCase();
-  if (b === q) return { rate: 1, asOfDate: null };
+  if (b === q) return 1;
 
   const override = overrides?.get(overrideKey(b, q));
-  if (override != null) return { rate: override, asOfDate: null };
+  if (override != null) return override;
 
   const dateStr = fxDateKey(date);
 
   const [cached] = await db
-    .select({ rate: exchangeRates.rate, asOfDate: exchangeRates.asOfDate })
+    .select({ rate: exchangeRates.rate })
     .from(exchangeRates)
     .where(
       and(
         eq(exchangeRates.base, b),
         eq(exchangeRates.quote, q),
-        lte(exchangeRates.asOfDate, dateStr),
+        eq(exchangeRates.asOfDate, dateStr),
       ),
     )
-    .orderBy(desc(exchangeRates.asOfDate))
     .limit(1);
-  const hit = pickCachedRate(cached ? [cached] : [], dateStr);
-  if (hit) return { rate: n(hit.rate), asOfDate: hit.asOfDate };
+  if (cached) return n(cached.rate);
 
   const today = fxDateKey(new Date());
   const datePath = dateStr >= today ? "latest" : dateStr;
@@ -236,27 +210,14 @@ export async function getRateWithDate(
   const data = (await res.json()) as FxResponse;
   const rate = parseFxResponse(data, b, q);
 
-  await db
-    .insert(exchangeRates)
-    .values({
-      base: b,
-      quote: q,
-      rate: rate.toString(),
-      asOfDate: data.date,
-    })
-    .onConflictDoNothing();
+  if (dateStr <= today) {
+    await db
+      .insert(exchangeRates)
+      .values({ base: b, quote: q, rate: rate.toString(), asOfDate: dateStr })
+      .onConflictDoNothing();
+  }
 
-  return { rate, asOfDate: data.date };
-}
-
-/** `getRateWithDate`, for callers that only need the number. */
-export async function getRate(
-  base: string,
-  quote: string,
-  date: Date,
-  overrides?: RateOverrides,
-): Promise<number> {
-  return (await getRateWithDate(base, quote, date, overrides)).rate;
+  return rate;
 }
 
 /**

@@ -54,33 +54,32 @@ test.describe("Market rate follows the record's date", () => {
     }
   });
 
-  test("the rate hint names the day the market rate is from", async ({
-    authedPage,
-    seeded,
-    dbPool,
-  }) => {
+  test("the rate hint follows the chosen date", async ({ authedPage, seeded, dbPool }) => {
+    const days = [DAY_A, DAY_B];
+    const clear = () =>
+      dbPool.query(
+        "DELETE FROM exchange_rates WHERE base = 'JPY' AND quote = 'TWD' AND as_of_date = ANY($1::date[])",
+        [days],
+      );
+    await clear();
     await dbPool.query(
-      "DELETE FROM exchange_rates WHERE base = 'JPY' AND quote = 'TWD' AND as_of_date = $1",
-      [DAY_A],
-    );
-    await dbPool.query(
-      "INSERT INTO exchange_rates (base, quote, rate, as_of_date) VALUES ('JPY','TWD',$1,$2)",
-      [RATE_A, DAY_A],
+      "INSERT INTO exchange_rates (base, quote, rate, as_of_date) VALUES ('JPY','TWD',$1,$2), ('JPY','TWD',$3,$4)",
+      [RATE_A, DAY_A, RATE_B, DAY_B],
     );
     try {
-      // 2019-03-03 is a Sunday three days after the cached row.
-      const res = await authedPage.request.get(
-        `/api/groups/${seeded.groupId}/rates/effective?base=JPY&date=2019-03-03`,
-      );
-      expect(res.ok()).toBe(true);
-      const body = (await res.json()) as { marketRate: number; marketRateDate: string };
-      expect(body.marketRate).toBeCloseTo(RATE_A, 6);
-      expect(body.marketRateDate).toBe(DAY_A);
+      for (const [day, rate] of [
+        [DAY_A, RATE_A],
+        [DAY_B, RATE_B],
+      ] as const) {
+        const res = await authedPage.request.get(
+          `/api/groups/${seeded.groupId}/rates/effective?base=JPY&date=${day}`,
+        );
+        expect(res.ok()).toBe(true);
+        const body = (await res.json()) as { marketRate: number };
+        expect(body.marketRate).toBeCloseTo(rate, 6);
+      }
     } finally {
-      await dbPool.query(
-        "DELETE FROM exchange_rates WHERE base = 'JPY' AND quote = 'TWD' AND as_of_date = $1",
-        [DAY_A],
-      );
+      await clear();
     }
   });
 });

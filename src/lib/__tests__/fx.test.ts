@@ -6,7 +6,6 @@ import {
   getRate,
   overrideKey,
   parseFxResponse,
-  pickCachedRate,
   pinnedRate,
   spentAtForNow,
 } from "../fx";
@@ -98,43 +97,6 @@ describe("pinnedRate", () => {
     expect(pinnedRate({ fxRate: null, fxQuote: null }, "TWD")).toBeNull();
     expect(pinnedRate({ fxRate: "0", fxQuote: "TWD" }, "TWD")).toBeNull();
     expect(pinnedRate({ fxRate: "-1", fxQuote: "TWD" }, "TWD")).toBeNull();
-  });
-});
-
-describe("pickCachedRate", () => {
-  const row = (asOfDate: string) => ({ asOfDate, rate: "1" });
-
-  it("uses a row from the same day", () => {
-    expect(pickCachedRate([row("2026-03-02")], "2026-03-02")?.asOfDate).toBe("2026-03-02");
-  });
-
-  it("uses Friday's rate for a Sunday", () => {
-    expect(pickCachedRate([row("2026-02-27")], "2026-03-01")?.asOfDate).toBe("2026-02-27");
-  });
-
-  it("accepts exactly the tolerance and rejects one day more", () => {
-    expect(pickCachedRate([row("2026-03-01")], "2026-03-08")).not.toBeNull();
-    expect(pickCachedRate([row("2026-03-01")], "2026-03-09")).toBeNull();
-  });
-
-  it("does not reuse a months-old rate for a later date", () => {
-    expect(pickCachedRate([row("2026-03-01")], "2026-11-04")).toBeNull();
-  });
-
-  it("ignores rows dated after the target", () => {
-    expect(pickCachedRate([row("2026-03-05")], "2026-03-01")).toBeNull();
-  });
-
-  it("prefers the newest eligible row", () => {
-    const got = pickCachedRate(
-      [row("2026-02-26"), row("2026-02-28"), row("2026-03-03")],
-      "2026-03-01",
-    );
-    expect(got?.asOfDate).toBe("2026-02-28");
-  });
-
-  it("counts days across a month and year boundary", () => {
-    expect(pickCachedRate([row("2025-12-30")], "2026-01-02")).not.toBeNull();
   });
 });
 

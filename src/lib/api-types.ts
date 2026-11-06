@@ -209,8 +209,6 @@ export type EffectiveRateResponse = {
   rate: number | null;
   source: string | null;
   marketRate: number | null;
-  /** The day `marketRate` is from (`YYYY-MM-DD`), which can trail the requested date. */
-  marketRateDate: string | null;
   /** Present only when the request asked for `counts`. */
   affectedExpenses?: number;
   affectedSettlements?: number;

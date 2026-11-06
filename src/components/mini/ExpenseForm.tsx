@@ -717,8 +717,8 @@ export function ExpenseForm(props: Props) {
                         className="num"
                         placeholder={
                           effectiveRate?.rate != null && !rateFetching
-                            ? `${effectiveRate.rate}（自動）`
-                            : "自動"
+                            ? `${effectiveRate.rate}（${rateSourceLabel(false, effectiveRate)}）`
+                            : "當日匯率"
                         }
                         {...field}
                       />
