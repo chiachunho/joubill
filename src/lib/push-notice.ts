@@ -1,3 +1,4 @@
+import { viaText } from "@/lib/agent-ui";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
 import type { PushAction } from "@/lib/push-plan";
@@ -31,6 +32,8 @@ export type PushNoticeInput = {
   before: RecordSnapshot | null;
   after: RecordSnapshot | null;
   actor: NoticePerson | null;
+  /** The AI assistant the actor worked through, when it was one (issue #150). */
+  via?: string | null;
   creatorId: number | null;
   recipientId: number;
 };
@@ -134,7 +137,8 @@ function deletedBody(input: PushNoticeInput, record: NoticeRecord, actorName: st
 export function formatPushNotice(input: PushNoticeInput): PushPayload | null {
   const record = input.after ?? input.before;
   if (!record) return null;
-  const actorName = labelUser(input.actor);
+  // 「小明 透過 Claude 記了…」: the same words as the group card.
+  const actorName = `${labelUser(input.actor)}${input.via ? ` ${viaText(input.via)}` : ""}`;
 
   let body: string;
   if (input.action === "created") {

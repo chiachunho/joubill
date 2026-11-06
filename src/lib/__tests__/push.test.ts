@@ -136,6 +136,21 @@ describe("formatPushNotice", () => {
     });
   });
 
+  it("says which AI assistant the actor worked through", () => {
+    expect(formatPushNotice(input({ via: "Claude" }))?.body).toBe(
+      "小明 透過 Claude 記了「燒肉晚餐」12,000 JPY，你分 4,000 JPY",
+    );
+    const edited = formatPushNotice(
+      input({
+        action: "updated",
+        before: expense(),
+        after: expense({ amount: 13000 }),
+        via: "Claude",
+      }),
+    );
+    expect(edited?.body).toContain("小明 透過 Claude 修改了");
+  });
+
   it("tells a payer who isn't splitting what they were recorded as paying", () => {
     const after = expense({
       payers: [{ user: hua, amount: 12000 }],

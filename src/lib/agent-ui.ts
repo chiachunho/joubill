@@ -69,3 +69,8 @@ export function sameScope(
   const y = [...b.groupIds].sort((p, q) => p - q);
   return x.length === y.length && x.every((v, i) => v === y[i]);
 }
+
+/** "透過 Claude": how every surface says a record came from an AI assistant. */
+export function viaText(name: string): string {
+  return `透過 ${name}`;
+}

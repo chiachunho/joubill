@@ -21,6 +21,7 @@ import {
   type RateLockPayload,
   type RecordSnapshot,
 } from "@/lib/record-audit";
+import { connectionName } from "@/lib/record-via";
 
 /**
  * The single way a record is created, changed or deleted.
@@ -251,7 +252,14 @@ export async function logDeleted(
     });
   }
 
-  if (api) await markNoticeDeleted(api, before, deleterOf(deleter));
+  if (api) {
+    await markNoticeDeleted(
+      api,
+      before,
+      deleterOf(deleter),
+      await connectionName(actor.agentConnectionId).catch(() => null),
+    );
+  }
   return before;
 }
 

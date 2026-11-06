@@ -6,6 +6,7 @@ import { expenseReceipts, expensePayers, expenseSplits, expenses } from "@/db/sc
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { n } from "@/lib/money";
+import { loadCreatedVia } from "@/lib/record-via";
 import { loadLastActivity } from "@/lib/record-history";
 import { deleteRecord, updateExpense } from "@/lib/records";
 import { resolveReceiptFileIds } from "@/lib/receipts";
@@ -69,7 +70,10 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     expense.receiptFileId,
   );
 
-  const lastActivity = await loadLastActivity(ids.eid);
+  const [lastActivity, createdVia] = await Promise.all([
+    loadLastActivity(ids.eid),
+    loadCreatedVia([ids.eid]),
+  ]);
 
   return NextResponse.json({
     id: expense.id,
@@ -77,6 +81,8 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     // attribution is what replaces the removed owner lock, so dropping it here
     // silently disables the feature (the form's type keeps this honest).
     createdBy: expense.createdBy,
+    // The AI assistant it was entered through, shown as 「由 X 透過 Claude 記錄」.
+    createdVia: createdVia.get(ids.eid) ?? null,
     // When they entered it. Distinct from spentAt, which is the date of the
     // expense itself and is already an editable field on the form.
     createdAt: expense.createdAt,
@@ -85,6 +91,7 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     lastActivity: lastActivity && {
       actorId: lastActivity.actor?.userId ?? null,
       at: lastActivity.at,
+      via: lastActivity.via,
     },
     amount: n(expense.amount),
     currency: expense.currency,

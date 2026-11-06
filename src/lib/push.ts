@@ -7,6 +7,7 @@ import { groupMembers, groups, pushSubscriptions, users } from "@/db/schema";
 import { formatPushNotice, recordPushTag, type PushPayload } from "@/lib/push-notice";
 import { pushRecipients, type PushAction } from "@/lib/push-plan";
 import type { RecordSnapshot } from "@/lib/record-audit";
+import { connectionName } from "@/lib/record-via";
 
 /**
  * Web Push delivery (issue #67). Called only from `src/lib/record-mutation.ts`, the layer every
@@ -122,7 +123,7 @@ export type RecordPushEvent = {
   before: RecordSnapshot | null;
   after: RecordSnapshot | null;
   creatorId: number | null;
-  actor: { userId: number };
+  actor: { userId: number; agentConnectionId?: number };
 };
 
 /** Notifies the people a record change touches (`pushRecipients`), in the background. */
@@ -139,7 +140,7 @@ export function queueRecordPush(event: RecordPushEvent): void {
 
   inBackground(async () => {
     // Three independent reads, so one round trip's wait instead of three.
-    const [[group], targets, [actor]] = await Promise.all([
+    const [[group], targets, [actor], via] = await Promise.all([
       db.select({ title: groups.title }).from(groups).where(eq(groups.id, event.groupId)),
       // Only current, unmuted members: someone removed from the group has no business
       // hearing about its records any more.
@@ -173,6 +174,7 @@ export function queueRecordPush(event: RecordPushEvent): void {
         })
         .from(users)
         .where(eq(users.id, event.actor.userId)),
+      connectionName(event.actor.agentConnectionId),
     ]);
     if (!group || targets.length === 0) return;
 
@@ -185,6 +187,7 @@ export function queueRecordPush(event: RecordPushEvent): void {
         before: event.before,
         after: event.after,
         actor: actor ?? null,
+        via,
         creatorId: event.creatorId,
         recipientId: target.userId,
       });

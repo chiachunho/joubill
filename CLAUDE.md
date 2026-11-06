@@ -183,6 +183,7 @@ Stateless Streamable HTTP over `@modelcontextprotocol/sdk`, authenticated by per
 - People are matched exactly within the group and never guessed (`agent-names.ts`).
 - A new column referencing `users.id` on connection tables is moved in `mergeAccounts` (`agent_connections` is).
 - The settings UI is `AgentsPage` (`src/components/pages/`, routes `/{mini,app}/settings/agents`, row in 個人設定 via `AgentsSection`). The forms start on the narrowest grant (唯讀, no group, no "all groups"); the token lives in `CreateAgentTokenDialog` state only; `PATCH` changes permission and scope, never name or expiry; wording and scope text come from `src/lib/agent-ui.ts`.
+- **Where an agent's record says so** (issue #150): the source is read from the audit log, not a column on `expenses` — `loadCreatedVia` (`src/lib/record-via.ts`) joins the `created` row to `agent_connections`. `LoadedNotice.createdVia` feeds the settlement notice and the tombstone, `loadCard` feeds `renderCard` (the "✦ 小明 透過 Claude 記錄" line, kept in every `CardMode`), the record GET endpoints return `createdVia` / `lastActivity.via` (required on the forms' `Initial`), and `queueRecordPush` adds the connection name to the actor. Wording is `viaText` / `formatAgentLine`; a connection is revoked, never deleted, so its name outlives it.
 
 ### Help site (`src/app/help/`)
 

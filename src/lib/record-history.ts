@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { recordAuditLog, users } from "@/db/schema";
+import { agentConnections, recordAuditLog, users } from "@/db/schema";
 import {
   diffRecords,
   isGroupEventPayload,
@@ -35,6 +35,8 @@ export type ActivityEntry = {
   /** ISO timestamp. */
   at: string;
   actor: ActivityActor | null;
+  /** The AI assistant the actor worked through (issue #150), or null for a person's own change. */
+  via: string | null;
   /** NULL for group-level events. */
   recordId: number | null;
   recordType: string;
@@ -78,6 +80,7 @@ type Row = {
   actorFirstName: string | null;
   actorLastName: string | null;
   actorUsername: string | null;
+  viaName: string | null;
 };
 
 const SELECT = {
@@ -93,6 +96,7 @@ const SELECT = {
   actorFirstName: users.firstName,
   actorLastName: users.lastName,
   actorUsername: users.username,
+  viaName: agentConnections.name,
 };
 
 function asSnapshot(value: unknown): RecordSnapshot | null {
@@ -123,6 +127,7 @@ function toEntry(row: Row): ActivityEntry {
             username: row.actorUsername,
           }
         : null,
+    via: row.viaName,
     recordId: row.recordId,
     recordType: row.recordType,
     recordLabel: after?.description ?? before?.description ?? null,
@@ -183,6 +188,7 @@ export async function loadLastActivity(recordId: number): Promise<ActivityEntry 
     .select(SELECT)
     .from(recordAuditLog)
     .leftJoin(users, eq(users.id, recordAuditLog.actorId))
+    .leftJoin(agentConnections, eq(agentConnections.id, recordAuditLog.agentConnectionId))
     .where(and(eq(recordAuditLog.recordId, recordId), eq(recordAuditLog.action, "updated")))
     .orderBy(desc(recordAuditLog.id))
     .limit(1);
@@ -206,6 +212,7 @@ export async function loadRecordHistory(
     .select(SELECT)
     .from(recordAuditLog)
     .leftJoin(users, eq(users.id, recordAuditLog.actorId))
+    .leftJoin(agentConnections, eq(agentConnections.id, recordAuditLog.agentConnectionId))
     .where(
       and(
         eq(recordAuditLog.groupId, groupId),
@@ -244,6 +251,7 @@ export async function loadGroupActivity(
     .select(SELECT)
     .from(recordAuditLog)
     .leftJoin(users, eq(users.id, recordAuditLog.actorId))
+    .leftJoin(agentConnections, eq(agentConnections.id, recordAuditLog.agentConnectionId))
     .where(
       cursor != null
         ? and(eq(recordAuditLog.groupId, groupId), lt(recordAuditLog.id, cursor))

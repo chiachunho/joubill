@@ -59,6 +59,7 @@ deleteExpenseCallback.callbackQuery(/^del_exp:(\d+)$/, async (ctx) => {
         record: notice.record,
         creator: notice.creator,
         deleter: deleterOf(user),
+        creatorVia: notice.createdVia,
       }),
       { parse_mode: "HTML" },
     )

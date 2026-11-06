@@ -16,6 +16,7 @@ function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
     action: "updated",
     at: "2026-10-28T04:00:00Z",
     actor: { userId: 1, displayName: null, firstName: "小明", lastName: null, username: null },
+    via: null,
     recordId: 7,
     recordType: "expense",
     recordLabel: "晚餐",

@@ -63,6 +63,23 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
   hour, fixed windows. A refusal is a `rate_limited` tool error; `retryAfterSeconds` is the
   full window, as with the invite limits.
 
+## Saying where a record came from (issue #150)
+
+A person's own entry says nothing; an agent's says so everywhere the record shows up. The
+source is **derived from the audit log**: `loadCreatedVia` (`src/lib/record-via.ts`) joins the
+record's `created` row (`source = 'agent'`) to `agent_connections.name`, so there is no second
+copy on `expenses` to drift. `ActivityEntry.via` does the same join per row for edits.
+
+- Group card and settlement notice: `✦ 小明 透過 Claude 記錄` (`formatAgentLine`), under the
+  splits and in every card mode.
+- Tombstone: `…，原本由 A 透過 Claude 記錄` and `— B 透過 我的 n8n` for the deleter
+  (`logDeleted` looks the connection up from the actor).
+- Forms: 由 X 透過 Claude 於 T 記錄 / 最後由 Y 透過 Claude 於 T 修改.
+- Push: the actor's name carries the connection (`PushNoticeInput.via`).
+
+A connection is revoked, never deleted (except with its account), so the name stays readable.
+Records entered before the feature, or by a person, show nothing.
+
 ## Testing
 
 Pure parts are unit-tested (`agent-*.test.ts`); `src/app/api/__tests__/mcp-route.test.ts`
