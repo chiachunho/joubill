@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { getBot } from "@/bot";
-import { db } from "@/db";
-import { expensePayers, expenseSplits, expenses } from "@/db/schema";
-import { assertGroupMember, findUsersNotInGroup, getAuth } from "@/lib/auth";
+import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { groupTimeZone, resolveRecordFx, spentAtForNow } from "@/lib/fx";
-import { logCreated } from "@/lib/record-mutation";
+import { createSettlement } from "@/lib/records";
 import { settlementInputSchema } from "@/lib/zod";
 import { requireId } from "@/lib/route-params";
 
@@ -27,59 +23,9 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }
-  const input = parsed.data;
 
-  if (input.fromUserId === input.toUserId) {
-    return NextResponse.json({ error: "from and to must differ" }, { status: 400 });
-  }
-
-  const missing = await findUsersNotInGroup(groupId, [input.fromUserId, input.toUserId]);
-  if (missing.length > 0) {
-    return NextResponse.json(
-      { error: `users not in group: ${missing.join(",")}` },
-      { status: 400 },
-    );
-  }
-
-  const fx = await resolveRecordFx(groupId, input.currency, input.fxRate);
-  const day = input.settledAt ?? spentAtForNow(await groupTimeZone(groupId));
-  const amount = input.amount.toFixed(2);
-
-  const id = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(expenses)
-      .values({
-        groupId,
-        type: "settlement",
-        amount,
-        currency: input.currency,
-        description: null,
-        spentAt: day,
-        createdBy: auth.user.id,
-        fxRate: fx.fxRate,
-        fxQuote: fx.fxQuote,
-      })
-      .returning({ id: expenses.id });
-
-    await Promise.all([
-      tx.insert(expensePayers).values({
-        expenseId: row.id,
-        payerId: input.fromUserId,
-        amount,
-      }),
-      tx.insert(expenseSplits).values({
-        expenseId: row.id,
-        debtorId: input.toUserId,
-        amount,
-        shareType: "exact",
-        splitValue: null,
-      }),
-    ]);
-
-    return row.id;
+  const { id } = await createSettlement(groupId, parsed.data, {
+    actor: { userId: auth.user.id, source: "app" },
   });
-
-  await logCreated(getBot().api, id, { userId: auth.user.id, source: "app" });
-
   return NextResponse.json({ id }, { status: 201 });
 });

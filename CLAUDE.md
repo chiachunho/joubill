@@ -343,6 +343,10 @@ Deep links: the card's 🔗 App 編輯 uses `?startapp=group_<chatId>_exp_<id>`,
 
 Both the list page and the activity feed load further pages through `useAutoLoadMore` (`IntersectionObserver` on a sentinel, capped at 5 consecutive loads so a "只看我的" filter matching nothing can't drain a big group; the cap resets when the sentinel leaves view) and render `LoadMoreFooter`. Its 載入更多 button appears only as the fallback: no observer, a failed page, or the cap. A tap on the button re-arms auto-loading. A failed page or a failed refresh keeps the loaded list on screen and shows the button as a retry (it refetches when there is no next page).
 
+### Record writes (`src/lib/records/`, issue #148)
+
+Creating, editing and deleting an expense or settlement lives in one place: `createExpense` / `updateExpense` / `createSettlement` / `updateSettlement` / `deleteRecord`. Each takes already-validated input (`expenseInputSchema` / `settlementInputSchema`) and a `RecordContext` (`{ actor, api? }`), and does the membership check on the people involved, the FX pin (`resolveRecordFx`, `resolveUpdateFx` with its dormant-pin rule), the transaction and the `logCreated` / `logUpdated` / `logDeleted` call. The REST route handlers only do auth, `requireId`, `safeParse` and one call; the MCP server (issue #147) is a second caller. Two copies of this logic would drift without an error (payer/split sums, `SUPPORTED_CURRENCIES`, pinned rates, the date and the group's zone), which is the sharing rule's test. The functions throw `HttpError`s (`BadRequestError`, `NotFoundError`) that `withAuth` already answers, and keep the order the routes always had: body 400, record 404, from≠to 400, users-not-in-group 400. `api` defaults to the bot's; `null` means the caller renders the group message itself. The bot's panel edits stay in `src/bot/expenseEdits.ts`, since they render the card in modes this layer must not flatten.
+
 ### Audit log (`src/lib/record-mutation.ts` + `record-audit.ts` + `record-history.ts`)
 
 Every create, edit and delete of a record is logged to `record_audit_log` with

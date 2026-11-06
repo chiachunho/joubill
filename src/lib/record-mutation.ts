@@ -50,7 +50,12 @@ import {
  * a save the user already believes succeeded.
  */
 
-export type Actor = { userId: number; source: AuditSource };
+export type Actor = {
+  userId: number;
+  source: AuditSource;
+  /** The MCP connection that wrote this, when `source` is `"agent"`. */
+  agentConnectionId?: number;
+};
 
 /**
  * Passing `api` asks this layer to send or edit the record's group message —
@@ -85,6 +90,7 @@ async function writeLog(entry: {
       action: entry.action,
       actorId: entry.actor.userId,
       source: entry.actor.source,
+      agentConnectionId: entry.actor.agentConnectionId ?? null,
       before: entry.before,
       after: entry.after,
     });

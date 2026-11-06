@@ -23,7 +23,7 @@ export type AuditAction =
   | "timezone_changed"
   | "member_claimed"
   | "account_merged";
-export type AuditSource = "bot" | "app";
+export type AuditSource = "bot" | "app" | "agent";
 
 /**
  * The stored before/after shape.

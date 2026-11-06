@@ -47,3 +47,10 @@ export class TooManyRequestsError extends HttpError {
     this.name = "TooManyRequestsError";
   }
 }
+
+export class NotFoundError extends HttpError {
+  constructor(message = "not found") {
+    super(404, message);
+    this.name = "NotFoundError";
+  }
+}
