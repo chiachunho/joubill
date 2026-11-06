@@ -36,8 +36,12 @@ most 20 live connections per user. `mergeAccounts` moves `agent_connections.user
 Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. Write:
 `add_expense`, `add_settlement`. `update_record` / `delete_record` are phase 2.
 
-- **Free text stays in `structuredContent`.** `content[0].text` is a fixed sentence of ids and
-  numbers (`src/lib/mcp/result.ts`), so a hostile description never reads as prose to a model.
+- **Data twice, prose never.** Every result has `structuredContent` and the same data as a
+  JSON text block in `content` (`src/lib/mcp/result.ts`), because some clients show a model
+  only `content`; without it an error would read as a bare code and a list as a count. The
+  first text block stays a fixed sentence of ids and numbers, so free text (descriptions,
+  names) is only ever a string value inside the JSON, which the server `instructions` call
+  data. The threat model adds no new source: any member can already write any description.
 - **Names are matched exactly** (`src/lib/agent-names.ts`: display name, Telegram name,
   username; NFKC, case-folded, `@` ignored; no prefix matching), only among the group's
   members. No match or several → `member_not_found` / `member_ambiguous` with candidates and

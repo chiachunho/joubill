@@ -179,7 +179,7 @@ Stateless Streamable HTTP over `@modelcontextprotocol/sdk`, authenticated by per
 - **`getAuth` must keep refusing `sbk_` tokens** and `getAgentAuth` must keep refusing everything else; REST and MCP are separate doors.
 - **Every tool goes through `openGroup`** (rate limit → `assertGroupMember` → `assertGrant`), checked on every call. A new tool never reads a group before it.
 - Writes go through `src/lib/records/` with `actor: { source: "agent", agentConnectionId }`; never insert expense rows from a tool.
-- **User-controlled text (descriptions, names) only in `structuredContent`**; `content` text is a fixed sentence.
+- **Results carry the data as `structuredContent` and as one JSON text block in `content`** (some clients show a model only `content`). The first text block is a fixed sentence of ids and numbers; user-controlled text (descriptions, names) appears only as string values inside the JSON, never in prose.
 - People are matched exactly within the group and never guessed (`agent-names.ts`).
 - A new column referencing `users.id` on connection tables is moved in `mergeAccounts` (`agent_connections` is).
 

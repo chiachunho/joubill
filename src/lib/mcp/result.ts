@@ -3,10 +3,11 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { HttpError, TooManyRequestsError } from "@/lib/auth/errors";
 
 /**
- * Tool results. **User-controlled text (descriptions, names, group titles) goes only in
- * `structuredContent`**: `content[0].text` is a fixed sentence built from ids and numbers,
- * so a hostile description can't read as an instruction in the part clients show a model
- * as prose.
+ * Tool results carry the data twice: as `structuredContent`, and as one JSON text block in
+ * `content`, because some clients show a model only `content`. **User-controlled text
+ * (descriptions, names, group titles) appears only inside that JSON**; the first text block
+ * is a fixed sentence built from ids and numbers, so a hostile description is never part of
+ * the prose, only a string value in data the server's `instructions` call data.
  */
 export type ToolErrorCode =
   | "bad_request"
@@ -30,7 +31,13 @@ export class ToolError extends Error {
 }
 
 export function ok(summary: string, data: Record<string, unknown>): CallToolResult {
-  return { content: [{ type: "text", text: summary }], structuredContent: data };
+  return {
+    content: [
+      { type: "text", text: summary },
+      { type: "text", text: JSON.stringify(data) },
+    ],
+    structuredContent: data,
+  };
 }
 
 export function fail(
@@ -38,10 +45,14 @@ export function fail(
   message: string,
   details: Record<string, unknown> = {},
 ): CallToolResult {
+  const data = { error: { code, message, ...details } };
   return {
     isError: true,
-    content: [{ type: "text", text: `error: ${code}` }],
-    structuredContent: { error: { code, message, ...details } },
+    content: [
+      { type: "text", text: `error: ${code}` },
+      { type: "text", text: JSON.stringify(data) },
+    ],
+    structuredContent: data,
   };
 }
 
