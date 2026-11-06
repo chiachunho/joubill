@@ -73,3 +73,28 @@ export function resolveMember<M extends NameableMember>(
     ? { ok: false, code: "member_not_found", query: ref, candidates: members.map(toCandidate) }
     : { ok: false, code: "member_ambiguous", query: ref, candidates: hits.map(toCandidate) };
 }
+
+const MAX_LISTED = 12;
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s);
+
+/**
+ * The error text for a name that didn't resolve (issue #151). It names the candidates and
+ * the next step, because the agent reads this message and nothing else may be at hand: the
+ * only useful reaction is to ask the user and call again with a memberId.
+ */
+export function describeUnresolved(
+  code: "member_not_found" | "member_ambiguous",
+  query: string,
+  candidates: readonly Candidate[],
+): string {
+  const q = clip(query, 40);
+  const shown = candidates
+    .slice(0, MAX_LISTED)
+    .map((c) => `#${c.memberId} ${clip(c.label, 40)}`)
+    .join("、");
+  const more = candidates.length > MAX_LISTED ? `…等共 ${candidates.length} 位` : "";
+  if (code === "member_ambiguous") {
+    return `Found ${candidates.length} members matching "${q}": ${shown}${more}. Nothing was written. Ask the user which one they mean, then call again with that memberId.`;
+  }
+  return `No member of this group matches "${q}". Members: ${shown}${more}. Nothing was written. Ask the user who they mean (or call get_group), then call again with a memberId.`;
+}

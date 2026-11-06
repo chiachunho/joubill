@@ -21,3 +21,22 @@ describe("mcp results", () => {
     expect(parsed.error.candidates).toEqual([{ memberId: 3, label: "A" }]);
   });
 });
+
+describe("guarded", () => {
+  it("adds the next step to a forbidden error and to a rate limit", async () => {
+    const { guarded } = await import("@/lib/mcp/result");
+    const { ForbiddenError, TooManyRequestsError } = await import("@/lib/auth/errors");
+    const f = await guarded(async () => {
+      throw new ForbiddenError("this connection is read-only");
+    });
+    expect(JSON.parse((f.content[1] as { text: string }).text).error.message).toMatch(
+      /read-only.*Linked applications/s,
+    );
+    const r = await guarded(async () => {
+      throw new TooManyRequestsError("slow down", 600);
+    });
+    expect(JSON.parse((r.content[1] as { text: string }).text).error.message).toMatch(
+      /retryAfterSeconds/,
+    );
+  });
+});

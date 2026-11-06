@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { expensePayers, expenses } from "@/db/schema";
 import { parseMcpAmount } from "@/lib/mcp-amount";
 import { bindKey, claimKey, duplicateSince, releaseKey } from "@/lib/mcp-idempotency";
-import { resolveMember } from "@/lib/mcp-names";
+import { describeUnresolved, resolveMember } from "@/lib/mcp-names";
 import { buildExpenseInput, type McpPayer, type McpSplit } from "@/lib/mcp-split";
 import type { AppAuth } from "@/lib/auth/mcp";
 import { todayIn } from "@/lib/day";
@@ -45,13 +45,9 @@ function makeResolver(members: McpMember[], meId: number) {
     }
     const r = resolveMember(ref, members);
     if (r.ok) return r.member;
-    throw new ToolError(
-      r.code,
-      r.code === "member_ambiguous"
-        ? `more than one member matches "${r.query.slice(0, 40)}"; use a memberId`
-        : `no member matches "${r.query.slice(0, 40)}"`,
-      { candidates: r.candidates },
-    );
+    throw new ToolError(r.code, describeUnresolved(r.code, r.query, r.candidates), {
+      candidates: r.candidates,
+    });
   };
 }
 
@@ -114,10 +110,7 @@ async function reserve(auth: AppAuth, key: string | undefined) {
     };
   }
   if (claim.status === "in_progress") {
-    throw new ToolError(
-      "in_progress",
-      "a call with this idempotencyKey is still running; retry shortly",
-    );
+    throw new ToolError("in_progress", "a call with this idempotencyKey is still running");
   }
   return {
     reservation: {
@@ -133,7 +126,7 @@ export function registerWriteTools(server: McpServer, auth: AppAuth) {
     {
       title: "Add expense",
       description:
-        "Record an expense. amount may be a number or text like '1,200', '$300', '3k', '150+200'. Payer defaults to me; split defaults to equal among all active members. People are matched by exact name within the group; if a name is not found or matches several members you get candidates back and nothing is written. Use dryRun to preview. If an identical expense (same amount, currency and payer) was recorded in the last 10 minutes nothing is written and possibleDuplicateOf is returned; resend with allowDuplicate: true if it is intended.",
+        "Record a new expense the user paid for (not a repayment between members: use add_settlement). Call with dryRun: true first, show the user the preview, and only write after they confirm. amount is a number or text such as '1,200', '$300', '3k' or '150+200'. Defaults: payer is the user (paidBy / payers to change it), split is equal among all active members (split to change it), currency is the group's default, date is today in the group's time zone. People are given as memberId (preferred) or an exact name; a name that matches nobody or several members writes nothing and returns the candidates, so ask the user. If an identical expense (same amount, currency and payer) was recorded in the last 10 minutes, nothing is written and possibleDuplicateOf is returned: ask the user, and resend with allowDuplicate: true only if it is intended. Send an idempotencyKey so a retry does not record it twice.",
       inputSchema: {
         groupId: idSchema,
         amount: z.union([z.number().positive().max(10_000_000), z.string().min(1).max(60)]),
@@ -278,7 +271,7 @@ export function registerWriteTools(server: McpServer, auth: AppAuth) {
     {
       title: "Add settlement",
       description:
-        "Record that one member paid another back (from must differ from to). from defaults to me. Names are matched exactly within the group; on a miss or tie you get candidates and nothing is written.",
+        "Record that one member paid another back (from must differ from to), for example 'I paid Hua back 3,000'. Not for shared costs: use add_expense. Call with dryRun: true first and confirm with the user. from defaults to the user. amount accepts the same forms as add_expense ('1,200', '150+200'); currency defaults to the group's. People are given as memberId (preferred) or an exact name; on a miss or tie nothing is written and you get the candidates, so ask the user.",
       inputSchema: {
         groupId: idSchema,
         from: memberRef.optional().describe("Who paid; default me."),
@@ -289,12 +282,15 @@ export function registerWriteTools(server: McpServer, auth: AppAuth) {
           .optional()
           .describe("YYYY-MM-DD, default today in the group's time zone."),
         idempotencyKey: keySchema,
+        dryRun: z.boolean().optional().describe("Preview only: nothing is written."),
       },
       annotations: WRITE,
     },
     (args) =>
       guarded(async () => {
-        const { group, members } = await openGroup(auth, args.groupId, "write");
+        const { group, members, labels } = await openGroup(auth, args.groupId, "write", {
+          countAs: args.dryRun ? "read" : "write",
+        });
         const find = makeResolver(members, auth.user.id);
         const parsed = parseMcpAmount(args.amount);
         if (!parsed.ok) throw new ToolError("bad_request", parsed.message);
@@ -302,6 +298,20 @@ export function registerWriteTools(server: McpServer, auth: AppAuth) {
         const fromId = args.from !== undefined ? find(args.from).id : auth.user.id;
         const toId = find(args.to).id;
         if (fromId === toId) throw new ToolError("bad_request", "from and to must differ");
+
+        if (args.dryRun) {
+          const label = (id: number) => labels.get(id) ?? "?";
+          return ok("dry run: nothing written", {
+            status: "dry_run",
+            preview: {
+              from: { memberId: fromId, label: label(fromId) },
+              to: { memberId: toId, label: label(toId) },
+              amount: parsed.amount,
+              currency,
+              settledAt: args.settledAt ?? todayIn(group.timezone),
+            },
+          });
+        }
 
         const held = await reserve(auth, args.idempotencyKey);
         if (held.early) return held.early;

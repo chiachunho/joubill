@@ -73,7 +73,7 @@ export function registerRecordTools(server: McpServer, auth: AppAuth) {
     {
       title: "List records",
       description:
-        "Expenses and settlements, newest first (by date, then entry order). Pass the previous nextCursor to get the next page. Filters: from/to (YYYY-MM-DD, inclusive), keyword in the description, mineOnly.",
+        "Use to search or review history: expenses and settlements, newest first (by date, then entry order). Pass the previous nextCursor to get the next page (null = no more). Filters: from/to (YYYY-MM-DD in the group's time zone, inclusive), keyword in the description, mineOnly (only records the user paid or owes in).",
       inputSchema: {
         groupId: idSchema,
         cursor: z.string().max(64).optional(),
@@ -160,7 +160,8 @@ export function registerRecordTools(server: McpServer, auth: AppAuth) {
     "get_record",
     {
       title: "Get record",
-      description: "One expense or settlement with its payers and splits.",
+      description:
+        "One expense or settlement with its payers and splits. Use before changing or deleting a record, to show the user what it is.",
       inputSchema: { groupId: idSchema, recordId: idSchema },
       annotations: READ,
     },

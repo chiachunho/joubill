@@ -56,6 +56,21 @@ export function fail(
   };
 }
 
+/** What to do next, per code: the agent reads the message and may have nothing else (issue #151). */
+export const NEXT_STEP: Partial<Record<ToolErrorCode, string>> = {
+  forbidden:
+    "Tell the user this connection cannot do that; they can change its permission or groups under Settings > Linked applications.",
+  not_found: "Check the ids with list_groups, get_group or list_records.",
+  rate_limited: "Wait for retryAfterSeconds before calling again, or tell the user.",
+  in_progress: "Retry shortly with the same idempotencyKey.",
+};
+
+/** Appends the next step unless the message already tells one (member errors do). */
+export function withNextStep(code: ToolErrorCode, message: string): string {
+  const step = NEXT_STEP[code];
+  return step && !message.includes(step) ? `${message}. ${step}` : message;
+}
+
 const CODE_BY_STATUS: Record<number, ToolErrorCode> = {
   400: "bad_request",
   401: "forbidden",
@@ -69,12 +84,18 @@ export async function guarded(run: () => Promise<CallToolResult>): Promise<CallT
   try {
     return await run();
   } catch (err) {
-    if (err instanceof ToolError) return fail(err.code, err.message, err.details);
-    if (err instanceof TooManyRequestsError) {
-      return fail("rate_limited", err.message, { retryAfterSeconds: err.retryAfter });
+    if (err instanceof ToolError) {
+      return fail(err.code, withNextStep(err.code, err.message), err.details);
     }
-    if (err instanceof HttpError)
-      return fail(CODE_BY_STATUS[err.status] ?? "bad_request", err.message);
+    if (err instanceof TooManyRequestsError) {
+      return fail("rate_limited", `${err.message}. ${NEXT_STEP.rate_limited}`, {
+        retryAfterSeconds: err.retryAfter,
+      });
+    }
+    if (err instanceof HttpError) {
+      const code = CODE_BY_STATUS[err.status] ?? "bad_request";
+      return fail(code, withNextStep(code, err.message));
+    }
     console.error("[mcp] tool failed", err);
     return fail("internal", "something went wrong");
   }

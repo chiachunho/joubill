@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveMember } from "@/lib/mcp-names";
+import { describeUnresolved, resolveMember } from "@/lib/mcp-names";
 
 const m = (
   id: number,
@@ -58,5 +58,35 @@ describe("resolveMember", () => {
 
   it("an empty name matches nobody", () => {
     expect(resolveMember("  ", members)).toMatchObject({ ok: false, code: "member_not_found" });
+  });
+});
+
+describe("describeUnresolved", () => {
+  const cands = [
+    { memberId: 12, label: "阿華 (@ahua)" },
+    { memberId: 31, label: "阿華" },
+  ];
+
+  it("names every candidate and the next step when a name is ambiguous", () => {
+    const msg = describeUnresolved("member_ambiguous", "阿華", cands);
+    expect(msg).toContain("#12 阿華 (@ahua)");
+    expect(msg).toContain("#31 阿華");
+    expect(msg).toMatch(/ask the user/i);
+    expect(msg).toContain("memberId");
+  });
+
+  it("lists the group's members when nobody matches", () => {
+    const msg = describeUnresolved("member_not_found", "小華", cands);
+    expect(msg).toContain("小華");
+    expect(msg).toContain("#31");
+    expect(msg).toMatch(/nothing was written/i);
+  });
+
+  it("caps a long list and keeps a long query short", () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({ memberId: i + 1, label: `P${i + 1}` }));
+    const msg = describeUnresolved("member_not_found", "x".repeat(200), many);
+    expect(msg).toContain("共 30 位");
+    expect(msg).not.toContain("#30");
+    expect(msg.length).toBeLessThan(600);
   });
 });

@@ -20,7 +20,7 @@ export function registerGroupTools(server: McpServer, auth: AppAuth) {
     {
       title: "List groups",
       description:
-        "Groups this connection may use, with default currency, member count and my net balance (positive = owed to me), in the group's default currency.",
+        "Start here. Lists the groups this connection may use, with groupId, default currency, member count and the user's own net balance (positive = others owe the user), in the group's default currency. Then call get_group for the members.",
       inputSchema: {},
       annotations: READ,
     },
@@ -64,7 +64,7 @@ export function registerGroupTools(server: McpServer, auth: AppAuth) {
     {
       title: "Get group",
       description:
-        "A group's members (memberId, display name, username, placeholder and active flags), supported currencies and time zone. Use memberId to name people unambiguously.",
+        "A group's members (memberId, display name, username, placeholder and active flags, isMe), the supported currencies and the group's time zone. Call this before any write and use memberId to name people unambiguously; dates you send are read in this time zone.",
       inputSchema: { groupId: idSchema },
       annotations: READ,
     },
@@ -97,7 +97,7 @@ export function registerGroupTools(server: McpServer, auth: AppAuth) {
     {
       title: "Get balance",
       description:
-        "Net balance per member (positive = is owed) and the suggested minimum repayments, in the group's default currency.",
+        "Use for 'who owes whom' questions. Net balance per member (positive = is owed) and the suggested minimum repayments, in the group's default currency.",
       inputSchema: { groupId: idSchema },
       annotations: READ,
     },
