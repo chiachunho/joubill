@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { skipToken } from "@reduxjs/toolkit/query";
@@ -33,6 +33,7 @@ import {
 import { useAuthMode } from "@/components/AuthProvider";
 import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
 import { rateSourceLabel } from "@/lib/rate-source-label";
+import { recordHistoryHref } from "@/lib/activity-link";
 import { stampLabel } from "@/lib/format";
 import { labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
@@ -102,6 +103,7 @@ export function SettlementForm({
   returnPath,
 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const mode = useAuthMode();
   // "tma" → /mini, "web" → /app. Same split the fetchers make below.
   const appBase = mode === "web" ? "/app" : "/mini";
@@ -442,7 +444,12 @@ export function SettlementForm({
             </p>
             {lastEdit && (
               <Link
-                href={`${appBase}/groups/${groupId}/activity?record=${initial!.id}`}
+                href={recordHistoryHref({
+                  appBase,
+                  groupId,
+                  recordId: initial!.id,
+                  from: pathname,
+                })}
                 className="-mx-2 flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary"
               >
                 <span>

@@ -6,9 +6,14 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { ExpenseForm } from "@/components/mini/ExpenseForm";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
-const { push, upload } = vi.hoisted(() => ({ push: vi.fn(), upload: vi.fn() }));
+const { push, upload, nav } = vi.hoisted(() => ({
+  push: vi.fn(),
+  upload: vi.fn(),
+  nav: { pathname: "/mini/groups/7/expenses/11/edit" },
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push }),
+  usePathname: () => nav.pathname,
 }));
 // Loads @twa-dev/sdk, which has nothing to talk to outside Telegram.
 vi.mock("@/lib/use-tg-back-button", () => ({ useTelegramBackButton: () => {} }));
@@ -26,6 +31,7 @@ afterEach(() => {
   cleanup();
   push.mockReset();
   upload.mockReset();
+  nav.pathname = "/mini/groups/7/expenses/11/edit";
 });
 
 const ME = 1;
@@ -191,13 +197,15 @@ describe("ExpenseForm: editing", () => {
       {},
     );
     expect(screen.getByText(/由 Bob .*記錄/)).toBeInTheDocument();
+    // `from` is the form's own page, so 返回 on the history lands back here.
     expect(screen.getByRole("link", { name: /最後由 .* 修改/ })).toHaveAttribute(
       "href",
-      "/mini/groups/7/activity?record=11",
+      `/mini/groups/7/activity?record=11&from=${encodeURIComponent("/mini/groups/7/expenses/11/edit")}`,
     );
   });
 
   it("links the history under /app in the Web App", () => {
+    nav.pathname = "/app/groups/7/expenses/11/edit";
     renderForm(
       { initial: initial({ lastActivity: { actorId: 2, at: "2026-07-11T04:00:00Z" } }) },
       {},
@@ -205,7 +213,7 @@ describe("ExpenseForm: editing", () => {
     );
     expect(screen.getByRole("link", { name: /最後由 Bob .* 修改/ })).toHaveAttribute(
       "href",
-      "/app/groups/7/activity?record=11",
+      `/app/groups/7/activity?record=11&from=${encodeURIComponent("/app/groups/7/expenses/11/edit")}`,
     );
   });
 
