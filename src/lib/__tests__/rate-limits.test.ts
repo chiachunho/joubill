@@ -59,9 +59,11 @@ describe("decide", () => {
     expect(both).toMatchObject({ retryAfter: 600, firstRefusal: true });
   });
 
-  it("answers 600 for every configured rule", () => {
+  it("answers the full window length for every configured rule", () => {
     for (const r of Object.values(RATE_RULES)) {
-      expect(decide([{ rule: r, count: r.limit + 1 }])).toMatchObject({ retryAfter: 600 });
+      expect(decide([{ rule: r, count: r.limit + 1 }])).toMatchObject({
+        retryAfter: r.windowMs / 1000,
+      });
     }
   });
 });
