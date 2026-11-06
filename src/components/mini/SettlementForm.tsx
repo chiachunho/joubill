@@ -355,27 +355,31 @@ export function SettlementForm({
                   <FormLabel>
                     匯率（1 {currency} = ? {defaultCurrency}）
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="any"
-                      min="0"
-                      inputMode="decimal"
-                      className="num"
-                      placeholder={
-                        effectiveRate?.rate != null && !rateFetching
-                          ? `${effectiveRate.rate}（${rateSourceLabel(false, effectiveRate)}）`
-                          : "當日匯率"
-                      }
-                      {...field}
-                    />
-                  </FormControl>
+                  <div className="relative">
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="any"
+                        min="0"
+                        inputMode="decimal"
+                        className="num"
+                        placeholder={
+                          effectiveRate?.rate != null && !rateFetching
+                            ? `${effectiveRate.rate}（${rateSourceLabel(effectiveRate)}）`
+                            : ""
+                        }
+                        {...field}
+                      />
+                    </FormControl>
+                    {!usingCustom && rateFetching && (
+                      <Skeleton className="pointer-events-none absolute left-3 top-1/2 h-4 w-20 -translate-y-1/2" />
+                    )}
+                  </div>
                   {!usingCustom && rateFetching && total > 0 ? (
                     <Skeleton className="h-4 w-48" />
                   ) : rateInUse != null && total > 0 ? (
                     <p className="num text-xs text-muted-foreground">
-                      ≈ {(total * rateInUse).toFixed(2)} {defaultCurrency} ·{" "}
-                      {rateSourceLabel(usingCustom, effectiveRate)}
+                      ≈ {(total * rateInUse).toFixed(2)} {defaultCurrency}
                     </p>
                   ) : null}
                   <FormMessage />

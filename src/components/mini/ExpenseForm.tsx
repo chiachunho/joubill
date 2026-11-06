@@ -708,27 +708,31 @@ export function ExpenseForm(props: Props) {
                     <FormLabel>
                       匯率（1 {currency} = ? {props.defaultCurrency}）
                     </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="any"
-                        min="0"
-                        inputMode="decimal"
-                        className="num"
-                        placeholder={
-                          effectiveRate?.rate != null && !rateFetching
-                            ? `${effectiveRate.rate}（${rateSourceLabel(false, effectiveRate)}）`
-                            : "當日匯率"
-                        }
-                        {...field}
-                      />
-                    </FormControl>
+                    <div className="relative">
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="any"
+                          min="0"
+                          inputMode="decimal"
+                          className="num"
+                          placeholder={
+                            effectiveRate?.rate != null && !rateFetching
+                              ? `${effectiveRate.rate}（${rateSourceLabel(effectiveRate)}）`
+                              : ""
+                          }
+                          {...field}
+                        />
+                      </FormControl>
+                      {!usingCustom && rateFetching && (
+                        <Skeleton className="pointer-events-none absolute left-3 top-1/2 h-4 w-20 -translate-y-1/2" />
+                      )}
+                    </div>
                     {!usingCustom && rateFetching && totalAmount > 0 ? (
                       <Skeleton className="h-4 w-48" />
                     ) : rateInUse != null && totalAmount > 0 ? (
                       <p className="num text-xs text-muted-foreground">
-                        ≈ {(totalAmount * rateInUse).toFixed(2)} {props.defaultCurrency} ·{" "}
-                        {rateSourceLabel(usingCustom, effectiveRate)}
+                        ≈ {(totalAmount * rateInUse).toFixed(2)} {props.defaultCurrency}
                       </p>
                     ) : null}
                     <FormMessage />
