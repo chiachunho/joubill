@@ -320,6 +320,23 @@ export type McpConnectionItem = {
   createdAt: string;
 };
 
+/** What the OAuth consent page shows (`GET /api/oauth/consent`). */
+export type OauthConsentInfo = {
+  client: { name: string; redirectLabel: string };
+  requestedAccess: "read" | "write";
+  groups: { id: number; title: string; defaultCurrency: string }[];
+};
+
+/** A person's answer on the consent page (`POST /api/oauth/consent`). */
+export type OauthConsentDecision = {
+  /** The authorize request as it arrived in the page's query string. */
+  params: Record<string, string>;
+  approve: boolean;
+  access: "read" | "write";
+  allGroups: boolean;
+  groupIds: number[];
+};
+
 export type McpConnectionsResponse = { connections: McpConnectionItem[] };
 
 /** `POST /api/me/mcp-connections`: the only time the plaintext token is ever returned. */

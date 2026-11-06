@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ExternalLink, Loader2, ShieldCheck } from "lucide-react";
 
 import {
@@ -13,14 +13,8 @@ import { Button } from "@/components/ui/button";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ApiError } from "@/lib/api-error";
+import { useDecideOauthConsentMutation, useGetOauthConsentQuery } from "@/store/api";
 import { OAUTH_CONSENT_PATH } from "@/lib/help-url";
-
-type ConsentInfo = {
-  client: { name: string; redirectLabel: string };
-  requestedAccess: "read" | "write";
-  groups: { id: number; title: string; defaultCurrency: string }[];
-};
 
 type Failure = { message: string; redirectTo: string | null };
 
@@ -62,68 +56,40 @@ function NotSupportedInMini({ openInBrowser }: { openInBrowser: (path: string) =
   );
 }
 
+/** The OAuth-style body of a failed consent request, if the server sent one. */
+function consentFailure(error: unknown, fallback: string): Failure {
+  const data = (error as { data?: Record<string, unknown> } | null)?.data ?? {};
+  const text = data.error_description ?? data.error;
+  return {
+    message: typeof text === "string" && text !== "" ? text : fallback,
+    redirectTo: typeof data.redirectTo === "string" ? data.redirectTo : null,
+  };
+}
+
 function Consent({ platform }: { platform: Platform }) {
-  const [info, setInfo] = useState<ConsentInfo | null>(null);
-  const [failure, setFailure] = useState<Failure | null>(null);
-  const [loginError, setLoginError] = useState<ApiError | null>(null);
+  const search = typeof window === "undefined" ? "" : window.location.search;
+  const { data: info, error } = useGetOauthConsentQuery(search);
+  const [decide, { isLoading: submitting, error: decideError }] = useDecideOauthConsentMutation();
+  const redirectingToLogin = useLoginRedirect(error, platform.loginPath);
+  // The narrowest grant: asking for write only makes it available, the person turns it on.
   const [access, setAccess] = useState<"read" | "write">("read");
   const [scope, setScope] = useState<Scope>({ allGroups: false, groupIds: [] });
-  const [submitting, setSubmitting] = useState(false);
-  const redirectingToLogin = useLoginRedirect(loginError, platform.loginPath);
+  const [left, setLeft] = useState(false);
 
-  const search = typeof window === "undefined" ? "" : window.location.search;
-
-  useEffect(() => {
-    let cancelled = false;
-    platform
-      .rawRequest(`/api/oauth/consent${search}`)
-      .then(async (res) => {
-        const body = await res.json().catch(() => ({}));
-        if (cancelled) return;
-        if (res.status === 401) {
-          setLoginError({ status: 401, data: body, message: "401 /api/oauth/consent" });
-        } else if (!res.ok) {
-          setFailure({
-            message: String(body.error_description ?? body.error ?? "這個連線要求無效"),
-            redirectTo: typeof body.redirectTo === "string" ? body.redirectTo : null,
-          });
-        } else {
-          const data = body as ConsentInfo;
-          setInfo(data);
-          setAccess(data.requestedAccess);
-        }
-      })
-      .catch(() => !cancelled && setFailure({ message: "無法載入，請稍後再試", redirectTo: null }));
-    return () => {
-      cancelled = true;
-    };
-  }, [platform, search]);
-
-  async function decide(approve: boolean) {
-    setSubmitting(true);
+  async function answer(approve: boolean) {
     const params = Object.fromEntries(new URLSearchParams(search));
-    try {
-      const res = await platform.rawRequest("/api/oauth/consent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ params, approve, access, ...scope }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (res.ok && typeof body.redirectTo === "string") {
-        window.location.href = body.redirectTo;
-        return;
-      }
-      setFailure({
-        message: String(body.error_description ?? body.error ?? "授權失敗，請再試一次"),
-        redirectTo: typeof body.redirectTo === "string" ? body.redirectTo : null,
-      });
-    } catch {
-      setFailure({ message: "授權失敗，請再試一次", redirectTo: null });
+    const res = await decide({ params, approve, access, ...scope });
+    if (res.data) {
+      setLeft(true);
+      window.location.href = res.data.redirectTo;
     }
-    setSubmitting(false);
   }
 
-  if (failure) {
+  const failed = decideError ?? (redirectingToLogin ? null : error);
+  const failure = failed
+    ? consentFailure(failed, decideError ? "授權失敗，請再試一次" : "這個連線要求無效")
+    : null;
+  if (failure && !left) {
     return (
       <div className="space-y-4 px-4 py-6">
         <h1 className="text-lg font-semibold">無法連線</h1>
@@ -158,7 +124,7 @@ function Consent({ platform }: { platform: Platform }) {
         <p className="sect mb-2.5">它可以</p>
         <ul className="space-y-1.5 rounded-2xl bg-secondary/50 px-4 py-3 text-sm">
           <li>查看你選的群組的成員、餘額和紀錄</li>
-          {canWrite && (
+          {access === "write" && (
             <li>
               新增、編輯、刪除紀錄與還款
               <span className="block text-xs text-muted-foreground">
@@ -189,15 +155,15 @@ function Consent({ platform }: { platform: Platform }) {
         <Button
           variant="outline"
           className="rounded-lg"
-          disabled={submitting}
-          onClick={() => decide(false)}
+          disabled={submitting || left}
+          onClick={() => answer(false)}
         >
           取消
         </Button>
         <Button
           className="rounded-lg"
-          disabled={submitting || !scopeIsValid(scope)}
-          onClick={() => decide(true)}
+          disabled={submitting || left || !scopeIsValid(scope)}
+          onClick={() => answer(true)}
         >
           {submitting && <Loader2 className="size-4 animate-spin" />}
           允許

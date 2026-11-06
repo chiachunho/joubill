@@ -1,5 +1,10 @@
 import { splitEqual } from "@/lib/money";
-import { expenseInputSchema, type ExpenseInput, type SupportedCurrency } from "@/lib/zod";
+import {
+  expenseInputSchema,
+  type ExpenseInput,
+  type SHARE_TYPES,
+  type SupportedCurrency,
+} from "@/lib/zod";
 
 /**
  * Builds the `expenseInputSchema` payload from what an agent said, with the people already
@@ -11,7 +16,16 @@ export type McpPayer = { userId: number; amount?: number };
 export type McpSplit =
   | { type: "equal"; userIds: number[] }
   | { type: "shares"; shares: { userId: number; weight: number }[] }
-  | { type: "exact"; amounts: { userId: number; amount: number }[] };
+  | { type: "exact"; amounts: { userId: number; amount: number }[] }
+  /**
+   * An existing split carried through unchanged, whatever its type (percent, adjustment…),
+   * so an edit that doesn't touch it can't flatten per-person intent into plain amounts.
+   */
+  | {
+      type: "keep";
+      shareType: (typeof SHARE_TYPES)[number];
+      rows: { userId: number; amount: number; splitValue: number | null }[];
+    };
 
 export type BuildResult = { ok: true; input: ExpenseInput } | { ok: false; message: string };
 
@@ -88,6 +102,17 @@ export function buildExpenseInput(args: {
       amount: parts[i],
       splitValue: s.weight,
     }));
+  } else if (split.type === "keep") {
+    if (split.rows.length === 0) return fail("at least one person must share the expense");
+    if (dup(split.rows.map((r) => r.userId))) return fail("a person is listed twice in the split");
+    if (cents(split.rows.reduce((s, r) => s + r.amount, 0)) !== cents(amount)) {
+      return fail("the kept split no longer adds up to the amount");
+    }
+    splitRows = split.rows.map((r) => ({
+      debtorId: r.userId,
+      amount: r.amount,
+      splitValue: r.splitValue,
+    }));
   } else {
     if (split.amounts.length === 0) return fail("at least one person must share the expense");
     if (dup(split.amounts.map((s) => s.userId)))
@@ -110,7 +135,7 @@ export function buildExpenseInput(args: {
     description: args.description,
     payers: payerRows,
     spentAt: args.spentAt,
-    shareType: split.type,
+    shareType: split.type === "keep" ? split.shareType : split.type,
     splits: splitRows,
   });
   return parsed.success ? { ok: true, input: parsed.data } : fail(parsed.error.issues[0].message);

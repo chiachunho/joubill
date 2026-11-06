@@ -4,6 +4,8 @@ import type {
   AccountMergePreview,
   McpConnectionItem,
   McpConnectionsResponse,
+  OauthConsentDecision,
+  OauthConsentInfo,
   CreateMcpConnectionResponse,
   AcceptInviteResponse,
   ActivityResponse,
@@ -162,6 +164,12 @@ const baseApi = createApi({
     getMcpConnections: build.query<McpConnectionsResponse, void>({
       query: () => ({ url: "/api/me/mcp-connections" }),
       providesTags: [tag("McpConnections", "ME")],
+    }),
+    // `search` is the page's query string, "?client_id=…": the authorize request being approved.
+    // Read once per visit; a stale copy of someone's pending request has no use.
+    getOauthConsent: build.query<OauthConsentInfo, string>({
+      query: (search) => ({ url: `/api/oauth/consent${search}` }),
+      keepUnusedDataFor: 0,
     }),
     // The ticket rides in an httpOnly cookie; this is read once, on the confirm page.
     getAccountMergePreview: build.query<AccountMergePreview, void>({
@@ -487,6 +495,10 @@ const baseApi = createApi({
     // ---- AI assistants (issues #147, #150) ---------------------------------------------
     // The token in the response is shown once and kept in component state; the cache holds a
     // copy of it only until `keepUnusedDataFor`, so the caller calls `.unwrap()` and `reset()`.
+    // Creates no connection: it stores a code. The connection exists once the client exchanges it.
+    decideOauthConsent: build.mutation<{ redirectTo: string }, OauthConsentDecision>({
+      query: (body) => ({ url: "/api/oauth/consent", method: "POST", body }),
+    }),
     createMcpConnection: build.mutation<CreateMcpConnectionResponse, CreateConnectionInput>({
       query: (body) => ({ url: "/api/me/mcp-connections", method: "POST", body }),
       invalidatesTags: [tag("McpConnections", "ME")],
@@ -794,6 +806,8 @@ export const {
   useGetProfileQuery,
   useUpdateProfileMutation,
   useGetMcpConnectionsQuery,
+  useGetOauthConsentQuery,
+  useDecideOauthConsentMutation,
   useCreateMcpConnectionMutation,
   useUpdateMcpConnectionMutation,
   useRevokeMcpConnectionMutation,

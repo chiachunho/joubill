@@ -1,5 +1,9 @@
 import { sameInstant } from "@/lib/instant";
 import type { McpPayer, McpSplit } from "@/lib/mcp-split";
+import { SHARE_TYPES } from "@/lib/zod";
+
+const isShareType = (v: unknown): v is (typeof SHARE_TYPES)[number] =>
+  (SHARE_TYPES as readonly unknown[]).includes(v);
 
 /**
  * What an edit keeps when the agent changes only some fields (issue #152). `update_record`
@@ -39,8 +43,8 @@ export function carryOverPayers(
 
 /**
  * The split to keep. Equal and share splits are recomputed for the new total. A split with
- * per-person amounts (exact, percent, adjustment) is kept as the amounts it had, which is
- * only right while the total stays put; otherwise the agent has to say who owes what.
+ * per-person amounts (exact, percent, adjustment) is kept as it was, type and value included,
+ * which is only right while the total stays put; otherwise the agent has to say who owes what.
  */
 export function carryOverSplit(
   stored: readonly StoredSplit[],
@@ -59,6 +63,19 @@ export function carryOverSplit(
     };
   }
   if (!amountChanged) {
+    // Kept as it was, share type and per-person value included.
+    const type = stored[0]?.shareType;
+    const sameType = stored.every((s) => s.shareType === type);
+    if (sameType && isShareType(type)) {
+      return {
+        ok: true,
+        value: {
+          type: "keep",
+          shareType: type,
+          rows: stored.map((s) => ({ userId: s.memberId, amount: s.amount, splitValue: s.weight })),
+        },
+      };
+    }
     return {
       ok: true,
       value: {

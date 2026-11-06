@@ -6,6 +6,7 @@ import { OAuthConsentPage } from "@/components/pages/OAuthConsentPage";
 import type { Platform } from "@/components/pages/platform";
 import { miniPlatform } from "@/components/pages/platform.mini";
 import { webPlatform } from "@/components/pages/platform.web";
+import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 // Radix's Checkbox measures itself; jsdom has no ResizeObserver.
 globalThis.ResizeObserver ??= class {
@@ -39,9 +40,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-
 const INFO = {
   client: { name: "Claude", redirectLabel: "claude.ai" },
   requestedAccess: "write",
@@ -51,30 +49,44 @@ const INFO = {
   ],
 };
 
-function webWith(rawRequest: Platform["rawRequest"]): Platform {
-  return { ...webPlatform, useBack: () => {}, rawRequest };
+const GET = `/api/oauth/consent${QUERY}`;
+const web: Platform = { ...webPlatform, useBack: () => {} };
+
+function renderWeb(routes: Parameters<typeof fakeRequest>[0], info = INFO) {
+  const request = fakeRequest({ [GET]: info, ...routes });
+  render(
+    <StoreWrapper request={request}>
+      <OAuthConsentPage platform={web} />
+    </StoreWrapper>,
+  );
+  return request;
 }
+
+const posted = (request: ReturnType<typeof fakeRequest>) => {
+  const call = request.mock.calls.find(([, init]) => init?.method === "POST")!;
+  return JSON.parse(call[1]!.body as string);
+};
 
 describe("OAuthConsentPage in the Mini App", () => {
   it("says it is not supported, offers the browser, and asks the server nothing", () => {
     const openInBrowser = vi.fn();
-    const rawRequest = vi.fn();
+    const request = vi.fn(fakeRequest({}));
     render(
-      <OAuthConsentPage
-        platform={{ ...miniPlatform, useBack: () => {}, openInBrowser, rawRequest }}
-      />,
+      <StoreWrapper request={request}>
+        <OAuthConsentPage platform={{ ...miniPlatform, useBack: () => {}, openInBrowser }} />
+      </StoreWrapper>,
     );
     expect(screen.getByText(/Mini App 不支援/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "允許" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /用瀏覽器開啟/ }));
     expect(openInBrowser).toHaveBeenCalledWith(`/app/oauth/consent${QUERY}`);
-    expect(rawRequest).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
   });
 });
 
 describe("OAuthConsentPage in the Web App", () => {
   it("shows who asks and where the code goes, and won't allow before a group is chosen", async () => {
-    render(<OAuthConsentPage platform={webWith(async () => json(200, INFO))} />);
+    renderWeb({});
     expect(await screen.findByText(/「Claude」想要連線/)).toBeInTheDocument();
     expect(screen.getByText("claude.ai")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "允許" })).toBeDisabled();
@@ -82,18 +94,26 @@ describe("OAuthConsentPage in the Web App", () => {
     expect(screen.getByRole("button", { name: "允許" })).toBeEnabled();
   });
 
-  it("posts the choice and the request, then goes where the server says", async () => {
-    const rawRequest = vi.fn(async (_path: string, init?: RequestInit) =>
-      init?.method === "POST"
-        ? json(200, { redirectTo: "https://claude.ai/cb?code=abc" })
-        : json(200, INFO),
-    );
-    render(<OAuthConsentPage platform={webWith(rawRequest)} />);
+  it("starts on read-only even when the client asked to write, until the person chooses", async () => {
+    const request = renderWeb({
+      "/api/oauth/consent": () => ({ redirectTo: "https://claude.ai/cb?code=abc" }),
+    });
     fireEvent.click(await screen.findByRole("checkbox", { name: /東京旅行/ }));
+    expect(screen.getByRole("radio", { name: "唯讀" })).toHaveAttribute("aria-checked", "true");
     fireEvent.click(screen.getByRole("button", { name: "允許" }));
     await waitFor(() => expect(assigned).toBe("https://claude.ai/cb?code=abc"));
-    const post = rawRequest.mock.calls.find(([, init]) => init?.method === "POST")!;
-    expect(JSON.parse(post[1]!.body as string)).toMatchObject({
+    expect(posted(request)).toMatchObject({ approve: true, access: "read", groupIds: [1] });
+  });
+
+  it("posts the chosen write access and the request, then goes where the server says", async () => {
+    const request = renderWeb({
+      "/api/oauth/consent": () => ({ redirectTo: "https://claude.ai/cb?code=abc" }),
+    });
+    fireEvent.click(await screen.findByRole("checkbox", { name: /東京旅行/ }));
+    fireEvent.click(screen.getByRole("radio", { name: "可記帳" }));
+    fireEvent.click(screen.getByRole("button", { name: "允許" }));
+    await waitFor(() => expect(assigned).toBe("https://claude.ai/cb?code=abc"));
+    expect(posted(request)).toMatchObject({
       approve: true,
       access: "write",
       allGroups: false,
@@ -103,41 +123,35 @@ describe("OAuthConsentPage in the Web App", () => {
   });
 
   it("cancel sends approve: false", async () => {
-    const rawRequest = vi.fn(async (_path: string, init?: RequestInit) =>
-      init?.method === "POST"
-        ? json(200, { redirectTo: "https://claude.ai/cb?error=access_denied" })
-        : json(200, INFO),
-    );
-    render(<OAuthConsentPage platform={webWith(rawRequest)} />);
+    const request = renderWeb({
+      "/api/oauth/consent": () => ({ redirectTo: "https://claude.ai/cb?error=access_denied" }),
+    });
     fireEvent.click(await screen.findByRole("button", { name: "取消" }));
     await waitFor(() => expect(assigned).toContain("access_denied"));
-    const post = rawRequest.mock.calls.find(([, init]) => init?.method === "POST")!;
-    expect(JSON.parse(post[1]!.body as string).approve).toBe(false);
+    expect(posted(request).approve).toBe(false);
   });
 
   it("an untrusted request shows the error and no way back to the client", async () => {
-    render(
-      <OAuthConsentPage
-        platform={webWith(async () =>
-          json(400, {
-            error: "invalid_request",
-            error_description: "unknown client_id",
-            redirectTo: null,
-          }),
-        )}
-      />,
-    );
+    renderWeb({
+      [GET]: new Failure(400, {
+        error: "invalid_request",
+        error_description: "unknown client_id",
+        redirectTo: null,
+      }),
+    });
     expect(await screen.findByText("unknown client_id")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "回到應用程式" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "允許" })).not.toBeInTheDocument();
   });
 
+  it("a signed-out visitor is sent to /login and comes back to this page", async () => {
+    renderWeb({ [GET]: new Failure(401, { error: "unauthorized" }) });
+    await waitFor(() => expect(assigned).toContain("/login?next="));
+    expect(decodeURIComponent(assigned!)).toContain("/app/oauth/consent");
+  });
+
   it("a read-only request offers no write choice", async () => {
-    render(
-      <OAuthConsentPage
-        platform={webWith(async () => json(200, { ...INFO, requestedAccess: "read" }))}
-      />,
-    );
+    renderWeb({}, { ...INFO, requestedAccess: "read" });
     await screen.findByText(/「Claude」想要連線/);
     expect(screen.queryByRole("radio", { name: "可記帳" })).not.toBeInTheDocument();
   });

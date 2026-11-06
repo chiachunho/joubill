@@ -61,19 +61,25 @@ describe("carryOverSplit", () => {
     });
   });
 
-  it("keeps per-person amounts only while the total is unchanged", () => {
-    const stored = [split(1, 70, "exact"), split(2, 30, "exact")];
+  it("keeps per-person splits as they were, type and value, only while the total is unchanged", () => {
+    const stored = [split(1, 70, "percent", 70), split(2, 30, "percent", 30)];
     expect(carryOverSplit(stored, false)).toEqual({
       ok: true,
       value: {
-        type: "exact",
-        amounts: [
-          { userId: 1, amount: 70 },
-          { userId: 2, amount: 30 },
+        type: "keep",
+        shareType: "percent",
+        rows: [
+          { userId: 1, amount: 70, splitValue: 70 },
+          { userId: 2, amount: 30, splitValue: 30 },
         ],
       },
     });
     expect(carryOverSplit(stored, true).ok).toBe(false);
+  });
+
+  it("falls back to plain amounts when the rows disagree about their type", () => {
+    const mixed = [split(1, 70, "exact"), split(2, 30, "adjustment", 5)];
+    expect(carryOverSplit(mixed, false)).toMatchObject({ ok: true, value: { type: "exact" } });
   });
 });
 

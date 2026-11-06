@@ -57,7 +57,10 @@ Claude.ai and ChatGPT can't send a custom header, so `/api/mcp` is also an OAuth
   its tokens) is one transaction. Revoking in settings,
   `/api/oauth/revoke` and leaving a group all end access through the usual checks.
 - Scopes `records:read` / `records:write` only cap what the consent page offers; the group scope and
-  the final permission are what the person chose there.
+  the final permission are what the person chose there. **The page starts on 唯讀** even when the
+  client asked to write, like the token form: a person who only picks a group and presses 允許 grants
+  the narrowest access, and turns write on deliberately. It reads and decides through RTK Query
+  (`getOauthConsent`, `decideOauthConsent`), like every other page.
 - The consent page is `OAuthConsentPage`; the Mini App's route exists but only says it isn't
   supported (OAuth can't run in Telegram's webview) and offers `openInBrowser`.
 
@@ -86,7 +89,9 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
   an equal / shares split follow a new total; several payers or a per-person split must be re-sent
   when the amount moves, never guessed. It needs `expectedUpdatedAt` (from `get_record`). A stale one
   is `conflict` with the current record; the check is repeated inside the row-locked transaction
-  (`assertUnchangedSince`), so two writers cannot both pass it. An active pinned rate is kept while
+  (`assertUnchangedSince`), so two writers cannot both pass it. A split with per-person values
+  (percent, adjustment, exact) is written back as it was while the amount is unchanged (`keep` in
+  `mcp-split.ts`), so a description-only edit cannot flatten it. An active pinned rate is kept while
   the currency stays the same.
 - **`delete_record`** is `destructiveHint`, previews with `dryRun`, and goes through `deleteRecord`,
   so the group message becomes the tombstone naming the connection.
