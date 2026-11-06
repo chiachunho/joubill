@@ -434,3 +434,37 @@ describe("invites and new groups", () => {
     expect(result.data).toEqual({ code: "CCCCCDDDDD", miniLink: null });
   });
 });
+
+describe("AI assistant connections", () => {
+  const list = { connections: [] };
+
+  it("refetches the list after a create, an edit or a revoke", async () => {
+    const request = fakeRequest({
+      "/api/me/agent-connections": { ...list, connection: {}, token: "sbk_x" },
+      "/api/me/agent-connections/5": { ok: true },
+    });
+    const store = makeStore(request);
+    store.dispatch(api.endpoints.getAgentConnections.initiate());
+    await settle();
+    expect(reads(request, "/api/me/agent-connections")).toBe(1);
+
+    await store.dispatch(
+      api.endpoints.createAgentConnection.initiate({
+        name: "n",
+        access: "read",
+        allGroups: false,
+        groupIds: [1],
+      }),
+    );
+    await settle();
+    expect(reads(request, "/api/me/agent-connections")).toBe(2);
+
+    await store.dispatch(api.endpoints.updateAgentConnection.initiate({ id: 5, access: "write" }));
+    await settle();
+    expect(reads(request, "/api/me/agent-connections")).toBe(3);
+
+    await store.dispatch(api.endpoints.revokeAgentConnection.initiate({ id: 5 }));
+    await settle();
+    expect(reads(request, "/api/me/agent-connections")).toBe(4);
+  });
+});

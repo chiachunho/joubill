@@ -1,9 +1,10 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
-import { agentConnections, groupMembers } from "@/db/schema";
+import { agentConnections } from "@/db/schema";
 import { createConnectionSchema, MAX_AGENT_CONNECTIONS } from "@/lib/agent-connection-input";
+import { assertMemberOfAll, publicConnectionColumns } from "@/lib/agent-connections-db";
 import { generateToken, hashToken, tokenDisplayPrefix } from "@/lib/agent-token";
 import { getAuth } from "@/lib/auth";
 import { BadRequestError } from "@/lib/auth/errors";
@@ -12,25 +13,11 @@ import { withAuth } from "@/lib/auth/route";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const publicColumns = {
-  id: agentConnections.id,
-  kind: agentConnections.kind,
-  name: agentConnections.name,
-  tokenPrefix: agentConnections.tokenPrefix,
-  access: agentConnections.access,
-  allGroups: agentConnections.allGroups,
-  groupIds: agentConnections.groupIds,
-  lastUsedAt: agentConnections.lastUsedAt,
-  expiresAt: agentConnections.expiresAt,
-  revokedAt: agentConnections.revokedAt,
-  createdAt: agentConnections.createdAt,
-};
-
 /** The caller's connections, newest first, never the hash. */
 export const GET = withAuth(async (req: Request) => {
   const auth = await getAuth(req);
   const rows = await db
-    .select(publicColumns)
+    .select(publicConnectionColumns)
     .from(agentConnections)
     .where(eq(agentConnections.userId, auth.user.id))
     .orderBy(desc(agentConnections.createdAt));
@@ -50,13 +37,7 @@ export const POST = withAuth(async (req: Request) => {
   const input = parsed.data;
 
   const groupIds = [...new Set(input.groupIds)];
-  if (!input.allGroups) {
-    const mine = await db
-      .select({ groupId: groupMembers.groupId })
-      .from(groupMembers)
-      .where(and(eq(groupMembers.userId, auth.user.id), inArray(groupMembers.groupId, groupIds)));
-    if (mine.length !== groupIds.length) throw new BadRequestError("not a member of every group");
-  }
+  if (!input.allGroups) await assertMemberOfAll(auth.user.id, groupIds);
 
   const live = await db
     .select({ id: agentConnections.id })
@@ -82,6 +63,6 @@ export const POST = withAuth(async (req: Request) => {
         ? new Date(Date.now() + input.expiresInDays * 86_400_000)
         : null,
     })
-    .returning(publicColumns);
+    .returning(publicConnectionColumns);
   return NextResponse.json({ connection: row, token }, { status: 201 });
 });

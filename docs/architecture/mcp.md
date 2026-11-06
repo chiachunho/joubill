@@ -30,6 +30,10 @@ access to it), then `assertGrant` (`src/lib/agent-grant.ts`: the connection's gr
 /api/me/agent-connections` returns the plaintext once. `DELETE …/[id]` sets `revoked_at`; the
 row stays so `record_audit_log.agent_connection_id` (`ON DELETE SET NULL`) keeps a name. At
 most 20 live connections per user. `mergeAccounts` moves `agent_connections.user_id`.
+`PATCH …/[id]` changes only the permission and the group scope (`updateConnectionSchema`: `allGroups` and
+`groupIds` travel together); never the name, which audit entries quote, nor the expiry, since a
+longer one is a new token. A revoked connection answers 404. The client side is the
+`AgentConnections` tag in `src/store/api.ts` (issue #150).
 
 ## Tools
 

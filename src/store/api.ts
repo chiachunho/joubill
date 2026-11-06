@@ -2,6 +2,9 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 
 import type {
   AccountMergePreview,
+  AgentConnectionItem,
+  AgentConnectionsResponse,
+  CreateAgentConnectionResponse,
   AcceptInviteResponse,
   ActivityResponse,
   AvatarsResponse,
@@ -31,6 +34,7 @@ import type {
   SettlementDetail,
   StatsResponse,
 } from "@/lib/api-types";
+import type { CreateConnectionInput, UpdateConnectionInput } from "@/lib/agent-connection-input";
 import type { BeancountConfigInput } from "@/lib/zod";
 
 import { apiBaseQuery } from "./base-query";
@@ -54,6 +58,7 @@ const tagTypes = [
   "Me",
   "Profile",
   "Identities",
+  "AgentConnections",
   "GroupPhotos",
   "Members",
   "Settings",
@@ -152,6 +157,10 @@ const baseApi = createApi({
     getIdentities: build.query<IdentitiesResponse, void>({
       query: () => ({ url: "/api/me/identities" }),
       providesTags: [tag("Identities", "ME")],
+    }),
+    getAgentConnections: build.query<AgentConnectionsResponse, void>({
+      query: () => ({ url: "/api/me/agent-connections" }),
+      providesTags: [tag("AgentConnections", "ME")],
     }),
     // The ticket rides in an httpOnly cookie; this is read once, on the confirm page.
     getAccountMergePreview: build.query<AccountMergePreview, void>({
@@ -472,6 +481,30 @@ const baseApi = createApi({
       // Unlinking the login the avatar came from moves it back to automatic.
       invalidatesTags: [tag("Identities", "ME"), tag("Profile", "ME"), "Avatars"],
     }),
+
+    // ---- AI assistants (issues #147, #150) ---------------------------------------------
+    // The token in the response is shown once and kept in component state; the cache holds a
+    // copy of it only until `keepUnusedDataFor`, so the caller calls `.unwrap()` and `reset()`.
+    createAgentConnection: build.mutation<CreateAgentConnectionResponse, CreateConnectionInput>({
+      query: (body) => ({ url: "/api/me/agent-connections", method: "POST", body }),
+      invalidatesTags: [tag("AgentConnections", "ME")],
+    }),
+    updateAgentConnection: build.mutation<
+      { connection: AgentConnectionItem },
+      { id: number } & UpdateConnectionInput
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/api/me/agent-connections/${id}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: [tag("AgentConnections", "ME")],
+    }),
+    revokeAgentConnection: build.mutation<unknown, { id: number }>({
+      query: ({ id }) => ({ url: `/api/me/agent-connections/${id}`, method: "DELETE" }),
+      invalidatesTags: [tag("AgentConnections", "ME")],
+    }),
+
     updateProfile: build.mutation<ProfileResponse, ProfileUpdate>({
       query: (body) => ({ url: "/api/me/profile", method: "PATCH", body }),
       invalidatesTags: [tag("Profile", "ME"), ...peopleTags],
@@ -758,6 +791,10 @@ export const {
   useGetInvitePreviewQuery,
   useGetProfileQuery,
   useUpdateProfileMutation,
+  useGetAgentConnectionsQuery,
+  useCreateAgentConnectionMutation,
+  useUpdateAgentConnectionMutation,
+  useRevokeAgentConnectionMutation,
   useGetIdentitiesQuery,
   useUnlinkIdentityMutation,
   useGetAccountMergePreviewQuery,
