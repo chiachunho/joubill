@@ -10,6 +10,15 @@ export const TERMS_PATH = "/help/terms";
 /** How to connect Claude, Cursor, n8n and the like through the MCP server (issue #150). */
 export const MCP_HELP_PATH = "/help/mcp";
 
+/** The MCP endpoint people paste into Claude, ChatGPT, Cursor or n8n; also the OAuth resource. */
+export const MCP_PATH = "/api/mcp";
+
+/**
+ * The OAuth consent page (Web App only). `/api/oauth/authorize` sends people there, and the
+ * Mini App's copy of the page links to it, so both ends read it from here.
+ */
+export const OAUTH_CONSENT_PATH = "/app/oauth/consent";
+
 /**
  * Absolute URL of the help site.
  *

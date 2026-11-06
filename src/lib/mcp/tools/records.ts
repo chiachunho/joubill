@@ -1,4 +1,4 @@
-import { and, desc, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
@@ -34,8 +34,18 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
       })
       .from(expenses)
       .where(and(eq(expenses.groupId, groupId), inArray(expenses.id, ids))),
-    db.select().from(expensePayers).where(inArray(expensePayers.expenseId, ids)),
-    db.select().from(expenseSplits).where(inArray(expenseSplits.expenseId, ids)),
+    // Entry order, not whatever order the heap returns: `update_record` rebuilds an equal split
+    // from these rows, and which person gets the odd cent follows their order.
+    db
+      .select()
+      .from(expensePayers)
+      .where(inArray(expensePayers.expenseId, ids))
+      .orderBy(asc(expensePayers.id)),
+    db
+      .select()
+      .from(expenseSplits)
+      .where(inArray(expenseSplits.expenseId, ids))
+      .orderBy(asc(expenseSplits.id)),
   ]);
   const label = (id: number) => labels.get(id) ?? "?";
   const byId = new Map(rows.map((r) => [r.id, r]));

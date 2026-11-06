@@ -53,7 +53,7 @@ export default async function up(sql: MigrationSql) {
         EXECUTE format(
           'ALTER TABLE %s RENAME CONSTRAINT %I TO %I',
           r.tbl, r.conname,
-          regexp_replace(r.conname, 'app_(connection|idempotency)', 'mcp_\1', 'g')
+          regexp_replace(r.conname, 'app_(connection|idempotency)', 'mcp_\\1', 'g')
         );
       END LOOP;
 
@@ -64,7 +64,7 @@ export default async function up(sql: MigrationSql) {
         EXECUTE format(
           'ALTER INDEX %I RENAME TO %I',
           r.indexname,
-          regexp_replace(r.indexname, 'app_(connection|idempotency)', 'mcp_\1', 'g')
+          regexp_replace(r.indexname, 'app_(connection|idempotency)', 'mcp_\\1', 'g')
         );
       END LOOP;
 
@@ -76,7 +76,7 @@ export default async function up(sql: MigrationSql) {
         EXECUTE format(
           'ALTER SEQUENCE %I RENAME TO %I',
           r.relname,
-          regexp_replace(r.relname, 'app_(connection|idempotency)', 'mcp_\1', 'g')
+          regexp_replace(r.relname, 'app_(connection|idempotency)', 'mcp_\\1', 'g')
         );
       END LOOP;
     END $$

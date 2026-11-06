@@ -5,6 +5,7 @@ import { expensePayers, expenseSplits, expenses, groups } from "@/db/schema";
 import { findUsersNotInGroup } from "@/lib/auth";
 import { BadRequestError, ConflictError, NotFoundError } from "@/lib/auth/errors";
 import { fxColumnsFor } from "@/lib/fx";
+import { sameInstant } from "@/lib/instant";
 import type { Tx } from "@/lib/record-mutation";
 
 /** Throws a 400 naming every user that is not a member of the group. */
@@ -52,11 +53,6 @@ export async function resolveUpdateFx(
     defaultCurrency: group.defaultCurrency,
   });
   return keep ? null : fxColumnsFor(group.defaultCurrency, input.currency, input.fxRate);
-}
-
-/** Two timestamps within the precision a JS Date round trip keeps (the column holds µs). */
-export function sameInstant(a: Date, b: Date): boolean {
-  return Math.abs(a.getTime() - b.getTime()) < 2;
 }
 
 /**

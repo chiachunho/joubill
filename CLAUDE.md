@@ -174,7 +174,7 @@ All client reads and writes of `/api/**` go through **RTK Query** (`@reduxjs/too
 
 ### MCP server (`src/app/api/mcp/`, `src/lib/mcp/`, issues #147/#149)
 
-Stateless Streamable HTTP over `@modelcontextprotocol/sdk`, authenticated by personal `sbk_…` tokens kept as a sha256 in `mcp_connections`. Full design in [`docs/architecture/mcp.md`](docs/architecture/mcp.md). The rules that are easy to break:
+Stateless Streamable HTTP over `@modelcontextprotocol/sdk`, authenticated by personal `sbk_…` tokens (or OAuth `sbo_…` access tokens, below) kept as a sha256 in `mcp_connections` / `oauth_tokens`. Full design in [`docs/architecture/mcp.md`](docs/architecture/mcp.md). The rules that are easy to break:
 
 - **Naming** (issue #147's 用詞 table): people see **連結的應用程式** (settings page, `LinkedAppsPage`, `/settings/apps`); in code a connection is always `mcp`, never `app_*`, because `'app'` already means the Mini App / Web App: tables `mcp_connections` / `mcp_idempotency`, column `mcp_connection_id`, `getMcpAuth`, `/api/me/mcp-connections`, audit `source = 'mcp'`. "MCP" also names the protocol and server (`/api/mcp`, `src/lib/mcp/`, `mcp-*.ts`). "agent" only means a real AI agent, such as the tool descriptions written for one. `migrations/0005` and `0006` are the renames that got here.
 - **`getAuth` must keep refusing `sbk_` tokens and OAuth access tokens (`sbo_`)**, and `getMcpAuth` must keep refusing everything else; REST and MCP are separate doors.

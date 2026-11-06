@@ -14,6 +14,7 @@ import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ApiError } from "@/lib/api-error";
+import { OAUTH_CONSENT_PATH } from "@/lib/help-url";
 
 type ConsentInfo = {
   client: { name: string; redirectLabel: string };
@@ -22,9 +23,6 @@ type ConsentInfo = {
 };
 
 type Failure = { message: string; redirectTo: string | null };
-
-/** The consent page's path in the Web App, which is where an authorize request is sent. */
-export const OAUTH_CONSENT_PATH = "/app/oauth/consent";
 
 /**
  * Where a Claude.ai / ChatGPT connection asks the person to approve it (issue #152). OAuth

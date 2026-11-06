@@ -1,3 +1,4 @@
+import { sameInstant } from "@/lib/instant";
 import type { McpPayer, McpSplit } from "@/lib/mcp-split";
 
 /**
@@ -75,7 +76,5 @@ export function carryOverSplit(
 
 /** `updatedAt` strings round-trip through a JS Date, so compare within a millisecond or so. */
 export function sameInstantIso(a: string, b: string): boolean {
-  const x = Date.parse(a);
-  const y = Date.parse(b);
-  return Number.isFinite(x) && Number.isFinite(y) && Math.abs(x - y) < 2;
+  return sameInstant(new Date(a), new Date(b));
 }

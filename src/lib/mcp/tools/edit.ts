@@ -97,15 +97,16 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
         const { group, members, labels } = await openGroup(auth, args.groupId, "write", {
           countAs: args.dryRun ? "read" : "write",
         });
+        // A value that isn't a timestamp is a bad request, not a stale read.
+        const expected = new Date(args.expectedUpdatedAt);
+        if (Number.isNaN(expected.getTime())) {
+          throw new ToolError("bad_request", "expectedUpdatedAt is not a timestamp");
+        }
         const cur = await loadOne(args.groupId, args.recordId, labels);
         if (!sameInstantIso(cur.updatedAt, args.expectedUpdatedAt)) {
           throw new ToolError("conflict", "the record was changed after it was read", {
             current: cur,
           });
-        }
-        const expected = new Date(args.expectedUpdatedAt);
-        if (Number.isNaN(expected.getTime())) {
-          throw new ToolError("bad_request", "expectedUpdatedAt is not a timestamp");
         }
         const find = makeResolver(members, auth.user.id);
 

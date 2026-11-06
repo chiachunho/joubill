@@ -15,8 +15,8 @@ export type McpAuth = Auth & { grant: Grant };
 const TOUCH_MS = 60_000;
 
 /**
- * Auth for `/api/mcp`: `Authorization: Bearer sbk_…`. Revocation and expiry are checked on
- * every call. Group membership is checked per tool (`assertGroupMember`), also every call.
+ * Auth for `/api/mcp`: `Authorization: Bearer sbk_…` (a personal token) or `Bearer sbo_…` (an
+ * OAuth access token). Revocation and expiry are checked on every call. Group membership is checked per tool (`assertGroupMember`), also every call.
  * `getAuth` deliberately does not accept these tokens, so REST stays closed to agents.
  */
 export async function getMcpAuth(req: Request): Promise<McpAuth> {

@@ -80,9 +80,11 @@ const decisionSchema = z.object({
 
 /** The person's decision. The request is checked again: the body is not trusted. */
 export const POST = withAuth(async (req: Request) => {
-  // A cookie-authenticated POST: only our own pages may make it.
+  // A cookie-authenticated POST: only our own pages may make it. "Ours" is the configured
+  // origin or the one this request arrived on (a preview or alias serves the page from its
+  // own host); another site's Origin matches neither.
   const origin = req.headers.get("origin");
-  if (origin && origin !== new URL(appUrl("/")).origin) {
+  if (origin && origin !== new URL(appUrl("/")).origin && origin !== new URL(req.url).origin) {
     throw new ForbiddenError("cross-origin request");
   }
   const auth = await getAuth(req);

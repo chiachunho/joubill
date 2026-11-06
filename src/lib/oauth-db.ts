@@ -264,11 +264,18 @@ export type TokenResponse = {
   scope: string;
 };
 
-async function issueTokens(connectionId: number, access: Access): Promise<TokenResponse> {
+/** Anything that can insert: the database, or the transaction a grant is issued in. */
+type TokenWriter = Pick<typeof db, "insert">;
+
+async function issueTokens(
+  exec: TokenWriter,
+  connectionId: number,
+  access: Access,
+): Promise<TokenResponse> {
   const accessToken = newAccessToken();
   const refreshToken = newRefreshToken();
   const now = Date.now();
-  await db.insert(oauthTokens).values([
+  await exec.insert(oauthTokens).values([
     {
       connectionId,
       kind: "access",
@@ -282,16 +289,6 @@ async function issueTokens(connectionId: number, access: Access): Promise<TokenR
       expiresAt: new Date(now + REFRESH_TTL_MS),
     },
   ]);
-  // Expired access tokens and spent refresh tokens are never read again.
-  await db
-    .delete(oauthTokens)
-    .where(
-      and(
-        eq(oauthTokens.connectionId, connectionId),
-        sql`(${oauthTokens.expiresAt} < now() or ${oauthTokens.usedAt} is not null)`,
-      ),
-    )
-    .catch(() => {});
   return {
     access_token: accessToken,
     token_type: "Bearer",
@@ -299,6 +296,24 @@ async function issueTokens(connectionId: number, access: Access): Promise<TokenR
     refresh_token: refreshToken,
     scope: scopeOf(access),
   };
+}
+
+/**
+ * Drops tokens nobody will read again: expired ones, and spent refresh tokens once a replay
+ * window of 7 days is over. A spent token must outlive the refresh that spent it; deleting it
+ * right away would turn a replay into "unknown token", and the connection would never be
+ * revoked for it. Housekeeping only, so it runs after the grant is committed and may fail.
+ */
+async function sweepTokens(connectionId: number): Promise<void> {
+  await db
+    .delete(oauthTokens)
+    .where(
+      and(
+        eq(oauthTokens.connectionId, connectionId),
+        sql`(${oauthTokens.expiresAt} < now() or ${oauthTokens.usedAt} < now() - interval '7 days')`,
+      ),
+    )
+    .catch(() => {});
 }
 
 async function revokeConnection(connectionId: number): Promise<void> {
@@ -344,34 +359,40 @@ export async function exchangeCode(
     throw new OauthGrantError("invalid_grant", "code_verifier does not match");
   }
 
-  // Authorizing the same client again replaces its earlier connection instead of piling up.
-  await db
-    .update(mcpConnections)
-    .set({ revokedAt: new Date() })
-    .where(
-      and(
-        eq(mcpConnections.userId, row.userId),
-        eq(mcpConnections.oauthClientId, client.id),
-        isNull(mcpConnections.revokedAt),
-      ),
-    );
+  // One transaction: revoking the earlier connection, creating the new one and its tokens
+  // stand or fall together, so a failure can't leave the person with no working connection.
   const access: Access = row.access === "write" ? "write" : "read";
-  const [conn] = await db
-    .insert(mcpConnections)
-    .values({
-      userId: row.userId,
-      kind: "oauth",
-      name: client.name,
-      tokenHash: null,
-      tokenPrefix: "OAuth",
-      oauthClientId: client.id,
-      access,
-      allGroups: row.allGroups,
-      groupIds: row.groupIds,
-    })
-    .returning({ id: mcpConnections.id });
-  await db.update(oauthCodes).set({ connectionId: conn.id }).where(eq(oauthCodes.id, row.id));
-  return issueTokens(conn.id, access);
+  const { connectionId, tokens } = await db.transaction(async (tx) => {
+    // Authorizing the same client again replaces its earlier connection instead of piling up.
+    await tx
+      .update(mcpConnections)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(mcpConnections.userId, row.userId),
+          eq(mcpConnections.oauthClientId, client.id),
+          isNull(mcpConnections.revokedAt),
+        ),
+      );
+    const [conn] = await tx
+      .insert(mcpConnections)
+      .values({
+        userId: row.userId,
+        kind: "oauth",
+        name: client.name,
+        tokenHash: null,
+        tokenPrefix: "OAuth",
+        oauthClientId: client.id,
+        access,
+        allGroups: row.allGroups,
+        groupIds: row.groupIds,
+      })
+      .returning({ id: mcpConnections.id });
+    await tx.update(oauthCodes).set({ connectionId: conn.id }).where(eq(oauthCodes.id, row.id));
+    return { connectionId: conn.id, tokens: await issueTokens(tx, conn.id, access) };
+  });
+  await sweepTokens(connectionId);
+  return tokens;
 }
 
 /** `grant_type=refresh_token`. Rotates: the old refresh token dies, a reused one revokes all. */
@@ -394,19 +415,25 @@ export async function refreshTokens(
     await revokeConnection(row.conn.id);
     throw new OauthGrantError("invalid_grant", "refresh token already used");
   }
-  const claimed = await db
-    .update(oauthTokens)
-    .set({ usedAt: new Date() })
-    .where(
-      and(
-        eq(oauthTokens.id, row.token.id),
-        isNull(oauthTokens.usedAt),
-        gt(oauthTokens.expiresAt, new Date()),
-      ),
-    )
-    .returning({ id: oauthTokens.id });
-  if (claimed.length === 0) throw new OauthGrantError("invalid_grant", "refresh token expired");
-  return issueTokens(row.conn.id, row.conn.access === "write" ? "write" : "read");
+  // Claiming the old token and issuing the new ones commit together: if issuing fails, the
+  // client still holds a refresh token that works.
+  const tokens = await db.transaction(async (tx) => {
+    const claimed = await tx
+      .update(oauthTokens)
+      .set({ usedAt: new Date() })
+      .where(
+        and(
+          eq(oauthTokens.id, row.token.id),
+          isNull(oauthTokens.usedAt),
+          gt(oauthTokens.expiresAt, new Date()),
+        ),
+      )
+      .returning({ id: oauthTokens.id });
+    if (claimed.length === 0) throw new OauthGrantError("invalid_grant", "refresh token expired");
+    return issueTokens(tx, row.conn.id, row.conn.access === "write" ? "write" : "read");
+  });
+  await sweepTokens(row.conn.id);
+  return tokens;
 }
 
 /** RFC 7009: revokes the connection a presented token belongs to. Unknown tokens are fine. */

@@ -18,12 +18,9 @@ import {
   usableConnections,
 } from "@/lib/app-ui";
 import { describeError } from "@/lib/api-error";
-import { appUrl, MCP_HELP_PATH } from "@/lib/help-url";
+import { appUrl, MCP_HELP_PATH, MCP_PATH } from "@/lib/help-url";
 import { cn } from "@/lib/utils";
 import { useGetMcpConnectionsQuery, useGetMeQuery } from "@/store/api";
-
-/** The MCP endpoint people paste into Claude, ChatGPT, Cursor or n8n. */
-const MCP_PATH = "/api/mcp";
 
 /**
  * 個人設定 → 連結的應用程式 (issue #150): the address to connect to, the connections that exist,

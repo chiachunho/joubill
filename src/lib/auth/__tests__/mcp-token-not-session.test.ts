@@ -15,11 +15,19 @@ vi.mock("next/headers", () => ({ cookies: vi.fn() }));
 import { getAuth } from "@/lib/auth";
 import { UnauthorizedError } from "@/lib/auth/errors";
 import { generateToken } from "@/lib/mcp-token";
+import { newAccessToken } from "@/lib/oauth";
 
 describe("getAuth", () => {
   it("does not accept an MCP token, so REST stays closed to agents", async () => {
     const req = new Request("http://localhost/api/groups/1/balance", {
       headers: { authorization: `Bearer ${generateToken()}` },
+    });
+    await expect(getAuth(req)).rejects.toBeInstanceOf(UnauthorizedError);
+  });
+
+  it("does not accept an OAuth access token either", async () => {
+    const req = new Request("http://localhost/api/groups/1/balance", {
+      headers: { authorization: `Bearer ${newAccessToken()}` },
     });
     await expect(getAuth(req)).rejects.toBeInstanceOf(UnauthorizedError);
   });

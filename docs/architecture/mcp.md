@@ -13,10 +13,11 @@ undefined`, `enableJsonResponse: true`). A new `McpServer` is built per request
 
 ## Identity
 
-`getMcpAuth` (`src/lib/auth/mcp.ts`) accepts only `Authorization: Bearer sbk_…`, hashes
-it (`src/lib/mcp-token.ts`, sha256) and looks the hash up in `mcp_connections`. Revocation
-and expiry are checked **every call**. A 401 carries `WWW-Authenticate: Bearer`.
-**`getAuth` does not accept these tokens**, so REST stays closed to linked applications and a token can't
+`getMcpAuth` (`src/lib/auth/mcp.ts`) accepts `Authorization: Bearer sbk_…` (a personal token) or
+`Bearer sbo_…` (an OAuth access token, see below), hashes it (`src/lib/mcp-token.ts`, sha256) and
+looks the hash up in `mcp_connections` / `oauth_tokens`. Revocation and expiry are checked **every
+call**. A 401 carries `WWW-Authenticate: Bearer resource_metadata="…"`.
+**`getAuth` does not accept either kind**, so REST stays closed to linked applications and a token can't
 manage tokens (`mcp-token-not-session.test.ts`).
 
 Every tool runs `openGroup` (`src/lib/mcp/context.ts`): count the call against the rate limit,
@@ -50,7 +51,10 @@ Claude.ai and ChatGPT can't send a custom header, so `/api/mcp` is also an OAuth
   client again revokes its previous connection. A replayed code revokes what it produced.
 - **Tokens** (`oauth_tokens`, hashes only): access `sbo_…` 1 h, refresh `sbr_…` 90 d. Refresh rotates;
   presenting a spent refresh token revokes the connection. `getMcpAuth` takes an `sbk_` token or an
-  `sbo_` access token and returns the same `Grant`, so no tool changes. Revoking in settings,
+  `sbo_` access token and returns the same `Grant`, so no tool changes. A spent refresh token is kept 7
+  days (`sweepTokens`) so its replay is still recognised; deleting it on rotation would make the
+  revoke-on-reuse rule unreachable. Issuing a grant (revoke the old connection, create the new one,
+  its tokens) is one transaction. Revoking in settings,
   `/api/oauth/revoke` and leaving a group all end access through the usual checks.
 - Scopes `records:read` / `records:write` only cap what the consent page offers; the group scope and
   the final permission are what the person chose there.

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { HttpError, TooManyRequestsError } from "@/lib/auth/errors";
-import { appUrl } from "@/lib/help-url";
+import { appUrl, MCP_PATH, OAUTH_CONSENT_PATH } from "@/lib/help-url";
 import { SUPPORTED_SCOPES } from "@/lib/oauth";
 
 /**
@@ -12,9 +12,9 @@ import { SUPPORTED_SCOPES } from "@/lib/oauth";
  */
 
 export const issuer = () => appUrl("/").replace(/\/$/, "");
-export const mcpUrl = () => appUrl("/api/mcp");
+export const mcpUrl = () => appUrl(MCP_PATH);
 export const metadataUrl = () => appUrl("/.well-known/oauth-protected-resource");
-export const consentUrl = () => appUrl("/app/oauth/consent");
+export const consentUrl = () => appUrl(OAUTH_CONSENT_PATH);
 
 export function protectedResourceMetadata() {
   return {
