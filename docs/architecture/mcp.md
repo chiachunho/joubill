@@ -24,6 +24,39 @@ Every tool runs `openGroup` (`src/lib/mcp/context.ts`): count the call against t
 access to it), then `assertGrant` (`src/lib/mcp-grant.ts`: the connection's group scope and
 `read`/`write`). `all_groups` includes groups joined later.
 
+## OAuth (issue #152)
+
+Claude.ai and ChatGPT can't send a custom header, so `/api/mcp` is also an OAuth 2.1 resource
+(MCP authorization spec). A 401 carries `WWW-Authenticate: Bearer resource_metadata="…"`, with
+`error="invalid_token"` when a token was sent and refused (the cue to refresh).
+
+- **Discovery**: `/.well-known/oauth-protected-resource` and `oauth-authorization-server` (optional
+  catch-all, so the path-suffixed forms resolve too). Documents are built in `oauth-http.ts` from
+  `NEXT_PUBLIC_MINI_APP_URL`'s origin, like `appUrl`.
+- **Endpoints** (`src/app/api/oauth/`): `register` (RFC 7591, open on purpose), `authorize`, `token`,
+  `revoke`, and `consent` (cookie-authenticated, used only by the consent page). `register`, `token`
+  and `revoke` answer any origin (browser clients, no cookie); `consent` does not, and its POST
+  checks `Origin`.
+- **PKCE `S256` is mandatory**; `plain` is refused. Redirect URIs match exactly: https, loopback http,
+  or an app's own scheme (`oauth.ts`: `isAcceptableRedirectUri`). A bad `client_id` / `redirect_uri` is
+  an error page and **never a redirect**; any other error goes back to the (trusted) redirect URI.
+- **Registration grants nothing.** Access exists only after a signed-in person approves on
+  `/app/oauth/consent`. The client's name is attacker-controlled and ends up in "透過 X 記錄", so
+  `sanitizeClientName` cleans it, and the consent page prints the redirect host. Registration is rate
+  limited per address, capped (`MAX_CLIENTS`), and unused old clients are swept.
+- **The grant travels in the code** (`oauth_codes`: 10 min, single use, claimed with an atomic
+  `used_at`). The `app_connections` row (`kind = 'oauth'`, `token_hash` NULL) is created when the code
+  is **exchanged**, so an abandoned approval leaves nothing in 連結的應用程式. Authorizing the same
+  client again revokes its previous connection. A replayed code revokes what it produced.
+- **Tokens** (`oauth_tokens`, hashes only): access `sbo_…` 1 h, refresh `sbr_…` 90 d. Refresh rotates;
+  presenting a spent refresh token revokes the connection. `getAppAuth` takes an `sbk_` token or an
+  `sbo_` access token and returns the same `Grant`, so no tool changes. Revoking in settings,
+  `/api/oauth/revoke` and leaving a group all end access through the usual checks.
+- Scopes `records:read` / `records:write` only cap what the consent page offers; the group scope and
+  the final permission are what the person chose there.
+- The consent page is `OAuthConsentPage`; the Mini App's route exists but only says it isn't
+  supported (OAuth can't run in Telegram's webview) and offers `openInBrowser`.
+
 ## Connections
 
 `app_connections` stores the hash and a display prefix, never the token. `POST
