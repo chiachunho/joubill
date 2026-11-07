@@ -23,11 +23,14 @@ export function TimeZoneSelect({
   onChange,
   disabled,
   ariaLabel = "時區",
+  className,
 }: {
   value: string;
   onChange: (timeZone: string) => void;
   disabled?: boolean;
   ariaLabel?: string;
+  /** Extra classes for the trigger, e.g. to match a neighbouring inline select. */
+  className?: string;
 }) {
   // ~400 zones, each described with an Intl lookup: only built once the list is opened. The
   // chosen zone is always an item, so the closed trigger can still show it.
@@ -41,7 +44,7 @@ export function TimeZoneSelect({
       : [value];
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled} onOpenChange={setOpen}>
-      <SelectTrigger aria-label={ariaLabel}>
+      <SelectTrigger aria-label={ariaLabel} className={className}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

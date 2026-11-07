@@ -261,6 +261,7 @@ export function GroupSettings({
                 <TimeZoneSelect
                   value={settings.timezone}
                   disabled={timezonePending}
+                  className="h-8 rounded-lg border-0 bg-background/60 text-sm"
                   onChange={(tz) => {
                     if (tz !== settings.timezone) setPendingTimezone(tz);
                   }}
