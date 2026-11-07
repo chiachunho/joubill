@@ -1,5 +1,7 @@
 "use client";
 
+import { Eye, Pencil } from "lucide-react";
+
 import { Avatar } from "@/components/mini/Avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ACCESS_HINT, ACCESS_LABEL } from "@/lib/app-ui";
@@ -30,10 +32,15 @@ export function AppAccessPicker({
             aria-checked={value === v}
             onClick={() => onChange(v)}
             className={cn(
-              "rounded-md py-1.5 text-sm transition-colors",
+              "flex items-center justify-center gap-1.5 rounded-md py-1.5 text-sm transition-colors",
               value === v ? "bg-background font-semibold shadow-sm" : "text-muted-foreground",
             )}
           >
+            {v === "read" ? (
+              <Eye className="size-4" aria-hidden />
+            ) : (
+              <Pencil className="size-4" aria-hidden />
+            )}
             {ACCESS_LABEL[v]}
           </button>
         ))}
