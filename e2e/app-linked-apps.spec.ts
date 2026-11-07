@@ -118,7 +118,10 @@ test.describe("連結的應用程式", () => {
 
     await authedPage.goto("/app/settings/apps");
     await authedPage.getByRole("link", { name: /E2E 使用紀錄/ }).click();
-    await authedPage.getByRole("link", { name: /使用紀錄/ }).click();
+    // The connection's own name also contains 使用紀錄, so wait for its page and match the
+    // link by where the name starts, or the click lands on the list row that is still showing.
+    await expect(authedPage.getByRole("button", { name: "撤銷這個連線" })).toBeVisible();
+    await authedPage.getByRole("link", { name: /^使用紀錄/ }).click();
 
     await expect(authedPage.getByText("get_balance")).toBeVisible();
     await expect(authedPage.getByText("找不到成員")).toBeVisible();
