@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ChevronRight, Copy, Check, Eye, Pencil, Plus, Sparkles } from "lucide-react";
 
-import Link from "next/link";
 import { CreateAppTokenDialog } from "@/components/mini/CreateAppTokenDialog";
 import { LinkedAppsSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";

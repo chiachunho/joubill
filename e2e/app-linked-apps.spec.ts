@@ -33,7 +33,7 @@ test.describe("連結的應用程式", () => {
 
     // The token is not shown again; the row is, and it is read-only.
     await expect(authedPage.getByText(token)).toHaveCount(0);
-    await authedPage.getByRole("button", { name: /E2E 刷卡簡訊/ }).click();
+    await authedPage.getByRole("link", { name: /E2E 刷卡簡訊/ }).click();
     await expect(authedPage.getByRole("radio", { name: "唯讀" })).toHaveAttribute(
       "aria-checked",
       "true",
@@ -117,7 +117,7 @@ test.describe("連結的應用程式", () => {
       .toBe(2);
 
     await authedPage.goto("/app/settings/apps");
-    await authedPage.getByRole("button", { name: /E2E 使用紀錄/ }).click();
+    await authedPage.getByRole("link", { name: /E2E 使用紀錄/ }).click();
     await authedPage.getByRole("link", { name: /使用紀錄/ }).click();
 
     await expect(authedPage.getByText("get_balance")).toBeVisible();

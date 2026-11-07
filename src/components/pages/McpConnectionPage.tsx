@@ -42,6 +42,9 @@ export function McpConnectionPage({
 }) {
   const { id } = use(params);
   const connectionId = Number(id);
+  // Set once the connection is revoked: the refetch that follows drops it from the list, which
+  // would otherwise flash 找不到這個連線 on the way back to the list.
+  const [leaving, setLeaving] = useState(false);
   const back = `${platform.basePath}/settings/apps`;
   platform.useBack(back);
 
@@ -57,7 +60,7 @@ export function McpConnectionPage({
       </div>
     );
   }
-  if (!data || !me) return <LinkedAppsSkeleton />;
+  if (!data || !me || leaving) return <LinkedAppsSkeleton />;
 
   const connection = usableConnections(data.connections).find((c) => c.id === connectionId);
   if (!connection) {
@@ -77,6 +80,7 @@ export function McpConnectionPage({
       groups={me.groups}
       platform={platform}
       back={back}
+      onRevoked={() => setLeaving(true)}
     />
   );
 }
@@ -86,11 +90,13 @@ function ConnectionForm({
   groups,
   platform,
   back,
+  onRevoked,
 }: {
   connection: McpConnectionItem;
   groups: { id: number; title: string; defaultCurrency: string }[];
   platform: Platform;
   back: string;
+  onRevoked: () => void;
 }) {
   const router = useRouter();
   const [update, { isLoading: saving }] = useUpdateMcpConnectionMutation();
@@ -131,6 +137,7 @@ function ConnectionForm({
     setError(null);
     try {
       await revoke({ id: connection.id }).unwrap();
+      onRevoked();
       router.replace(back);
     } catch (e) {
       setError(apiErrorText(e, "撤銷失敗"));

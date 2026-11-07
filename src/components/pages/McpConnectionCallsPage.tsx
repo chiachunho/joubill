@@ -55,7 +55,7 @@ export function McpConnectionCallsPage({
 }) {
   const { id } = use(params);
   const connectionId = Number(id);
-  const back = `${platform.basePath}/settings/apps`;
+  const back = `${platform.basePath}/settings/apps/${connectionId}`;
   platform.useBack(back);
 
   const [filter, setFilter] = useState<CallFilter>("all");
