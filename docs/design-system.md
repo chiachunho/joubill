@@ -138,8 +138,10 @@ Two variants of a section, beyond a plain grouped panel of data rows:
 **Nav row** — a single-row panel that hands a whole sub-topic off to its own
 page instead of expanding it inline. Use this when the content has its own
 forms/lists heavy enough to dominate the page it'd sit on — e.g. 貨幣與匯率
-(預設貨幣, 時區 and the 自訂匯率 list) and Beancount 複製 on the group settings
-page each moved to their own `settings/rates` / `settings/beancount` page, leaving a nav row behind. Shape:
+(預設貨幣, 時區 and the 自訂匯率 list) and 匯出 (CSV and Beancount) on the group
+settings page each moved to their own `settings/rates` / `settings/export` page, leaving a nav row
+behind. Every single entry of that page shares one card with no section titles; only 成員, a list
+of people, keeps a block of its own. Shape:
 icon tile + label + `ChevronRight`, **no secondary status text** — keep it as
 plain as 動態紀錄's row. A status line ("已啟用" / "N 筆設定") invites a second
 question — what does the empty/zero state say? — that a plain label sidesteps
@@ -167,11 +169,11 @@ general "make the page shorter" trick. Default collapsed
 takes the same `.sect` label the section would otherwise use, so a collapsed
 section reads identically to an ordinary section header until tapped.
 
-**Never collapse an actionable state by default.** `DangerZoneSection` collapses
-the idle "刪除群組" button behind the accordion, but renders a pending delete
-request — yours to cancel, or someone else's to approve/reject — directly, no
-accordion involved. An accordion a user has to know to open is the wrong place
-for something that needs their attention right now.
+**Never hide an actionable state.** `DeleteGroupRow`, the last row of the group
+settings card, is one red row while idle. A pending delete request — yours to
+cancel, or someone else's to approve/reject — shows in that row directly, on a
+tinted background, with its buttons. Anything a user has to know to open or
+scroll to is the wrong place for something that needs their attention right now.
 
 ---
 

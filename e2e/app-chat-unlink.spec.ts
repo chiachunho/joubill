@@ -23,7 +23,7 @@ test.describe("Unlinking a group from its Telegram chat", () => {
       .where(eq(schema.groupMembers.groupId, seeded.groupId));
 
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings`);
-    await expect(authedPage.getByText("已綁定，每筆紀錄會在聊天室出現卡片")).toBeVisible();
+    await expect(authedPage.getByRole("button", { name: /解除綁定/ })).toBeVisible();
 
     await authedPage.getByRole("button", { name: /解除綁定/ }).click();
     await expect(authedPage.getByText(/bot 會離開那個 Telegram 群組/)).toBeVisible();

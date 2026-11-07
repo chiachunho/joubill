@@ -1,24 +1,23 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  BookOpen,
   ChevronRight,
   Coins,
   Download,
   GitMerge,
   History,
-  Send,
   Pencil,
   Plus,
   Trash2,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
-import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
-import { TelegramChatSection } from "@/components/mini/TelegramChatSection";
+import { DeleteGroupRow } from "@/components/mini/DeleteGroupRow";
+import { TelegramChatRow } from "@/components/mini/TelegramChatRow";
 import { AddMemberDialog } from "@/components/mini/AddMemberDialog";
 import { MergeMemberDialog } from "@/components/mini/MergeMemberDialog";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
@@ -27,7 +26,6 @@ import type { Platform } from "@/components/pages/platform";
 import { activityFeedHref } from "@/lib/activity-link";
 import type { MembersResponse } from "@/lib/api-types";
 import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
-import { saveResponseAsFile } from "@/lib/download";
 import { labelMember, labelUser } from "@/lib/label";
 import {
   useGetAvatarsQuery,
@@ -39,6 +37,30 @@ import {
 } from "@/store/api";
 
 type Member = MembersResponse["members"][number];
+
+/** A row that hands a sub-topic to its own page: icon tile, label, chevron, no status text. */
+function NavRow({
+  href,
+  icon: Icon,
+  children,
+}: {
+  href: string;
+  icon: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+    >
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <Icon className="size-3.5" />
+      </span>
+      <p className="min-w-0 flex-1 text-sm">{children}</p>
+      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+    </Link>
+  );
+}
 
 export function GroupSettings({
   params,
@@ -70,8 +92,6 @@ export function GroupSettings({
   const [addOpen, setAddOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Member | null>(null);
   const [mergeTarget, setMergeTarget] = useState<Member | null>(null);
-  const [exportPending, setExportPending] = useState<"download" | "send" | null>(null);
-  const [exportMessage, setExportMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function toggleStatus(member: Member) {
     if (togglingId !== null) return;
@@ -119,34 +139,6 @@ export function GroupSettings({
     }
   }
 
-  async function exportCsv(mode: "download" | "send") {
-    if (exportPending) return;
-    setExportPending(mode);
-    setExportMessage(null);
-    try {
-      if (mode === "send") {
-        const res = await platform.rawRequest(`/api/groups/${id}/export/send`, { method: "POST" });
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as { error?: string };
-          setExportMessage({ ok: false, text: data.error ?? "匯出失敗，請再試一次" });
-          return;
-        }
-        setExportMessage({ ok: true, text: "已傳送到群組" });
-        return;
-      }
-      const res = await platform.rawRequest(`/api/groups/${id}/export?format=csv`);
-      if (!res.ok) {
-        setExportMessage({ ok: false, text: "匯出失敗，請再試一次" });
-        return;
-      }
-      await saveResponseAsFile(res, "export.csv");
-    } catch {
-      setExportMessage({ ok: false, text: "匯出失敗，請再試一次" });
-    } finally {
-      setExportPending(null);
-    }
-  }
-
   const error = membersError;
   if (error) {
     return (
@@ -172,114 +164,6 @@ export function GroupSettings({
         <platform.BackLink href={backHref} />
         <h1 className="text-lg font-semibold">群組設定</h1>
       </div>
-
-      {/* 貨幣與匯率 — one nav row; 預設貨幣, 時區 and 自訂匯率 all live on its page, see
-          docs/design-system.md §6. */}
-      <section className="px-4">
-        <div className="overflow-hidden rounded-2xl bg-secondary/50">
-          <Link
-            href={`${platform.basePath}/groups/${id}/settings/rates`}
-            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Coins className="size-3.5" />
-            </span>
-            <p className="min-w-0 flex-1 text-sm">貨幣與匯率</p>
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
-          </Link>
-        </div>
-      </section>
-
-      <platform.GroupNotificationSetting groupId={Number(id)} />
-
-      {/* 動態紀錄 — the way into the audit log. The group page header has no
-          free slot (personal settings left, group settings right) and the
-          Expenses row is taken by 還款/支出, so the entry lives here; the
-          record forms' "最後由 X 修改" line is the shortcut from a record. */}
-      <section className="px-4">
-        <div className="overflow-hidden rounded-2xl bg-secondary/50">
-          <Link
-            href={activityFeedHref({ appBase: platform.basePath, groupId: id })}
-            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <History className="size-3.5" />
-            </span>
-            <p className="min-w-0 flex-1 text-sm">動態紀錄</p>
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
-          </Link>
-        </div>
-      </section>
-
-      {/* Beancount — a personal ledger export, so it stays apart from the group's CSV:
-          its accounts and its export (range, watermark) each get a sub-page. */}
-      <section className="px-4">
-        <p className="sect mb-2.5">Beancount</p>
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
-          <Link
-            href={`${platform.basePath}/groups/${id}/settings/beancount`}
-            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <BookOpen className="size-3.5" />
-            </span>
-            <p className="min-w-0 flex-1 text-sm">帳戶設定</p>
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
-          </Link>
-          <Link
-            href={`${platform.basePath}/groups/${id}/settings/beancount/export`}
-            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Download className="size-3.5" />
-            </span>
-            <p className="min-w-0 flex-1 text-sm">匯出 beancount</p>
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
-          </Link>
-        </div>
-      </section>
-
-      {/* 匯出 — one CSV of every record. The Web App can save it directly; Telegram's
-          webview can't take an authenticated download, so both apps can also have the
-          bot post the file in the group chat (the same file /export sends). */}
-      <section className="px-4">
-        <p className="sect mb-2.5">匯出</p>
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
-          {platform.canDownloadExport && (
-            <button
-              onClick={() => exportCsv("download")}
-              disabled={exportPending !== null}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50"
-            >
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Download className="size-3.5" />
-              </span>
-              <p className="min-w-0 flex-1 text-sm">
-                {exportPending === "download" ? "匯出中…" : "下載 CSV"}
-              </p>
-            </button>
-          )}
-          <button
-            onClick={() => exportCsv("send")}
-            disabled={exportPending !== null}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Send className="size-3.5" />
-            </span>
-            <p className="min-w-0 flex-1 text-sm">
-              {exportPending === "send" ? "傳送中…" : "匯出 CSV 到群組"}
-            </p>
-          </button>
-        </div>
-        {exportMessage && (
-          <p
-            className={`mt-2 px-1 text-xs ${exportMessage.ok ? "text-muted-foreground" : "text-destructive"}`}
-          >
-            {exportMessage.text}
-          </p>
-        )}
-      </section>
 
       {/* 成員 */}
       <section className="px-4">
@@ -393,14 +277,34 @@ export function GroupSettings({
         </div>
       )}
 
-      <TelegramChatSection groupId={id} />
-
-      <DangerZoneSection
-        groupId={id}
-        membersCount={membersData.members.filter((m) => !m.isPlaceholder).length}
-        selfUserId={selfUserId}
-        redirectPath={platform.basePath}
-      />
+      {/* One card for every single entry: no section titles. 貨幣與匯率 and 匯出 each hand a
+          sub-topic to their own page (docs/design-system.md §6); 動態紀錄 is the way into the
+          audit log (the group page header has no free slot, and the record forms' "最後由 X
+          修改" line is the shortcut from a record). 刪除群組 stays last. */}
+      <section className="px-4">
+        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          <TelegramChatRow groupId={id} />
+          <NavRow href={`${platform.basePath}/groups/${id}/settings/rates`} icon={Coins}>
+            貨幣與匯率
+          </NavRow>
+          <platform.GroupNotificationSetting groupId={Number(id)} />
+          <NavRow
+            href={activityFeedHref({ appBase: platform.basePath, groupId: id })}
+            icon={History}
+          >
+            動態紀錄
+          </NavRow>
+          <NavRow href={`${platform.basePath}/groups/${id}/settings/export`} icon={Download}>
+            匯出
+          </NavRow>
+          <DeleteGroupRow
+            groupId={id}
+            membersCount={membersData.members.filter((m) => !m.isPlaceholder).length}
+            selfUserId={selfUserId}
+            redirectPath={platform.basePath}
+          />
+        </div>
+      </section>
 
       <AddMemberDialog
         groupId={id}

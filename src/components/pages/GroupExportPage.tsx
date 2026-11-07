@@ -1,0 +1,119 @@
+"use client";
+
+import { use, useState } from "react";
+import { Download, Send } from "lucide-react";
+
+import { BeancountExportSection } from "@/components/mini/BeancountExportSection";
+import { BeancountSettingsSection } from "@/components/mini/BeancountSettingsSection";
+import type { Platform } from "@/components/pages/platform";
+import { saveResponseAsFile } from "@/lib/download";
+
+const ROW_CLASS =
+  "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50";
+
+/**
+ * 匯出: the one page behind the group settings row of the same name. The group's CSV on top, then
+ * the personal Beancount export: its three accounts, then the range and the export itself.
+ */
+export function GroupExportPage({
+  params,
+  platform,
+}: {
+  params: Promise<{ id: string }>;
+  platform: Platform;
+}) {
+  const { id } = use(params);
+
+  const backHref = `${platform.basePath}/groups/${id}/settings`;
+  platform.useBack(backHref);
+
+  const [exportPending, setExportPending] = useState<"download" | "send" | null>(null);
+  const [exportMessage, setExportMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function exportCsv(mode: "download" | "send") {
+    if (exportPending) return;
+    setExportPending(mode);
+    setExportMessage(null);
+    try {
+      if (mode === "send") {
+        const res = await platform.rawRequest(`/api/groups/${id}/export/send`, { method: "POST" });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          setExportMessage({ ok: false, text: data.error ?? "匯出失敗，請再試一次" });
+          return;
+        }
+        setExportMessage({ ok: true, text: "已傳送到群組" });
+        return;
+      }
+      const res = await platform.rawRequest(`/api/groups/${id}/export?format=csv`);
+      if (!res.ok) {
+        setExportMessage({ ok: false, text: "匯出失敗，請再試一次" });
+        return;
+      }
+      await saveResponseAsFile(res, "export.csv");
+    } catch {
+      setExportMessage({ ok: false, text: "匯出失敗，請再試一次" });
+    } finally {
+      setExportPending(null);
+    }
+  }
+
+  return (
+    <div className="space-y-6 py-4">
+      <div className="px-4">
+        <platform.BackLink href={backHref} />
+        <h1 className="text-lg font-semibold">匯出</h1>
+      </div>
+
+      {/* CSV — one file of every record. The Web App can save it directly; Telegram's webview
+          can't take an authenticated download, so both apps can also have the bot post the file
+          in the group chat (the same file /export sends). */}
+      <section className="px-4">
+        <p className="sect mb-2.5">CSV</p>
+        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          {platform.canDownloadExport && (
+            <button
+              onClick={() => exportCsv("download")}
+              disabled={exportPending !== null}
+              className={ROW_CLASS}
+            >
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Download className="size-3.5" />
+              </span>
+              <p className="min-w-0 flex-1 text-sm">
+                {exportPending === "download" ? "匯出中…" : "下載 CSV"}
+              </p>
+            </button>
+          )}
+          <button
+            onClick={() => exportCsv("send")}
+            disabled={exportPending !== null}
+            className={ROW_CLASS}
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Send className="size-3.5" />
+            </span>
+            <p className="min-w-0 flex-1 text-sm">
+              {exportPending === "send" ? "傳送中…" : "匯出 CSV 到群組"}
+            </p>
+          </button>
+        </div>
+        {exportMessage && (
+          <p
+            className={`mt-2 px-1 text-xs ${exportMessage.ok ? "text-muted-foreground" : "text-destructive"}`}
+          >
+            {exportMessage.text}
+          </p>
+        )}
+      </section>
+
+      {/* Beancount — a personal ledger export, so it stays apart from the group's CSV. */}
+      <div className="space-y-3">
+        <p className="sect px-4">Beancount 帳戶設定</p>
+        <BeancountSettingsSection groupId={id} />
+      </div>
+
+      <BeancountExportSection groupId={id} platform={platform} />
+    </div>
+  );
+}

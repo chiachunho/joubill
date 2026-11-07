@@ -167,7 +167,7 @@ export function BeancountExportSection({
   return (
     <>
       <section className="px-4">
-        <p className="sect mb-2.5">範圍</p>
+        <p className="sect mb-2.5">匯出 Beancount</p>
         <div
           role="radiogroup"
           aria-label="匯出範圍"

@@ -17,9 +17,9 @@ test.describe("Group and account pages", () => {
     await expect(authedPage.getByRole("heading", { name: "貨幣與匯率" })).toBeVisible();
   });
 
-  test("beancount settings page renders", async ({ authedPage, seeded }) => {
-    await authedPage.goto(`/app/groups/${seeded.groupId}/settings/beancount`);
-    await expect(authedPage.getByRole("heading", { name: "Beancount 帳戶設定" })).toBeVisible();
+  test("export settings page renders", async ({ authedPage, seeded }) => {
+    await authedPage.goto(`/app/groups/${seeded.groupId}/settings/export`);
+    await expect(authedPage.getByRole("heading", { name: "匯出" })).toBeVisible();
   });
 
   test("personal settings page renders", async ({ authedPage }) => {
