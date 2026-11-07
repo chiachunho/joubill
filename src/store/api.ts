@@ -3,6 +3,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import type {
   AccountMergePreview,
   McpConnectionItem,
+  McpCallsResponse,
   McpConnectionsResponse,
   OauthConsentDecision,
   OauthConsentInfo,
@@ -37,6 +38,7 @@ import type {
   StatsResponse,
 } from "@/lib/api-types";
 import type { ActivitySource } from "@/lib/activity-source";
+import type { CallFilter } from "@/lib/mcp-call-log";
 import type { CreateConnectionInput, UpdateConnectionInput } from "@/lib/mcp-connection-input";
 import type { BeancountConfigInput } from "@/lib/zod";
 
@@ -62,6 +64,7 @@ const tagTypes = [
   "Profile",
   "Identities",
   "McpConnections",
+  "McpCalls",
   "GroupPhotos",
   "Members",
   "Settings",
@@ -164,6 +167,26 @@ const baseApi = createApi({
     getMcpConnections: build.query<McpConnectionsResponse, void>({
       query: () => ({ url: "/api/me/mcp-connections" }),
       providesTags: [tag("McpConnections", "ME")],
+    }),
+    /** A connection's tool calls (issue #153), newest first; the cursor is the last row's id. */
+    getMcpCalls: build.infiniteQuery<
+      McpCallsResponse,
+      { connectionId: number; filter?: CallFilter },
+      number
+    >({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
+      },
+      query: ({ queryArg: { connectionId, filter }, pageParam }) => {
+        const params: string[] = [];
+        if (filter && filter !== "all") params.push(`filter=${filter}`);
+        if (pageParam) params.push(`cursor=${pageParam}`);
+        return {
+          url: `/api/me/mcp-connections/${connectionId}/calls${params.length ? `?${params.join("&")}` : ""}`,
+        };
+      },
+      providesTags: (_r, _e, { connectionId }) => [tag("McpCalls", String(connectionId))],
     }),
     // `search` is the page's query string, "?client_id=…": the authorize request being approved.
     // Read once per visit; a stale copy of someone's pending request has no use.
@@ -806,6 +829,7 @@ export const {
   useGetProfileQuery,
   useUpdateProfileMutation,
   useGetMcpConnectionsQuery,
+  useGetMcpCallsInfiniteQuery,
   useGetOauthConsentQuery,
   useDecideOauthConsentMutation,
   useCreateMcpConnectionMutation,

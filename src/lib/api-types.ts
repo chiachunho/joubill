@@ -337,6 +337,19 @@ export type OauthConsentDecision = {
   groupIds: number[];
 };
 
+/** One row of `GET /api/me/mcp-connections/[id]/calls` (issue #153). */
+export type McpCallItem = {
+  id: number;
+  tool: string;
+  groupId: number | null;
+  /** `ok` / `preview` / … or a tool error code; see `outcomeInfo`. */
+  outcome: string;
+  recordId: number | null;
+  durationMs: number;
+  createdAt: string;
+};
+export type McpCallsResponse = { calls: McpCallItem[]; nextCursor: number | null };
+
 export type McpConnectionsResponse = { connections: McpConnectionItem[] };
 
 /** `POST /api/me/mcp-connections`: the only time the plaintext token is ever returned. */

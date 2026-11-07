@@ -428,4 +428,39 @@ test.describe("MCP server", () => {
       expect(missing.structuredContent!.error.code).toBe("not_found");
     });
   });
+
+  test("tool calls leave a usage log with ids and outcomes, never what was sent", async ({
+    request,
+    seeded,
+    dbPool,
+  }) => {
+    const { token, id } = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+    await call(request, token, "get_balance", { groupId: seeded.groupId });
+    await call(request, token, "add_expense", {
+      groupId: seeded.groupId,
+      amount: "77",
+      description: "E2E usage log SECRET",
+      split: { type: "equal", among: ["nobody-by-this-name"] },
+    });
+
+    // Written after the response, so give it a moment.
+    await expect
+      .poll(
+        async () =>
+          (await dbPool.query("SELECT 1 FROM mcp_call_log WHERE connection_id=$1", [id])).rowCount,
+      )
+      .toBe(2);
+    const { rows } = await dbPool.query(
+      "SELECT tool, outcome, group_id FROM mcp_call_log WHERE connection_id=$1 ORDER BY id",
+      [id],
+    );
+    expect(rows).toEqual([
+      { tool: "get_balance", outcome: "ok", group_id: seeded.groupId },
+      { tool: "add_expense", outcome: "member_not_found", group_id: seeded.groupId },
+    ]);
+    const dump = JSON.stringify(
+      (await dbPool.query("SELECT * FROM mcp_call_log WHERE connection_id=$1", [id])).rows,
+    );
+    expect(dump).not.toContain("SECRET");
+  });
 });

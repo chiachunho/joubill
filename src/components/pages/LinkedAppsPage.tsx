@@ -180,6 +180,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
           key={open.id}
           connection={open}
           groups={groups}
+          callsHref={`${platform.basePath}/settings/apps/${open.id}/calls`}
           onClose={() => setOpenId(null)}
         />
       )}

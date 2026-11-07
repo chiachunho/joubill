@@ -144,6 +144,26 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
   method: one item at a time, running totals, remainder on the largest amount, then an `exact` split
   with `dryRun`, then `attach_receipt`.
 
+## Usage log (issue #153)
+
+Each connection has a 使用紀錄 page (`McpConnectionCallsPage`, `/{mini,app}/settings/apps/[id]/calls`,
+reached from the connection dialog) listing its recent tool calls.
+
+- **One place logs everything**: `logCalls` in `src/lib/mcp/server.ts` wraps every `registerTool`, so a
+  tool added later is logged without anyone remembering to. Written in `after()`, errors swallowed: a
+  log that fails never fails the call.
+- **Ids and a fixed vocabulary only** (`mcp_call_log`: tool, group id, outcome, record id, duration).
+  No arguments, descriptions, names or image data, so the page can't leak what was never stored and the
+  privacy page needs no change. `callOutcome` (`src/lib/mcp-call-log.ts`) maps a result to `ok` /
+  `preview` / `duplicate` / `possible_duplicate` or the `ToolErrorCode`; a new code needs a label in
+  `outcomeInfo` (a test lists them).
+- 30 days: one write in twenty deletes that connection's older rows (the `(connection_id, id DESC)` index
+  serves both the page and the sweep). `group_id` has no FK, so a refused call keeps the id it named;
+  the page shows the title only for groups the viewer is in, and a record link only for a write that
+  succeeded in such a group.
+- `GET /api/me/mcp-connections/[id]/calls?filter=all|write|failed&cursor=<last id>`: owner only (404
+  otherwise), revoked connections included (looking back is why one is revoked).
+
 ## Saying where a record came from (issue #150)
 
 A person's own entry says nothing; a linked application's says so everywhere the record shows up. The

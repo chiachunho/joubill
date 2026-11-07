@@ -687,6 +687,31 @@ export const mcpIdempotency = pgTable(
   ],
 );
 
+/**
+ * One row per MCP tool call (issue #153): what a linked application did and how it ended, for
+ * the connection's 使用紀錄 page. Deliberately no arguments, descriptions or image data: only
+ * ids and a fixed outcome vocabulary (`src/lib/mcp-call-log.ts`). Rows older than 30 days are
+ * swept as new ones are written. `group_id` has no FK: a refused call may name a group the
+ * caller can't see, and the row should say so rather than be dropped.
+ */
+export const mcpCallLog = pgTable(
+  "mcp_call_log",
+  {
+    id: serial("id").primaryKey(),
+    connectionId: integer("connection_id")
+      .notNull()
+      .references(() => mcpConnections.id, { onDelete: "cascade" }),
+    tool: varchar("tool", { length: 32 }).notNull(),
+    groupId: integer("group_id"),
+    /** `ok` / `preview` / `duplicate` / `possible_duplicate`, or a `ToolErrorCode`. */
+    outcome: varchar("outcome", { length: 24 }).notNull(),
+    recordId: integer("record_id"),
+    durationMs: integer("duration_ms").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("mcp_call_log_conn_idx").on(t.connectionId, t.id.desc())],
+);
+
 export type McpConnection = typeof mcpConnections.$inferSelect;
 export type OauthClient = typeof oauthClients.$inferSelect;
 
