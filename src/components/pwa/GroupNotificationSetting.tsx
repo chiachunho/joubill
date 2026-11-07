@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { Bell, ChevronRight } from "lucide-react";
+import { Bell } from "lucide-react";
 
+import { NavRow } from "@/components/mini/NavRow";
 import { Switch } from "@/components/ui/switch";
 import {
   useGetGroupNotificationsQuery,
@@ -25,16 +25,9 @@ export function GroupNotificationSetting({ groupId }: { groupId: number }) {
 
   if (push.count === 0) {
     return (
-      <Link
-        href="/app/settings"
-        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
-      >
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Bell className="size-3.5" />
-        </span>
-        <p className="min-w-0 flex-1 text-sm">先到個人設定開通知</p>
-        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
-      </Link>
+      <NavRow href="/app/settings" icon={Bell}>
+        先到個人設定開通知
+      </NavRow>
     );
   }
 
