@@ -53,12 +53,16 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   if (memberCount <= 1) {
     if (target !== null) {
       const { api } = getBot();
-      await sendToGroupChat(api, target, (thread) =>
-        api.sendMessage(
-          target.chatId,
-          `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`,
-          thread,
-        ),
+      await sendToGroupChat(
+        api,
+        target,
+        (thread) =>
+          api.sendMessage(
+            target.chatId,
+            `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`,
+            thread,
+          ),
+        { lastMessage: true },
       ).catch(() => null);
       await api.leaveChat(target.chatId).catch(() => null);
     }

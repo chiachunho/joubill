@@ -107,9 +107,9 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     if (request.telegramMessageId) {
       await api.editMessageText(target.chatId, request.telegramMessageId, text).catch(() => null);
     } else {
-      await sendToGroupChat(api, target, (thread) =>
-        api.sendMessage(target.chatId, text, thread),
-      ).catch(() => null);
+      await sendToGroupChat(api, target, (thread) => api.sendMessage(target.chatId, text, thread), {
+        lastMessage: true,
+      }).catch(() => null);
     }
     await api.leaveChat(target.chatId).catch(() => null);
   }

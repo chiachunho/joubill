@@ -54,6 +54,10 @@ export function isThreadGoneError(err: unknown): boolean {
  * once, and the message is sent to General instead, so nothing is lost and the next send does not
  * fail the same way. Any other error is the caller's, as it was before topics existed.
  *
+ * `lastMessage` is for a send right before the bot leaves the chat (group deleted, unlinked): it
+ * still falls back to General, but neither resets the setting nor posts the warning, whose "later
+ * notices go to General, use /topic" would be wrong a moment before the bot is gone.
+ *
  * Kept free of `record-mutation.ts` (changing the setting lives in `group-notice-thread.ts`):
  * `notify.ts` imports this module, and `record-mutation.ts` imports `notify.ts`.
  */
@@ -61,15 +65,18 @@ export async function sendToGroupChat<T>(
   api: Api,
   target: ChatTarget,
   send: (extra: ThreadExtra) => Promise<T>,
+  { lastMessage = false }: { lastMessage?: boolean } = {},
 ): Promise<T> {
   if (target.threadId === null) return send({});
   try {
     return await send(threadExtra(target.threadId));
   } catch (err) {
     if (!isThreadGoneError(err)) throw err;
-    await forgetGoneThread(api, { ...target, threadId: target.threadId }).catch((e) =>
-      console.error("[notice-thread] could not reset a gone topic:", e),
-    );
+    if (!lastMessage) {
+      await forgetGoneThread(api, { ...target, threadId: target.threadId }).catch((e) =>
+        console.error("[notice-thread] could not reset a gone topic:", e),
+      );
+    }
     return send({});
   }
 }

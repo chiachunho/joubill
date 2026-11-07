@@ -4,7 +4,12 @@ import type { Message } from "grammy/types";
 import { TOAST } from "@/lib/buttons";
 import { changeNoticeThread, renameNoticeThread } from "@/lib/group-notice-thread";
 import { labelUser } from "@/lib/label";
-import { NOTICE_THREAD_PURPOSE, topicName, type NoticeThread } from "@/lib/topic-text";
+import {
+  NOTICE_THREAD_PURPOSE,
+  noticeThreadOf,
+  topicName,
+  type NoticeThread,
+} from "@/lib/topic-text";
 
 import { actorOf } from "../actor";
 import type { BotContext } from "../context";
@@ -100,19 +105,13 @@ export function topicPanel(
   return { text: lines.join("\n"), keyboard };
 }
 
-function currentOf(group: { noticeThreadId: number | null; noticeThreadName: string | null }) {
-  return group.noticeThreadId === null
-    ? null
-    : { id: group.noticeThreadId, name: group.noticeThreadName };
-}
-
 topicCommand.command("topic", async (ctx) => {
   const group = ctx.dbGroup;
   if (!group) {
     await ctx.reply("這個指令只能在群組裡用。");
     return;
   }
-  const current = currentOf(group);
+  const current = noticeThreadOf(group);
   const forum = ctx.chat.type === "supergroup" && ctx.chat.is_forum === true;
   // Without topics there is nothing to choose; a setting left from before topics were turned
   // off still gets its panel, so it can be put back to General.

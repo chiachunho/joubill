@@ -6,6 +6,16 @@
 /** A topic as stored: Telegram's `message_thread_id` and its name, if known. */
 export type NoticeThread = { id: number; name: string | null };
 
+/** A group row's stored topic, or null for the chat's General. */
+export function noticeThreadOf(group: {
+  noticeThreadId: number | null;
+  noticeThreadName: string | null;
+}): NoticeThread | null {
+  return group.noticeThreadId === null
+    ? null
+    : { id: group.noticeThreadId, name: group.noticeThreadName };
+}
+
 /** What a stored topic is called on screen; a topic whose name we never saw still needs a label. */
 export function topicName(name: string | null): string {
   return name?.trim() || "未命名的主題";

@@ -93,6 +93,21 @@ describe("sendToGroupChat", () => {
     expect(api.sendMessage).not.toHaveBeenCalled();
   });
 
+  it("keeps quiet before the bot leaves: falls back to General without the warning", async () => {
+    returning.mockResolvedValue([{ id: 1 }]);
+    const api = fakeApi();
+    const send = vi.fn().mockRejectedValueOnce(GONE).mockResolvedValueOnce("sent");
+
+    const result = await sendToGroupChat(api, { groupId: 1, chatId: -100, threadId: 42 }, send, {
+      lastMessage: true,
+    });
+
+    expect(result).toBe("sent");
+    expect(send.mock.calls).toEqual([[{ message_thread_id: 42 }], [{}]]);
+    expect(returning).not.toHaveBeenCalled();
+    expect(api.sendMessage).not.toHaveBeenCalled();
+  });
+
   it("rethrows any other error without retrying", async () => {
     const send = vi.fn().mockRejectedValue({ error_code: 403, description: "Forbidden" });
     await expect(

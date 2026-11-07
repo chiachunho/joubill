@@ -1,4 +1,5 @@
 import { after, NextResponse } from "next/server";
+import type { Api } from "grammy";
 import { eq } from "drizzle-orm";
 
 import { getBot } from "@/bot";
@@ -11,6 +12,7 @@ import { telegramChatId } from "@/lib/chat";
 import { chatTitleOf, leaveUnlinkedChat, unlinkChat } from "@/lib/group-chat";
 import { logChatUnlinked } from "@/lib/record-mutation";
 import { requireId } from "@/lib/route-params";
+import { noticeThreadOf } from "@/lib/topic-text";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,10 +38,11 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
 
   // Topics can be switched on or off in Telegram at any time, so this is asked, not stored.
+  // Bounded, so a slow Telegram leaves `isForum` unknown instead of holding the page.
   const [title, isForum] = await Promise.all([
     chatTitleOf(groupId),
     getBot()
-      .api.getChat(chatId)
+      .api.getChat(chatId, AbortSignal.timeout(5000) as Parameters<Api["getChat"]>[1])
       .then((chat) => ("is_forum" in chat ? chat.is_forum === true : false))
       .catch(() => null),
   ]);
@@ -47,10 +50,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     linked: true,
     title,
     isForum,
-    noticeThread:
-      group.noticeThreadId === null
-        ? null
-        : { id: group.noticeThreadId, name: group.noticeThreadName },
+    noticeThread: noticeThreadOf(group),
   };
   return NextResponse.json(body);
 });

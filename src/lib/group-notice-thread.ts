@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { groups } from "@/db/schema";
 
 import { telegramChatId, whereTelegramChat } from "./chat";
-import { topicName, type NoticeThread } from "./topic-text";
+import { noticeThreadOf, topicName, type NoticeThread } from "./topic-text";
 import { logNoticeThreadChanged, type Actor } from "./record-mutation";
 
 export type NoticeThreadChange =
@@ -35,10 +35,7 @@ export async function changeNoticeThread(
     if (!group) return { ok: false, reason: "not_found" } as const;
     if (telegramChatId(group) === null) return { ok: false, reason: "no_chat" } as const;
 
-    const from: NoticeThread | null =
-      group.noticeThreadId === null
-        ? null
-        : { id: group.noticeThreadId, name: group.noticeThreadName };
+    const from = noticeThreadOf(group);
     const changed = (from?.id ?? null) !== (to?.id ?? null);
     const renamed = !changed && to !== null && to.name !== null && to.name !== from?.name;
     if (changed || renamed) {

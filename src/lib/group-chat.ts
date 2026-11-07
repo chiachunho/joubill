@@ -81,8 +81,11 @@ export async function leaveUnlinkedChat(
   if (farewell) said = await farewell().catch(() => false);
   const { chatId } = target;
   if (!said) {
-    await sendToGroupChat(api, target, (thread) =>
-      api.sendMessage(chatId, UNLINK_FAREWELL, thread),
+    await sendToGroupChat(
+      api,
+      target,
+      (thread) => api.sendMessage(chatId, UNLINK_FAREWELL, thread),
+      { lastMessage: true },
     ).catch(() => null);
   }
   await api.leaveChat(chatId).catch((err) => {

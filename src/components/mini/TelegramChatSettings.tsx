@@ -134,7 +134,10 @@ export function TelegramChatSettings({
 }: {
   groupId: string;
   chat: GroupChatResponse;
-  /** Another member unlinked first (409): reread the chat, which shows the group unbound. */
+  /**
+   * Another member unlinked first (a 409 from unlinking or from 改回 General): reread the chat,
+   * which shows the group unbound.
+   */
   onUnlinkConflict: () => void;
 }) {
   const [unlinkChat, { isLoading: unlinking }] = useUnlinkChatMutation();
@@ -164,8 +167,14 @@ export function TelegramChatSettings({
     try {
       await resetNoticeThread({ groupId }).unwrap();
       setResetOpen(false);
-    } catch {
-      setError("變更失敗，請再試一次");
+    } catch (err) {
+      // 409: the chat was unlinked meanwhile, which already put the setting back to General.
+      if (apiErrorStatus(err) === 409) {
+        setResetOpen(false);
+        onUnlinkConflict();
+      } else {
+        setError("變更失敗，請再試一次");
+      }
     }
   }
 
@@ -258,8 +267,6 @@ export function TelegramChatSettings({
         </section>
       )}
 
-      {error && <p className="px-4 text-xs text-destructive">{error}</p>}
-
       <ConfirmDialog
         open={unlinkOpen}
         onOpenChange={(next) => {
@@ -276,6 +283,8 @@ export function TelegramChatSettings({
               <li>bot 會離開那個 Telegram 群組</li>
               <li>要重新綁定：先把 bot 加回聊天室，再輸入 /link 邀請碼</li>
             </ul>
+            {/* Inside the dialog: it stays open on failure, and closing it clears the error. */}
+            {error && <p className="text-xs text-destructive">{error}</p>}
           </div>
         }
         confirmLabel="解除綁定"
@@ -292,9 +301,15 @@ export function TelegramChatSettings({
         }}
         title="改回 General？"
         description={
-          thread
-            ? `之後的記帳通知會發在群組的 General。已經發在「${topicName(thread.name)}」的卡片會留在原處，照常更新。`
-            : undefined
+          <div className="space-y-2 text-sm text-muted-foreground">
+            {thread && (
+              <p>
+                之後的記帳通知會發在群組的 General。已經發在「{topicName(thread.name)}
+                」的卡片會留在原處，照常更新。
+              </p>
+            )}
+            {error && <p className="text-xs text-destructive">{error}</p>}
+          </div>
         }
         confirmLabel="改回 General"
         loading={resetting}

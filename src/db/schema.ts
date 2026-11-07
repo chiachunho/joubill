@@ -66,7 +66,7 @@ export const groups = pgTable(
     /** 記帳通知發送位置: the forum topic (`message_thread_id`) of the chat that messages with no
      *  conversation to answer go to — cards for records made in the App, exports sent from it.
      *  NULL is the chat's General. Belongs to the chat, so `noChatColumns` / `telegramChatColumns`
-     *  reset it. Change it only through `changeNoticeThread` (src/lib/notice-thread.ts). */
+     *  reset it. Change it only through `changeNoticeThread` (src/lib/group-notice-thread.ts). */
     noticeThreadId: integer("notice_thread_id"),
     /** The topic's name as last seen (`/topic`, or a rename service message); NULL if unknown. */
     noticeThreadName: text("notice_thread_name"),
@@ -425,7 +425,7 @@ export const recordAuditLog = pgTable(
     recordId: integer("record_id"),
     /** 'expense' | 'settlement' | 'group' */
     recordType: varchar("record_type", { length: 16 }).notNull(),
-    /** 'created' | 'updated' | 'deleted' | 'rate_locked' | 'member_joined' | 'invite_reset' | 'chat_linked' | 'chat_unlinked' | 'timezone_changed' | 'member_claimed' | 'account_merged' */
+    /** 'created' | 'updated' | 'deleted' | 'rate_locked' | 'member_joined' | 'invite_reset' | 'chat_linked' | 'chat_unlinked' | 'timezone_changed' | 'notice_thread_changed' | 'member_claimed' | 'account_merged' */
     action: varchar("action", { length: 24 }).notNull(),
     actorId: integer("actor_id")
       .notNull()
