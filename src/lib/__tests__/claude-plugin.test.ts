@@ -30,7 +30,7 @@ describe("Claude Code plugin", () => {
 
   it("ships one skill with the front matter Claude Code reads", () => {
     const skill = readFileSync(path.join(dir, "skills/splitbill/SKILL.md"), "utf8");
-    const front = skill.match(/^---\nname: (\S+)\ndescription: (.+)\n---\n/);
+    const front = skill.match(/^---\r?\nname: (\S+)\r?\ndescription: (.+)\r?\n---\r?\n/);
     expect(front?.[1]).toBe("splitbill");
     expect(front?.[2].length).toBeGreaterThan(40);
   });
