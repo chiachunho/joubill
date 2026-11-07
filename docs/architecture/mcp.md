@@ -83,7 +83,7 @@ longer one is a new token. A revoked connection answers 404. The client side is 
 ## Tools
 
 Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. Write:
-`add_expense`, `add_settlement`, `update_record`, `delete_record`.
+`add_expense`, `add_settlement`, `update_record`, `delete_record`, `attach_receipt`. One prompt, `split_receipt` (拆收據).
 
 - **Agent-facing text** (issue #151): the server `instructions` live in `src/lib/mcp/instructions.ts`,
   every tool has a description saying when to use it and its defaults, and every write tool takes
@@ -123,6 +123,26 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
 - **Rate limits** per connection, in Postgres (`rate_limit_hits`): 600 reads and 60 writes an
   hour, fixed windows. A refusal is a `rate_limited` tool error; `retryAfterSeconds` is the
   full window, as with the invite limits.
+
+## Receipts (issue #153)
+
+- **`attach_receipt`** adds 1–5 photos (base64 or a public https URL) to an _expense_. Upload goes
+  through `uploadReceiptPhoto` (`src/lib/receipt-upload.ts`), the same function as `/api/tg-upload`;
+  the bytes are identified by `sniffImage` (jpeg/png/webp), never by a client-supplied type.
+- **Everything is checked before the first upload**, so a bad second image never leaves a partial
+  attach; `dryRun` stops there. The 5-photo limit counts the legacy `receipt_file_id`.
+- **URLs are an SSRF door** (`src/lib/receipt-fetch.ts`): https on the default port, no credentials,
+  no redirects, 10 MB, 10 s. The DNS answer is checked _in the lookup the socket connects with_
+  (`checkedLookup`), so the address that was judged is the one used; every address must be public
+  (`isPublicAddress`, IPv4-mapped and NAT64 IPv6 included).
+- **`addReceipts`** (`src/lib/records/receipts.ts`) appends under the row lock and goes through
+  `logUpdated`, so the audit diff (`receipts: n 張`), the card edit in place and push come with it.
+  It moves a bot-uploaded legacy photo into `expense_receipts` first, because the reader prefers that
+  table as soon as it has a row. It does not touch payers or splits and needs no `expectedUpdatedAt`.
+- Each image beyond the first counts as another write against the connection's rate limit.
+- **`split_receipt`** (`src/lib/mcp/prompts.ts`, text from the pure `splitReceiptText`) is the working
+  method: one item at a time, running totals, remainder on the largest amount, then an `exact` split
+  with `dryRun`, then `attach_receipt`.
 
 ## Saying where a record came from (issue #150)
 

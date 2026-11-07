@@ -1,3 +1,5 @@
+import type { Pool } from "@neondatabase/serverless";
+
 import { call, mkToken, rpc } from "./mcp";
 import { expect, test } from "./fixtures";
 
@@ -13,6 +15,7 @@ test.describe("MCP server", () => {
       [
         "add_expense",
         "add_settlement",
+        "attach_receipt",
         "delete_record",
         "get_balance",
         "get_group",
@@ -348,5 +351,81 @@ test.describe("MCP server", () => {
       recordId: 1,
     });
     expect(del.structuredContent!.error.code).toBe("forbidden");
+  });
+
+  // The Telegram upload itself needs the real storage channel, so these cover everything
+  // that happens before it: checks, previews and refusals write nothing.
+  test.describe("attach_receipt", () => {
+    const PNG =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+    const receipts = (dbPool: Pool, id: number) =>
+      dbPool.query("SELECT count(*)::int AS n FROM expense_receipts WHERE expense_id=$1", [id]);
+
+    test("a preview checks the image and attaches nothing", async ({ request, seeded, dbPool }) => {
+      const { token } = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+      const res = await call(request, token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+        images: [{ base64: PNG }],
+        dryRun: true,
+      });
+      expect(res.structuredContent).toMatchObject({
+        status: "preview",
+        wouldAttach: 1,
+        remainingAfter: 4,
+      });
+      expect((await receipts(dbPool, seeded.expenseId)).rows[0].n).toBe(0);
+    });
+
+    test("something that is not an image, or too many images, is refused", async ({
+      request,
+      seeded,
+      dbPool,
+    }) => {
+      const { token } = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+      const text = Buffer.from("this is not an image at all").toString("base64");
+      const bad = await call(request, token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+        images: [{ base64: PNG }, { base64: text }],
+      });
+      expect(bad.structuredContent!.error.code).toBe("bad_request");
+      expect(bad.structuredContent!.error.message).toContain("images[1]");
+
+      const private_ = await call(request, token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+        images: [{ url: "https://169.254.169.254/latest/meta-data" }],
+        dryRun: true,
+      });
+      expect(private_.structuredContent!.error.code).toBe("bad_request");
+      expect((await receipts(dbPool, seeded.expenseId)).rows[0].n).toBe(0);
+    });
+
+    test("a read-only token is refused, and a missing record is not found", async ({
+      request,
+      seeded,
+      dbPool,
+    }) => {
+      const ro = await mkToken(dbPool, seeded.userId, {
+        access: "read",
+        groupIds: [seeded.groupId],
+      });
+      const denied = await call(request, ro.token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+        images: [{ base64: PNG }],
+      });
+      expect(denied.structuredContent!.error.code).toBe("forbidden");
+
+      const rw = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+      const missing = await call(request, rw.token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: 2_000_000_000,
+        images: [{ base64: PNG }],
+        dryRun: true,
+      });
+      expect(missing.structuredContent!.error.code).toBe("not_found");
+    });
   });
 });
