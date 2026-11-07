@@ -18,7 +18,7 @@ import {
   usableConnections,
 } from "@/lib/app-ui";
 import { describeError } from "@/lib/api-error";
-import { appUrl, MCP_HELP_PATH, MCP_PATH } from "@/lib/help-url";
+import { MCP_HELP_PATH, MCP_PATH } from "@/lib/help-url";
 import { cn } from "@/lib/utils";
 import { useGetMcpConnectionsQuery, useGetMeQuery } from "@/store/api";
 
@@ -39,12 +39,15 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
   const [copied, setCopied] = useState(false);
   const [manual, setManual] = useState(false);
 
-  const url = appUrl(MCP_PATH);
+  // The host the person actually opened, not the build-time `NEXT_PUBLIC_MINI_APP_URL`, which a
+  // preview deployment may have set to another domain. A function because `window` does not
+  // exist during SSR; it is only called once the data has loaded (after the early returns).
+  const mcpUrl = () => new URL(MCP_PATH, window.location.origin).toString();
   const groups = me?.groups ?? [];
 
   async function copyUrl() {
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(mcpUrl());
       setCopied(true);
       setManual(false);
       setTimeout(() => setCopied(false), 2000);
@@ -63,6 +66,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
   }
   if (!data) return <LinkedAppsSkeleton />;
 
+  const url = mcpUrl();
   const list = usableConnections(data.connections);
   const open = list.find((c) => c.id === openId) ?? null;
 
