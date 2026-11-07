@@ -402,6 +402,47 @@ test.describe("MCP server", () => {
       expect((await receipts(dbPool, seeded.expenseId)).rows[0].n).toBe(0);
     });
 
+    test("add_expense takes receipt images, checks them on a preview and records nothing for a bad one", async ({
+      request,
+      seeded,
+      dbPool,
+    }) => {
+      const { token } = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+      const base = {
+        groupId: seeded.groupId,
+        amount: "88",
+        description: "E2E expense with receipt",
+        split: { type: "equal", among: [seeded.partnerName, "me"] },
+      };
+      const count = async () =>
+        (
+          await dbPool.query("SELECT count(*)::int AS n FROM expenses WHERE description=$1", [
+            base.description,
+          ])
+        ).rows[0].n;
+
+      const preview = await call(request, token, "add_expense", {
+        ...base,
+        images: [{ base64: PNG }],
+        dryRun: true,
+      });
+      expect(preview.structuredContent).toMatchObject({
+        status: "dry_run",
+        preview: { receipts: 1 },
+      });
+
+      const text = Buffer.from("not an image at all").toString("base64");
+      for (const dryRun of [true, false]) {
+        const bad = await call(request, token, "add_expense", {
+          ...base,
+          images: [{ base64: text }],
+          dryRun,
+        });
+        expect(bad.structuredContent!.error.code).toBe("bad_request");
+      }
+      expect(await count()).toBe(0);
+    });
+
     test("a read-only token is refused, and a missing record is not found", async ({
       request,
       seeded,

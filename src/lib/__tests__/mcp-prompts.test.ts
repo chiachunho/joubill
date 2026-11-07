@@ -10,6 +10,7 @@ describe("splitReceiptText", () => {
     expect(t).toContain("'exact'");
     expect(t).toContain("dryRun: true");
     expect(t).toContain("largest amount");
+    expect(t).toContain("images");
     expect(t).toContain("attach_receipt");
   });
 

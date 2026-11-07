@@ -126,6 +126,7 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
 
 ## Receipts (issue #153)
 
+- **`add_expense` takes `images`** (same shape, up to 5), so an expense and its photos are one write and one group card. The images are validated on `dryRun` too; on a real call they are loaded and uploaded only after the idempotency and duplicate checks, and before `createExpense`, so a bad or unstorable image records nothing and a retry never uploads twice. `receipt-images.ts` holds the shared loading, validation and upload.
 - **`attach_receipt`** adds 1–5 photos (base64 or a public https URL) to an _expense_. Upload goes
   through `uploadReceiptPhoto` (`src/lib/receipt-upload.ts`), the same function as `/api/tg-upload`;
   the bytes are identified by `sniffImage` (jpeg/png/webp), never by a client-supplied type.

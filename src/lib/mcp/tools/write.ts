@@ -20,6 +20,7 @@ import {
 } from "@/lib/zod";
 
 import { openGroup, type McpMember } from "../context";
+import { imagesSchema, loadImages, uploadImages } from "../receipt-images";
 import { guarded, ok, ToolError } from "../result";
 
 const WRITE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
@@ -154,7 +155,7 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
     {
       title: "Add expense",
       description:
-        "Record a new expense the user paid for (not a repayment between members: use add_settlement). Call with dryRun: true first, show the user the preview, and only write after they confirm. amount is a number or text such as '1,200', '$300', '3k' or '150+200'. Defaults: payer is the user (paidBy / payers to change it), split is equal among all active members (split to change it), currency is the group's default, date is today in the group's time zone. People are given as memberId (preferred) or an exact name; a name that matches nobody or several members writes nothing and returns the candidates, so ask the user. If an identical expense (same amount, currency and payer) was recorded in the last 10 minutes, nothing is written and possibleDuplicateOf is returned: ask the user, and resend with allowDuplicate: true only if it is intended. Send an idempotencyKey so a retry does not record it twice.",
+        "Record a new expense the user paid for (not a repayment between members: use add_settlement). Call with dryRun: true first, show the user the preview, and only write after they confirm. amount is a number or text such as '1,200', '$300', '3k' or '150+200'. Defaults: payer is the user (paidBy / payers to change it), split is equal among all active members (split to change it), currency is the group's default, date is today in the group's time zone. People are given as memberId (preferred) or an exact name; a name that matches nobody or several members writes nothing and returns the candidates, so ask the user. If an identical expense (same amount, currency and payer) was recorded in the last 10 minutes, nothing is written and possibleDuplicateOf is returned: ask the user, and resend with allowDuplicate: true only if it is intended. Send an idempotencyKey so a retry does not record it twice. If the user has receipt photos, send them in images (base64 or public https urls, up to 5) so the expense and its receipts are recorded together; use attach_receipt only to add photos to an expense that already exists.",
       inputSchema: {
         groupId: idSchema,
         amount: z.union([z.number().positive().max(10_000_000), z.string().min(1).max(60)]),
@@ -174,6 +175,7 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
           .optional()
           .describe("Several payers with amounts adding up to the total (instead of paidBy)."),
         split: splitSchema.optional(),
+        images: imagesSchema.optional().describe("Receipt photos to record with the expense."),
         idempotencyKey: keySchema,
         dryRun: z.boolean().optional(),
         allowDuplicate: z.boolean().optional(),
@@ -229,7 +231,14 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
             amount: s.amount,
           })),
         };
-        if (args.dryRun) return ok("dry run: nothing written", { status: "dry_run", preview });
+        if (args.dryRun) {
+          // Images are checked too, so a bad one is found before the user confirms.
+          const checked = args.images ? await loadImages(args.images) : [];
+          return ok("dry run: nothing written", {
+            status: "dry_run",
+            preview: { ...preview, receipts: checked.length },
+          });
+        }
 
         const held = await reserve(auth, args.idempotencyKey);
         if (held.early) return held.early;
@@ -261,13 +270,25 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
               });
             }
           }
-          const { id } = await createExpense(args.groupId, built.input, {
-            actor: mcpActor(auth),
-          });
+          // Checked and uploaded only now, after a repeat or a duplicate has returned, and
+          // before the record exists: a bad or unstorable image records nothing.
+          const receiptFileIds = args.images
+            ? await uploadImages(auth, await loadImages(args.images))
+            : undefined;
+          const { id } = await createExpense(
+            args.groupId,
+            { ...built.input, ...(receiptFileIds && { receiptFileIds }) },
+            { actor: mcpActor(auth) },
+          );
           // The record exists now: a failed bind must not free the key, or a retry would
           // book it twice.
           await reservation?.bind(id).catch((err) => console.error("[mcp] bindKey failed", err));
-          return ok(`created expense ${id}`, { status: "created", recordId: id, preview });
+          return ok(`created expense ${id}`, {
+            status: "created",
+            recordId: id,
+            receiptCount: receiptFileIds?.length ?? 0,
+            preview,
+          });
         } catch (err) {
           await reservation?.release().catch(() => {});
           throw err;
