@@ -1,8 +1,10 @@
 "use client";
 
+import { Avatar } from "@/components/mini/Avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ACCESS_HINT, ACCESS_LABEL } from "@/lib/app-ui";
 import { cn } from "@/lib/utils";
+import { useGetGroupPhotosQuery } from "@/store/api";
 
 /** 權限: 唯讀 or 可記帳. A two-way choice, so a segmented control rather than a select. */
 export function AppAccessPicker({
@@ -56,6 +58,9 @@ export function AppScopePicker({
   value: Scope;
   onChange: (value: Scope) => void;
 }) {
+  // Same photo the group list shows; without one (or while it loads) the initials stand in.
+  const { data: photosData } = useGetGroupPhotosQuery();
+
   function toggle(id: number, on: boolean) {
     const next = on ? [...value.groupIds, id] : value.groupIds.filter((g) => g !== id);
     onChange({ ...value, groupIds: next });
@@ -72,6 +77,7 @@ export function AppScopePicker({
               disabled={value.allGroups}
               onCheckedChange={(on) => toggle(g.id, on === true)}
             />
+            <Avatar src={photosData?.photos[g.id]} name={g.title} userId={g.id} size="sm" />
             <span className="min-w-0 flex-1 truncate">{g.title}</span>
             <span className="text-xs text-muted-foreground">{g.defaultCurrency}</span>
           </label>

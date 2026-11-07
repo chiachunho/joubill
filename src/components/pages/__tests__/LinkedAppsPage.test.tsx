@@ -137,7 +137,12 @@ describe("建立個人存取權杖", () => {
           { status: 201 },
         );
       }
-      const body = path === "/api/me/groups" ? ME : { connections: [] };
+      const body =
+        path === "/api/me/groups"
+          ? ME
+          : path === "/api/me/groups/photos"
+            ? { photos: {} }
+            : { connections: [] };
       return new Response(JSON.stringify(body), { status: 200 });
     });
     fireEvent.click(await screen.findByRole("button", { name: /建立個人存取權杖/ }));
@@ -175,9 +180,18 @@ describe("建立個人存取權杖", () => {
           status: 201,
         });
       }
-      return new Response(JSON.stringify(path === "/api/me/groups" ? ME : { connections: [] }), {
-        status: 200,
-      });
+      return new Response(
+        JSON.stringify(
+          path === "/api/me/groups"
+            ? ME
+            : path === "/api/me/groups/photos"
+              ? { photos: {} }
+              : { connections: [] },
+        ),
+        {
+          status: 200,
+        },
+      );
     });
     fireEvent.click(await screen.findByRole("button", { name: /建立個人存取權杖/ }));
     fireEvent.change(screen.getByLabelText("名稱"), { target: { value: "x" } });
