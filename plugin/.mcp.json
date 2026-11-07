@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "splitbill": {
+      "type": "http",
+      "url": "${SPLITBILL_URL}/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${SPLITBILL_TOKEN}"
+      }
+    }
+  }
+}

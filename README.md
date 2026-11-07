@@ -70,6 +70,17 @@ In a private chat with the bot, `/start` and `/help` work.
 Both show the same data. The full user guide (in Traditional Chinese) is at
 `/help` on the site, and the bot's `/help` reply links to it.
 
+## Claude Code plugin
+
+Let Claude Code record and check expenses over MCP. Create a personal access token under
+Settings > Linked applications, then start Claude Code with `SPLITBILL_URL` (your deployment, no
+trailing slash) and `SPLITBILL_TOKEN` set, and run:
+
+```
+/plugin marketplace add chiachunho/splitbill-telegram-bot
+/plugin install splitbill@splitbill
+```
+
 ## Running your own instance
 
 揪帳 is one Next.js app (bot webhook, Mini App, Web App and API) on Vercel with a

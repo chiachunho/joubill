@@ -185,6 +185,16 @@ copy on `expenses` to drift. `ActivityEntry.via` does the same join per row for 
 A connection is revoked, never deleted (except with its account), so the name stays readable.
 Records entered before the feature, or by a person, show nothing.
 
+## Claude Code plugin (issue #153)
+
+`plugin/` is a one-plugin marketplace entry (`.claude-plugin/marketplace.json` at the repo root points
+at it): an `.mcp.json` with an http server at `${SPLITBILL_URL}/api/mcp` and `Bearer ${SPLITBILL_TOKEN}`,
+and one thin skill. The address and token come from the environment, so nothing deployment-specific is
+committed. The skill says only _when_ to use the server; the working method is `MCP_INSTRUCTIONS`, which
+every client already receives, and a copy here would drift. `claude-plugin.test.ts` pins the shape;
+`claude plugin validate plugin` is the authoritative check. Directory listings (Claude connectors, ChatGPT
+apps) are not part of this repo's code.
+
 ## Testing
 
 Pure parts are unit-tested (`mcp-*.test.ts`); `src/app/api/__tests__/mcp-route.test.ts`
