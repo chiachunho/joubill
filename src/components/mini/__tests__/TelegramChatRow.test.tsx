@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TelegramChatRow } from "@/components/mini/TelegramChatRow";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
@@ -8,6 +8,7 @@ import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 afterEach(cleanup);
 
 const CHAT = "/api/groups/9/chat";
+const INVITE = "/api/groups/9/invite";
 
 function renderSection(request: ReturnType<typeof fakeRequest>) {
   return render(
@@ -58,13 +59,65 @@ describe("TelegramChatRow", () => {
     expect(await screen.findByText("尚未綁定")).toBeInTheDocument();
   });
 
-  it("offers /link to a group with no chat, and no way to unlink", async () => {
-    renderSection(fakeRequest({ [CHAT]: { linked: false, title: null } }));
+  it("offers the ready-made /link command to a group with no chat, and no way to unlink", async () => {
+    renderSection(
+      fakeRequest({
+        [CHAT]: { linked: false, title: null },
+        [INVITE]: { code: "K7M2QX9PAB", miniLink: null },
+      }),
+    );
 
     expect(await screen.findByText("尚未綁定")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "如何綁定" }));
-    expect(await screen.findByText(/\/link 邀請碼/)).toBeInTheDocument();
+    expect(await screen.findByText("/link K7M2Q-X9PAB")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /解除綁定/ })).not.toBeInTheDocument();
+  });
+
+  it("copies the command", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    renderSection(
+      fakeRequest({
+        [CHAT]: { linked: false, title: null },
+        [INVITE]: { code: "K7M2QX9PAB", miniLink: null },
+      }),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "如何綁定" }));
+    fireEvent.click(await screen.findByRole("button", { name: "複製指令" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("/link K7M2Q-X9PAB"));
+    expect(await screen.findByRole("button", { name: "已複製" })).toBeInTheDocument();
+  });
+
+  it("issues a code when the group has none, then shows the command", async () => {
+    let code: string | null = null;
+    renderSection(
+      fakeRequest({
+        [CHAT]: { linked: false, title: null },
+        [INVITE]: (init) => {
+          if (init?.method === "POST") code = "K7M2QX9PAB";
+          return { code, miniLink: null };
+        },
+      }),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "如何綁定" }));
+    expect(screen.queryByText(/^\/link /)).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "產生邀請碼" }));
+
+    expect(await screen.findByText("/link K7M2Q-X9PAB")).toBeInTheDocument();
+  });
+
+  it("does not read the invite until the how-to is opened", async () => {
+    const request = fakeRequest({
+      [CHAT]: { linked: false, title: null },
+      [INVITE]: { code: "K7M2QX9PAB", miniLink: null },
+    });
+    renderSection(request);
+
+    await screen.findByText("尚未綁定");
+    expect(request.mock.calls.some(([path]) => String(path).includes("/invite"))).toBe(false);
   });
 
   it("treats a 409 as done: another member unlinked first", async () => {
