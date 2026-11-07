@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Copy, Check, Plus, Sparkles } from "lucide-react";
+import { ChevronRight, Copy, Check, Eye, Pencil, Plus, Sparkles } from "lucide-react";
 
 import Link from "next/link";
 import { CreateAppTokenDialog } from "@/components/mini/CreateAppTokenDialog";
@@ -131,7 +131,12 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-semibold">{c.name}</span>
-                      <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10.5px] font-semibold text-primary">
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10.5px] font-semibold text-primary">
+                        {c.access === "read" ? (
+                          <Eye className="size-3" aria-hidden />
+                        ) : (
+                          <Pencil className="size-3" aria-hidden />
+                        )}
                         {ACCESS_LABEL[c.access]}
                       </span>
                       {expired && (
