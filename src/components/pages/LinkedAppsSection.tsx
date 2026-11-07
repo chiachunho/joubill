@@ -5,14 +5,14 @@ import { ChevronRight, Sparkles } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
 import { activeConnections } from "@/lib/app-ui";
-import { useGetAppConnectionsQuery } from "@/store/api";
+import { useGetMcpConnectionsQuery } from "@/store/api";
 
 /**
  * 個人設定's 連結的應用程式 block, under 登入方式: both answer "who can act as my account". A
  * failed or pending read shows the row without a count rather than hiding the way in.
  */
 export function LinkedAppsSection({ platform }: { platform: Platform }) {
-  const { data } = useGetAppConnectionsQuery();
+  const { data } = useGetMcpConnectionsQuery();
   const active = data ? activeConnections(data.connections) : null;
 
   return (

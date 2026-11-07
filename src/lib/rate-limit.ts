@@ -119,3 +119,26 @@ export async function enforceMcpRateLimit(
   const decision = await consumeRateLimit([{ rule, id: connectionId }], { defer: after });
   if (!decision.ok) throw new TooManyRequestsError(RATE_LIMITED.error, decision.retryAfter);
 }
+
+/**
+ * Counts one OAuth request against `rule`: per caller address, or per `id` (a person or a
+ * registered client) when given. Only ids that exist are passed, so a flood of made-up ones
+ * can't grow `rate_limit_hits`. Throws a 429 when over; fails open like the rest.
+ */
+export async function enforceOauthRateLimit(
+  req: Request,
+  rule: RateRule,
+  id_?: string | number,
+): Promise<void> {
+  let id: string | number | null = id_ ?? null;
+  if (id === null) {
+    try {
+      id = ipKey(req.headers);
+    } catch (err) {
+      console.error("[rate-limit] could not derive the IP key", err);
+    }
+  }
+  if (id === null) return;
+  const decision = await consumeRateLimit([{ rule, id }], { defer: after });
+  if (!decision.ok) throw new TooManyRequestsError(RATE_LIMITED.error, decision.retryAfter);
+}

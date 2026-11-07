@@ -120,3 +120,41 @@ describe("buildExpenseInput", () => {
     ).toMatchObject({ ok: false });
   });
 });
+
+describe("buildExpenseInput with a kept split", () => {
+  const base = {
+    amount: 100,
+    currency: "TWD" as const,
+    description: null,
+    spentAt: "2026-11-06",
+    payers: [{ userId: 1 }],
+  };
+
+  it("writes the original share type and per-person values back", () => {
+    const r = buildExpenseInput({
+      ...base,
+      split: {
+        type: "keep",
+        shareType: "percent",
+        rows: [
+          { userId: 1, amount: 70, splitValue: 70 },
+          { userId: 2, amount: 30, splitValue: 30 },
+        ],
+      },
+    });
+    expect(r.ok && r.input.shareType).toBe("percent");
+    expect(r.ok && r.input.splits.map((s) => s.splitValue)).toEqual([70, 30]);
+  });
+
+  it("refuses a kept split that no longer adds up", () => {
+    const r = buildExpenseInput({
+      ...base,
+      split: {
+        type: "keep",
+        shareType: "exact",
+        rows: [{ userId: 1, amount: 60, splitValue: null }],
+      },
+    });
+    expect(r.ok).toBe(false);
+  });
+});

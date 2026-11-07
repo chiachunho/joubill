@@ -25,7 +25,7 @@ export type AuditAction =
   | "account_merged";
 /**
  * Where a change came from. `"app"` is the Mini App / Web App; `"mcp"` is a linked
- * application writing through the MCP server (its `app_connection_id` says which one).
+ * application writing through the MCP server (its `mcp_connection_id` says which one).
  */
 export type AuditSource = "bot" | "app" | "mcp";
 

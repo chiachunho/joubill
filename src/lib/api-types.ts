@@ -304,8 +304,8 @@ export type GroupNotificationsResponse = {
   telegramLinked: boolean;
 };
 
-/** One row of `GET /api/me/app-connections` (never the token hash). Dates are ISO strings. */
-export type AppConnectionItem = {
+/** One row of `GET /api/me/mcp-connections` (never the token hash). Dates are ISO strings. */
+export type McpConnectionItem = {
   id: number;
   kind: "token" | "oauth";
   name: string;
@@ -320,7 +320,24 @@ export type AppConnectionItem = {
   createdAt: string;
 };
 
-export type AppConnectionsResponse = { connections: AppConnectionItem[] };
+/** What the OAuth consent page shows (`GET /api/oauth/consent`). */
+export type OauthConsentInfo = {
+  client: { name: string; redirectLabel: string };
+  requestedAccess: "read" | "write";
+  groups: { id: number; title: string; defaultCurrency: string }[];
+};
 
-/** `POST /api/me/app-connections`: the only time the plaintext token is ever returned. */
-export type CreateAppConnectionResponse = { connection: AppConnectionItem; token: string };
+/** A person's answer on the consent page (`POST /api/oauth/consent`). */
+export type OauthConsentDecision = {
+  /** The authorize request as it arrived in the page's query string. */
+  params: Record<string, string>;
+  approve: boolean;
+  access: "read" | "write";
+  allGroups: boolean;
+  groupIds: number[];
+};
+
+export type McpConnectionsResponse = { connections: McpConnectionItem[] };
+
+/** `POST /api/me/mcp-connections`: the only time the plaintext token is ever returned. */
+export type CreateMcpConnectionResponse = { connection: McpConnectionItem; token: string };

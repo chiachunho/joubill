@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { groupMembers, groups, users } from "@/db/schema";
 import { assertGrant, type McpAccess } from "@/lib/mcp-grant";
 import { assertGroupMember } from "@/lib/auth";
-import type { AppAuth } from "@/lib/auth/mcp";
+import type { McpAuth } from "@/lib/auth/mcp";
 import { NotFoundError } from "@/lib/auth/errors";
 import { memberLabels } from "@/lib/label";
 import { enforceMcpRateLimit } from "@/lib/rate-limit";
@@ -47,7 +47,7 @@ export async function loadMembers(groupId: number): Promise<McpMember[]> {
 
 /** Counts the call, then checks membership and the grant — in that order, every call. */
 export async function openGroup(
-  auth: AppAuth,
+  auth: McpAuth,
   groupId: number,
   need: McpAccess,
   opts: { countAs?: McpAccess } = {},

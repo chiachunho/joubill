@@ -1,10 +1,10 @@
-import { and, desc, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses } from "@/db/schema";
-import type { AppAuth } from "@/lib/auth/mcp";
+import type { McpAuth } from "@/lib/auth/mcp";
 import { encodeExpenseCursor, EXPENSES_PAGE_SIZE, parseExpenseCursor } from "@/lib/expense-cursor";
 import { n } from "@/lib/money";
 import { daySchema, idSchema } from "@/lib/zod";
@@ -30,11 +30,22 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
         spentAt: expenses.spentAt,
         createdBy: expenses.createdBy,
         createdAt: expenses.createdAt,
+        updatedAt: expenses.updatedAt,
       })
       .from(expenses)
       .where(and(eq(expenses.groupId, groupId), inArray(expenses.id, ids))),
-    db.select().from(expensePayers).where(inArray(expensePayers.expenseId, ids)),
-    db.select().from(expenseSplits).where(inArray(expenseSplits.expenseId, ids)),
+    // Entry order, not whatever order the heap returns: `update_record` rebuilds an equal split
+    // from these rows, and which person gets the odd cent follows their order.
+    db
+      .select()
+      .from(expensePayers)
+      .where(inArray(expensePayers.expenseId, ids))
+      .orderBy(asc(expensePayers.id)),
+    db
+      .select()
+      .from(expenseSplits)
+      .where(inArray(expenseSplits.expenseId, ids))
+      .orderBy(asc(expenseSplits.id)),
   ]);
   const label = (id: number) => labels.get(id) ?? "?";
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -50,6 +61,7 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
       spentAt: r.spentAt,
       createdByMemberId: r.createdBy,
       createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
       payers: payers
         .filter((p) => p.expenseId === r.id)
         .map((p) => ({ memberId: p.payerId, label: label(p.payerId), amount: n(p.amount) })),
@@ -67,13 +79,13 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-export function registerRecordTools(server: McpServer, auth: AppAuth) {
+export function registerRecordTools(server: McpServer, auth: McpAuth) {
   server.registerTool(
     "list_records",
     {
       title: "List records",
       description:
-        "Expenses and settlements, newest first (by date, then entry order). Pass the previous nextCursor to get the next page. Filters: from/to (YYYY-MM-DD, inclusive), keyword in the description, mineOnly.",
+        "Use to search or review history: expenses and settlements, newest first (by date, then entry order). Pass the previous nextCursor to get the next page (null = no more). Filters: from/to (YYYY-MM-DD in the group's time zone, inclusive), keyword in the description, mineOnly (only records the user paid or owes in).",
       inputSchema: {
         groupId: idSchema,
         cursor: z.string().max(64).optional(),
@@ -160,7 +172,8 @@ export function registerRecordTools(server: McpServer, auth: AppAuth) {
     "get_record",
     {
       title: "Get record",
-      description: "One expense or settlement with its payers and splits.",
+      description:
+        "One expense or settlement with its payers and splits. Use before changing or deleting a record, to show the user what it is. Its updatedAt is what update_record needs as expectedUpdatedAt.",
       inputSchema: { groupId: idSchema, recordId: idSchema },
       annotations: READ,
     },

@@ -34,6 +34,22 @@ export const RATE_RULES = {
   /** MCP tool calls per connection (issue #149): reads and writes are counted apart. */
   mcpRead: { name: "mcp:read", limit: 600, windowMs: 60 * MINUTE },
   mcpWrite: { name: "mcp:write", limit: 60, windowMs: 60 * MINUTE },
+  /**
+   * OAuth dynamic client registration is open to anyone and has no client to count by, so it
+   * is per address. Loose: hosted connectors register from shared egress addresses.
+   */
+  oauthRegisterIp: { name: "oauth:register:ip", limit: 60, windowMs: 60 * MINUTE },
+  /**
+   * Code and refresh exchanges are counted per client (below). This per-address bucket is
+   * only a backstop for floods of unknown or wrong clients, so it is far looser: Claude.ai or
+   * ChatGPT serve every user of an instance from the same few addresses.
+   */
+  oauthTokenIp: { name: "oauth:token:ip", limit: 1000, windowMs: 10 * MINUTE },
+  /** The authorization endpoint does an unauthenticated lookup, so it is counted per address. */
+  oauthAuthorizeIp: { name: "oauth:authorize:ip", limit: 300, windowMs: 10 * MINUTE },
+  oauthTokenClient: { name: "oauth:token:client", limit: 300, windowMs: 10 * MINUTE },
+  /** Consent page reads and decisions, per signed-in person. */
+  oauthConsentUser: { name: "oauth:consent:user", limit: 60, windowMs: 10 * MINUTE },
 } as const satisfies Record<string, RateRule>;
 
 /** What a refused request answers. Lives in DB-free code so the join page can match it. */

@@ -7,8 +7,13 @@ import { groupTimeZone, resolveRecordFx, spentAtForNow } from "@/lib/fx";
 import { logCreated, logUpdated } from "@/lib/record-mutation";
 import type { SettlementInput } from "@/lib/zod";
 
-import { assertUsersInGroup, replacePayersAndSplits, resolveUpdateFx } from "./shared";
-import { apiOf, type RecordContext } from "./types";
+import {
+  assertUnchangedSince,
+  assertUsersInGroup,
+  replacePayersAndSplits,
+  resolveUpdateFx,
+} from "./shared";
+import { apiOf, type RecordContext, type UpdateOptions } from "./types";
 
 // A settlement is a `type='settlement'` expense: the sole payer is the sender
 // (from) and the sole debtor is the receiver (to).
@@ -80,6 +85,7 @@ export async function updateSettlement(
   settlementId: number,
   input: SettlementInput,
   ctx: RecordContext,
+  opts: UpdateOptions = {},
 ): Promise<void> {
   await assertValid(groupId, input);
 
@@ -99,6 +105,7 @@ export async function updateSettlement(
   const amount = input.amount.toFixed(2);
 
   await logUpdated(apiOf(ctx), settlementId, ctx.actor, async (tx) => {
+    await assertUnchangedSince(tx, settlementId, opts.expectedUpdatedAt);
     await tx
       .update(expenses)
       .set({

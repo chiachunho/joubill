@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { connectionStatus, updateConnectionSchema } from "../app-connection-input";
+import { connectionStatus, updateConnectionSchema } from "../mcp-connection-input";
 
 describe("updateConnectionSchema", () => {
   it("accepts a permission change alone", () => {

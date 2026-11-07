@@ -19,11 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { connectionStatus } from "@/lib/app-connection-input";
+import { connectionStatus } from "@/lib/mcp-connection-input";
 import { expiryLabel, lastUsedLabel, sameScope } from "@/lib/app-ui";
 import { apiErrorText } from "@/lib/api-error";
-import type { AppConnectionItem } from "@/lib/api-types";
-import { useRevokeAppConnectionMutation, useUpdateAppConnectionMutation } from "@/store/api";
+import type { McpConnectionItem } from "@/lib/api-types";
+import { useRevokeMcpConnectionMutation, useUpdateMcpConnectionMutation } from "@/store/api";
 
 /**
  * One connection: change its permission and group scope, or revoke it. The name and the
@@ -32,17 +32,17 @@ import { useRevokeAppConnectionMutation, useUpdateAppConnectionMutation } from "
  *
  * The parent mounts this with `key={connection.id}`, so the fields start from the saved values.
  */
-export function AppConnectionDialog({
+export function McpConnectionDialog({
   connection,
   groups,
   onClose,
 }: {
-  connection: AppConnectionItem;
+  connection: McpConnectionItem;
   groups: { id: number; title: string; defaultCurrency: string }[];
   onClose: () => void;
 }) {
-  const [update, { isLoading: saving }] = useUpdateAppConnectionMutation();
-  const [revoke, { isLoading: revoking }] = useRevokeAppConnectionMutation();
+  const [update, { isLoading: saving }] = useUpdateMcpConnectionMutation();
+  const [revoke, { isLoading: revoking }] = useRevokeMcpConnectionMutation();
   const [access, setAccess] = useState(connection.access);
   const [scope, setScope] = useState<Scope>({
     allGroups: connection.allGroups,

@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES } from "@/lib/app-ui";
 import { apiErrorText } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
-import { useCreateAppConnectionMutation } from "@/store/api";
+import { useCreateMcpConnectionMutation } from "@/store/api";
 
 type Groups = { id: number; title: string; defaultCurrency: string }[];
 
@@ -44,7 +44,7 @@ export function CreateAppTokenDialog({
   onOpenChange: (open: boolean) => void;
   groups: Groups;
 }) {
-  const [create, { isLoading, reset }] = useCreateAppConnectionMutation();
+  const [create, { isLoading, reset }] = useCreateMcpConnectionMutation();
   const [name, setName] = useState("");
   const [access, setAccess] = useState<"read" | "write">("read");
   const [scope, setScope] = useState<Scope>({ allGroups: false, groupIds: [] });

@@ -2,9 +2,9 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
-import { appConnections } from "@/db/schema";
-import { createConnectionSchema, MAX_APP_CONNECTIONS } from "@/lib/app-connection-input";
-import { assertMemberOfAll, publicConnectionColumns } from "@/lib/app-connections-db";
+import { mcpConnections } from "@/db/schema";
+import { createConnectionSchema, MAX_APP_CONNECTIONS } from "@/lib/mcp-connection-input";
+import { assertMemberOfAll, publicConnectionColumns } from "@/lib/mcp-connections-db";
 import { generateToken, hashToken, tokenDisplayPrefix } from "@/lib/mcp-token";
 import { getAuth } from "@/lib/auth";
 import { BadRequestError } from "@/lib/auth/errors";
@@ -18,9 +18,9 @@ export const GET = withAuth(async (req: Request) => {
   const auth = await getAuth(req);
   const rows = await db
     .select(publicConnectionColumns)
-    .from(appConnections)
-    .where(eq(appConnections.userId, auth.user.id))
-    .orderBy(desc(appConnections.createdAt));
+    .from(mcpConnections)
+    .where(eq(mcpConnections.userId, auth.user.id))
+    .orderBy(desc(mcpConnections.createdAt));
   return NextResponse.json({ connections: rows });
 });
 
@@ -40,16 +40,16 @@ export const POST = withAuth(async (req: Request) => {
   if (!input.allGroups) await assertMemberOfAll(auth.user.id, groupIds);
 
   const live = await db
-    .select({ id: appConnections.id })
-    .from(appConnections)
-    .where(and(eq(appConnections.userId, auth.user.id), isNull(appConnections.revokedAt)));
+    .select({ id: mcpConnections.id })
+    .from(mcpConnections)
+    .where(and(eq(mcpConnections.userId, auth.user.id), isNull(mcpConnections.revokedAt)));
   if (live.length >= MAX_APP_CONNECTIONS) {
     throw new BadRequestError(`at most ${MAX_APP_CONNECTIONS} active connections`);
   }
 
   const token = generateToken();
   const [row] = await db
-    .insert(appConnections)
+    .insert(mcpConnections)
     .values({
       userId: auth.user.id,
       kind: "token",
