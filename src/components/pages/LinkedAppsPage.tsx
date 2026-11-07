@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronRight, Copy, Check, Plus, Sparkles } from "lucide-react";
 
-import { McpConnectionDialog } from "@/components/mini/McpConnectionDialog";
+import Link from "next/link";
 import { CreateAppTokenDialog } from "@/components/mini/CreateAppTokenDialog";
 import { LinkedAppsSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,6 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
   const { data: me } = useGetMeQuery();
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
   const [creating, setCreating] = useState(false);
-  const [openId, setOpenId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [manual, setManual] = useState(false);
 
@@ -68,7 +67,6 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
 
   const url = mcpUrl();
   const list = usableConnections(data.connections);
-  const open = list.find((c) => c.id === openId) ?? null;
 
   return (
     <div className="space-y-6 py-4">
@@ -125,10 +123,9 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
             {list.map((c) => {
               const expired = connectionStatus(c) === "expired";
               return (
-                <button
+                <Link
                   key={c.id}
-                  type="button"
-                  onClick={() => setOpenId(c.id)}
+                  href={`${platform.basePath}/settings/apps/${c.id}`}
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
                 >
                   <div className="min-w-0 flex-1">
@@ -149,7 +146,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
                     </p>
                   </div>
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -175,15 +172,6 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
       </section>
 
       <CreateAppTokenDialog open={creating} onOpenChange={setCreating} groups={groups} />
-      {open && (
-        <McpConnectionDialog
-          key={open.id}
-          connection={open}
-          groups={groups}
-          callsHref={`${platform.basePath}/settings/apps/${open.id}/calls`}
-          onClose={() => setOpenId(null)}
-        />
-      )}
     </div>
   );
 }
