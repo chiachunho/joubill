@@ -100,12 +100,11 @@ function LinkCommand({ groupId }: { groupId: string }) {
         </div>
         <button
           onClick={() => copy(command)}
-          // The visible 已複製 is the only feedback, so the accessible name says it too.
+          // Icon only: the check mark is the visible feedback, so the accessible name says 已複製.
           aria-label={copied ? "已複製" : "複製指令"}
-          className="ml-auto inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-background/70 px-3 py-2 text-sm transition-colors hover:bg-background"
+          className="ml-auto inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-background/70 transition-colors hover:bg-background"
         >
           {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          {copied ? "已複製" : "複製"}
         </button>
       </div>
       {manualCopy && (
