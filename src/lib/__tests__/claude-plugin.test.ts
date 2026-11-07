@@ -1,7 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
+
+import type { McpAuth } from "@/lib/auth/mcp";
+import { createMcpServer } from "@/lib/mcp/server";
 
 import { MCP_PATH } from "@/lib/help-url";
 
@@ -33,5 +38,29 @@ describe("Claude Code plugin", () => {
     const front = skill.match(/^---\r?\nname: (\S+)\r?\ndescription: (.+)\r?\n---\r?\n/);
     expect(front?.[1]).toBe("splitbill");
     expect(front?.[2].length).toBeGreaterThan(40);
+  });
+
+  it("names only tools and prompts the server really registers", async () => {
+    const skill = readFileSync(path.join(dir, "skills/splitbill/SKILL.md"), "utf8");
+    // Listing needs no auth: nothing runs until a tool is called.
+    const server = createMcpServer({} as McpAuth);
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test", version: "1.0.0" });
+    await Promise.all([server.connect(a), client.connect(b)]);
+    const listed = (await client.listTools()).tools;
+    const tools = listed.map((t) => t.name);
+    const prompts = (await client.listPrompts()).prompts.map((p) => p.name);
+    await client.close();
+
+    // Every snake_case word in backticks is a tool, a prompt or a parameter.
+    const named = [...skill.matchAll(/`([a-z]+(?:_[a-z]+)+)`/g)].map((m) => m[1]);
+    expect(named).toContain("split_receipt");
+    expect(named).toContain("attach_receipt");
+    for (const name of named) expect([...tools, ...prompts]).toContain(name);
+    // The skill tells the agent to preview writes with dryRun; the write tools must take it.
+    expect(skill).toContain("dryRun: true");
+    for (const t of listed.filter((t) => ["add_expense", "attach_receipt"].includes(t.name))) {
+      expect(Object.keys(t.inputSchema.properties ?? {})).toContain("dryRun");
+    }
   });
 });
