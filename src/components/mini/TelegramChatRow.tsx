@@ -220,7 +220,7 @@ export function TelegramChatRow({ groupId }: Props) {
         description={
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>解除後這個群組只在 App 裡使用，之後的新增與修改不會再發到 Telegram。</p>
-            <ul className="list-disc space-y-1 pl-5">
+            <ul className="list-disc space-y-1 pl-5 text-left">
               <li>成員、所有紀錄和邀請碼都會保留</li>
               <li>聊天室裡舊的卡片會停止更新，按鈕也不能再用</li>
               <li>bot 會離開那個 Telegram 群組</li>
