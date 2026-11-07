@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { TelegramChatSection } from "@/components/mini/TelegramChatSection";
+import { TelegramChatRow } from "@/components/mini/TelegramChatRow";
 import { Failure, fakeRequest, StoreWrapper } from "@/store/test-utils";
 
 afterEach(cleanup);
@@ -12,12 +12,12 @@ const CHAT = "/api/groups/9/chat";
 function renderSection(request: ReturnType<typeof fakeRequest>) {
   return render(
     <StoreWrapper request={request}>
-      <TelegramChatSection groupId="9" />
+      <TelegramChatRow groupId="9" />
     </StoreWrapper>,
   );
 }
 
-describe("TelegramChatSection", () => {
+describe("TelegramChatRow", () => {
   it("shows the bound chat and asks before unlinking", async () => {
     renderSection(fakeRequest({ [CHAT]: { linked: true, title: "日本行" } }));
 
@@ -61,6 +61,8 @@ describe("TelegramChatSection", () => {
   it("offers /link to a group with no chat, and no way to unlink", async () => {
     renderSection(fakeRequest({ [CHAT]: { linked: false, title: null } }));
 
+    expect(await screen.findByText("尚未綁定")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "如何綁定" }));
     expect(await screen.findByText(/\/link 邀請碼/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /解除綁定/ })).not.toBeInTheDocument();
   });

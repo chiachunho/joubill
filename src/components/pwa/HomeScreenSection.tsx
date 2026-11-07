@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Smartphone } from "lucide-react";
 
+import { IconTile } from "@/components/mini/IconTile";
 import { AddToHomeScreenDialog } from "@/components/pwa/AddToHomeScreenDialog";
 import { Button } from "@/components/ui/button";
 import { promptInstall, useHasInstallPrompt } from "@/lib/install-prompt";
@@ -22,9 +23,7 @@ export function HomeScreenSection({ env }: { env: PwaEnv }) {
     <section className="px-4">
       <p className="sect mb-2.5">主畫面捷徑</p>
       <div className="flex items-center gap-3 rounded-2xl bg-secondary/50 px-4 py-3">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-          <Smartphone className="size-3.5 text-primary" />
-        </div>
+        <IconTile icon={Smartphone} />
         <div className="min-w-0 flex-1">
           <p className="text-sm">加到主畫面</p>
           <p className="text-xs text-muted-foreground">在桌面放一個揪帳捷徑，不用下載</p>

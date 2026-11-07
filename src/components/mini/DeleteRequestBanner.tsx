@@ -14,7 +14,7 @@ import {
  * Someone else's pending 刪除群組 request, shown on the group page. A web group has no
  * chat to carry the 同意 / 拒絕 buttons, so the other members need them in the app, and
  * the settings page is the last place anyone looks. Your own request stays in
- * 群組設定 → 危險區域, where it can be cancelled.
+ * the 刪除群組 row at the foot of 群組設定, where it can be cancelled.
  */
 export function DeleteRequestBanner({
   groupId,

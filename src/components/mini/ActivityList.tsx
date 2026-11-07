@@ -10,8 +10,10 @@ import {
   Lock,
   Sparkles,
   UserCheck,
+  type LucideIcon,
 } from "lucide-react";
 
+import { IconTile } from "@/components/mini/IconTile";
 import { Avatar } from "@/components/mini/Avatar";
 import { activityFeedHref, recordHistoryHref } from "@/lib/activity-link";
 import { viaText } from "@/lib/app-ui";
@@ -48,6 +50,17 @@ type Props = {
   linkRows?: boolean;
   /** Day headings only make sense on the feed; a record's history is short. */
   groupByDay?: boolean;
+};
+
+/** The group-level events, which have no one record to show and so wear an icon, not an avatar. */
+const GROUP_EVENT_ICONS: Record<string, LucideIcon | undefined> = {
+  rate_locked: Lock,
+  invite_reset: KeyRound,
+  chat_linked: Link2,
+  chat_unlinked: Link2Off,
+  timezone_changed: Clock,
+  member_claimed: UserCheck,
+  account_merged: UserCheck,
 };
 
 function ChangeLine({ entry }: { entry: ActivityEntry }) {
@@ -121,30 +134,12 @@ function Row({
         })
       : null;
 
+  const EventIcon = GROUP_EVENT_ICONS[entry.action];
+
   const body = (
     <>
-      {entry.action === "rate_locked" ||
-      entry.action === "invite_reset" ||
-      entry.action === "chat_linked" ||
-      entry.action === "chat_unlinked" ||
-      entry.action === "timezone_changed" ||
-      entry.action === "member_claimed" ||
-      entry.action === "account_merged" ? (
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          {entry.action === "rate_locked" ? (
-            <Lock className="size-3.5" />
-          ) : entry.action === "chat_linked" ? (
-            <Link2 className="size-3.5" />
-          ) : entry.action === "chat_unlinked" ? (
-            <Link2Off className="size-3.5" />
-          ) : entry.action === "timezone_changed" ? (
-            <Clock className="size-3.5" />
-          ) : entry.action === "member_claimed" || entry.action === "account_merged" ? (
-            <UserCheck className="size-3.5" />
-          ) : (
-            <KeyRound className="size-3.5" />
-          )}
-        </span>
+      {EventIcon ? (
+        <IconTile icon={EventIcon} />
       ) : (
         <span className="relative shrink-0">
           <Avatar

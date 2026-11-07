@@ -4,6 +4,7 @@ import { useState } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
 
+import { IconTile } from "@/components/mini/IconTile";
 import { RateRowsSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,8 +53,8 @@ function fmtAffected(expenses: number, settlements: number): string {
 /**
  * Group-wide custom FX rates. A rate set here overrides the market rate for
  * ALL expenses of the group in that currency (past and future). Renders as
- * the sole content of the 自訂匯率 settings sub-page (Mini App and Web App
- * each have a copy) — no internal heading, the page owns its own `<h1>`.
+ * the 自訂匯率 block of the 貨幣與匯率 settings sub-page (shared by the Mini App and
+ * Web App) — no internal heading, the page owns its `<h1>` and the block title.
  */
 export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
   const { data, error } = useGetRatesQuery(groupId);
@@ -163,9 +164,7 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
           const dormant = row.quote !== defaultCurrency;
           return (
             <div key={row.id} className="flex items-center gap-3 px-4 py-3">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <ArrowRightLeft className="size-3.5 text-primary" />
-              </div>
+              <IconTile icon={ArrowRightLeft} />
               <div className={`min-w-0 flex-1 ${dormant ? "opacity-40" : ""}`}>
                 <p className="num text-sm">
                   1 {row.base} = {fmtRate(row.rate)} {row.quote}

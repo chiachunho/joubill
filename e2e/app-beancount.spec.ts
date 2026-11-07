@@ -166,7 +166,7 @@ test.describe("beancount export", () => {
   });
 
   test("saved accounts reach the file and the form says so", async ({ authedPage, seeded }) => {
-    await authedPage.goto(`/app/groups/${seeded.groupId}/settings/beancount`);
+    await authedPage.goto(`/app/groups/${seeded.groupId}/settings/export`);
     const save = authedPage.getByRole("button", { name: "儲存" });
     await expect(save).toBeDisabled();
 
@@ -183,7 +183,7 @@ test.describe("beancount export", () => {
 
   test("the export page downloads the file", async ({ authedPage, seeded }) => {
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings`);
-    await authedPage.getByRole("link", { name: "匯出 beancount" }).click();
+    await authedPage.getByRole("link", { name: "匯出", exact: true }).click();
     await expect(authedPage.getByRole("radio", { name: /全部/ })).toHaveAttribute(
       "aria-checked",
       "true",

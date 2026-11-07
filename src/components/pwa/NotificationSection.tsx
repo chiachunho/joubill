@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Bell, BellOff, ChevronRight, Send } from "lucide-react";
 
+import { IconTile } from "@/components/mini/IconTile";
 import { Switch } from "@/components/ui/switch";
 import { NEVER } from "@/lib/onboarding-prompts";
 import { writePromptRecord } from "@/lib/prompt-storage";
@@ -93,13 +94,7 @@ export function NotificationSection({ env }: { env: PwaEnv }) {
       <p className="sect mb-2.5">通知</p>
       <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
         <label className="flex items-center gap-3 px-4 py-3">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            {denied ? (
-              <BellOff className="size-3.5 text-primary" />
-            ) : (
-              <Bell className="size-3.5 text-primary" />
-            )}
-          </div>
+          <IconTile icon={denied ? BellOff : Bell} />
           <div className={disabled && !busy ? "min-w-0 flex-1 opacity-60" : "min-w-0 flex-1"}>
             <p className="text-sm">這台裝置的推播</p>
             <p className="text-xs text-muted-foreground">{status}</p>
@@ -118,9 +113,7 @@ export function NotificationSection({ env }: { env: PwaEnv }) {
             disabled={testState === "sending"}
             className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50"
           >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Send className="size-3.5 text-primary" />
-            </div>
+            <IconTile icon={Send} />
             <span className="flex-1 text-sm">傳送測試通知</span>
             {testState === "sent" && <span className="text-xs text-muted-foreground">已送出</span>}
             {testState === "failed" && <span className="text-xs text-destructive">送不出去</span>}

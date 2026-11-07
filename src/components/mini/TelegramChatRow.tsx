@@ -4,20 +4,33 @@ import { useState } from "react";
 import { Link2, Link2Off } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { IconTile } from "@/components/mini/IconTile";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { apiErrorStatus } from "@/lib/api-error";
 import { useGetGroupChatQuery, useUnlinkChatMutation } from "@/store/api";
 
 type Props = { groupId: string };
 
 /**
- * The group's Telegram chat: which one it is bound to, and the way to let go of it.
+ * The group's Telegram chat as rows of the group settings card: which chat it is bound to and the
+ * way to let go of it, or, when there is none, how to bind one. Returns rows, not a section: the
+ * page owns the card and its dividers.
  * Any member may unlink, like every other setting here. The ledger stays; the bot says
  * goodbye and leaves, so re-binding means adding it back and typing `/link`.
  */
-export function TelegramChatSection({ groupId }: Props) {
+export function TelegramChatRow({ groupId }: Props) {
   const { data, refetch } = useGetGroupChatQuery(groupId);
   const [unlinkChat, { isLoading }] = useUnlinkChatMutation();
   const [open, setOpen] = useState(false);
+  const [howToOpen, setHowToOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Nothing to say until the read lands: guessing "not linked" would offer /link to a linked group.
@@ -42,46 +55,56 @@ export function TelegramChatSection({ groupId }: Props) {
   const name = data.title ? `「${data.title}」` : "這個 Telegram 群組";
 
   return (
-    <section className="px-4">
-      <p className="sect mb-2.5">Telegram 群組</p>
+    <>
       {data.linked ? (
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Link2 className="size-3.5 text-primary" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="break-words text-sm font-medium">{data.title ?? "已綁定"}</p>
-              <p className="text-xs text-muted-foreground">已綁定，每筆紀錄會在聊天室出現卡片</p>
-            </div>
+        <div className="flex items-center gap-3 px-4 py-3">
+          <IconTile icon={Link2} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm">Telegram 群組</p>
+            <p className="break-words text-xs text-muted-foreground">{data.title ?? "已綁定"}</p>
           </div>
           <button
             onClick={() => setOpen(true)}
-            className="flex w-full items-center gap-3 px-4 py-3 text-destructive transition-colors hover:bg-destructive/10"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10"
           >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-              <Link2Off className="size-3.5 text-destructive" />
-            </div>
-            <span className="text-sm font-medium">解除綁定</span>
+            <Link2Off className="size-3.5" />
+            解除綁定
           </button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl bg-secondary/50">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-              <Link2Off className="size-3.5 text-muted-foreground" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">尚未綁定</p>
-              <p className="text-xs text-muted-foreground">
-                在 Telegram 群組輸入 /link 邀請碼即可綁定
-              </p>
-            </div>
+        <div className="flex items-center gap-3 px-4 py-3">
+          <IconTile icon={Link2Off} tone="muted" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm">Telegram 群組</p>
+            <p className="text-xs text-muted-foreground">尚未綁定</p>
           </div>
+          <button
+            onClick={() => setHowToOpen(true)}
+            className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+          >
+            如何綁定
+          </button>
         </div>
       )}
 
-      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      {error && <p className="px-4 py-2.5 text-xs text-destructive">{error}</p>}
+
+      <Dialog open={howToOpen} onOpenChange={setHowToOpen}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>綁定 Telegram 群組</DialogTitle>
+            <DialogDescription>
+              把揪帳 bot 加進 Telegram 群組，然後在群組裡輸入 /link
+              邀請碼。邀請碼可以在「新增成員」裡取得。綁定後，每筆紀錄都會在聊天室出現卡片。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button className="w-full rounded-lg" onClick={() => setHowToOpen(false)}>
+              知道了
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={open}
@@ -106,6 +129,6 @@ export function TelegramChatSection({ groupId }: Props) {
         loading={isLoading}
         onConfirm={doUnlink}
       />
-    </section>
+    </>
   );
 }

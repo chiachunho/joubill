@@ -26,7 +26,7 @@ test.describe("Group time zone", () => {
     const db = drizzle(dbPool, { schema });
     expect(await groupZone(db, seeded.groupId)).toBe("Asia/Taipei");
 
-    await authedPage.goto(`/app/groups/${seeded.groupId}/settings`);
+    await authedPage.goto(`/app/groups/${seeded.groupId}/settings/rates`);
     await expect(authedPage.getByText(/決定一筆紀錄算哪一天/)).toBeVisible();
 
     await authedPage.getByRole("combobox", { name: "時區" }).click();
