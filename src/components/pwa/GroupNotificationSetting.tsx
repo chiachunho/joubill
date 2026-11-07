@@ -2,6 +2,7 @@
 
 import { Bell } from "lucide-react";
 
+import { IconTile } from "@/components/mini/IconTile";
 import { NavRow } from "@/components/mini/NavRow";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -31,33 +32,26 @@ export function GroupNotificationSetting({ groupId }: { groupId: number }) {
     );
   }
 
+  const note = isError || data.telegramLinked;
   return (
-    <>
-      <label className="flex items-center gap-3 px-4 py-3">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Bell className="size-3.5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm">推播這個群組的紀錄</p>
-          <p className="text-xs text-muted-foreground">只影響你自己</p>
-        </div>
-        <Switch
-          aria-label="推播這個群組的紀錄"
-          checked={!data.muted}
-          onCheckedChange={(on) => void update({ groupId, muted: !on })}
-        />
-      </label>
-      {(isError || data.telegramLinked) && (
-        <div className="space-y-1 px-4 py-2.5 text-xs">
-          {isError && <p className="text-destructive">沒有存成功，請再試一次。</p>}
-          {data.telegramLinked && (
-            <p className="text-muted-foreground">
-              這個群組已連結
-              Telegram，群組訊息本身就會提醒你。不想同一件事收到兩次，可以在這裡關掉。
-            </p>
-          )}
-        </div>
-      )}
-    </>
+    <label className={`flex gap-3 px-4 py-3 ${note ? "items-start" : "items-center"}`}>
+      <IconTile icon={Bell} />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm">推播這個群組的紀錄</p>
+        <p className="text-xs text-muted-foreground">只影響你自己</p>
+        {isError && <p className="mt-1.5 text-xs text-destructive">沒有存成功，請再試一次。</p>}
+        {data.telegramLinked && (
+          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+            這個群組已連結 Telegram，群組訊息本身就會提醒你。不想同一件事收到兩次，可以在這裡關掉。
+          </p>
+        )}
+      </div>
+      <Switch
+        aria-label="推播這個群組的紀錄"
+        className={note ? "mt-0.5" : undefined}
+        checked={!data.muted}
+        onCheckedChange={(on) => void update({ groupId, muted: !on })}
+      />
+    </label>
   );
 }

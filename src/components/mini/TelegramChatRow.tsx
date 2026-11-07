@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link2, Link2Off } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { IconTile } from "@/components/mini/IconTile";
 import {
   Dialog,
   DialogContent,
@@ -57,9 +58,7 @@ export function TelegramChatRow({ groupId }: Props) {
     <>
       {data.linked ? (
         <div className="flex items-center gap-3 px-4 py-3">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <Link2 className="size-3.5 text-primary" />
-          </div>
+          <IconTile icon={Link2} />
           <div className="min-w-0 flex-1">
             <p className="text-sm">Telegram 群組</p>
             <p className="break-words text-xs text-muted-foreground">{data.title ?? "已綁定"}</p>
@@ -74,9 +73,7 @@ export function TelegramChatRow({ groupId }: Props) {
         </div>
       ) : (
         <div className="flex items-center gap-3 px-4 py-3">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-            <Link2Off className="size-3.5 text-muted-foreground" />
-          </div>
+          <IconTile icon={Link2Off} tone="muted" />
           <div className="min-w-0 flex-1">
             <p className="text-sm">Telegram 群組</p>
             <p className="text-xs text-muted-foreground">尚未綁定</p>

@@ -3,13 +3,11 @@
 import { use, useState } from "react";
 import { Download, Send } from "lucide-react";
 
+import { ActionRow } from "@/components/mini/ActionRow";
 import { BeancountExportSection } from "@/components/mini/BeancountExportSection";
 import { BeancountSettingsSection } from "@/components/mini/BeancountSettingsSection";
 import type { Platform } from "@/components/pages/platform";
 import { saveResponseAsFile } from "@/lib/download";
-
-const ROW_CLASS =
-  "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50";
 
 /**
  * 匯出: the one page behind the group settings row of the same name. The group's CSV on top, then
@@ -72,31 +70,21 @@ export function GroupExportPage({
         <p className="sect mb-2.5">CSV</p>
         <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
           {platform.canDownloadExport && (
-            <button
+            <ActionRow
+              icon={Download}
               onClick={() => exportCsv("download")}
               disabled={exportPending !== null}
-              className={ROW_CLASS}
             >
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Download className="size-3.5" />
-              </span>
-              <p className="min-w-0 flex-1 text-sm">
-                {exportPending === "download" ? "匯出中…" : "下載 CSV"}
-              </p>
-            </button>
+              {exportPending === "download" ? "匯出中…" : "下載 CSV"}
+            </ActionRow>
           )}
-          <button
+          <ActionRow
+            icon={Send}
             onClick={() => exportCsv("send")}
             disabled={exportPending !== null}
-            className={ROW_CLASS}
           >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Send className="size-3.5" />
-            </span>
-            <p className="min-w-0 flex-1 text-sm">
-              {exportPending === "send" ? "傳送中…" : "匯出 CSV 到群組"}
-            </p>
-          </button>
+            {exportPending === "send" ? "傳送中…" : "匯出 CSV 到群組"}
+          </ActionRow>
         </div>
         {exportMessage && (
           <p

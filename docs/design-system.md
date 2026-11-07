@@ -147,6 +147,10 @@ plain as 動態紀錄's row. A status line ("已啟用" / "N 筆設定") invites
 question — what does the empty/zero state say? — that a plain label sidesteps
 entirely.
 
+Use `NavRow` (`components/mini/NavRow.tsx`) rather than writing the row again; a row
+that acts instead of navigating (download, send) is `ActionRow`, and both draw their
+icon with `IconTile`. Spelled out, the nav row is:
+
 ```tsx
 <Link
   href={`/mini/groups/${id}/settings/rates`}

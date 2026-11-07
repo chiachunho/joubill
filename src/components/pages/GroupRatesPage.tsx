@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import { Clock, Coins } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { IconTile } from "@/components/mini/IconTile";
 import { CustomRatesSection } from "@/components/mini/CustomRatesSection";
 import { SettingsSubpageSkeleton } from "@/components/mini/skeletons";
 import { TimeZoneSelect } from "@/components/mini/TimeZoneSelect";
@@ -98,9 +99,7 @@ export function GroupRatesPage({
       <section className="px-4">
         <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
           <div className="flex items-center gap-3 px-4 py-3">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Coins className="size-3.5 text-primary" />
-            </div>
+            <IconTile icon={Coins} />
             <span className="flex-1 text-sm">預設貨幣</span>
             <Select
               value={settings.defaultCurrency}
@@ -123,9 +122,7 @@ export function GroupRatesPage({
           </div>
           <div className="space-y-2 px-4 py-3">
             <div className="flex items-center gap-3">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <Clock className="size-3.5 text-primary" />
-              </div>
+              <IconTile icon={Clock} />
               <span className="flex-1 text-sm">時區</span>
               <div className="w-56 max-w-[60%]">
                 <TimeZoneSelect

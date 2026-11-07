@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Clock, Loader2, Trash2 } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
+import { IconTile } from "@/components/mini/IconTile";
 import {
   useApproveDeleteRequestMutation,
   useCancelDeleteRequestMutation,
@@ -115,9 +116,7 @@ export function DeleteGroupRow({ groupId, membersCount, selfUserId, redirectPath
       ) : pendingRequest ? (
         pendingRequest.requestedBy === selfUserId ? (
           <div className="flex items-center gap-3 bg-destructive/5 px-4 py-3">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-              <Clock className="size-3.5 text-destructive" />
-            </div>
+            <IconTile icon={Clock} tone="destructive" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">等待其他成員確認</p>
               <p className="text-xs text-muted-foreground">已申請刪除群組</p>
@@ -165,9 +164,7 @@ export function DeleteGroupRow({ groupId, membersCount, selfUserId, redirectPath
           onClick={() => setDeleteGroupOpen(true)}
           className="flex w-full items-center gap-3 px-4 py-3 text-destructive transition-colors hover:bg-destructive/10"
         >
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-            <Trash2 className="size-3.5 text-destructive" />
-          </div>
+          <IconTile icon={Trash2} tone="destructive" />
           <span className="text-sm font-medium">刪除群組</span>
         </button>
       )}

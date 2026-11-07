@@ -6,6 +6,7 @@ import { skipToken } from "@reduxjs/toolkit/query";
 import { Check, Download, Send } from "lucide-react";
 
 import { DateRangePicker } from "@/components/mini/DateRangeSelect";
+import { ActionRow } from "@/components/mini/ActionRow";
 import { BeancountExportSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
 import { apiErrorText } from "@/lib/api-error";
@@ -227,24 +228,14 @@ export function BeancountExportSection({
       <section className="px-4">
         <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
           {platform.canDownloadExport && (
-            <button type="button" onClick={download} disabled={!ready} className={rowClass}>
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Download className="size-3.5" />
-              </span>
-              <p className="min-w-0 flex-1 text-sm">
-                {pending === "download" ? "匯出中…" : "下載 .beancount"}
-              </p>
-            </button>
+            <ActionRow icon={Download} onClick={download} disabled={!ready}>
+              {pending === "download" ? "匯出中…" : "下載 .beancount"}
+            </ActionRow>
           )}
           {summary?.telegramLinked !== false && (
-            <button type="button" onClick={send} disabled={!ready} className={rowClass}>
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Send className="size-3.5" />
-              </span>
-              <p className="min-w-0 flex-1 text-sm">
-                {pending === "send" ? "傳送中…" : "傳到我的私訊"}
-              </p>
-            </button>
+            <ActionRow icon={Send} onClick={send} disabled={!ready}>
+              {pending === "send" ? "傳送中…" : "傳到我的私訊"}
+            </ActionRow>
           )}
         </div>
         {message && (
