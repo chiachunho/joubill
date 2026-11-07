@@ -52,8 +52,8 @@ function fmtAffected(expenses: number, settlements: number): string {
 /**
  * Group-wide custom FX rates. A rate set here overrides the market rate for
  * ALL expenses of the group in that currency (past and future). Renders as
- * the sole content of the 自訂匯率 settings sub-page (Mini App and Web App
- * each have a copy) — no internal heading, the page owns its own `<h1>`.
+ * the 自訂匯率 block of the 貨幣與匯率 settings sub-page (shared by the Mini App and
+ * Web App) — no internal heading, the page owns its `<h1>` and the block title.
  */
 export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
   const { data, error } = useGetRatesQuery(groupId);

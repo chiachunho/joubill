@@ -32,8 +32,8 @@ test.describe("CSV export", () => {
     expect(res.status()).toBe(400);
   });
 
-  test("group settings downloads the file", async ({ authedPage, seeded }) => {
-    await authedPage.goto(`/app/groups/${seeded.groupId}/settings`);
+  test("the export page downloads the file", async ({ authedPage, seeded }) => {
+    await authedPage.goto(`/app/groups/${seeded.groupId}/settings/export`);
     const download = authedPage.waitForEvent("download");
     await authedPage.getByRole("button", { name: "下載 CSV" }).click();
     expect((await download).suggestedFilename()).toMatch(/\.csv$/);

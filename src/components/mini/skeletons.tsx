@@ -181,9 +181,7 @@ export function GroupSettingsSkeleton() {
 
 /**
  * Generic settings sub-page shell: back header + one panel of a few rows.
- * Shared by the 自訂匯率 and Beancount sub-pages — both are a
- * single `bg-secondary/50` panel under a page title, just with different
- * row content once loaded.
+ * Used while the 貨幣與匯率 sub-page loads: a panel under a page title.
  */
 export function SettingsSubpageSkeleton() {
   return (
