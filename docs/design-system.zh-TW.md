@@ -116,7 +116,7 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 
 除了單純的資料列表面板,還有兩種變體:
 
-**導覽 Row (Nav row)** —— 把一整個子主題交給獨立頁面,而不是就地展開的單列面板。當內容本身有夠重的表單/清單、就地展開會佔滿整頁時使用——例如群組設定頁的「自訂匯率」「Beancount 複製」都各自搬去了自己的 `settings/rates` / `settings/beancount` 頁,原地留下一條 nav row。樣式:icon tile + 標籤文字 + `ChevronRight`,**不放次要狀態文字**——保持跟「動態紀錄」那一列一樣單純。一行狀態文字(「已啟用」「N 筆設定」)會帶出下一個問題——沒資料/零狀態要顯示什麼?——乾淨的純標籤直接繞過了這個問題。
+**導覽 Row (Nav row)** —— 把一整個子主題交給獨立頁面,而不是就地展開的單列面板。當內容本身有夠重的表單/清單、就地展開會佔滿整頁時使用——例如群組設定頁的「貨幣與匯率」(預設貨幣、時區與自訂匯率清單)「Beancount 複製」都各自搬去了自己的 `settings/rates` / `settings/beancount` 頁,原地留下一條 nav row。樣式:icon tile + 標籤文字 + `ChevronRight`,**不放次要狀態文字**——保持跟「動態紀錄」那一列一樣單純。一行狀態文字(「已啟用」「N 筆設定」)會帶出下一個問題——沒資料/零狀態要顯示什麼?——乾淨的純標籤直接繞過了這個問題。
 
 ```tsx
 <Link
@@ -124,9 +124,9 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
 >
   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-    <ArrowRightLeft className="size-3.5" />
+    <Coins className="size-3.5" />
   </span>
-  <p className="min-w-0 flex-1 text-sm">自訂匯率</p>
+  <p className="min-w-0 flex-1 text-sm">貨幣與匯率</p>
   <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
 </Link>
 ```

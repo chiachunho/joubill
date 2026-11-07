@@ -12,9 +12,9 @@ test.describe("Group and account pages", () => {
     await expect(authedPage.getByRole("heading", { name: "群組設定" })).toBeVisible();
   });
 
-  test("rates settings page renders", async ({ authedPage, seeded }) => {
+  test("currency and rates settings page renders", async ({ authedPage, seeded }) => {
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings/rates`);
-    await expect(authedPage.getByRole("heading", { name: "自訂匯率" })).toBeVisible();
+    await expect(authedPage.getByRole("heading", { name: "貨幣與匯率" })).toBeVisible();
   });
 
   test("beancount settings page renders", async ({ authedPage, seeded }) => {

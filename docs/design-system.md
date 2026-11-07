@@ -137,9 +137,9 @@ Two variants of a section, beyond a plain grouped panel of data rows:
 
 **Nav row** — a single-row panel that hands a whole sub-topic off to its own
 page instead of expanding it inline. Use this when the content has its own
-forms/lists heavy enough to dominate the page it'd sit on — e.g. 自訂匯率 and
-Beancount 複製 on the group settings page each moved to their own
-`settings/rates` / `settings/beancount` page, leaving a nav row behind. Shape:
+forms/lists heavy enough to dominate the page it'd sit on — e.g. 貨幣與匯率
+(預設貨幣, 時區 and the 自訂匯率 list) and Beancount 複製 on the group settings
+page each moved to their own `settings/rates` / `settings/beancount` page, leaving a nav row behind. Shape:
 icon tile + label + `ChevronRight`, **no secondary status text** — keep it as
 plain as 動態紀錄's row. A status line ("已啟用" / "N 筆設定") invites a second
 question — what does the empty/zero state say? — that a plain label sidesteps
@@ -151,9 +151,9 @@ entirely.
   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
 >
   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-    <ArrowRightLeft className="size-3.5" />
+    <Coins className="size-3.5" />
   </span>
-  <p className="min-w-0 flex-1 text-sm">自訂匯率</p>
+  <p className="min-w-0 flex-1 text-sm">貨幣與匯率</p>
   <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
 </Link>
 ```

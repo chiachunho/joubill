@@ -3,10 +3,8 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRightLeft,
   BookOpen,
   ChevronRight,
-  Clock,
   Coins,
   Download,
   GitMerge,
@@ -20,36 +18,23 @@ import {
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DangerZoneSection } from "@/components/mini/DangerZoneSection";
-import { TimeZoneSelect } from "@/components/mini/TimeZoneSelect";
 import { TelegramChatSection } from "@/components/mini/TelegramChatSection";
 import { AddMemberDialog } from "@/components/mini/AddMemberDialog";
 import { MergeMemberDialog } from "@/components/mini/MergeMemberDialog";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { activityFeedHref } from "@/lib/activity-link";
 import type { MembersResponse } from "@/lib/api-types";
 import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
 import { saveResponseAsFile } from "@/lib/download";
 import { labelMember, labelUser } from "@/lib/label";
-import { TIMEZONE_PURPOSE } from "@/lib/timezone";
-import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 import {
   useGetAvatarsQuery,
   useGetMeQuery,
   useGetMembersQuery,
-  useGetSettingsQuery,
   useRemoveMemberMutation,
   useRenameMemberMutation,
-  useUpdateGroupCurrencyMutation,
-  useUpdateGroupTimezoneMutation,
   useUpdateMemberStatusMutation,
 } from "@/store/api";
 
@@ -71,14 +56,11 @@ export function GroupSettings({
   const selfUserId = me?.userId;
 
   const { data: membersData, error: membersError } = useGetMembersQuery(id);
-  const { data: settings, error: settingsError } = useGetSettingsQuery(id);
   const { data: avatars } = useGetAvatarsQuery(id);
 
   const [renameMember] = useRenameMemberMutation();
   const [removeMember] = useRemoveMemberMutation();
   const [updateMemberStatus] = useUpdateMemberStatusMutation();
-  const [updateGroupCurrency] = useUpdateGroupCurrencyMutation();
-  const [updateGroupTimezone] = useUpdateGroupTimezoneMutation();
 
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -88,10 +70,6 @@ export function GroupSettings({
   const [addOpen, setAddOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Member | null>(null);
   const [mergeTarget, setMergeTarget] = useState<Member | null>(null);
-  const [currencyPending, setCurrencyPending] = useState(false);
-  const [pendingCurrency, setPendingCurrency] = useState<string | null>(null);
-  const [timezonePending, setTimezonePending] = useState(false);
-  const [pendingTimezone, setPendingTimezone] = useState<string | null>(null);
   const [exportPending, setExportPending] = useState<"download" | "send" | null>(null);
   const [exportMessage, setExportMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -169,33 +147,7 @@ export function GroupSettings({
     }
   }
 
-  async function updateCurrency(currency: string) {
-    if (currencyPending) return;
-    setCurrencyPending(true);
-    try {
-      // The select shows the new currency at once; the mutation puts it back on failure.
-      await updateGroupCurrency({ groupId: id, defaultCurrency: currency }).unwrap();
-    } catch {
-      // rolled back
-    } finally {
-      setCurrencyPending(false);
-    }
-  }
-
-  async function updateTimezone(timezone: string) {
-    if (timezonePending) return;
-    setTimezonePending(true);
-    try {
-      // The select shows the new zone at once; the mutation puts it back on failure.
-      await updateGroupTimezone({ groupId: id, timezone }).unwrap();
-    } catch {
-      // rolled back
-    } finally {
-      setTimezonePending(false);
-    }
-  }
-
-  const error = membersError ?? settingsError;
+  const error = membersError;
   if (error) {
     return (
       <div className="px-4 py-12 text-center">
@@ -205,7 +157,7 @@ export function GroupSettings({
     );
   }
 
-  if (!membersData || !settings) {
+  if (!membersData) {
     return <GroupSettingsSkeleton />;
   }
 
@@ -221,63 +173,18 @@ export function GroupSettings({
         <h1 className="text-lg font-semibold">群組設定</h1>
       </div>
 
-      {/* 貨幣與匯率 — 預設貨幣 stays inline (single control, no reason to
-          leave the page); 自訂匯率 has its own forms/list heavy enough that
-          it moved to its own sub-page, see docs/design-system.md §6. */}
+      {/* 貨幣與匯率 — one nav row; 預設貨幣, 時區 and 自訂匯率 all live on its page, see
+          docs/design-system.md §6. */}
       <section className="px-4">
-        <p className="sect mb-2.5">貨幣與匯率</p>
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Coins className="size-3.5 text-primary" />
-            </div>
-            <span className="flex-1 text-sm">預設貨幣</span>
-            <Select
-              value={settings.defaultCurrency}
-              onValueChange={(c) => {
-                if (c !== settings.defaultCurrency) setPendingCurrency(c);
-              }}
-              disabled={currencyPending}
-            >
-              <SelectTrigger className="h-8 w-24 rounded-lg border-0 bg-background/60 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SUPPORTED_CURRENCIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <Clock className="size-3.5 text-primary" />
-              </div>
-              <span className="flex-1 text-sm">時區</span>
-              <div className="w-56 max-w-[60%]">
-                <TimeZoneSelect
-                  value={settings.timezone}
-                  disabled={timezonePending}
-                  className="h-8 rounded-lg border-0 bg-background/60 text-sm"
-                  onChange={(tz) => {
-                    if (tz !== settings.timezone) setPendingTimezone(tz);
-                  }}
-                />
-              </div>
-            </div>
-            <p className="text-xs leading-relaxed text-muted-foreground">{TIMEZONE_PURPOSE}</p>
-          </div>
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
           <Link
             href={`${platform.basePath}/groups/${id}/settings/rates`}
             className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
           >
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <ArrowRightLeft className="size-3.5" />
+              <Coins className="size-3.5" />
             </span>
-            <p className="min-w-0 flex-1 text-sm">自訂匯率</p>
+            <p className="min-w-0 flex-1 text-sm">貨幣與匯率</p>
             <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
           </Link>
         </div>
@@ -523,46 +430,6 @@ export function GroupSettings({
           const err = await submitRename({ userId: renameTarget.id }, name);
           if (!err) setRenameTarget(null);
           return err;
-        }}
-      />
-
-      <ConfirmDialog
-        open={pendingCurrency !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingCurrency(null);
-        }}
-        title="變更預設貨幣"
-        description={
-          pendingCurrency
-            ? `整本帳會改以 ${pendingCurrency} 計算：餘額與統計將以市場匯率重新換算，現有的群組自訂匯率與單筆自訂匯率會暫停生效（改回原貨幣時恢復）。`
-            : undefined
-        }
-        confirmLabel="變更"
-        loading={currencyPending}
-        onConfirm={async () => {
-          if (!pendingCurrency) return;
-          await updateCurrency(pendingCurrency);
-          setPendingCurrency(null);
-        }}
-      />
-
-      <ConfirmDialog
-        open={pendingTimezone !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingTimezone(null);
-        }}
-        title="變更群組時區"
-        description={
-          pendingTimezone
-            ? `要把群組時區改成 ${pendingTimezone} 嗎？這會影響整個群組：bot 記帳的日期，以及匯率使用的日期。已經記下的紀錄日期不會改變。`
-            : undefined
-        }
-        confirmLabel="變更"
-        loading={timezonePending}
-        onConfirm={async () => {
-          if (!pendingTimezone) return;
-          await updateTimezone(pendingTimezone);
-          setPendingTimezone(null);
         }}
       />
 
