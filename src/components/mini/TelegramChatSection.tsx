@@ -45,7 +45,7 @@ export function TelegramChatSection({ groupId }: Props) {
     <section className="px-4">
       <p className="sect mb-2.5">Telegram 群組</p>
       {data.linked ? (
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+        <div className="overflow-hidden rounded-2xl bg-secondary/50">
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
               <Link2 className="size-3.5 text-primary" />
@@ -54,16 +54,14 @@ export function TelegramChatSection({ groupId }: Props) {
               <p className="break-words text-sm font-medium">{data.title ?? "已綁定"}</p>
               <p className="text-xs text-muted-foreground">已綁定，每筆紀錄會在聊天室出現卡片</p>
             </div>
+            <button
+              onClick={() => setOpen(true)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10"
+            >
+              <Link2Off className="size-3.5" />
+              解除綁定
+            </button>
           </div>
-          <button
-            onClick={() => setOpen(true)}
-            className="flex w-full items-center gap-3 px-4 py-3 text-destructive transition-colors hover:bg-destructive/10"
-          >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-              <Link2Off className="size-3.5 text-destructive" />
-            </div>
-            <span className="text-sm font-medium">解除綁定</span>
-          </button>
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl bg-secondary/50">
