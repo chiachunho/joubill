@@ -6,7 +6,7 @@ import { expect, test } from "./fixtures";
 import { addExpense, auditActions } from "./helpers";
 
 test.describe("Unlinking a group from its Telegram chat", () => {
-  test("a member unlinks from group settings and the ledger is untouched", async ({
+  test("a member unlinks from the Telegram page and the ledger is untouched", async ({
     authedPage,
     seeded,
     dbPool,
@@ -22,7 +22,10 @@ test.describe("Unlinking a group from its Telegram chat", () => {
       .from(schema.groupMembers)
       .where(eq(schema.groupMembers.groupId, seeded.groupId));
 
+    // Group settings has one entry for the chat; binding, unlinking and the topic sit behind it.
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings`);
+    await authedPage.getByRole("link", { name: "Telegram 群組" }).click();
+    await expect(authedPage.getByRole("heading", { name: "Telegram 群組" })).toBeVisible();
     await expect(authedPage.getByRole("button", { name: /解除綁定/ })).toBeVisible();
 
     await authedPage.getByRole("button", { name: /解除綁定/ }).click();
@@ -102,6 +105,8 @@ test.describe("Unlinking a group from its Telegram chat", () => {
     expect(await (await authedPage.request.get(url)).json()).toEqual({
       linked: false,
       title: null,
+      isForum: null,
+      noticeThread: null,
     });
   });
 

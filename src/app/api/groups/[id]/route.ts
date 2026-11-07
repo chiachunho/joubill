@@ -4,7 +4,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { getBot } from "@/bot";
 import { db } from "@/db";
 import { groupDeleteRequests, groupMembers, groups, users } from "@/db/schema";
-import { telegramChatId } from "@/lib/chat";
+import { chatTargetOf, sendToGroupChat } from "@/lib/notice-thread";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { BTN } from "@/lib/buttons";
@@ -47,16 +47,20 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     username: user.username,
   });
   // A group created on the web has no chat: nothing to announce and nothing to leave.
-  const chatId = telegramChatId(group);
+  const target = chatTargetOf(group);
 
   // Single member — delete immediately without requiring approval
   if (memberCount <= 1) {
-    if (chatId !== null) {
-      const bot = getBot();
-      await bot.api
-        .sendMessage(chatId, `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`)
-        .catch(() => null);
-      await bot.api.leaveChat(chatId).catch(() => null);
+    if (target !== null) {
+      const { api } = getBot();
+      await sendToGroupChat(api, target, (thread) =>
+        api.sendMessage(
+          target.chatId,
+          `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`,
+          thread,
+        ),
+      ).catch(() => null);
+      await api.leaveChat(target.chatId).catch(() => null);
     }
     await deleteGroup(groupId);
     return NextResponse.json({ ok: true });
@@ -84,12 +88,14 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
 
   // The request lives in the DB; the other members approve it in the app (and, for a group
   // with a chat, on the message below).
-  if (chatId !== null) {
-    const sent = await getBot()
-      .api.sendMessage(
-        chatId,
+  if (target !== null) {
+    const { api } = getBot();
+    const sent = await sendToGroupChat(api, target, (thread) =>
+      api.sendMessage(
+        target.chatId,
         `${name} 申請刪除揪帳群組「${group.title}」，需要其他成員確認。\n\n同意後所有費用與結算紀錄將永久清除。`,
         {
+          ...thread,
           reply_markup: {
             inline_keyboard: [
               [
@@ -99,8 +105,8 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
             ],
           },
         },
-      )
-      .catch(() => null);
+      ),
+    ).catch(() => null);
 
     if (sent) {
       await db

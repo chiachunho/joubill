@@ -42,8 +42,21 @@ describe("requireTelegramChatId", () => {
 
 describe("noChatColumns", () => {
   it("nulls both columns together, as the groups_chat_pair CHECK requires", () => {
-    expect(noChatColumns()).toEqual({ chatType: null, chatId: null });
+    expect(noChatColumns()).toMatchObject({ chatType: null, chatId: null });
     expect(telegramChatId(noChatColumns())).toBeNull();
+  });
+
+  it("resets the topic setting, whose thread id belongs to the old chat", () => {
+    expect(noChatColumns()).toMatchObject({ noticeThreadId: null, noticeThreadName: null });
+  });
+});
+
+describe("telegramChatColumns", () => {
+  it("resets the topic setting when a chat is bound", () => {
+    expect(telegramChatColumns(-100555)).toMatchObject({
+      noticeThreadId: null,
+      noticeThreadName: null,
+    });
   });
 });
 

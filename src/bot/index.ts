@@ -13,6 +13,7 @@ import { helpCommand } from "./commands/help";
 import { joinCommand } from "./commands/join";
 import { linkCommand } from "./commands/link";
 import { timezoneCommand } from "./commands/timezone";
+import { topicCommand } from "./commands/topic";
 import { unlinkCommand } from "./commands/unlink";
 import { listCommand } from "./commands/list";
 import { receiptUploadHandler } from "./commands/receiptUpload";
@@ -60,6 +61,7 @@ export function getBot(): Bot<BotContext> {
   bot.use(linkCommand);
   bot.use(unlinkCommand);
   bot.use(timezoneCommand);
+  bot.use(topicCommand);
   bot.use(addCommand);
   bot.use(appCommand);
   bot.use(listCommand);

@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   ChevronRight,
   Clock,
+  Hash,
   KeyRound,
   Link2,
   Link2Off,
@@ -59,6 +60,7 @@ const GROUP_EVENT_ICONS: Record<string, LucideIcon | undefined> = {
   chat_linked: Link2,
   chat_unlinked: Link2Off,
   timezone_changed: Clock,
+  notice_thread_changed: Hash,
   member_claimed: UserCheck,
   account_merged: UserCheck,
 };

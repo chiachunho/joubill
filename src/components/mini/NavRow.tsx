@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 import { IconTile } from "@/components/mini/IconTile";
 
@@ -15,7 +15,7 @@ export function NavRow({
   children,
 }: {
   href: string;
-  icon: LucideIcon;
+  icon: ComponentType<{ className?: string }>;
   children: ReactNode;
 }) {
   return (

@@ -94,7 +94,7 @@ unlinkCommand.callbackQuery(/^unlink:yes:(\d+)$/, async (ctx) => {
   }
 
   await ctx.answerCallbackQuery({ text: "已解除綁定" });
-  await leaveUnlinkedChat(ctx.api, outcome.chatId, async () => {
+  await leaveUnlinkedChat(ctx.api, outcome.target, async () => {
     await ctx.editMessageText(UNLINK_FAREWELL);
     return true;
   });

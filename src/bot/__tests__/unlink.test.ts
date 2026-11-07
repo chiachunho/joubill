@@ -63,7 +63,10 @@ describe("/unlink", () => {
   });
 
   it("unlinks, logs who did it, turns the prompt into the farewell, then leaves", async () => {
-    unlinkChat.mockResolvedValue({ ok: true, chatId: -1001234567 });
+    unlinkChat.mockResolvedValue({
+      ok: true,
+      target: { groupId: 7, chatId: -1001234567, threadId: null },
+    });
     const t = testBot(unlinkCommand);
     stubReplies(t);
     await t.press("unlink:yes:7");
@@ -77,7 +80,10 @@ describe("/unlink", () => {
   });
 
   it("still leaves when the farewell can't be edited in", async () => {
-    unlinkChat.mockResolvedValue({ ok: true, chatId: -1001234567 });
+    unlinkChat.mockResolvedValue({
+      ok: true,
+      target: { groupId: 7, chatId: -1001234567, threadId: null },
+    });
     const t = testBot(unlinkCommand);
     stubReplies(t);
     t.answer("editMessageText", () => {

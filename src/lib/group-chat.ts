@@ -3,7 +3,8 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expenses, groups, recordAuditLog } from "@/db/schema";
-import { noChatColumns, telegramChatId } from "@/lib/chat";
+import { noChatColumns } from "@/lib/chat";
+import { chatTargetOf, sendToGroupChat, type ChatTarget } from "@/lib/notice-thread";
 import { planUnlink } from "@/lib/unlink-plan";
 
 /**
@@ -31,7 +32,8 @@ export async function chatTitleOf(groupId: number): Promise<string> {
   return group?.title ?? "";
 }
 
-export type UnlinkOutcome = { ok: true; chatId: number } | { ok: false; reason: "no_chat" };
+/** `target` is the chat as it was, topic included, so the farewell goes where the group read. */
+export type UnlinkOutcome = { ok: true; target: ChatTarget } | { ok: false; reason: "no_chat" };
 
 /**
  * Clears the chat and every record's pointer into it, in one transaction.
@@ -46,9 +48,9 @@ export type UnlinkOutcome = { ok: true; chatId: number } | { ok: false; reason: 
 export async function unlinkChat(groupId: number): Promise<UnlinkOutcome> {
   return db.transaction(async (tx) => {
     const [group] = await tx.select().from(groups).where(eq(groups.id, groupId)).for("update");
-    const chatId = group ? telegramChatId(group) : null;
-    const plan = planUnlink({ hasChat: chatId !== null });
-    if (!plan.ok || chatId === null)
+    const target = group ? chatTargetOf(group) : null;
+    const plan = planUnlink({ hasChat: target !== null });
+    if (!plan.ok || target === null)
       return { ok: false, reason: plan.ok ? "no_chat" : plan.reason };
 
     await tx
@@ -56,7 +58,7 @@ export async function unlinkChat(groupId: number): Promise<UnlinkOutcome> {
       .set({ ...noChatColumns(), updatedAt: new Date() })
       .where(eq(groups.id, groupId));
     await tx.update(expenses).set({ noticeMessageId: null }).where(eq(expenses.groupId, groupId));
-    return { ok: true, chatId } as const;
+    return { ok: true, target } as const;
   });
 }
 
@@ -72,12 +74,17 @@ export const UNLINK_FAREWELL =
  */
 export async function leaveUnlinkedChat(
   api: Api,
-  chatId: number,
+  target: ChatTarget,
   farewell?: () => Promise<boolean>,
 ): Promise<void> {
   let said = false;
   if (farewell) said = await farewell().catch(() => false);
-  if (!said) await api.sendMessage(chatId, UNLINK_FAREWELL).catch(() => null);
+  const { chatId } = target;
+  if (!said) {
+    await sendToGroupChat(api, target, (thread) =>
+      api.sendMessage(chatId, UNLINK_FAREWELL, thread),
+    ).catch(() => null);
+  }
   await api.leaveChat(chatId).catch((err) => {
     console.error(`[unlink] could not leave chat ${chatId}:`, err);
   });

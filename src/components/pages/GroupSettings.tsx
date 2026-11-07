@@ -6,13 +6,13 @@ import { Coins, Download, GitMerge, History, Pencil, Plus, Trash2 } from "lucide
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DeleteGroupRow } from "@/components/mini/DeleteGroupRow";
-import { TelegramChatRow } from "@/components/mini/TelegramChatRow";
 import { AddMemberDialog } from "@/components/mini/AddMemberDialog";
 import { MergeMemberDialog } from "@/components/mini/MergeMemberDialog";
 import { NavRow } from "@/components/mini/NavRow";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
+import { TelegramGlyph } from "@/components/TelegramIcon";
 import { activityFeedHref } from "@/lib/activity-link";
 import type { MembersResponse } from "@/lib/api-types";
 import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
@@ -243,13 +243,15 @@ export function GroupSettings({
         </div>
       )}
 
-      {/* One card for every single entry: no section titles. 貨幣與匯率 and 匯出 each hand a
+      {/* One card for every single entry: no section titles. Telegram 群組, 貨幣與匯率 and 匯出 each hand a
           sub-topic to their own page (docs/design-system.md §6); 動態紀錄 is the way into the
           audit log (the group page header has no free slot, and the record forms' "最後由 X
           修改" line is the shortcut from a record). 刪除群組 stays last. */}
       <section className="px-4">
         <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
-          <TelegramChatRow groupId={id} />
+          <NavRow href={`${platform.basePath}/groups/${id}/settings/telegram`} icon={TelegramGlyph}>
+            Telegram 群組
+          </NavRow>
           <NavRow href={`${platform.basePath}/groups/${id}/settings/rates`} icon={Coins}>
             貨幣與匯率
           </NavRow>

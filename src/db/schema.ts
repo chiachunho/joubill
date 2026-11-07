@@ -63,6 +63,13 @@ export const groups = pgTable(
      *  records and the day a market rate is looked up for. It never reinterprets a record's
      *  own date (`expenses.spent_date`). Validate with `isValidTimeZone`. */
     timezone: text("timezone").notNull().default("Asia/Taipei"),
+    /** 記帳通知發送位置: the forum topic (`message_thread_id`) of the chat that messages with no
+     *  conversation to answer go to — cards for records made in the App, exports sent from it.
+     *  NULL is the chat's General. Belongs to the chat, so `noChatColumns` / `telegramChatColumns`
+     *  reset it. Change it only through `changeNoticeThread` (src/lib/notice-thread.ts). */
+    noticeThreadId: integer("notice_thread_id"),
+    /** The topic's name as last seen (`/topic`, or a rename service message); NULL if unknown. */
+    noticeThreadName: text("notice_thread_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

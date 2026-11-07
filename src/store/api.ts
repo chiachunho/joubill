@@ -724,6 +724,14 @@ export const api = baseApi.injectEndpoints({
         tag("Activity", g(groupId)),
       ],
     }),
+    /** Put 記帳通知發送位置 back to the chat's General; the feed gains a row. */
+    resetNoticeThread: build.mutation<{ ok: true }, { groupId: GroupId }>({
+      query: ({ groupId }) => ({ url: `/api/groups/${groupId}/chat/topic`, method: "DELETE" }),
+      invalidatesTags: (_r, _e, { groupId }) => [
+        tag("GroupChat", g(groupId)),
+        tag("Activity", g(groupId)),
+      ],
+    }),
     /** Post the beancount file to the caller's private chat with the bot; moves the watermark. */
     sendBeancountExport: build.mutation<
       { ok: true; included: number; corrected: number },
@@ -882,6 +890,7 @@ export const {
   useCreateGroupMutation,
   useResetInviteMutation,
   useUnlinkChatMutation,
+  useResetNoticeThreadMutation,
   useAcceptInviteMutation,
   useDeleteGroupMutation,
   useApproveDeleteRequestMutation,

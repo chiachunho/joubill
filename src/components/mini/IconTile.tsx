@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -13,7 +13,8 @@ export function IconTile({
   icon: Icon,
   tone = "primary",
 }: {
-  icon: LucideIcon;
+  /** A lucide icon, or any icon component that takes a `className` (`TelegramGlyph`). */
+  icon: ComponentType<{ className?: string }>;
   tone?: keyof typeof TONES;
 }) {
   return (

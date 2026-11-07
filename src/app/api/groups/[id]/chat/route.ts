@@ -24,8 +24,34 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   await assertGroupMember(auth.user.id, groupId);
 
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
-  const linked = group !== undefined && telegramChatId(group) !== null;
-  const body: GroupChatResponse = { linked, title: linked ? await chatTitleOf(groupId) : null };
+  const chatId = group ? telegramChatId(group) : null;
+  if (!group || chatId === null) {
+    const body: GroupChatResponse = {
+      linked: false,
+      title: null,
+      isForum: null,
+      noticeThread: null,
+    };
+    return NextResponse.json(body);
+  }
+
+  // Topics can be switched on or off in Telegram at any time, so this is asked, not stored.
+  const [title, isForum] = await Promise.all([
+    chatTitleOf(groupId),
+    getBot()
+      .api.getChat(chatId)
+      .then((chat) => ("is_forum" in chat ? chat.is_forum === true : false))
+      .catch(() => null),
+  ]);
+  const body: GroupChatResponse = {
+    linked: true,
+    title,
+    isForum,
+    noticeThread:
+      group.noticeThreadId === null
+        ? null
+        : { id: group.noticeThreadId, name: group.noticeThreadName },
+  };
   return NextResponse.json(body);
 });
 
@@ -47,6 +73,6 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   }
 
   await logChatUnlinked(groupId, { userId: auth.user.id, source: "app" }, title);
-  after(() => leaveUnlinkedChat(getBot().api, outcome.chatId));
+  after(() => leaveUnlinkedChat(getBot().api, outcome.target));
   return NextResponse.json({ ok: true });
 });
