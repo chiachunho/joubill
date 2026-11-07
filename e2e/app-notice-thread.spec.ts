@@ -28,6 +28,11 @@ test.describe("記帳通知發送位置 (the chat topic notices go to)", () => {
 
     await authedPage.getByRole("button", { name: "改回 General" }).click();
     await authedPage.getByRole("dialog").getByRole("button", { name: "改回 General" }).click();
+    // Wait for what the reset produces, not for the button to vanish: while the request runs the
+    // dialog's button is a spinner and the page behind the dialog is hidden from the a11y tree,
+    // so "no 改回 General button" already holds before the server has answered.
+    await expect(authedPage.getByRole("dialog")).toHaveCount(0);
+    await expect(authedPage.getByText("General", { exact: true })).toBeVisible();
     await expect(authedPage.getByRole("button", { name: "改回 General" })).toHaveCount(0);
 
     const [group] = await db
