@@ -92,4 +92,43 @@ test.describe("連結的應用程式", () => {
     await expect(authedPage.getByText(/E2E via MCP dinner/)).toBeVisible();
     await expect(authedPage.getByText(/E2E merge equal/)).toHaveCount(0);
   });
+
+  test("使用紀錄 lists a connection's calls and filters the failures", async ({
+    authedPage,
+    request,
+    seeded,
+    dbPool,
+  }) => {
+    const { token, id } = await mkToken(dbPool, seeded.userId, {
+      name: "E2E 使用紀錄",
+      groupIds: [seeded.groupId],
+    });
+    await call(request, token, "get_balance", { groupId: seeded.groupId });
+    await call(request, token, "add_expense", {
+      groupId: seeded.groupId,
+      amount: "10",
+      split: { type: "equal", among: ["nobody-by-this-name"] },
+    });
+    await expect
+      .poll(
+        async () =>
+          (await dbPool.query("SELECT 1 FROM mcp_call_log WHERE connection_id=$1", [id])).rowCount,
+      )
+      .toBe(2);
+
+    await authedPage.goto("/app/settings/apps");
+    await authedPage.getByRole("button", { name: /E2E 使用紀錄/ }).click();
+    await authedPage.getByRole("link", { name: /使用紀錄/ }).click();
+
+    await expect(authedPage.getByText("get_balance")).toBeVisible();
+    await expect(authedPage.getByText("找不到成員")).toBeVisible();
+
+    await authedPage.getByRole("radio", { name: "失敗" }).click();
+    await expect(authedPage.getByText("get_balance")).toHaveCount(0);
+    await expect(authedPage.getByText("找不到成員")).toBeVisible();
+
+    // Someone else's connection id is not found, not empty.
+    const res = await authedPage.request.get(`/api/me/mcp-connections/${id + 1_000_000}/calls`);
+    expect(res.status()).toBe(404);
+  });
 });

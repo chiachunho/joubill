@@ -83,7 +83,7 @@ longer one is a new token. A revoked connection answers 404. The client side is 
 ## Tools
 
 Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. Write:
-`add_expense`, `add_settlement`, `update_record`, `delete_record`.
+`add_expense`, `add_settlement`, `update_record`, `delete_record`, `attach_receipt`. One prompt, `split_receipt` (拆收據).
 
 - **Agent-facing text** (issue #151): the server `instructions` live in `src/lib/mcp/instructions.ts`,
   every tool has a description saying when to use it and its defaults, and every write tool takes
@@ -124,6 +124,47 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
   hour, fixed windows. A refusal is a `rate_limited` tool error; `retryAfterSeconds` is the
   full window, as with the invite limits.
 
+## Receipts (issue #153)
+
+- **`add_expense` takes `images`** (same shape, up to 5), so an expense and its photos are one write and one group card. The images are validated on `dryRun` too; on a real call they are loaded and uploaded only after the idempotency and duplicate checks, and before `createExpense`, so a bad or unstorable image records nothing and a retry never uploads twice. `receipt-images.ts` holds the shared loading, validation and upload.
+- **`attach_receipt`** adds 1–5 photos (base64 or a public https URL) to an _expense_. Upload goes
+  through `uploadReceiptPhoto` (`src/lib/receipt-upload.ts`), the same function as `/api/tg-upload`;
+  the bytes are identified by `sniffImage` (jpeg/png/webp), never by a client-supplied type.
+- **Everything is checked before the first upload**, so a bad second image never leaves a partial
+  attach; `dryRun` stops there. The 5-photo limit counts the legacy `receipt_file_id`.
+- **URLs are an SSRF door** (`src/lib/receipt-fetch.ts`): https on the default port, no credentials,
+  no redirects, 10 MB, 10 s. The DNS answer is checked _in the lookup the socket connects with_
+  (`checkedLookup`), so the address that was judged is the one used; every address must be public
+  (`isPublicAddress`, IPv4-mapped and NAT64 IPv6 included).
+- **`addReceipts`** (`src/lib/records/receipts.ts`) appends under the row lock and goes through
+  `logUpdated`, so the audit diff (`receipts: n 張`), the card edit in place and push come with it.
+  It moves a bot-uploaded legacy photo into `expense_receipts` first, because the reader prefers that
+  table as soon as it has a row. It does not touch payers or splits and needs no `expectedUpdatedAt`.
+- Each image beyond the first counts as another write against the connection's rate limit.
+- **`split_receipt`** (`src/lib/mcp/prompts.ts`, text from the pure `splitReceiptText`) is the working
+  method: one item at a time, running totals, remainder on the largest amount, then an `exact` split
+  with `dryRun`, then `attach_receipt`.
+
+## Usage log (issue #153)
+
+Each connection has a 使用紀錄 page (`McpConnectionCallsPage`, `/{mini,app}/settings/apps/[id]/calls`,
+reached from the connection dialog) listing its recent tool calls.
+
+- **One place logs everything**: `logCalls` in `src/lib/mcp/server.ts` wraps every `registerTool`, so a
+  tool added later is logged without anyone remembering to. Written in `after()`, errors swallowed: a
+  log that fails never fails the call.
+- **Ids and a fixed vocabulary only** (`mcp_call_log`: tool, group id, outcome, record id, duration).
+  No arguments, descriptions, names or image data, so the page can't leak what was never stored and the
+  privacy page needs no change. `callOutcome` (`src/lib/mcp-call-log.ts`) maps a result to `ok` /
+  `preview` / `duplicate` / `possible_duplicate` or the `ToolErrorCode`; a new code needs a label in
+  `outcomeInfo` (a test lists them).
+- 30 days: one write in twenty deletes that connection's older rows (the `(connection_id, id DESC)` index
+  serves both the page and the sweep). `group_id` has no FK, so a refused call keeps the id it named;
+  the page shows the title only for groups the viewer is in, and a record link only for a write that
+  succeeded in such a group.
+- `GET /api/me/mcp-connections/[id]/calls?filter=all|write|failed&cursor=<last id>`: owner only (404
+  otherwise), revoked connections included (looking back is why one is revoked).
+
 ## Saying where a record came from (issue #150)
 
 A person's own entry says nothing; a linked application's says so everywhere the record shows up. The
@@ -144,6 +185,16 @@ copy on `expenses` to drift. `ActivityEntry.via` does the same join per row for 
 
 A connection is revoked, never deleted (except with its account), so the name stays readable.
 Records entered before the feature, or by a person, show nothing.
+
+## Claude Code plugin (issue #153)
+
+`plugin/` is a one-plugin marketplace entry (`.claude-plugin/marketplace.json` at the repo root points
+at it): an `.mcp.json` with an http server at `${SPLITBILL_URL}/api/mcp` and `Bearer ${SPLITBILL_TOKEN}`,
+and one thin skill. The address and token come from the environment, so nothing deployment-specific is
+committed. The skill says only _when_ to use the server; the working method is `MCP_INSTRUCTIONS`, which
+every client already receives, and a copy here would drift. `claude-plugin.test.ts` pins the shape;
+`claude plugin validate plugin` is the authoritative check. Directory listings (Claude connectors, ChatGPT
+apps) are not part of this repo's code.
 
 ## Testing
 

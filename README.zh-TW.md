@@ -58,6 +58,15 @@
 兩邊看到的是同一份資料。完整的使用說明在網站的 `/help`，機器人的 `/help`
 回覆裡也有連結。
 
+## Claude Code 外掛
+
+讓 Claude Code 透過 MCP 記帳、查帳。先在 個人設定 → 連結的應用程式 建立個人存取權杖，啟動 Claude Code 時設好環境變數 `SPLITBILL_URL`（你的網址，不含結尾斜線）和 `SPLITBILL_TOKEN`，然後執行：
+
+```
+/plugin marketplace add chiachunho/splitbill-telegram-bot
+/plugin install splitbill@splitbill
+```
+
 ## 自己架一個
 
 揪帳是一個 Next.js 應用程式（bot webhook、Mini App、網頁版和 API），跑在

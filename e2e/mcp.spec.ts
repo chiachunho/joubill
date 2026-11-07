@@ -1,3 +1,5 @@
+import type { Pool } from "@neondatabase/serverless";
+
 import { call, mkToken, rpc } from "./mcp";
 import { expect, test } from "./fixtures";
 
@@ -13,6 +15,7 @@ test.describe("MCP server", () => {
       [
         "add_expense",
         "add_settlement",
+        "attach_receipt",
         "delete_record",
         "get_balance",
         "get_group",
@@ -348,5 +351,157 @@ test.describe("MCP server", () => {
       recordId: 1,
     });
     expect(del.structuredContent!.error.code).toBe("forbidden");
+  });
+
+  // The Telegram upload itself needs the real storage channel, so these cover everything
+  // that happens before it: checks, previews and refusals write nothing.
+  test.describe("attach_receipt", () => {
+    const PNG =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+    const receipts = (dbPool: Pool, id: number) =>
+      dbPool.query("SELECT count(*)::int AS n FROM expense_receipts WHERE expense_id=$1", [id]);
+
+    test("a preview checks the image and attaches nothing", async ({ request, seeded, dbPool }) => {
+      const { token } = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+      const res = await call(request, token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+        images: [{ base64: PNG }],
+        dryRun: true,
+      });
+      expect(res.structuredContent).toMatchObject({
+        status: "preview",
+        wouldAttach: 1,
+        remainingAfter: 4,
+      });
+      expect((await receipts(dbPool, seeded.expenseId)).rows[0].n).toBe(0);
+    });
+
+    test("something that is not an image, or too many images, is refused", async ({
+      request,
+      seeded,
+      dbPool,
+    }) => {
+      const { token } = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+      const text = Buffer.from("this is not an image at all").toString("base64");
+      const bad = await call(request, token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+        images: [{ base64: PNG }, { base64: text }],
+      });
+      expect(bad.structuredContent!.error.code).toBe("bad_request");
+      expect(bad.structuredContent!.error.message).toContain("images[1]");
+
+      const private_ = await call(request, token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+        images: [{ url: "https://169.254.169.254/latest/meta-data" }],
+        dryRun: true,
+      });
+      expect(private_.structuredContent!.error.code).toBe("bad_request");
+      expect((await receipts(dbPool, seeded.expenseId)).rows[0].n).toBe(0);
+    });
+
+    test("add_expense takes receipt images, checks them on a preview and records nothing for a bad one", async ({
+      request,
+      seeded,
+      dbPool,
+    }) => {
+      const { token } = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+      const base = {
+        groupId: seeded.groupId,
+        amount: "88",
+        description: "E2E expense with receipt",
+        split: { type: "equal", among: [seeded.partnerName, "me"] },
+      };
+      const count = async () =>
+        (
+          await dbPool.query("SELECT count(*)::int AS n FROM expenses WHERE description=$1", [
+            base.description,
+          ])
+        ).rows[0].n;
+
+      const preview = await call(request, token, "add_expense", {
+        ...base,
+        images: [{ base64: PNG }],
+        dryRun: true,
+      });
+      expect(preview.structuredContent).toMatchObject({
+        status: "dry_run",
+        preview: { receipts: 1 },
+      });
+
+      const text = Buffer.from("not an image at all").toString("base64");
+      for (const dryRun of [true, false]) {
+        const bad = await call(request, token, "add_expense", {
+          ...base,
+          images: [{ base64: text }],
+          dryRun,
+        });
+        expect(bad.structuredContent!.error.code).toBe("bad_request");
+      }
+      expect(await count()).toBe(0);
+    });
+
+    test("a read-only token is refused, and a missing record is not found", async ({
+      request,
+      seeded,
+      dbPool,
+    }) => {
+      const ro = await mkToken(dbPool, seeded.userId, {
+        access: "read",
+        groupIds: [seeded.groupId],
+      });
+      const denied = await call(request, ro.token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+        images: [{ base64: PNG }],
+      });
+      expect(denied.structuredContent!.error.code).toBe("forbidden");
+
+      const rw = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+      const missing = await call(request, rw.token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: 2_000_000_000,
+        images: [{ base64: PNG }],
+        dryRun: true,
+      });
+      expect(missing.structuredContent!.error.code).toBe("not_found");
+    });
+  });
+
+  test("tool calls leave a usage log with ids and outcomes, never what was sent", async ({
+    request,
+    seeded,
+    dbPool,
+  }) => {
+    const { token, id } = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+    await call(request, token, "get_balance", { groupId: seeded.groupId });
+    await call(request, token, "add_expense", {
+      groupId: seeded.groupId,
+      amount: "77",
+      description: "E2E usage log SECRET",
+      split: { type: "equal", among: ["nobody-by-this-name"] },
+    });
+
+    // Written after the response, so give it a moment.
+    await expect
+      .poll(
+        async () =>
+          (await dbPool.query("SELECT 1 FROM mcp_call_log WHERE connection_id=$1", [id])).rowCount,
+      )
+      .toBe(2);
+    const { rows } = await dbPool.query(
+      "SELECT tool, outcome, group_id FROM mcp_call_log WHERE connection_id=$1 ORDER BY id",
+      [id],
+    );
+    expect(rows).toEqual([
+      { tool: "get_balance", outcome: "ok", group_id: seeded.groupId },
+      { tool: "add_expense", outcome: "member_not_found", group_id: seeded.groupId },
+    ]);
+    const dump = JSON.stringify(
+      (await dbPool.query("SELECT * FROM mcp_call_log WHERE connection_id=$1", [id])).rows,
+    );
+    expect(dump).not.toContain("SECRET");
   });
 });

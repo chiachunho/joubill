@@ -99,6 +99,7 @@ describe("/api/mcp", () => {
       [
         "add_expense",
         "add_settlement",
+        "attach_receipt",
         "get_balance",
         "get_group",
         "get_record",
@@ -112,6 +113,15 @@ describe("/api/mcp", () => {
     expect(tools.get("add_expense")?.annotations?.readOnlyHint).toBe(false);
     expect(tools.get("delete_record")?.annotations?.destructiveHint).toBe(true);
     expect(tools.get("update_record")?.annotations?.destructiveHint).toBe(false);
+    expect(tools.get("attach_receipt")?.annotations?.readOnlyHint).toBe(false);
+    expect(tools.get("attach_receipt")?.annotations?.destructiveHint).toBe(false);
     expect(state.dbTouched).toBe(false);
+  });
+
+  it("offers the split_receipt prompt", async () => {
+    mcpAuth.authed = true;
+    const res = await POST(rpc({ jsonrpc: "2.0", id: 1, method: "prompts/list" }));
+    const json = (await res.json()) as { result: { prompts: { name: string }[] } };
+    expect(json.result.prompts.map((p) => p.name)).toEqual(["split_receipt"]);
   });
 });

@@ -187,6 +187,9 @@ Stateless Streamable HTTP over `@modelcontextprotocol/sdk`, authenticated by per
 - A new column referencing `users.id` on connection tables is moved in `mergeAccounts` (`mcp_connections` is).
 - The settings UI is `LinkedAppsPage` (`src/components/pages/`, routes `/{mini,app}/settings/apps`, row in 個人設定 via `LinkedAppsSection`). The forms start on the narrowest grant (唯讀, no group, no "all groups"); the token lives in `CreateAppTokenDialog` state only; `PATCH` changes permission and scope, never name or expiry; wording and scope text come from `src/lib/app-ui.ts`.
 - **Where a linked application's record says so** (issue #150): the source is read from the audit log, not a column on `expenses` — `loadCreatedVia` (`src/lib/record-via.ts`) joins the `created` row to `mcp_connections`. `LoadedNotice.createdVia` feeds the settlement notice and the tombstone, `loadCard` feeds `renderCard` (the "✦ 小明 透過 Claude 記錄" line, kept in every `CardMode`), the record GET endpoints return `createdVia` / `lastActivity.via` (required on the forms' `Initial`), and `queueRecordPush` adds the connection name to the actor. The group feed filters on it server-side (`?source=all|manual|mcp`, `src/lib/activity-source.ts`, since a client-side filter would empty whole pages of a cursor-paged list) and marks those rows' avatars. The how-to is the help page `/help/mcp` (`MCP_HELP_PATH`), linked from the settings page. Wording is `viaText` / `formatMcpLine`; a connection is revoked, never deleted, so its name outlives it.
+- **Receipts** (issue #153): `add_expense` (`images`) and `attach_receipt` share `receipt-images.ts`; images are validated on `dryRun` and uploaded only after the idempotency and duplicate checks, before the record exists. Uploads go through `uploadReceiptPhoto` (`src/lib/receipt-upload.ts`), the same function as `/api/tg-upload`; never a second `sendPhoto`. Image bytes are identified by `sniffImage`, not a client content type. A URL is an SSRF door: it goes through `fetchReceiptImage` (`receipt-fetch.ts`), which checks the address in the lookup the socket connects with. Appending goes through `addReceipts` (`records/receipts.ts`), never `updateExpense`.
+- **Every tool call is logged in one place**, `logCalls` in `src/lib/mcp/server.ts` (→ `mcp_call_log`, the 使用紀錄 page): tool, group id, outcome, record id, duration, never arguments or text. A new `ToolErrorCode` needs a label in `outcomeInfo`.
+- **The Claude Code plugin** (`plugin/`, `.claude-plugin/marketplace.json`) holds no deployment values; its skill names real tools, and `claude-plugin.test.ts` fails if one is renamed.
 
 ### Help site (`src/app/help/`)
 
@@ -260,7 +263,7 @@ Requests: the Mini App's store uses `tmaRawFetch` (`src/lib/tma-fetch.ts`, attac
 ### Database (`src/db/`)
 
 Drizzle ORM + Neon Serverless Postgres. Tables defined in `src/db/schema.ts`:
-`users` (`display_name` / `avatar_source`: see [`docs/architecture/auth.md`](docs/architecture/auth.md)) → `groups` (identified by `(chat_type, chat_id)`, see below) → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `account_merge_tickets` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests` + `group_invites` + `record_audit_log` + `user_beancount_configs` (per-user, per-group beancount export: three accounts and the `last_exported_at` watermark; `UNIQUE(user_id, group_id)`; `corrections_since` = when the last file was built) + `push_subscriptions` (one row per device receiving push; see "Home screen and push") + `rate_limit_hits` (attempt counters, `(key, window_start)`; see the invite rules below; also the MCP per-connection limits) + `mcp_connections` (MCP tokens and OAuth grants, see "MCP server") + `mcp_idempotency` + `oauth_clients` / `oauth_codes` / `oauth_tokens` (OAuth for connectors). `group_members.push_muted` is the per-group push switch.
+`users` (`display_name` / `avatar_source`: see [`docs/architecture/auth.md`](docs/architecture/auth.md)) → `groups` (identified by `(chat_type, chat_id)`, see below) → `group_members` (join) → `expenses` → `expense_payers` + `expense_splits` + `expense_receipts` → `exchange_rates` + `group_exchange_rates` + `auth_identities` + `sessions` + `account_merge_tickets` + `receipt_awaiting` + `add_awaiting` + `group_delete_requests` + `group_invites` + `record_audit_log` + `user_beancount_configs` (per-user, per-group beancount export: three accounts and the `last_exported_at` watermark; `UNIQUE(user_id, group_id)`; `corrections_since` = when the last file was built) + `push_subscriptions` (one row per device receiving push; see "Home screen and push") + `rate_limit_hits` (attempt counters, `(key, window_start)`; see the invite rules below; also the MCP per-connection limits) + `mcp_connections` (MCP tokens and OAuth grants, see "MCP server") + `mcp_call_log` (the 使用紀錄 page) + `mcp_idempotency` + `oauth_clients` / `oauth_codes` / `oauth_tokens` (OAuth for connectors). `group_members.push_muted` is the per-group push switch.
 
 **A group's chat is `(chat_type, chat_id)`**, not a Telegram-only column: `chat_type` is `'telegram'` today (room for other platforms), `chat_id` is text, both NULL together (`groups_chat_pair` CHECK) and `UNIQUE(chat_type, chat_id)`. **Never read or query these two columns directly — go through `src/lib/chat.ts`** (`telegramChatId(group)`, `requireTelegramChatId(group)`, `whereTelegramChat(id)`, `telegramChatColumns(id)`). A query that forgets `chat_type` doesn't error; it silently matches the wrong group once another platform issues the same id. `chatMigration` rewrites both columns when a chat is upgraded to a supergroup.
 
@@ -330,6 +333,8 @@ Upload flow (Mini App): `POST /api/tg-upload` (auth-protected) → `sendPhoto` t
 
 Upload flow (bot): photo sent as a caption `/add …` stores `file_id` directly — the caption path goes through the same `handleAddParsed` as a text `/add`, so mentions and the ⚙️ 調整 panel work identically (only multi-photo albums are refused). The "🧾 收據" inline button on the card triggers a ForceReply prompt; the reply photo is matched via `receipt_awaiting`.
 
+Upload flow (MCP): `add_expense` `images` or `attach_receipt` → the same `uploadReceiptPhoto` → `addReceipts`; see "MCP server".
+
 ### Group messages for records (`src/lib/notify.ts` + `src/lib/record-notice.ts`)
 
 Every record — **expense and settlement alike** — owns exactly **one** message in the Telegram group chat for its whole life, tracked by `expenses.notice_message_id`:
@@ -367,7 +372,7 @@ Creating, editing and deleting an expense or settlement lives in one place: `cre
 ### Audit log (`src/lib/record-mutation.ts` + `record-audit.ts` + `record-history.ts`)
 
 Every create, edit and delete of a record is logged to `record_audit_log` with
-who did it, from which surface (`bot` / `app` / `mcp`; an `mcp` write also carries `mcp_connection_id`, a plain nullable column until the connections table exists), and a full before/after snapshot. This is the
+who did it, from which surface (`bot` / `app` / `mcp`; an `mcp` write also carries `mcp_connection_id`, `ON DELETE SET NULL`), and a full before/after snapshot. This is the
 accounting half of "any member may edit anything" — without it, relaxing the
 owner lock would mean changes are both unrestricted _and_ untraceable.
 
@@ -489,7 +494,7 @@ The prefix is for humans only: the release workflow's semver bump is a manual `w
 
 ### Deployment
 
-Production runs on **Vercel** (frontend + bot webhook + API in one deploy), served from a **custom domain** (not the default `*.vercel.app`), backed by **Neon Postgres**, with the Mini App registered in **BotFather**. The repo is `chiachunho/splitbill-telegram-bot` (private); `origin` is HTTPS. The **default branch is `dev`** — open all PRs against `dev`, not `main`. Pushing to the default branch triggers Vercel auto-deploy. Full step-by-step in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+Production runs on **Vercel** (frontend + bot webhook + API in one deploy), served from a **custom domain** (not the default `*.vercel.app`), backed by **Neon Postgres**, with the Mini App registered in **BotFather**. The repo is `chiachunho/splitbill-telegram-bot` (public); `origin` is HTTPS. The **default branch is `dev`** — open all PRs against `dev`, not `main`. Pushing to the default branch triggers Vercel auto-deploy. Full step-by-step in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 Node runtime is **24.x**, pinned in two places that must agree: `engines.node` in `package.json` (Vercel reads this and it overrides the dashboard's Node.js Version setting) and `.nvmrc` (CI's `setup-node` reads it via `node-version-file`). Vercel only honours the major version and patches it on its own, so a security release on that line (e.g. CVE-2026-111497 "Node2Shell", fixed in 24.22.1) is picked up on the next deploy, not by editing the pin. CI mirrors that with `check-latest: true` — without it `setup-node` silently uses whatever 24.x the runner image has cached, which lagged behind the Node2Shell fix.
 

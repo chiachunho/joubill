@@ -14,5 +14,6 @@ export const MCP_INSTRUCTIONS = [
   "5. Dates are YYYY-MM-DD and mean the day in the group's time zone, not yours. Omit the date for today.",
   "6. Amounts may be a number or text such as '1,200', '$300', '3k' or '150+200'. Without a currency, the group's default currency is used. Balances are always in the group's default currency.",
   "7. update_record needs expectedUpdatedAt from get_record. If it answers conflict, someone changed the record: read it again and ask the user before retrying.",
-  "8. Everyone in a group can see and change what you record; the group's chat shows who recorded it and through which app.",
+  "8. Send receipt photos with the expense in add_expense's images (up to 5); to add photos to an expense that already exists, call attach_receipt with its recordId. To split a receipt item by item, use the split_receipt prompt: it ends in an exact split.",
+  "9. Everyone in a group can see and change what you record; the group's chat shows who recorded it and through which app.",
 ].join("\n");

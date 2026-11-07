@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, Loader2 } from "lucide-react";
 
 import {
   AppAccessPicker,
@@ -35,9 +36,12 @@ import { useRevokeMcpConnectionMutation, useUpdateMcpConnectionMutation } from "
 export function McpConnectionDialog({
   connection,
   groups,
+  callsHref,
   onClose,
 }: {
   connection: McpConnectionItem;
+  /** 使用紀錄 for this connection; the page knows which app it is in. */
+  callsHref: string;
   groups: { id: number; title: string; defaultCurrency: string }[];
   onClose: () => void;
 }) {
@@ -104,6 +108,16 @@ export function McpConnectionDialog({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <Link
+              href={callsHref}
+              className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2.5 text-sm transition-colors hover:bg-accent/30 active:bg-accent/50"
+            >
+              <span className="flex-1">
+                使用紀錄
+                <span className="block text-xs text-muted-foreground">最近的工具呼叫與結果</span>
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
+            </Link>
             <AppAccessPicker value={access} onChange={setAccess} />
             <AppScopePicker groups={groups} value={scope} onChange={setScope} />
             {error && <p className="text-sm text-destructive">{error}</p>}
