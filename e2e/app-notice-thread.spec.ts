@@ -27,13 +27,19 @@ test.describe("記帳通知發送位置 (the chat topic notices go to)", () => {
     await expect(authedPage.getByText("旅遊記帳", { exact: true })).toBeVisible();
 
     await authedPage.getByRole("button", { name: "改回 General" }).click();
+    // Wait for the server's answer itself: while it runs the dialog's button is a spinner and the
+    // page behind the dialog is hidden from the a11y tree, so a "button gone" check passes early.
+    const reset = authedPage.waitForResponse(
+      (r) =>
+        r.url().endsWith(`/api/groups/${seeded.groupId}/chat/topic`) &&
+        r.request().method() === "DELETE",
+    );
     await authedPage.getByRole("dialog").getByRole("button", { name: "改回 General" }).click();
-    // Wait for what the reset produces, not for the button to vanish: while the request runs the
-    // dialog's button is a spinner and the page behind the dialog is hidden from the a11y tree,
-    // so "no 改回 General button" already holds before the server has answered.
+    expect((await reset).status()).toBe(200);
     await expect(authedPage.getByRole("dialog")).toHaveCount(0);
-    await expect(authedPage.getByText("General", { exact: true })).toBeVisible();
-    await expect(authedPage.getByRole("button", { name: "改回 General" })).toHaveCount(0);
+    // The seeded chat isn't a real Telegram chat, so `isForum` is unknown; with no topic left the
+    // section is hidden, as it is for any chat not known to have topics.
+    await expect(authedPage.getByText("記帳通知發送位置")).toHaveCount(0);
 
     const [group] = await db
       .select()
