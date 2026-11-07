@@ -187,6 +187,9 @@ Stateless Streamable HTTP over `@modelcontextprotocol/sdk`, authenticated by per
 - A new column referencing `users.id` on connection tables is moved in `mergeAccounts` (`mcp_connections` is).
 - The settings UI is `LinkedAppsPage` (`src/components/pages/`, routes `/{mini,app}/settings/apps`, row in 個人設定 via `LinkedAppsSection`). The forms start on the narrowest grant (唯讀, no group, no "all groups"); the token lives in `CreateAppTokenDialog` state only; `PATCH` changes permission and scope, never name or expiry; wording and scope text come from `src/lib/app-ui.ts`.
 - **Where a linked application's record says so** (issue #150): the source is read from the audit log, not a column on `expenses` — `loadCreatedVia` (`src/lib/record-via.ts`) joins the `created` row to `mcp_connections`. `LoadedNotice.createdVia` feeds the settlement notice and the tombstone, `loadCard` feeds `renderCard` (the "✦ 小明 透過 Claude 記錄" line, kept in every `CardMode`), the record GET endpoints return `createdVia` / `lastActivity.via` (required on the forms' `Initial`), and `queueRecordPush` adds the connection name to the actor. The group feed filters on it server-side (`?source=all|manual|mcp`, `src/lib/activity-source.ts`, since a client-side filter would empty whole pages of a cursor-paged list) and marks those rows' avatars. The how-to is the help page `/help/mcp` (`MCP_HELP_PATH`), linked from the settings page. Wording is `viaText` / `formatMcpLine`; a connection is revoked, never deleted, so its name outlives it.
+- **Receipts** (issue #153): `attach_receipt` uploads through `uploadReceiptPhoto` (`src/lib/receipt-upload.ts`), the same function as `/api/tg-upload`; never a second `sendPhoto`. Image bytes are identified by `sniffImage`, not a client content type. A URL is an SSRF door: it goes through `fetchReceiptImage` (`receipt-fetch.ts`), which checks the address in the lookup the socket connects with. Appending goes through `addReceipts` (`records/receipts.ts`), never `updateExpense`.
+- **Every tool call is logged in one place**, `logCalls` in `src/lib/mcp/server.ts` (→ `mcp_call_log`, the 使用紀錄 page): tool, group id, outcome, record id, duration, never arguments or text. A new `ToolErrorCode` needs a label in `outcomeInfo`.
+- **The Claude Code plugin** (`plugin/`, `.claude-plugin/marketplace.json`) holds no deployment values; its skill names real tools, and `claude-plugin.test.ts` fails if one is renamed.
 
 ### Help site (`src/app/help/`)
 
@@ -330,6 +333,8 @@ Upload flow (Mini App): `POST /api/tg-upload` (auth-protected) → `sendPhoto` t
 
 Upload flow (bot): photo sent as a caption `/add …` stores `file_id` directly — the caption path goes through the same `handleAddParsed` as a text `/add`, so mentions and the ⚙️ 調整 panel work identically (only multi-photo albums are refused). The "🧾 收據" inline button on the card triggers a ForceReply prompt; the reply photo is matched via `receipt_awaiting`.
 
+Upload flow (MCP): `attach_receipt` → the same `uploadReceiptPhoto` → `addReceipts`; see "MCP server".
+
 ### Group messages for records (`src/lib/notify.ts` + `src/lib/record-notice.ts`)
 
 Every record — **expense and settlement alike** — owns exactly **one** message in the Telegram group chat for its whole life, tracked by `expenses.notice_message_id`:
@@ -367,7 +372,7 @@ Creating, editing and deleting an expense or settlement lives in one place: `cre
 ### Audit log (`src/lib/record-mutation.ts` + `record-audit.ts` + `record-history.ts`)
 
 Every create, edit and delete of a record is logged to `record_audit_log` with
-who did it, from which surface (`bot` / `app` / `mcp`; an `mcp` write also carries `mcp_connection_id`, a plain nullable column until the connections table exists), and a full before/after snapshot. This is the
+who did it, from which surface (`bot` / `app` / `mcp`; an `mcp` write also carries `mcp_connection_id`, `ON DELETE SET NULL`), and a full before/after snapshot. This is the
 accounting half of "any member may edit anything" — without it, relaxing the
 owner lock would mean changes are both unrestricted _and_ untraceable.
 
