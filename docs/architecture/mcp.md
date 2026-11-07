@@ -148,7 +148,7 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
 ## Usage log (issue #153)
 
 Each connection has a 使用紀錄 page (`McpConnectionCallsPage`, `/{mini,app}/settings/apps/[id]/calls`,
-reached from the connection dialog) listing its recent tool calls.
+reached from the connection page, `McpConnectionPage`, `/{mini,app}/settings/apps/[id]`) listing its recent tool calls.
 
 - **One place logs everything**: `logCalls` in `src/lib/mcp/server.ts` wraps every `registerTool`, so a
   tool added later is logged without anyone remembering to. Written in `after()`, errors swallowed: a

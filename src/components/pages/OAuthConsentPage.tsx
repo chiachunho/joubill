@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Loader2, ShieldCheck } from "lucide-react";
+import { Check, ExternalLink, Loader2, ShieldCheck, X } from "lucide-react";
 
 import {
   AppAccessPicker,
@@ -122,18 +122,25 @@ function Consent({ platform }: { platform: Platform }) {
 
       <section className="px-4">
         <p className="sect mb-2.5">它可以</p>
-        <ul className="space-y-1.5 rounded-2xl bg-secondary/50 px-4 py-3 text-sm">
-          <li>查看你選的群組的成員、餘額和紀錄</li>
+        <ul className="space-y-2 rounded-2xl bg-secondary/50 px-4 py-3 text-sm">
+          <li className="flex gap-2.5">
+            <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <span>查看你選的群組的成員、餘額和紀錄</span>
+          </li>
           {access === "write" && (
-            <li>
-              新增、編輯、刪除紀錄與還款
-              <span className="block text-xs text-muted-foreground">
-                群組會看到「透過 {info.client.name} 記錄」
+            <li className="flex gap-2.5">
+              <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+              <span>
+                新增、編輯、刪除紀錄與還款
+                <span className="block text-xs text-muted-foreground">
+                  群組會看到「透過 {info.client.name} 記錄」
+                </span>
               </span>
             </li>
           )}
-          <li className="text-muted-foreground">
-            不能建立或刪除群組、邀請成員、合併帳號、修改匯率設定
+          <li className="flex gap-2.5 text-muted-foreground">
+            <X className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+            <span>不能建立或刪除群組、邀請成員、合併帳號、修改匯率設定</span>
           </li>
         </ul>
       </section>

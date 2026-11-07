@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LinkedAppsPage } from "@/components/pages/LinkedAppsPage";
+import { McpConnectionPage } from "@/components/pages/McpConnectionPage";
 import { LinkedAppsSection } from "@/components/pages/LinkedAppsSection";
 import { miniPlatform } from "@/components/pages/platform.mini";
 import type { McpConnectionItem } from "@/lib/api-types";
@@ -65,6 +66,25 @@ function renderPage(connections: McpConnectionItem[], extra: Record<string, obje
   return request;
 }
 
+function renderConnection(connections: McpConnectionItem[], extra: Record<string, object> = {}) {
+  const request = fakeRequest({
+    "/api/me/mcp-connections": { connections },
+    "/api/me/groups": ME,
+    ...extra,
+  });
+  // React's `use` reads a settled promise synchronously, so it must carry its own status.
+  const params = Object.assign(Promise.resolve({ id: "5" }), {
+    status: "fulfilled" as const,
+    value: { id: "5" },
+  });
+  render(
+    <StoreWrapper request={request}>
+      <McpConnectionPage params={params} platform={platform} />
+    </StoreWrapper>,
+  );
+  return request;
+}
+
 const bodies = (request: ReturnType<typeof fakeRequest>, method: string) =>
   request.mock.calls
     .filter(([, init]) => init?.method === method)
@@ -83,6 +103,10 @@ describe("LinkedAppsPage list", () => {
     expect(screen.getByText("可記帳")).toBeInTheDocument();
     expect(screen.getByText(/所有群組/)).toBeInTheDocument();
     expect(screen.queryByText("已撤銷的")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /我的 n8n/ })).toHaveAttribute(
+      "href",
+      "/mini/settings/apps/5",
+    );
   });
 });
 
@@ -113,7 +137,12 @@ describe("建立個人存取權杖", () => {
           { status: 201 },
         );
       }
-      const body = path === "/api/me/groups" ? ME : { connections: [] };
+      const body =
+        path === "/api/me/groups"
+          ? ME
+          : path === "/api/me/groups/photos"
+            ? { photos: {} }
+            : { connections: [] };
       return new Response(JSON.stringify(body), { status: 200 });
     });
     fireEvent.click(await screen.findByRole("button", { name: /建立個人存取權杖/ }));
@@ -151,9 +180,18 @@ describe("建立個人存取權杖", () => {
           status: 201,
         });
       }
-      return new Response(JSON.stringify(path === "/api/me/groups" ? ME : { connections: [] }), {
-        status: 200,
-      });
+      return new Response(
+        JSON.stringify(
+          path === "/api/me/groups"
+            ? ME
+            : path === "/api/me/groups/photos"
+              ? { photos: {} }
+              : { connections: [] },
+        ),
+        {
+          status: 200,
+        },
+      );
     });
     fireEvent.click(await screen.findByRole("button", { name: /建立個人存取權杖/ }));
     fireEvent.change(screen.getByLabelText("名稱"), { target: { value: "x" } });
@@ -168,9 +206,8 @@ describe("建立個人存取權杖", () => {
 
 describe("a connection", () => {
   it("asks before revoking, and revokes only on confirm", async () => {
-    const request = renderPage([conn({})], { "/api/me/mcp-connections/5": { ok: true } });
-    fireEvent.click(await screen.findByText("我的 n8n"));
-    fireEvent.click(screen.getByRole("button", { name: "撤銷這個連線" }));
+    const request = renderConnection([conn({})], { "/api/me/mcp-connections/5": { ok: true } });
+    fireEvent.click(await screen.findByRole("button", { name: "撤銷這個連線" }));
     expect(await screen.findByText(/撤銷「我的 n8n」？/)).toBeInTheDocument();
     expect(bodies(request, "DELETE")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "撤銷" }));
@@ -178,8 +215,10 @@ describe("a connection", () => {
   });
 
   it("asks before widening to 可記帳 and saves a narrowing straight away", async () => {
-    const request = renderPage([conn({})], { "/api/me/mcp-connections/5": { connection: {} } });
-    fireEvent.click(await screen.findByText("我的 n8n"));
+    const request = renderConnection([conn({})], {
+      "/api/me/mcp-connections/5": { connection: {} },
+    });
+    await screen.findByRole("button", { name: "儲存變更" });
     const save = () => screen.getByRole("button", { name: "儲存變更" });
     expect(save()).toBeDisabled();
 
@@ -189,6 +228,13 @@ describe("a connection", () => {
     expect(bodies(request, "PATCH")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "允許記帳" }));
     await waitFor(() => expect(bodies(request, "PATCH")).toEqual([{ access: "write" }]));
+  });
+});
+
+describe("a connection that is gone", () => {
+  it("says so instead of showing an empty form", async () => {
+    renderConnection([conn({ revokedAt: "2026-10-05T00:00:00Z" })]);
+    expect(await screen.findByText("找不到這個連線")).toBeInTheDocument();
   });
 });
 
