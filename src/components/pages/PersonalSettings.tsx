@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BookOpen, ChevronRight, FileText, Pencil, ShieldCheck, User } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { IconTile } from "@/components/mini/IconTile";
 import { AvatarSourceDialog } from "@/components/mini/AvatarSourceDialog";
 import { DisplayNameDialog } from "@/components/mini/DisplayNameDialog";
 import { LinkedAppsSection } from "@/components/pages/LinkedAppsSection";
@@ -116,9 +117,7 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
               path={path}
               className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
             >
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <Icon className="size-3.5 text-primary" />
-              </div>
+              <IconTile icon={Icon} />
               <span className="flex-1 text-sm">{label}</span>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
             </platform.HelpAction>

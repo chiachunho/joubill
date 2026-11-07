@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronRight, Sparkles } from "lucide-react";
 
+import { IconTile } from "@/components/mini/IconTile";
 import type { Platform } from "@/components/pages/platform";
 import { activeConnections } from "@/lib/app-ui";
 import { useGetMcpConnectionsQuery } from "@/store/api";
@@ -23,9 +24,7 @@ export function LinkedAppsSection({ platform }: { platform: Platform }) {
           href={`${platform.basePath}/settings/apps`}
           className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
         >
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <Sparkles className="size-3.5 text-primary" />
-          </div>
+          <IconTile icon={Sparkles} />
           <div className="min-w-0 flex-1">
             <p className="text-sm">已連結的應用程式</p>
             {active && active.length > 0 && (

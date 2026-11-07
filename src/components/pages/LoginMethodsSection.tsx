@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, KeyRound, Link2, Merge, Unlink, X } from "lucide-react";
 
+import { IconTile } from "@/components/mini/IconTile";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import type { Platform } from "@/components/pages/platform";
 import { MERGE_TICKET_NOT_FOUND } from "@/lib/account-merge";
@@ -152,9 +153,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
           const verdict = canUnlink(provider, data.linked);
           return (
             <div key={provider} className="flex items-center gap-3 px-4 py-3">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <KeyRound className="size-3.5 text-primary" />
-              </div>
+              <IconTile icon={KeyRound} />
               <span className="flex-1 text-sm">{PROVIDER_LABEL[provider]}</span>
               {platform.linkIdentity && verdict.ok && (
                 <button
@@ -174,9 +173,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
             href={`${platform.basePath}/settings/merge`}
             className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
           >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Merge className="size-3.5 text-primary" />
-            </div>
+            <IconTile icon={Merge} />
             <span className="flex-1 text-sm">合併另一個帳號</span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
           </Link>
@@ -188,9 +185,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
             disabled={blocked(provider)}
             className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-50 disabled:hover:bg-transparent"
           >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Link2 className="size-3.5 text-primary" />
-            </div>
+            <IconTile icon={Link2} />
             <span className="flex-1 text-sm">連結 {PROVIDER_LABEL[provider]}</span>
           </button>
         ))}

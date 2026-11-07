@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell, Smartphone } from "lucide-react";
 
+import { IconTile } from "@/components/mini/IconTile";
 import { AddToHomeScreenDialog } from "@/components/pwa/AddToHomeScreenDialog";
 import { Button } from "@/components/ui/button";
 import { promptInstall, useHasInstallPrompt } from "@/lib/install-prompt";
@@ -126,9 +127,7 @@ function PromptCard({ env }: { env: PwaEnv }) {
   return (
     <div className="mx-4 space-y-3 rounded-2xl bg-primary/10 px-4 py-3">
       <div className="flex items-start gap-3">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-          <Icon className="size-3.5 text-primary" />
-        </div>
+        <IconTile icon={Icon} />
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-sm font-semibold">
             {isHome ? "把揪帳加到主畫面？" : "朋友記了你要分的帳時通知你？"}

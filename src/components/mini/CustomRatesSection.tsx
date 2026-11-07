@@ -4,6 +4,7 @@ import { useState } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
 
+import { IconTile } from "@/components/mini/IconTile";
 import { RateRowsSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
 import {
@@ -163,9 +164,7 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
           const dormant = row.quote !== defaultCurrency;
           return (
             <div key={row.id} className="flex items-center gap-3 px-4 py-3">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <ArrowRightLeft className="size-3.5 text-primary" />
-              </div>
+              <IconTile icon={ArrowRightLeft} />
               <div className={`min-w-0 flex-1 ${dormant ? "opacity-40" : ""}`}>
                 <p className="num text-sm">
                   1 {row.base} = {fmtRate(row.rate)} {row.quote}
