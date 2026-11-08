@@ -5,6 +5,7 @@ import { getBot } from "@/bot";
 import { db } from "@/db";
 import { groupDeleteRequests, groups, users } from "@/db/schema";
 import { telegramChatId } from "@/lib/chat";
+import { chatTargetOf, sendToGroupChat } from "@/lib/notice-thread";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { deleteGroup } from "@/lib/group-delete";
@@ -99,16 +100,18 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
     username: user.username,
   });
   // A group created on the web has no chat to tell or leave.
-  const chatId = telegramChatId(group);
-  if (chatId !== null) {
-    const bot = getBot();
+  const target = chatTargetOf(group);
+  if (target !== null) {
+    const { api } = getBot();
     const text = `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`;
     if (request.telegramMessageId) {
-      await bot.api.editMessageText(chatId, request.telegramMessageId, text).catch(() => null);
+      await api.editMessageText(target.chatId, request.telegramMessageId, text).catch(() => null);
     } else {
-      await bot.api.sendMessage(chatId, text).catch(() => null);
+      await sendToGroupChat(api, target, (thread) => api.sendMessage(target.chatId, text, thread), {
+        lastMessage: true,
+      }).catch(() => null);
     }
-    await bot.api.leaveChat(chatId).catch(() => null);
+    await api.leaveChat(target.chatId).catch(() => null);
   }
   await deleteGroup(groupId);
 

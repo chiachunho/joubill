@@ -109,7 +109,14 @@ linkCommand.command("link", async (ctx) => {
     }
     await tx
       .update(groups)
-      .set({ ...telegramChatColumns(ctx.chat.id), updatedAt: new Date() })
+      .set({
+        ...telegramChatColumns(ctx.chat.id),
+        // A topic picked with /topic before /link belongs to this same chat, so it comes along
+        // with the chat's row instead of being reset like a thread id from another chat.
+        noticeThreadId: chatGroup.noticeThreadId,
+        noticeThreadName: chatGroup.noticeThreadName,
+        updatedAt: new Date(),
+      })
       .where(eq(groups.id, target.id));
 
     return { ...plan, title: target.title, groupId: target.id };

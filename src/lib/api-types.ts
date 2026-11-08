@@ -295,6 +295,13 @@ export type GroupChatResponse = {
   linked: boolean;
   /** The chat's name when it was bound; null when the group has no chat. */
   title: string | null;
+  /**
+   * The chat has forum topics (Telegram's `is_forum`), asked live; null when there is no chat or
+   * Telegram couldn't be asked. Decides whether 記帳通知發送位置 is shown.
+   */
+  isForum: boolean | null;
+  /** 記帳通知發送位置: the chosen topic, or null for the chat's General. */
+  noticeThread: { id: number; name: string | null } | null;
 };
 
 /** GET /api/groups/[id]/notifications */

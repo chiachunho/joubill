@@ -96,6 +96,8 @@ export function dbGroup(over: Partial<Group> = {}): Group {
     title: "Test",
     defaultCurrency: "TWD",
     timezone: "Asia/Taipei",
+    noticeThreadId: null,
+    noticeThreadName: null,
     ...over,
   } as Group;
 }
@@ -146,8 +148,7 @@ export function testBot(
     },
     send: (text: string, opts: SendOptions = {}) => bot.handleUpdate(messageUpdate(text, opts)),
     /** Tap an inline button: a callback query carrying `data` on one of the bot's messages. */
-    press: (data: string, opts: { from?: TgUser; messageDate?: number } = {}) =>
-      bot.handleUpdate(callbackUpdate(data, opts)),
+    press: (data: string, opts: PressOptions = {}) => bot.handleUpdate(callbackUpdate(data, opts)),
   };
 }
 
@@ -157,6 +158,15 @@ type SendOptions = {
   privateChat?: boolean;
   replyTo?: Partial<Message>;
   entities?: MessageEntity[];
+  /** Fields laid over the message last, such as a topic (`message_thread_id`) or a forum chat. */
+  extra?: Partial<Message>;
+};
+
+type PressOptions = {
+  from?: TgUser;
+  messageDate?: number;
+  /** Fields laid over the message the button is on. */
+  extra?: Partial<Message>;
 };
 
 let updateIds = 1;
@@ -182,12 +192,13 @@ function messageUpdate(text: string, opts: SendOptions = {}): Update {
       text,
       entities,
       ...(opts.replyTo ? { reply_to_message: opts.replyTo as Message } : {}),
+      ...opts.extra,
     } as Message,
   } as Update;
 }
 
 /** A tap on an inline button of a message in the group. */
-function callbackUpdate(data: string, opts: { from?: TgUser; messageDate?: number } = {}): Update {
+function callbackUpdate(data: string, opts: PressOptions = {}): Update {
   const from = { is_bot: false, ...(opts.from ?? SENDER) };
   return {
     update_id: updateIds++,
@@ -201,6 +212,7 @@ function callbackUpdate(data: string, opts: { from?: TgUser; messageDate?: numbe
         date: opts.messageDate ?? Math.floor(Date.now() / 1000),
         chat: { id: CHAT_ID, type: "supergroup", title: "Test" },
         text: "prompt",
+        ...opts.extra,
       },
     },
   } as Update;

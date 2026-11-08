@@ -7,7 +7,7 @@ import { db } from "@/db";
 import { groups } from "@/db/schema";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { telegramChatId } from "@/lib/chat";
+import { chatTargetOf, sendToGroupChat } from "@/lib/notice-thread";
 import { buildGroupExport } from "@/lib/export";
 import { requireId } from "@/lib/route-params";
 
@@ -28,8 +28,8 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
 
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
   if (!group) return NextResponse.json({ error: "group not found" }, { status: 404 });
-  const chatId = telegramChatId(group);
-  if (chatId === null) {
+  const target = chatTargetOf(group);
+  if (target === null) {
     return NextResponse.json({ error: "這個群組沒有 Telegram 聊天室" }, { status: 400 });
   }
 
@@ -37,7 +37,10 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   if (!file) return NextResponse.json({ error: "group not found" }, { status: 404 });
 
   try {
-    await getBot().api.sendDocument(chatId, new InputFile(Buffer.from(file.csv), file.filename));
+    const api = getBot().api;
+    await sendToGroupChat(api, target, (thread) =>
+      api.sendDocument(target.chatId, new InputFile(Buffer.from(file.csv), file.filename), thread),
+    );
   } catch (err) {
     console.error("[export] sendDocument failed:", err);
     return NextResponse.json({ error: "傳送失敗，請確認機器人還在群組裡" }, { status: 502 });

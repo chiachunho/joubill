@@ -12,6 +12,7 @@ import {
   users,
 } from "@/db/schema";
 import { BTN } from "@/lib/buttons";
+import { sendToGroupChat, type ChatTarget } from "@/lib/notice-thread";
 import { telegramChatId } from "@/lib/chat";
 import { botUsername } from "@/lib/bot-username";
 import { settlementLink } from "@/lib/deep-link";
@@ -62,6 +63,8 @@ export type LoadedNotice = {
   groupId: number;
   /** NULL for a group made on the web: the record is still loaded (the audit log needs it), but there is no chat to write into. */
   chatId: number | null;
+  /** The topic a new message goes to (記帳通知發送位置); null for General. */
+  noticeThreadId: number | null;
   noticeMessageId: number | null;
   /** Who recorded it, for the deleted-record line. */
   creator: NoticePerson | null;
@@ -103,6 +106,7 @@ export async function loadNoticeRecord(
       noticeMessageId: expenses.noticeMessageId,
       chatType: groups.chatType,
       chatId: groups.chatId,
+      noticeThreadId: groups.noticeThreadId,
       creatorId: creatorUser.id,
       creatorDisplayName: creatorUser.displayName,
       creatorFirstName: creatorUser.firstName,
@@ -172,6 +176,7 @@ export async function loadNoticeRecord(
     recordId: row.id,
     groupId: row.groupId,
     chatId,
+    noticeThreadId: row.noticeThreadId,
     noticeMessageId: row.noticeMessageId,
     creator:
       row.creatorId != null
@@ -272,6 +277,10 @@ async function render(
   return card ? { text: card.text, reply_markup: card.reply_markup } : null;
 }
 
+function targetOf(loaded: LoadedNotice, chatId: number): ChatTarget {
+  return { groupId: loaded.groupId, chatId, threadId: loaded.noticeThreadId };
+}
+
 /** Telegram's "nothing changed" rejection — an edit no-op, not a failure. */
 function isNotModified(err: unknown): boolean {
   return err instanceof Error && err.message.includes("message is not modified");
@@ -282,13 +291,17 @@ export async function sendRecordNotice(api: Api, recordId: number): Promise<void
   try {
     const loaded = await loadNoticeRecord(recordId);
     if (!loaded || loaded.chatId === null) return;
-    const rendered = await render(api, { ...loaded, chatId: loaded.chatId });
+    const chatId = loaded.chatId;
+    const rendered = await render(api, { ...loaded, chatId });
     if (!rendered) return;
 
-    const sent = await api.sendMessage(loaded.chatId, rendered.text, {
-      parse_mode: "HTML",
-      reply_markup: rendered.reply_markup,
-    });
+    const sent = await sendToGroupChat(api, targetOf(loaded, chatId), (thread) =>
+      api.sendMessage(chatId, rendered.text, {
+        ...thread,
+        parse_mode: "HTML",
+        reply_markup: rendered.reply_markup,
+      }),
+    );
     await rememberNoticeMessage(recordId, sent.message_id);
   } catch (err) {
     console.error("[notify] sendRecordNotice failed:", err);
@@ -335,10 +348,14 @@ export async function updateRecordNotice(
     }
     if (!repost) return;
 
-    const sent = await api.sendMessage(chatId, rendered.text, {
-      parse_mode: "HTML",
-      reply_markup: rendered.reply_markup,
-    });
+    // A re-post is a new message, so it goes where new messages go now, not where the old one was.
+    const sent = await sendToGroupChat(api, targetOf(loaded, chatId), (thread) =>
+      api.sendMessage(chatId, rendered.text, {
+        ...thread,
+        parse_mode: "HTML",
+        reply_markup: rendered.reply_markup,
+      }),
+    );
     await rememberNoticeMessage(recordId, sent.message_id);
   } catch (err) {
     console.error("[notify] updateRecordNotice failed:", err);

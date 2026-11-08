@@ -374,6 +374,26 @@ export async function logTimezoneChanged(
 }
 
 /**
+ * Logs the 記帳通知發送位置 being changed: the topic names before and after, null for General.
+ * The caller decides whether anything changed; an unchanged setting must not be logged.
+ */
+export async function logNoticeThreadChanged(
+  groupId: number,
+  actor: Actor,
+  change: { from: string | null; to: string | null },
+): Promise<void> {
+  await writeLog({
+    groupId,
+    recordId: null,
+    recordType: "group",
+    action: "notice_thread_changed",
+    actor,
+    before: null,
+    after: { kind: "noticeThreadChanged", from: change.from, to: change.to },
+  });
+}
+
+/**
  * Logs a placeholder being merged into a real account. Call it after the merge
  * transaction commits; `recordIds` are every expense and settlement rewritten.
  */

@@ -17,6 +17,11 @@ test.describe("Group and account pages", () => {
     await expect(authedPage.getByRole("heading", { name: "貨幣與匯率" })).toBeVisible();
   });
 
+  test("Telegram settings page renders", async ({ authedPage, seeded }) => {
+    await authedPage.goto(`/app/groups/${seeded.groupId}/settings/telegram`);
+    await expect(authedPage.getByRole("heading", { name: "Telegram 群組" })).toBeVisible();
+  });
+
   test("export settings page renders", async ({ authedPage, seeded }) => {
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings/export`);
     await expect(authedPage.getByRole("heading", { name: "匯出" })).toBeVisible();

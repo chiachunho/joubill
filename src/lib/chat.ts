@@ -35,12 +35,22 @@ export function whereTelegramChat(id: number): SQL {
   return and(eq(groups.chatType, TELEGRAM_CHAT_TYPE), eq(groups.chatId, String(id)))!;
 }
 
+/**
+ * The topic setting belongs to the chat: a thread id means nothing in another chat, so every
+ * write that changes the chat resets it to the chat's General.
+ */
+const NO_NOTICE_THREAD = { noticeThreadId: null, noticeThreadName: null } as const;
+
 /** The column values that detach a group from its chat. Both go NULL together (`groups_chat_pair`). */
 export function noChatColumns() {
-  return { chatType: null, chatId: null };
+  return { chatType: null, chatId: null, ...NO_NOTICE_THREAD };
 }
 
-/** The column values to insert/set for a Telegram chat. */
+/**
+ * The column values to insert/set for a Telegram chat. Only for writes that bind a chat (`/link`,
+ * a supergroup migration, a new group): an upsert that merely touches an existing group must not
+ * spread these, or it would reset the topic setting on every message.
+ */
 export function telegramChatColumns(id: number) {
-  return { chatType: TELEGRAM_CHAT_TYPE, chatId: String(id) };
+  return { chatType: TELEGRAM_CHAT_TYPE, chatId: String(id), ...NO_NOTICE_THREAD };
 }

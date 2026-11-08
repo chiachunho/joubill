@@ -21,6 +21,7 @@ export type AuditAction =
   | "chat_linked"
   | "chat_unlinked"
   | "timezone_changed"
+  | "notice_thread_changed"
   | "member_claimed"
   | "account_merged";
 /**
@@ -80,7 +81,9 @@ export function isRateLockPayload(value: unknown): value is RateLockPayload {
  * `memberJoined` names who invited the member, captured as the name was then;
  * `chatLinked` names the Telegram chat a web group was bound to, `chatUnlinked` the chat it was
  * detached from (the title as it was then, since the group no longer has the chat to ask);
- * `timezoneChanged` records the group's time zone before and after; `memberClaimed` records a placeholder being merged into a real account. Its
+ * `timezoneChanged` records the group's time zone before and after; `noticeThreadChanged` the
+ * chat topic records made in the App are posted to (a topic's name, or null for General), names
+ * as they were then; `memberClaimed` records a placeholder being merged into a real account. Its
  * `recordIds` are the records that were rewritten, so a single record's history
  * can explain why a name on it changed (`loadRecordHistory` matches them with `@>`).
  */
@@ -90,6 +93,7 @@ export type GroupEventPayload =
   | { kind: "chatLinked"; chatTitle: string }
   | { kind: "chatUnlinked"; chatTitle: string }
   | { kind: "timezoneChanged"; from: string; to: string }
+  | { kind: "noticeThreadChanged"; from: string | null; to: string | null }
   | {
       kind: "memberClaimed";
       placeholderId: number;
@@ -116,6 +120,7 @@ export function isGroupEventPayload(value: unknown): value is GroupEventPayload 
     kind === "chatLinked" ||
     kind === "chatUnlinked" ||
     kind === "timezoneChanged" ||
+    kind === "noticeThreadChanged" ||
     kind === "memberClaimed" ||
     kind === "accountMerged"
   );
@@ -332,6 +337,8 @@ export type HeadingInput = {
     claimerName?: string;
     timezoneFrom?: string;
     timezoneTo?: string;
+    /** 'notice_thread_changed': the topic's name after the change; null for General. */
+    noticeThreadTo?: string | null;
   } | null;
 };
 
@@ -373,6 +380,11 @@ export function changeHeading(entry: HeadingInput, withRecordName: boolean): str
       return entry.groupEvent?.timezoneFrom && entry.groupEvent.timezoneTo
         ? `把群組時區從 ${entry.groupEvent.timezoneFrom} 改成 ${entry.groupEvent.timezoneTo}`
         : "改了群組時區";
+    case "notice_thread_changed": {
+      const to = entry.groupEvent?.noticeThreadTo;
+      if (to === null) return "把記帳通知發送位置改回 General";
+      return to ? `把記帳通知發送位置改成「${to}」主題` : "改了記帳通知發送位置";
+    }
     case "member_claimed":
       if (!entry.groupEvent?.claimedName) return "認領了無帳號成員";
       return entry.groupEvent.claimerName

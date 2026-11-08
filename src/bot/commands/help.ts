@@ -32,6 +32,7 @@ const HELP_TEXT = [
   "`/export` — 匯出全部帳目（CSV）",
   "`/link 邀請碼` — 綁定網頁建立的群組",
   "`/timezone` — 群組時區（決定 /add 記在哪一天）",
+  "`/topic` — 設定記帳通知發送位置（開了主題的群組）",
   "`/unlink` — 解除綁定（bot 會離開）",
   "`/app` — 開啟 Mini App",
   "",

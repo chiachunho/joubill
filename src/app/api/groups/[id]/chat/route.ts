@@ -1,4 +1,5 @@
 import { after, NextResponse } from "next/server";
+import type { Api } from "grammy";
 import { eq } from "drizzle-orm";
 
 import { getBot } from "@/bot";
@@ -11,6 +12,7 @@ import { telegramChatId } from "@/lib/chat";
 import { chatTitleOf, leaveUnlinkedChat, unlinkChat } from "@/lib/group-chat";
 import { logChatUnlinked } from "@/lib/record-mutation";
 import { requireId } from "@/lib/route-params";
+import { noticeThreadOf } from "@/lib/topic-text";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,8 +26,32 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   await assertGroupMember(auth.user.id, groupId);
 
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
-  const linked = group !== undefined && telegramChatId(group) !== null;
-  const body: GroupChatResponse = { linked, title: linked ? await chatTitleOf(groupId) : null };
+  const chatId = group ? telegramChatId(group) : null;
+  if (!group || chatId === null) {
+    const body: GroupChatResponse = {
+      linked: false,
+      title: null,
+      isForum: null,
+      noticeThread: null,
+    };
+    return NextResponse.json(body);
+  }
+
+  // Topics can be switched on or off in Telegram at any time, so this is asked, not stored.
+  // Bounded, so a slow Telegram leaves `isForum` unknown instead of holding the page.
+  const [title, isForum] = await Promise.all([
+    chatTitleOf(groupId),
+    getBot()
+      .api.getChat(chatId, AbortSignal.timeout(5000) as Parameters<Api["getChat"]>[1])
+      .then((chat) => ("is_forum" in chat ? chat.is_forum === true : false))
+      .catch(() => null),
+  ]);
+  const body: GroupChatResponse = {
+    linked: true,
+    title,
+    isForum,
+    noticeThread: noticeThreadOf(group),
+  };
   return NextResponse.json(body);
 });
 
@@ -47,6 +73,6 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   }
 
   await logChatUnlinked(groupId, { userId: auth.user.id, source: "app" }, title);
-  after(() => leaveUnlinkedChat(getBot().api, outcome.chatId));
+  after(() => leaveUnlinkedChat(getBot().api, outcome.target));
   return NextResponse.json({ ok: true });
 });

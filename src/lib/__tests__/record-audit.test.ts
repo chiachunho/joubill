@@ -477,3 +477,26 @@ describe("timezone_changed", () => {
     );
   });
 });
+
+describe("notice_thread_changed", () => {
+  it("is a group event, so record-history doesn't read it as an expense snapshot", () => {
+    expect(isGroupEventPayload({ kind: "noticeThreadChanged", from: null, to: "旅遊記帳" })).toBe(
+      true,
+    );
+  });
+
+  it("names the topic, and says General when it went back", () => {
+    const heading = (noticeThreadTo?: string | null) =>
+      changeHeading(
+        {
+          action: "notice_thread_changed",
+          recordType: "group",
+          groupEvent: noticeThreadTo === undefined ? null : { noticeThreadTo },
+        },
+        true,
+      );
+    expect(heading("旅遊記帳")).toBe("把記帳通知發送位置改成「旅遊記帳」主題");
+    expect(heading(null)).toBe("把記帳通知發送位置改回 General");
+    expect(heading()).toBe("改了記帳通知發送位置");
+  });
+});

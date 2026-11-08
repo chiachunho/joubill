@@ -65,6 +65,8 @@ export type ActivityEntry = {
     /** 'timezone_changed': the IANA names before and after. */
     timezoneFrom?: string;
     timezoneTo?: string;
+    /** 'notice_thread_changed': the topic's name after the change; null for General. */
+    noticeThreadTo?: string | null;
   };
 };
 
@@ -152,6 +154,8 @@ function toEntry(row: Row): ActivityEntry {
       entry.groupEvent = { chatTitle: row.after.chatTitle };
     } else if (row.after.kind === "timezoneChanged") {
       entry.groupEvent = { timezoneFrom: row.after.from, timezoneTo: row.after.to };
+    } else if (row.after.kind === "noticeThreadChanged") {
+      entry.groupEvent = { noticeThreadTo: row.after.to };
     } else if (row.after.kind === "memberClaimed") {
       entry.groupEvent = {
         claimedName: row.after.placeholderName,
