@@ -51,7 +51,8 @@ test.describe("Members without an account", () => {
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings`);
     await expect(authedPage.getByText(name)).toBeVisible();
 
-    await authedPage.getByRole("button", { name: "合併到…" }).click();
+    await authedPage.getByRole("button", { name: `${name} 的選項` }).click();
+    await authedPage.getByRole("button", { name: "合併到真人成員…" }).click();
     await authedPage.getByRole("radio", { name: new RegExp(seeded.partnerName) }).check();
     await expect(authedPage.getByText("合併後無法還原")).toBeVisible();
     await authedPage.getByRole("button", { name: "確認合併" }).click();

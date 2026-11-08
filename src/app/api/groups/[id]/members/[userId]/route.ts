@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, count, eq } from "drizzle-orm";
+import { and, countDistinct, eq, exists, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -98,22 +98,43 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     return NextResponse.json({ error: "cannot remove yourself" }, { status: 400 });
   }
 
-  // Block removal if the member is referenced by any expense in this group, either as
-  // a debtor (expense_splits) or a payer (expense_payers). Missing the payer side lets
-  // a payer-only member be deleted, which orphans their recorded contribution on edit.
-  const [{ debtorCount }] = await db
-    .select({ debtorCount: count() })
-    .from(expenseSplits)
-    .innerJoin(expenses, eq(expenses.id, expenseSplits.expenseId))
-    .where(and(eq(expenseSplits.debtorId, targetUserId), eq(expenses.groupId, groupId)));
-
-  const [{ payerCount }] = await db
-    .select({ payerCount: count() })
-    .from(expensePayers)
-    .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
-    .where(and(eq(expensePayers.payerId, targetUserId), eq(expenses.groupId, groupId)));
-
-  const expenseCount = debtorCount + payerCount;
+  // Block removal if the member is referenced by any record in this group, either as a
+  // debtor (expense_splits) or a payer (expense_payers). Missing the payer side lets a
+  // payer-only member be deleted, which orphans their recorded contribution on edit.
+  // Counted per record: someone who both paid and shares one expense is one record, not two,
+  // since the number is shown to the person as "還有 N 筆紀錄".
+  const [{ expenseCount }] = await db
+    .select({ expenseCount: countDistinct(expenses.id) })
+    .from(expenses)
+    .where(
+      and(
+        eq(expenses.groupId, groupId),
+        or(
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(expenseSplits)
+              .where(
+                and(
+                  eq(expenseSplits.expenseId, expenses.id),
+                  eq(expenseSplits.debtorId, targetUserId),
+                ),
+              ),
+          ),
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(expensePayers)
+              .where(
+                and(
+                  eq(expensePayers.expenseId, expenses.id),
+                  eq(expensePayers.payerId, targetUserId),
+                ),
+              ),
+          ),
+        ),
+      ),
+    );
   if (expenseCount > 0) {
     return NextResponse.json({ error: "has expenses", expenseCount }, { status: 409 });
   }

@@ -161,6 +161,34 @@ describe("ExpenseForm: new expense", () => {
     ]);
   });
 
+  it("says in words when someone on the expense has left the group", async () => {
+    renderForm(
+      {},
+      { "/api/groups/7/expenses": new Failure(400, { error: "users not in group: 2" }) },
+    );
+    fireEvent.change(screen.getByLabelText("金額"), { target: { value: "300" } });
+    await submit();
+
+    expect(
+      await screen.findByText("有人已經不在這個群組了，請重新選擇付款人和參與者。"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/users not in group/)).not.toBeInTheDocument();
+  });
+
+  it("goes back to one payer paying the whole amount after 改回一人付款", async () => {
+    const w = writes();
+    renderForm({}, { "/api/groups/7/expenses": w.handler });
+
+    fireEvent.change(screen.getByLabelText("金額"), { target: { value: "300" } });
+    fireEvent.click(screen.getByRole("button", { name: "新增付款人" }));
+    fireEvent.click(await screen.findByRole("button", { name: "改回一人付款" }));
+    expect(screen.queryByRole("button", { name: "改回一人付款" })).not.toBeInTheDocument();
+    await submit();
+
+    await waitFor(() => expect(w.sent).toHaveLength(1));
+    expect(w.sent[0].body!.payers).toEqual([{ payerId: 1, amount: 300 }]);
+  });
+
   it("shows the server's error and stays on the page when saving fails", async () => {
     renderForm(
       {},
@@ -169,7 +197,8 @@ describe("ExpenseForm: new expense", () => {
     fireEvent.change(screen.getByLabelText("金額"), { target: { value: "300" } });
     await submit();
 
-    expect(await screen.findByText("付款金額加總不等於總額")).toBeInTheDocument();
+    // The record routes answer validation in English for the log; the form says it in words.
+    expect(await screen.findByText("內容有誤，請檢查後再儲存一次。")).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
 });
@@ -198,6 +227,11 @@ describe("ExpenseForm: editing", () => {
       "href",
       `/mini/groups/7/activity?record=11&from=${encodeURIComponent("/mini/groups/7/expenses/11/edit")}`,
     );
+  });
+
+  it("still names who recorded it after they left the group", () => {
+    renderForm({ initial: initial({ createdBy: 42 }) }, {});
+    expect(screen.getByText(/由 已不在群組的成員 .*記錄/)).toBeInTheDocument();
   });
 
   it("names the AI assistant that entered or last edited the record", () => {
@@ -416,7 +450,9 @@ describe("ExpenseForm: deleting", () => {
   it("names whoever recorded it before deleting someone else's expense", async () => {
     renderForm({ initial: initial({ createdBy: 2 }) }, {});
     fireEvent.click(screen.getByRole("button", { name: "刪除" }));
-    expect(await screen.findByText("這筆是 Bob 記錄的，刪除後無法復原。")).toBeInTheDocument();
+    expect(
+      await screen.findByText("這筆是 Bob 記錄的。刪除後無法復原，動態紀錄會留下這次刪除。"),
+    ).toBeInTheDocument();
   });
 
   it("deletes after confirming and goes back", async () => {
@@ -424,7 +460,9 @@ describe("ExpenseForm: deleting", () => {
     renderForm({ initial: initial() }, { "/api/groups/7/expenses/11": w.handler });
     fireEvent.click(screen.getByRole("button", { name: "刪除" }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("這筆支出將被永久刪除。")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("刪除後無法復原，動態紀錄會留下這次刪除。"),
+    ).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "刪除" }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/mini/groups/7"));

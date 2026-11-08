@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { apiErrorStatus, apiErrorText, deleteErrorMessage, describeError } from "../api-error";
+import {
+  apiErrorStatus,
+  apiErrorText,
+  deleteErrorMessage,
+  describeError,
+  saveErrorMessage,
+} from "../api-error";
 
 describe("deleteErrorMessage", () => {
   it("tells the user the record is already gone on 404", () => {
@@ -58,5 +64,33 @@ describe("describeError", () => {
 
   it("falls back to String() for anything without a message", () => {
     expect(describeError("plain")).toBe("plain");
+  });
+});
+
+describe("saveErrorMessage", () => {
+  const failure = (status: number, error?: string) => ({
+    status,
+    data: error === undefined ? undefined : { error },
+    message: `${status}`,
+  });
+
+  it("never shows the server's English validation text", () => {
+    const msg = saveErrorMessage(failure(400, '[{"code":"custom","message":"splits sum"}]'));
+    expect(msg).toBe("內容有誤，請檢查後再儲存一次。");
+  });
+
+  it("explains a member who has left the group", () => {
+    expect(saveErrorMessage(failure(400, "users not in group: 12,34"))).toContain("不在這個群組");
+  });
+
+  it("names the record on 404 and does not suggest retrying", () => {
+    const msg = saveErrorMessage(failure(404, "expense not found"), "這筆支出");
+    expect(msg).toContain("這筆支出");
+    expect(msg).not.toContain("再試");
+  });
+
+  it("tells a request that never got an answer to check the network", () => {
+    expect(saveErrorMessage({ status: 0, data: undefined, message: "" })).toContain("網路");
+    expect(saveErrorMessage(new Error("boom"))).toContain("網路");
   });
 });

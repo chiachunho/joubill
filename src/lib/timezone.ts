@@ -98,17 +98,23 @@ export function timeZoneLabel(tz: string): string {
   return COMMON_TIME_ZONES.find((z) => z.tz === tz)?.label ?? tz;
 }
 
+/** `東京 (UTC+9)`, or `Europe/Paris (UTC+1)` for a zone without a common name: what a person reads. */
+export function friendlyTimeZone(tz: string, at: Date = new Date()): string {
+  return `${timeZoneLabel(tz)} (${formatUtcOffset(utcOffsetMinutes(tz, at))})`;
+}
+
 /** Whether the device and the group are on the same clock right now (same UTC offset). */
 export function sameOffset(a: string, b: string, at: Date = new Date()): boolean {
   return utcOffsetMinutes(a, at) === utcOffsetMinutes(b, at);
 }
 
 /**
- * What a group's time zone is for, worded once for the settings page, the create form and
- * the bot. Two jobs only; it never moves a record that already has a date.
+ * What a group's time zone is for, worded once for the settings page, the create form, the
+ * change confirmation, the 群組頁 prompt and the bot. It only decides which day "today" is; it
+ * never moves a record that already has a date, and a rate follows the record's own date.
  */
 export const TIMEZONE_PURPOSE =
-  "用途：① 決定一筆紀錄算哪一天、查哪一天的匯率；② bot 的 /add 沒指定日期時，記在這個時區的今天。不會改變已經選好日期的紀錄。";
+  "時區決定「今天」是哪一天：bot 的 /add 沒指定日期時，記在這個時區的今天。已經記下的紀錄日期不會改變。";
 
 /** The localStorage key remembering that this device said 不用 for this group at this device zone. */
 export function timezonePromptKey(groupId: number | string, deviceTimeZone: string): string {

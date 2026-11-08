@@ -1,6 +1,7 @@
 import { isDay, snapshotDay } from "@/lib/day";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
+import { timeZoneLabel } from "@/lib/timezone";
 import { type NoticeLeg, type NoticeRecord } from "@/lib/record-notice";
 
 /**
@@ -378,7 +379,7 @@ export function changeHeading(entry: HeadingInput, withRecordName: boolean): str
         : "解除了與 Telegram 群組的綁定";
     case "timezone_changed":
       return entry.groupEvent?.timezoneFrom && entry.groupEvent.timezoneTo
-        ? `把群組時區從 ${entry.groupEvent.timezoneFrom} 改成 ${entry.groupEvent.timezoneTo}`
+        ? `把群組時區從 ${timeZoneLabel(entry.groupEvent.timezoneFrom)} 改成 ${timeZoneLabel(entry.groupEvent.timezoneTo)}`
         : "改了群組時區";
     case "notice_thread_changed": {
       const to = entry.groupEvent?.noticeThreadTo;
@@ -407,11 +408,11 @@ export function changeHeading(entry: HeadingInput, withRecordName: boolean): str
   }
 }
 
-/** "影響 12 筆支出 · 3 筆轉帳" — a kind with nothing in it is left out entirely. */
+/** "影響 12 筆支出 · 3 筆還款" — a kind with nothing in it is left out entirely. */
 export function rateLockImpact(counts: { expenses: number; settlements: number }): string {
   const parts = [
     counts.expenses > 0 ? `${counts.expenses} 筆支出` : null,
-    counts.settlements > 0 ? `${counts.settlements} 筆轉帳` : null,
+    counts.settlements > 0 ? `${counts.settlements} 筆還款` : null,
   ].filter(Boolean);
   return parts.length > 0 ? `影響 ${parts.join(" · ")}` : "沒有影響既有紀錄";
 }

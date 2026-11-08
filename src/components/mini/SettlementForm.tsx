@@ -32,7 +32,12 @@ import {
 } from "@/components/ui/select";
 import { useAuthMode } from "@/components/AuthProvider";
 import { dayToLocalDate, localDateToDay } from "@/lib/day";
-import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
+import {
+  apiErrorStatus,
+  deleteErrorMessage,
+  FORMER_MEMBER,
+  saveErrorMessage,
+} from "@/lib/api-error";
 import { rateSourceLabel } from "@/lib/rate-source-label";
 import { recordHistoryHref } from "@/lib/activity-link";
 import { stampLabel } from "@/lib/format";
@@ -112,9 +117,13 @@ export function SettlementForm({
   // shown rather than enforced — attribution in place of a lock (see CLAUDE.md).
   const recorder =
     initial?.createdBy != null ? members.find((m) => m.id === initial.createdBy) : undefined;
+  // A creator who has since left the group is still named, not dropped: this line is what
+  // stands in for an owner lock.
   const recordedBy = recorder
     ? labelUser({ ...recorder, userId: recorder.id }, currentUserId)
-    : null;
+    : initial?.createdBy != null
+      ? FORMER_MEMBER
+      : null;
   const recordedBySomeoneElse = initial?.createdBy != null && initial.createdBy !== currentUserId;
 
   // Only rendered once someone has actually edited the record — see ExpenseForm.
@@ -123,7 +132,9 @@ export function SettlementForm({
     : undefined;
   const lastEdit = initial?.lastActivity
     ? {
-        by: lastEditor ? labelUser({ ...lastEditor, userId: lastEditor.id }, currentUserId) : "?",
+        by: lastEditor
+          ? labelUser({ ...lastEditor, userId: lastEditor.id }, currentUserId)
+          : FORMER_MEMBER,
         at: initial.lastActivity.at,
         via: initial.lastActivity.via,
       }
@@ -211,7 +222,7 @@ export function SettlementForm({
       }
     } catch (e) {
       form.setError("root", {
-        message: apiErrorText(e, `HTTP ${apiErrorStatus(e) ?? "error"}`),
+        message: saveErrorMessage(e, "這筆還款"),
       });
       return;
     }
@@ -229,7 +240,7 @@ export function SettlementForm({
       await deleteSettlement({ groupId, settlementId: initial.id }).unwrap();
     } catch (e) {
       setDeletePending(false);
-      setDeleteError(deleteErrorMessage({ status: apiErrorStatus(e) ?? 0 }, "這筆還款記錄"));
+      setDeleteError(deleteErrorMessage({ status: apiErrorStatus(e) ?? 0 }, "這筆還款"));
       return;
     }
     setDeletePending(false);
@@ -254,8 +265,7 @@ export function SettlementForm({
               </Button>
             )}
             <div>
-              <h1 className="text-lg font-semibold">{isEdit ? "編輯還款記錄" : "新增還款記錄"}</h1>
-              {isEdit && <p className="mt-0.5 text-xs text-muted-foreground">#{initial!.id}</p>}
+              <h1 className="text-lg font-semibold">{isEdit ? "編輯還款" : "新增還款"}</h1>
             </div>
           </div>
         </div>
@@ -497,8 +507,8 @@ export function SettlementForm({
         title="確認刪除"
         description={
           recordedBySomeoneElse && recordedBy
-            ? `這筆是 ${recordedBy} 記錄的，刪除後無法復原。`
-            : "這筆還款記錄將被永久刪除。"
+            ? `這筆是 ${recordedBy} 記錄的。刪除後無法復原，動態紀錄會留下這次刪除。`
+            : "刪除後無法復原，動態紀錄會留下這次刪除。"
         }
         confirmLabel="刪除"
         variant="destructive"

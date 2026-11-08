@@ -99,7 +99,7 @@ async function renderPage(platform: Platform, request = pageRequest()) {
       </StoreWrapper>
     </TooltipProvider>,
   );
-  await screen.findByRole("button", { name: "已轉" });
+  await screen.findByRole("button", { name: "標記已還" });
 }
 
 describe("GroupDetailPage", () => {
@@ -124,7 +124,7 @@ describe("GroupDetailPage", () => {
   it("names the viewer 你 in the settle-up confirmation", async () => {
     await renderPage(fakePlatform("/app"));
 
-    fireEvent.click(screen.getByRole("button", { name: "已轉" }));
+    fireEvent.click(screen.getByRole("button", { name: "標記已還" }));
 
     expect(document.body.textContent).toContain("你 → Bob");
   });
@@ -138,8 +138,8 @@ describe("GroupDetailPage", () => {
     const request = pageRequest({ "/api/groups/7/settlements": { id: 99 } });
     await renderPage(fakePlatform("/app"), request);
 
-    fireEvent.click(screen.getByRole("button", { name: "已轉" }));
-    fireEvent.click(screen.getByRole("button", { name: "已完成" }));
+    fireEvent.click(screen.getByRole("button", { name: "標記已還" }));
+    fireEvent.click(screen.getByRole("button", { name: "記一筆還款" }));
 
     await waitFor(() => {
       const post = request.mock.calls.find(([path]) => path === "/api/groups/7/settlements");
@@ -161,8 +161,8 @@ describe("GroupDetailPage", () => {
     const reads = (path: string) => request.mock.calls.filter(([p]) => p === path).length;
     expect(reads("/api/groups/7/balance")).toBe(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "已轉" }));
-    fireEvent.click(screen.getByRole("button", { name: "已完成" }));
+    fireEvent.click(screen.getByRole("button", { name: "標記已還" }));
+    fireEvent.click(screen.getByRole("button", { name: "記一筆還款" }));
 
     await waitFor(() => expect(reads("/api/groups/7/balance")).toBeGreaterThan(1));
     expect(reads("/api/groups/7/expenses")).toBeGreaterThan(1);
@@ -263,7 +263,7 @@ describe("GroupDetailPage", () => {
           </StoreWrapper>
         </TooltipProvider>,
       );
-      await screen.findByText("Expenses", { exact: false });
+      await screen.findByText("紀錄 (", { exact: false });
     }
 
     /** The card's one button, then one of the two ways to add someone. */
@@ -398,7 +398,7 @@ describe("GroupDetailPage", () => {
   // The "only mine" filter is the one preference with a visible effect that doesn't depend on
   // styling: the sample expense has no payer or split, so it isn't the viewer's.
   describe("the 只看我的 preference", () => {
-    const NOT_MINE = "沒有與你相關的支出";
+    const NOT_MINE = "沒有和你有關的紀錄";
 
     it("is restored from storage and saved when toggled", async () => {
       localStorage.setItem(EXPENSE_ONLY_MINE_KEY, "1");

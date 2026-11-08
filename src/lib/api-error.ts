@@ -16,6 +16,28 @@ export function deleteErrorMessage(res: { status: number }, noun = "這筆紀錄
   return "刪除失敗，請再試一次。";
 }
 
+/** How a record's creator or editor reads once they are no longer in the group's member list. */
+export const FORMER_MEMBER = "已不在群組的成員";
+
+/**
+ * A failed save of an expense or settlement, in words the person can act on. The record routes
+ * answer validation failures in English for the log (a zod dump, `users not in group: 12`),
+ * so the form never shows the server's text; it picks a sentence by status instead.
+ */
+export function saveErrorMessage(error: unknown, noun = "這筆紀錄"): string {
+  const status = apiErrorStatus(error);
+  if (status === undefined || status === 0) return "連不上伺服器，請檢查網路後再試一次。";
+  if (status === 400 && /not in group/.test(apiErrorText(error, ""))) {
+    return "有人已經不在這個群組了，請重新選擇付款人和參與者。";
+  }
+  if (status === 400) return "內容有誤，請檢查後再儲存一次。";
+  if (status === 401) return "登入狀態過期了，請重新開啟一次。";
+  if (status === 403) return "你已經不是這個群組的成員。";
+  if (status === 404) return `${noun}已經不在了，可能剛剛被其他人刪除。`;
+  if (status >= 500) return "伺服器暫時有問題，請稍後再試。";
+  return "儲存失敗，請再試一次。";
+}
+
 /**
  * What a failed API request looks like to the pages. `message` keeps the
  * `${status} ${path}: ${body}` shape the old fetchers threw, which is what

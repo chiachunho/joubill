@@ -285,7 +285,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
         Math.round((monthly[idx].memberShare + n(r.amount) * memberSplitRates[i]) * 100) / 100;
   });
 
-  // Ranking ("誰花得最多"): each member's payer contribution within the range.
+  // Ranking ("誰付得最多"): each member's payer contribution within the range.
   const byPayerMap = new Map<
     number,
     {
