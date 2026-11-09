@@ -75,3 +75,7 @@ Vercel 上，資料庫是 Neon Postgres。
 - [docs/DEVELOPMENT.zh-TW.md](docs/DEVELOPMENT.zh-TW.md)：本機開發、指令與測試
 - [docs/DEPLOYMENT.zh-TW.md](docs/DEPLOYMENT.zh-TW.md)：部署到 Vercel 並綁定自訂網域
 - [CLAUDE.md](CLAUDE.md) 和 [docs/architecture/](docs/architecture/)：程式碼怎麼組織、為什麼這樣設計（英文）
+
+## 授權
+
+[MIT](LICENSE)
