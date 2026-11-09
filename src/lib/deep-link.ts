@@ -39,6 +39,11 @@ export function joinLink(botUsername: string, code: string): string {
   return miniAppUrl(botUsername, `join_${code}`);
 }
 
+/** Opens Telegram's "add to group" picker for the bot (not a Mini App link). */
+export function addToGroupLink(botUsername: string): string {
+  return `https://t.me/${botUsername}?startgroup=true`;
+}
+
 function miniAppUrl(botUsername: string, startParam: string): string {
   const appName = serverEnv().TELEGRAM_MINI_APP_NAME;
   return `https://t.me/${botUsername}/${appName}?startapp=${startParam}`;

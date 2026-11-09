@@ -17,7 +17,7 @@ import { promptForExpenseField } from "./add";
 import type { BotContext } from "../context";
 
 /**
- * The inline "⚙️ 調整" panel on an expense card.
+ * The inline "☰ 調整" panel on an expense card.
  *
  * Everything the old text grammar made you memorise — who splits, per-person
  * shares, the currency — is a button here instead. The panel has no state of
@@ -48,7 +48,7 @@ async function show(ctx: BotContext, expenseId: number, mode: CardMode) {
  *
  * Deliberately *not* an ownership check. The ledger is shared, so anyone in the
  * group can fix a mistake without waiting for whoever typed it — and gating the
- * panel while the card's own 🔗 App 編輯 button opens an unrestricted form would
+ * panel while the card's own App 編輯 button opens an unrestricted form would
  * be a guarantee in name only. Attribution replaces the lock: the card shows who
  * recorded the expense (see CLAUDE.md).
  *
@@ -87,9 +87,9 @@ expensePanel.callbackQuery(/^exp:done:(\d+)$/, async (ctx) => {
   await show(ctx, expenseId, "default");
 });
 
-/* ── 💳 誰付 ──────────────────────────────────────────────────────────── */
+/* ── 誰付 ──────────────────────────────────────────────────────────── */
 
-const MULTI_PAYER_TOAST = "這筆有多位付款人，請用 App 編輯";
+const MULTI_PAYER_TOAST = "多位付款人請用 App 編輯";
 
 expensePanel.callbackQuery(/^exp:pay:(\d+)$/, async (ctx) => {
   const expenseId = Number(ctx.match[1]);
@@ -117,7 +117,7 @@ expensePanel.callbackQuery(/^exp:payt:(\d+):(\d+)$/, async (ctx) => {
   // the panel keeps listing them (see cardKeyboard, mode "payer").
   const members = await loadGroupMembers(card.expense.groupId);
   if (!pickerMembers(members, card.payers).some((m) => m.id === userId)) {
-    await ctx.answerCallbackQuery({ text: "這個人不是此群組的成員", show_alert: true });
+    await ctx.answerCallbackQuery({ text: "對方不在這個群組", show_alert: true });
     return;
   }
 
@@ -130,7 +130,7 @@ expensePanel.callbackQuery(/^exp:payt:(\d+):(\d+)$/, async (ctx) => {
   await show(ctx, expenseId, "payer");
 });
 
-/* ── 👥 誰分 ──────────────────────────────────────────────────────────── */
+/* ── 誰分 ──────────────────────────────────────────────────────────── */
 
 expensePanel.callbackQuery(/^exp:whot:(\d+):(\d+)$/, async (ctx) => {
   const expenseId = Number(ctx.match[1]);
@@ -144,7 +144,7 @@ expensePanel.callbackQuery(/^exp:whot:(\d+):(\d+)$/, async (ctx) => {
     : [...entries, { userId, weight: 1 }];
 
   if (next.length === 0) {
-    await ctx.answerCallbackQuery({ text: "至少要留一個人分帳", show_alert: true });
+    await ctx.answerCallbackQuery({ text: "至少要留一個人", show_alert: true });
     return;
   }
 
@@ -163,14 +163,14 @@ expensePanel.callbackQuery(/^exp:whoall:(\d+)$/, async (ctx) => {
   // Union, not replacement: loadGroupMembers filters out inactive members, so
   // rebuilding from it alone would drop someone who already has a share and
   // silently redistribute their debt. Existing weights are kept too, so 全選
-  // adds people without discarding a 份數 setup — same set the 👥 keyboard lists.
+  // adds people without discarding a 份數 setup — same set the 誰分 keyboard lists.
   const next = [...entries];
   const seated = new Set(entries.map((e) => e.userId));
   for (const m of members) {
     if (!seated.has(m.id)) next.push({ userId: m.id, weight: 1 });
   }
   if (next.length === 0) {
-    await ctx.answerCallbackQuery({ text: "這個群組沒有可分帳的人", show_alert: true });
+    await ctx.answerCallbackQuery({ text: "還沒有人可以分帳", show_alert: true });
     return;
   }
   await writeSplits(expenseId, card.expense.amount, next, actorOf(ctx));
@@ -191,10 +191,46 @@ expensePanel.callbackQuery(/^exp:whome:(\d+)$/, async (ctx) => {
   await show(ctx, expenseId, "who");
 });
 
-/* ── ⚖️ 份數 ─────────────────────────────────────────────────────────── */
+/* ── 份數 ───────────────────────────────────────────────────────────── */
 
-const MAX_WEIGHT = 4;
+/** No real split needs more; it only stops a runaway tap from making a silly number. */
+const MAX_WEIGHT = 99;
 
+/** Change one person's weight by `delta`, or say why it can't move. */
+async function stepWeight(ctx: BotContext, expenseId: number, userId: number, delta: number) {
+  const card = await guard(ctx, expenseId);
+  if (!card) return;
+
+  const { entries } = await loadSplitState(expenseId);
+  const target = entries.find((e) => e.userId === userId);
+  if (!target) {
+    await ctx.answerCallbackQuery({ text: TOAST.staleButton, show_alert: true });
+    return;
+  }
+  const next = Math.round(target.weight) + delta;
+  if (next < 1) {
+    await ctx.answerCallbackQuery({ text: "最少 1 份" });
+    return;
+  }
+  if (next > MAX_WEIGHT) {
+    await ctx.answerCallbackQuery({ text: `最多 ${MAX_WEIGHT} 份` });
+    return;
+  }
+  await writeSplits(
+    expenseId,
+    card.expense.amount,
+    entries.map((e) => (e.userId === userId ? { ...e, weight: next } : e)),
+    actorOf(ctx),
+  );
+  await show(ctx, expenseId, "shares");
+}
+
+expensePanel.callbackQuery(/^exp:shr([di]):(\d+):(\d+)$/, async (ctx) => {
+  const [, dir, id, user] = ctx.match;
+  await stepWeight(ctx, Number(id), Number(user), dir === "i" ? 1 : -1);
+});
+
+/** Cards posted before ⊖ / ⊕ still carry the old cycling button (×1 → ×4 → ×1). */
 expensePanel.callbackQuery(/^exp:shrc:(\d+):(\d+)$/, async (ctx) => {
   const expenseId = Number(ctx.match[1]);
   const userId = Number(ctx.match[2]);
@@ -202,7 +238,7 @@ expensePanel.callbackQuery(/^exp:shrc:(\d+):(\d+)$/, async (ctx) => {
   if (!card) return;
 
   const entries = (await loadSplitState(expenseId)).entries.map((e) =>
-    e.userId === userId ? { ...e, weight: (Math.round(e.weight) % MAX_WEIGHT) + 1 } : e,
+    e.userId === userId ? { ...e, weight: (Math.round(e.weight) % 4) + 1 } : e,
   );
   await writeSplits(expenseId, card.expense.amount, entries, actorOf(ctx));
   await show(ctx, expenseId, "shares");
@@ -218,7 +254,7 @@ expensePanel.callbackQuery(/^exp:shrr:(\d+)$/, async (ctx) => {
   await show(ctx, expenseId, "shares");
 });
 
-/* ── 💱 幣別 ─────────────────────────────────────────────────────────── */
+/* ── 幣別 ─────────────────────────────────────────────────────────── */
 
 expensePanel.callbackQuery(/^exp:curs:(\d+):([A-Z]{3})$/, async (ctx) => {
   const expenseId = Number(ctx.match[1]);
@@ -230,7 +266,7 @@ expensePanel.callbackQuery(/^exp:curs:(\d+):([A-Z]{3})$/, async (ctx) => {
   await show(ctx, expenseId, "currency");
 });
 
-/* ── ✏️ 金額 / 其他幣別 (ForceReply) ──────────────────────────────────── */
+/* ── 金額 / 其他幣別 (ForceReply) ──────────────────────────────────── */
 
 expensePanel.callbackQuery(/^exp:(amt|curo):(\d+)$/, async (ctx) => {
   const [, kind, id] = ctx.match;
@@ -239,7 +275,7 @@ expensePanel.callbackQuery(/^exp:(amt|curo):(\d+)$/, async (ctx) => {
 
   const panelMessageId = ctx.callbackQuery.message?.message_id;
   if (!panelMessageId) {
-    await ctx.answerCallbackQuery({ text: "無法取得訊息資訊", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.actionFailed, show_alert: true });
     return;
   }
 

@@ -9,6 +9,7 @@ import { chatTargetOf, sendToGroupChat } from "@/lib/notice-thread";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
 import { deleteGroup } from "@/lib/group-delete";
+import { declinedNotice, deletedNotice } from "@/lib/group-delete-notice";
 import { labelUser } from "@/lib/label";
 import { requireId } from "@/lib/route-params";
 
@@ -103,13 +104,18 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   const target = chatTargetOf(group);
   if (target !== null) {
     const { api } = getBot();
-    const text = `${name} 同意刪除群組，揪帳已關閉。所有支出與還款紀錄均已清除。`;
+    const text = deletedNotice(name, group.title);
     if (request.telegramMessageId) {
-      await api.editMessageText(target.chatId, request.telegramMessageId, text).catch(() => null);
+      await api
+        .editMessageText(target.chatId, request.telegramMessageId, text, { parse_mode: "HTML" })
+        .catch(() => null);
     } else {
-      await sendToGroupChat(api, target, (thread) => api.sendMessage(target.chatId, text, thread), {
-        lastMessage: true,
-      }).catch(() => null);
+      await sendToGroupChat(
+        api,
+        target,
+        (thread) => api.sendMessage(target.chatId, text, { ...thread, parse_mode: "HTML" }),
+        { lastMessage: true },
+      ).catch(() => null);
     }
     await api.leaveChat(target.chatId).catch(() => null);
   }
@@ -147,11 +153,11 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
       lastName: user.lastName,
       username: user.username,
     });
-    const action = isRequester ? "取消了刪除申請" : "拒絕了刪除申請";
     const bot = getBot();
 
     await bot.api
-      .editMessageText(chatId, request.telegramMessageId, `${name} ${action}。`, {
+      .editMessageText(chatId, request.telegramMessageId, declinedNotice(name, isRequester), {
+        parse_mode: "HTML",
         reply_markup: { inline_keyboard: [] },
       })
       .catch(() => null);

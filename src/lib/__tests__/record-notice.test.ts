@@ -62,25 +62,25 @@ function expense(over: Partial<NoticeRecord> = {}): NoticeRecord {
 }
 
 describe("formatSettlementNotice", () => {
-  it("renders from → to with the amount", () => {
+  it("says it is a repayment and how much, then who paid whom", () => {
     expect(formatSettlementNotice(settlement())).toBe(
-      '💸 <a href="tg://user?id=111">Alice</a> → <a href="tg://user?id=222">Bob</a>　<b>1,200 TWD</b>',
+      '💸 <b>還款　1,200 TWD</b>\n<a href="tg://user?id=111">Alice</a> → <a href="tg://user?id=222">Bob</a>',
     );
-  });
-
-  it("is a single line — a settlement has no split to show", () => {
-    expect(formatSettlementNotice(settlement())).not.toContain("\n");
   });
 
   it("groups thousands and drops a trailing .00", () => {
-    expect(formatSettlementNotice(settlement({ amount: 12000 }))).toContain("<b>12,000 TWD</b>");
-    expect(formatSettlementNotice(settlement({ amount: 1800.5 }))).toContain("<b>1,800.50 TWD</b>");
+    expect(formatSettlementNotice(settlement({ amount: 12000 }))).toContain(
+      "<b>還款　12,000 TWD</b>",
+    );
+    expect(formatSettlementNotice(settlement({ amount: 1800.5 }))).toContain(
+      "<b>還款　1,800.50 TWD</b>",
+    );
   });
 
   it("falls back to a plain name for users without a Telegram id", () => {
-    expect(formatSettlementNotice(settlement({ payers: [{ user: dave, amount: 1200 }] }))).toBe(
-      '💸 Dave → <a href="tg://user?id=222">Bob</a>　<b>1,200 TWD</b>',
-    );
+    expect(
+      formatSettlementNotice(settlement({ payers: [{ user: dave, amount: 1200 }] })).split("\n")[1],
+    ).toBe('Dave → <a href="tg://user?id=222">Bob</a>');
   });
 
   it("escapes HTML in names", () => {
@@ -89,34 +89,34 @@ describe("formatSettlementNotice", () => {
         payers: [{ user: { ...dave, displayName: null, firstName: "<script>" }, amount: 1200 }],
       }),
     );
-    expect(text).toContain("💸 &lt;script&gt; →");
+    expect(text).toContain("&lt;script&gt; →");
   });
 
   it("survives a settlement missing a side", () => {
     expect(formatSettlementNotice(settlement({ payers: [], splits: [] }))).toBe(
-      "💸 還款　<b>1,200 TWD</b>",
+      "💸 <b>還款　1,200 TWD</b>",
     );
   });
 });
 
 describe("formatDeletedNotice", () => {
-  it("names what went, who recorded it and who removed it", () => {
+  it("strikes out what went, then says who recorded it and who removed it", () => {
     expect(formatDeletedNotice({ record: expense(), creator: alice, deleter: bob })).toBe(
-      '🗑 已刪除 500 TWD（晚餐），原本由 Alice 記錄\n— <a href="tg://user?id=222">Bob</a>',
+      '🗑 <s>晚餐　500 TWD</s>\nAlice 記錄 · <a href="tg://user?id=222">Bob</a> 刪除',
     );
   });
 
-  it("omits the origin clause when you delete your own record", () => {
+  it("names only the deleter when you delete your own record", () => {
     const text = formatDeletedNotice({ record: expense(), creator: alice, deleter: alice });
-    expect(text).toBe('🗑 已刪除 500 TWD（晚餐）\n— <a href="tg://user?id=111">Alice</a>');
-    expect(text).not.toContain("原本由");
+    expect(text).toBe('🗑 <s>晚餐　500 TWD</s>\n<a href="tg://user?id=111">Alice</a> 刪除');
+    expect(text).not.toContain("記錄");
   });
 
   it("compares people by id, not by name", () => {
     // Two different members who happen to share a display name.
     const twin = { ...alice, userId: 9, username: null, telegramId: 999 };
     expect(formatDeletedNotice({ record: expense(), creator: alice, deleter: twin })).toContain(
-      "原本由 Alice 記錄",
+      "Alice 記錄 · ",
     );
   });
 
@@ -126,21 +126,19 @@ describe("formatDeletedNotice", () => {
       creator: alice,
       deleter: alice,
     });
-    expect(text.split("\n")[0]).toBe("🗑 已刪除 500 TWD");
+    expect(text.split("\n")[0]).toBe("🗑 <s>500 TWD</s>");
   });
 
   it("describes a deleted settlement as a transfer", () => {
-    expect(
-      formatDeletedNotice({ record: settlement(), creator: alice, deleter: bob }).split("\n")[0],
-    ).toBe(
-      '🗑 已刪除 還款 <a href="tg://user?id=111">Alice</a> → <a href="tg://user?id=222">Bob</a> 1,200 TWD，原本由 Alice 記錄',
+    expect(formatDeletedNotice({ record: settlement(), creator: alice, deleter: bob })).toBe(
+      '🗑 <s>還款 Alice → Bob　1,200 TWD</s>\nAlice 記錄 · <a href="tg://user?id=222">Bob</a> 刪除',
     );
   });
 
   it("copes with an unknown creator", () => {
     const text = formatDeletedNotice({ record: expense(), creator: null, deleter: bob });
-    expect(text).not.toContain("原本由");
-    expect(text).toContain("🗑 已刪除 500 TWD（晚餐）");
+    expect(text).not.toContain("記錄");
+    expect(text).toContain("🗑 <s>晚餐　500 TWD</s>");
   });
 
   it("escapes HTML in the description and the creator's name", () => {
@@ -149,8 +147,8 @@ describe("formatDeletedNotice", () => {
       creator: { ...dave, displayName: null, firstName: "<script>" },
       deleter: bob,
     });
-    expect(text).toContain("（&lt;b&gt;x&lt;/b&gt; &amp; y）");
-    expect(text).toContain("原本由 &lt;script&gt; 記錄");
+    expect(text).toContain("<s>&lt;b&gt;x&lt;/b&gt; &amp; y　500 TWD</s>");
+    expect(text).toContain("&lt;script&gt; 記錄");
   });
 
   it("keeps the deleter tappable", () => {
@@ -175,7 +173,7 @@ describe("linked application attribution", () => {
     const plain = formatSettlementNotice(settlement());
     expect(plain).not.toContain("✦");
     const text = formatSettlementNotice(settlement(), { creator: alice, via: "Claude" });
-    expect(text.split("\n")).toEqual([plain, "✦ Alice 透過 Claude 記錄"]);
+    expect(text.split("\n")).toEqual([...plain.split("\n"), "✦ Alice 透過 Claude 記錄"]);
   });
 
   it("says in the tombstone which assistant entered the record and which one deleted it", () => {
@@ -188,7 +186,7 @@ describe("linked application attribution", () => {
         deleterVia: "我的 n8n",
       }),
     ).toBe(
-      '🗑 已刪除 500 TWD（晚餐），原本由 Alice 透過 Claude 記錄\n— <a href="tg://user?id=222">Bob</a> 透過 我的 n8n',
+      '🗑 <s>晚餐　500 TWD</s>\nAlice 透過 Claude 記錄 · <a href="tg://user?id=222">Bob</a> 透過 我的 n8n 刪除',
     );
   });
 
@@ -199,6 +197,8 @@ describe("linked application attribution", () => {
       deleter: alice,
       creatorVia: "Claude",
     });
-    expect(text.split("\n")[0]).toBe("🗑 已刪除 500 TWD（晚餐），原本是透過 Claude 記錄");
+    expect(text.split("\n")[1]).toBe(
+      '透過 Claude 記錄 · <a href="tg://user?id=111">Alice</a> 刪除',
+    );
   });
 });

@@ -4,15 +4,16 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groupMembers, groups, users } from "@/db/schema";
 import { getRate, loadGroupRateContext } from "@/lib/fx";
-import { BTN } from "@/lib/buttons";
+import { BTN, button, choice, sharesLessLabel, sharesMoreLabel } from "@/lib/buttons";
+import { cardBody } from "@/lib/expense-card-text";
 import { expenseLink } from "@/lib/deep-link";
 import { labelUser } from "@/lib/label";
 import { loadCreatedVia } from "@/lib/record-via";
 import { formatMcpLine } from "@/lib/record-notice";
-import { fmtGrouped, n, splitEqual } from "@/lib/money";
+import { n, splitEqual } from "@/lib/money";
 import { computeSplits } from "@/lib/splits";
 
-import { escapeHtml, mention } from "./format";
+import { escapeHtml } from "./format";
 import { USER_COLUMNS } from "./profiles";
 import type { BotContext } from "./context";
 
@@ -135,11 +136,13 @@ type CardData = {
    */
   mcp: { via: string; creator: DbUser | null } | null;
   payers: DbUser[];
+  /** What each payer put in, in the same order as `payers`. */
+  payerAmounts: number[];
   splits: Array<{ user: DbUser; amount: number; weight: number }>;
   /** False for Mini-App-entered exact/percent/adjustment splits — see PANEL_SHARE_TYPES. */
   panelEditable: boolean;
   /**
-   * False when the expense has several payers. 💳 誰付 picks one person, so it
+   * False when the expense has several payers. 誰付 picks one person, so it
    * would collapse per-payer contributions the same way the split controls would.
    */
   payerEditable: boolean;
@@ -165,7 +168,7 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
 
   const [payerRows, splitRows, viaByRecord] = await Promise.all([
     db
-      .select(USER_COLUMNS)
+      .select({ ...USER_COLUMNS, paid: expensePayers.amount })
       .from(expensePayers)
       .innerJoin(users, eq(users.id, expensePayers.payerId))
       .where(eq(expensePayers.expenseId, expenseId))
@@ -196,7 +199,8 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
     },
     defaultCurrency: expense.defaultCurrency,
     mcp: via ? { via, creator: creator ?? null } : null,
-    payers: payerRows,
+    payers: payerRows.map(({ paid: _paid, ...user }) => user),
+    payerAmounts: payerRows.map((r) => n(r.paid)),
     splits: splitRows.map((r) => ({
       user: {
         id: r.id,
@@ -216,7 +220,7 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
 }
 
 /**
- * Currency shortcuts in the 💱 picker: what this expense is set to, the group
+ * Currency shortcuts in the 幣別 picker: what this expense is set to, the group
  * default, then whatever the group actually uses most. Only three — a wall of
  * codes is slower to read than the 「其他…」 prompt is to type, and a group's
  * real vocabulary is one or two currencies plus the trip they're on.
@@ -243,62 +247,53 @@ async function currencyChoices(
   return out.slice(0, CURRENCY_CHOICES);
 }
 
-function splitLine(card: CardData): string {
-  const { splits } = card;
-  if (splits.length === 0) return "（沒有人分帳）";
-
-  const name = (u: DbUser) => mention(labelUser(u), u.telegramId);
-  const allSame = splits.every(
-    (s) => s.amount === splits[0].amount && s.weight === splits[0].weight,
-  );
-  if (allSame)
-    return `${splits.map((s) => name(s.user)).join("、")} 各 ${fmtGrouped(splits[0].amount)}`;
-
-  return splits
-    .map((s) => {
-      const w = s.weight !== 1 ? ` ×${fmtGrouped(s.weight)}` : "";
-      return `${name(s.user)}${w} ${fmtGrouped(s.amount)}`;
-    })
-    .join("、");
-}
-
 const MODE_HINT: Partial<Record<CardMode, string>> = {
-  who: "👥 點名字切換誰要分帳",
-  shares: "⚖️ 點名字調整份數（×1 → ×2 → ×3 → ×4）",
-  currency: "💱 選擇這筆的幣別",
-  payer: "💳 點名字選誰付了這筆",
+  who: "點名字加入或移出",
+  shares: "按 ⊕ ⊖ 調整每人份數",
+  currency: "這筆的幣別",
+  payer: "誰付的？",
 };
 
 async function cardText(card: CardData, mode: CardMode): Promise<string> {
-  const { expense, defaultCurrency, payers } = card;
-  const who =
-    payers.length > 0 ? payers.map((p) => mention(labelUser(p), p.telegramId)).join("、") : "?";
-  const descPart = expense.description ? `（${escapeHtml(expense.description)}）` : "";
+  const { expense, defaultCurrency } = card;
 
-  const lines = [`${who} 付了 <b>${fmtGrouped(expense.amount)} ${expense.currency}</b>${descPart}`];
-
+  let converted: { amount: number; currency: string } | null = null;
   if (expense.currency !== defaultCurrency) {
     // Best-effort only: a failed FX lookup must never block showing the expense.
     try {
       const rateCtx = await loadGroupRateContext(expense.groupId);
       const rate = await getRate(expense.currency, defaultCurrency, expense.spentAt, rateCtx);
-      lines.push(
-        `≈ ${fmtGrouped(Math.round(expense.amount * rate * 100) / 100)} ${defaultCurrency}`,
-      );
+      converted = {
+        amount: Math.round(expense.amount * rate * 100) / 100,
+        currency: defaultCurrency,
+      };
     } catch {
-      /* no conversion line */
+      /* no conversion */
     }
   }
 
-  lines.push(splitLine(card));
-  // Kept in every mode, so the ⚙️ panel doesn't hide where the record came from.
-  if (card.mcp) lines.push(formatMcpLine(card.mcp.creator, card.mcp.via));
+  const lines = cardBody({
+    description: expense.description,
+    amount: expense.amount,
+    currency: expense.currency,
+    converted,
+    payers: card.payers.map((user, i) => ({ user, amount: card.payerAmounts[i] })),
+    splits: card.splits,
+  });
+
+  // Kept in every mode, so the ☰ panel doesn't hide where the record came from. The
+  // person is left out when they are the sole payer: the headline already names them.
+  if (card.mcp) {
+    const { creator, via } = card.mcp;
+    const named = creator && !(card.payers.length === 1 && card.payers[0].id === creator.id);
+    lines.push(formatMcpLine(named ? creator : null, via));
+  }
 
   const hint =
     mode === "adjust" && !card.panelEditable
-      ? `這筆的分帳是在 App 裡自訂的，要改分帳請用 ${BTN.appEdit}`
+      ? `分帳在 App 自訂過，要改請按 ${BTN.appEdit}`
       : MODE_HINT[mode];
-  if (hint) lines.push("", hint);
+  if (hint) lines.push("", `<i>${escapeHtml(hint)}</i>`);
   return lines.join("\n");
 }
 
@@ -315,12 +310,21 @@ export function originOf(ctx: BotContext): CardOrigin {
 }
 
 /**
- * The people a 👥 / 💳 picker offers: the group's members, plus anyone already on
+ * The people a 誰分 / 誰付 picker offers: the group's members, plus anyone already on
  * the expense. Someone who has since left must stay pickable, or the picker could
  * not show who is currently on the expense.
  */
 export function pickerMembers(members: DbUser[], onExpense: DbUser[]): DbUser[] {
   return [...members, ...onExpense.filter((u) => !members.some((m) => m.id === u.id))];
+}
+
+/** Lay buttons out in rows of `perRow`. */
+function grid(kb: InlineKeyboard, buttons: Array<() => void>, perRow: number) {
+  buttons.forEach((add, i) => {
+    add();
+    if (i % perRow === perRow - 1) kb.row();
+  });
+  if (buttons.length % perRow !== 0) kb.row();
 }
 
 async function cardKeyboard(
@@ -332,25 +336,32 @@ async function cardKeyboard(
   const kb = new InlineKeyboard();
 
   if (mode === "default") {
-    kb.text(BTN.adjust, `exp:adj:${id}`);
-    if (!card.expense.receiptFileId) kb.text(BTN.receipt, `upload_receipt:${id}`);
-    return kb.text(BTN.delete, `del_exp:${id}`);
+    kb.text(button("adjust"), `exp:adj:${id}`);
+    if (!card.expense.receiptFileId) kb.text(button("receipt"), `upload_receipt:${id}`);
+    return kb.text(button("delete"), `del_exp:${id}`);
   }
 
   if (mode === "adjust") {
-    if (card.payerEditable) kb.text(BTN.payer, `exp:pay:${id}`).row();
+    const items: Array<() => void> = [];
+    if (card.payerEditable) items.push(() => kb.text(button("payer"), `exp:pay:${id}`));
     // 誰分 / 份數 recompute every share from weights, so they're only offered
     // when the panel owns the split — otherwise they'd flatten a custom one.
     if (card.panelEditable) {
-      kb.text(BTN.who, `exp:who:${id}`).text(BTN.shares, `exp:shr:${id}`);
+      items.push(() => kb.text(button("who"), `exp:who:${id}`));
+      items.push(() => kb.text(button("shares"), `exp:shr:${id}`));
     }
-    return kb
-      .text(BTN.currency, `exp:cur:${id}`)
-      .row()
-      .text(BTN.amount, `exp:amt:${id}`)
-      .url(BTN.appEdit, expenseLink(origin.botUsername, origin.chatId, id))
-      .row()
-      .text(BTN.done, `exp:done:${id}`);
+    items.push(() => kb.text(button("currency"), `exp:cur:${id}`));
+    items.push(() => kb.text(button("amount"), `exp:amt:${id}`));
+    items.push(() => kb.url(button("appEdit"), expenseLink(origin.botUsername, origin.chatId, id)));
+    // Three to a row; ← 收起 joins the last row when there is room, else gets its own.
+    if (items.length % 3 !== 0) {
+      items.push(() => kb.text(button("collapse"), `exp:done:${id}`));
+      grid(kb, items, 3);
+    } else {
+      grid(kb, items, 3);
+      kb.text(button("collapse"), `exp:done:${id}`);
+    }
+    return kb;
   }
 
   if (mode === "who") {
@@ -360,37 +371,45 @@ async function cardKeyboard(
       members,
       card.splits.map((s) => s.user),
     );
-    listed.forEach((m, i) => {
-      kb.text(`${included.has(m.id) ? "✅" : "⬜"} ${labelUser(m)}`, `exp:whot:${id}:${m.id}`);
-      if (i % 2 === 1) kb.row();
-    });
-    if (listed.length % 2 === 1) kb.row();
+    grid(
+      kb,
+      listed.map(
+        (m) => () =>
+          kb.text(choice(labelUser(m), included.has(m.id), "multi"), `exp:whot:${id}:${m.id}`),
+      ),
+      2,
+    );
     return kb
-      .text(BTN.selectAll, `exp:whoall:${id}`)
-      .text(BTN.onlyMe, `exp:whome:${id}`)
-      .row()
-      .text(BTN.back, `exp:adj:${id}`);
+      .text(button("selectAll"), `exp:whoall:${id}`)
+      .text(button("onlyMe"), `exp:whome:${id}`)
+      .text(button("back"), `exp:adj:${id}`);
   }
 
   if (mode === "payer") {
     const members = await loadGroupMembers(card.expense.groupId);
     const current = new Set(card.payers.map((p) => p.id));
     const listed = pickerMembers(members, card.payers);
-    listed.forEach((m, i) => {
-      kb.text(`${current.has(m.id) ? "✅" : "⬜"} ${labelUser(m)}`, `exp:payt:${id}:${m.id}`);
-      if (i % 2 === 1) kb.row();
-    });
-    if (listed.length % 2 === 1) kb.row();
-    return kb.text(BTN.back, `exp:adj:${id}`);
+    grid(
+      kb,
+      listed.map(
+        (m) => () =>
+          kb.text(choice(labelUser(m), current.has(m.id), "multi"), `exp:payt:${id}:${m.id}`),
+      ),
+      2,
+    );
+    return kb.text(button("back"), `exp:adj:${id}`);
   }
 
   if (mode === "shares") {
-    card.splits.forEach((s, i) => {
-      kb.text(`${labelUser(s.user)} ×${fmtGrouped(s.weight)}`, `exp:shrc:${id}:${s.user.id}`);
-      if (i % 2 === 1) kb.row();
-    });
-    if (card.splits.length % 2 === 1) kb.row();
-    return kb.text(BTN.resetShares, `exp:shrr:${id}`).row().text(BTN.back, `exp:adj:${id}`);
+    // One row per person, ⊖ and ⊕ only: Telegram splits a row evenly, so a bare ⊖ / ⊕
+    // beside a name would be as wide as the name. The current weight shows on the card.
+    for (const s of card.splits) {
+      const label = labelUser(s.user);
+      kb.text(sharesLessLabel(label), `exp:shrd:${id}:${s.user.id}`)
+        .text(sharesMoreLabel(label), `exp:shri:${id}:${s.user.id}`)
+        .row();
+    }
+    return kb.text(button("resetShares"), `exp:shrr:${id}`).text(button("back"), `exp:adj:${id}`);
   }
 
   // currency
@@ -400,9 +419,12 @@ async function cardKeyboard(
     card.defaultCurrency,
   );
   for (const code of codes) {
-    kb.text(code === card.expense.currency ? `✅ ${code}` : code, `exp:curs:${id}:${code}`);
+    kb.text(choice(code, code === card.expense.currency, "single"), `exp:curs:${id}:${code}`);
   }
-  return kb.row().text(BTN.otherCurrency, `exp:curo:${id}`).text(BTN.back, `exp:adj:${id}`);
+  return kb
+    .row()
+    .text(button("otherCurrency"), `exp:curo:${id}`)
+    .text(button("back"), `exp:adj:${id}`);
 }
 
 /** Build the full card (text + keyboard) for an expense, or null if it's gone. */

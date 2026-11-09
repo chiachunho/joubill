@@ -107,8 +107,7 @@ export function sameOffset(a: string, b: string, at: Date = new Date()): boolean
  * change confirmation, the 群組頁 prompt and the bot. It only decides which day "today" is; it
  * never moves a record that already has a date, and a rate follows the record's own date.
  */
-export const TIMEZONE_PURPOSE =
-  "時區決定「今天」是哪一天：機器人的 /add 沒指定日期時，記在這個時區的今天。已經記下的紀錄日期不會改變。";
+export const TIMEZONE_PURPOSE = "/add 會記在這個時區的今天，已記的紀錄不受影響。";
 
 /** The localStorage key remembering that this device said 不用 for this group at this device zone. */
 export function timezonePromptKey(groupId: number | string, deviceTimeZone: string): string {

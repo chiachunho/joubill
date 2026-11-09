@@ -166,7 +166,7 @@ export async function logUpdated<T>(
   const { result, before, after } = await db.transaction(async (tx) => {
     // Serialise writers on the record's row before anything is read or deleted.
     // Without this, two overlapping edits that each delete-then-insert the same
-    // child rows (say, two 💳 誰付 taps) can both survive: under READ COMMITTED,
+    // child rows (say, two 誰付 taps) can both survive: under READ COMMITTED,
     // the second DELETE cannot see the first one's inserts, so each leaves its own
     // payer at the full amount and the payers sum to twice the total. Now the
     // second transaction waits here and then reads the first one's committed rows.

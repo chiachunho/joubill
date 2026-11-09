@@ -63,8 +63,7 @@ export async function unlinkChat(groupId: number): Promise<UnlinkOutcome> {
 }
 
 export const UNLINK_FAREWELL =
-  "這個群組已解除與 App 的綁定，之後的紀錄不會再出現在這裡，機器人即將離開。\n" +
-  "要重新綁定：把機器人加回聊天室，再輸入 /link 邀請碼。";
+  "已解除綁定，bot 離開了 👋\n" + "要重新綁定：加回 bot 後打 /link 邀請碼";
 
 /**
  * Says goodbye in the old chat, then leaves it. Both are best effort: a kicked bot or a chat

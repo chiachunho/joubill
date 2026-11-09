@@ -1,23 +1,17 @@
 import { Composer, InlineKeyboard } from "grammy";
 
-import { BTN } from "@/lib/buttons";
-import { groupLink } from "@/lib/deep-link";
+import { button } from "@/lib/buttons";
+import { clientEnv } from "@/lib/env";
 
+import { openAppKeyboard } from "../groupViews";
 import type { BotContext } from "../context";
 
 export const appCommand = new Composer<BotContext>();
 
 appCommand.command("app", async (ctx) => {
-  if (!ctx.dbGroup) {
-    await ctx.reply("這個指令只能在群組裡用。");
-    return;
-  }
-
-  const botUsername = ctx.me.username;
-  const chatId = ctx.chat!.id;
-  const url = groupLink(botUsername, chatId);
-
-  await ctx.reply("開啟揪帳 Mini App 👇", {
-    reply_markup: new InlineKeyboard().webApp(BTN.openApp, url),
-  });
+  // In a group it opens that group; in a private chat, the app's group list.
+  const reply_markup = ctx.dbGroup
+    ? openAppKeyboard(ctx.dbGroup, { botUsername: ctx.me.username, inPrivate: false })
+    : new InlineKeyboard().webApp(button("openApp"), clientEnv.NEXT_PUBLIC_MINI_APP_URL);
+  await ctx.reply("點下面開啟揪帳 👇", { reply_markup });
 });

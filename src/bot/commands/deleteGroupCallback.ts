@@ -2,6 +2,14 @@ import { Composer } from "grammy";
 import { and, eq } from "drizzle-orm";
 
 import { TOAST } from "@/lib/buttons";
+import {
+  APPROVE_DELETE,
+  declinedNotice,
+  deletedNotice,
+  EXPIRED_NOTICE,
+  GONE_NOTICE,
+  REJECT_DELETE,
+} from "@/lib/group-delete-notice";
 import { db } from "@/db";
 import { groupDeleteRequests, groupMembers, groups } from "@/db/schema";
 import { requireTelegramChatId } from "@/lib/chat";
@@ -12,7 +20,7 @@ import type { BotContext } from "../context";
 
 export const deleteGroupCallback = new Composer<BotContext>();
 
-deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
+deleteGroupCallback.callbackQuery(APPROVE_DELETE, async (ctx) => {
   const requestId = Number(ctx.match[1]);
   const user = ctx.dbUser;
 
@@ -28,7 +36,7 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
 
   if (!request) {
     await ctx.answerCallbackQuery({ text: TOAST.requestGone, show_alert: true });
-    await ctx.editMessageText("此刪除申請已不存在或已處理。").catch(() => null);
+    await ctx.editMessageText(GONE_NOTICE).catch(() => null);
     return;
   }
 
@@ -50,7 +58,7 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
   if (request.expiresAt < new Date()) {
     await db.delete(groupDeleteRequests).where(eq(groupDeleteRequests.id, requestId));
     await ctx.answerCallbackQuery({ text: "此申請已過期", show_alert: true });
-    await ctx.editMessageText("刪除申請已過期。").catch(() => null);
+    await ctx.editMessageText(EXPIRED_NOTICE).catch(() => null);
     return;
   }
 
@@ -71,7 +79,7 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
   // Telegram client never shows an indefinite loading spinner on the button.
   try {
     await ctx
-      .editMessageText(`${name} 同意刪除群組，揪帳已關閉。所有支出與還款紀錄均已清除。`)
+      .editMessageText(deletedNotice(name, group.title), { parse_mode: "HTML" })
       .catch(() => null);
 
     await ctx.api.leaveChat(requireTelegramChatId(group)).catch(() => null);
@@ -93,7 +101,7 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
   }
 });
 
-deleteGroupCallback.callbackQuery(/^cancel_del:(\d+)$/, async (ctx) => {
+deleteGroupCallback.callbackQuery(REJECT_DELETE, async (ctx) => {
   const requestId = Number(ctx.match[1]);
   const user = ctx.dbUser;
 
@@ -109,7 +117,7 @@ deleteGroupCallback.callbackQuery(/^cancel_del:(\d+)$/, async (ctx) => {
 
   if (!request) {
     await ctx.answerCallbackQuery({ text: TOAST.requestGone, show_alert: true });
-    await ctx.editMessageText("此刪除申請已不存在或已處理。").catch(() => null);
+    await ctx.editMessageText(GONE_NOTICE).catch(() => null);
     return;
   }
 
@@ -131,11 +139,11 @@ deleteGroupCallback.callbackQuery(/^cancel_del:(\d+)$/, async (ctx) => {
     lastName: user.lastName,
     username: user.username,
   });
-  const action = isRequester ? "取消了刪除申請" : "拒絕了刪除申請";
 
   try {
     await ctx
-      .editMessageText(`${name} ${action}。`, {
+      .editMessageText(declinedNotice(name, isRequester), {
+        parse_mode: "HTML",
         reply_markup: { inline_keyboard: [] },
       })
       .catch(() => null);

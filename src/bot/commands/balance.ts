@@ -1,44 +1,51 @@
-import { Composer, InlineKeyboard } from "grammy";
+import { Composer } from "grammy";
 
-import { BTN } from "@/lib/buttons";
-import { groupLink } from "@/lib/deep-link";
-import { fmtGrouped } from "@/lib/money";
-import { computeGroupBalances } from "@/lib/settlement";
+import { TOAST } from "@/lib/buttons";
 
-import { escapeHtml } from "../format";
-import { loadMentionMap } from "../profiles";
+import { balanceView, myBalancesView, parseSettleCallback, settleView } from "../groupViews";
+import { groupForButton, pickCallback, replyNoGroups } from "../groupPicker";
+import { memberGroups } from "../myGroups";
 import type { BotContext } from "../context";
 
 export const balanceCommand = new Composer<BotContext>();
 
 balanceCommand.command("balance", async (ctx) => {
-  if (!ctx.dbGroup) {
-    await ctx.reply("這個指令只能在群組裡用。");
+  const inPrivate = ctx.chat.type === "private";
+  const target = { botUsername: ctx.me.username, inPrivate };
+
+  if (ctx.dbGroup) {
+    const view = await balanceView(ctx.dbGroup, target);
+    await ctx.reply(view.text, { parse_mode: "HTML", reply_markup: view.reply_markup });
     return;
   }
+  if (!inPrivate || !ctx.dbUser) return;
 
-  const currency = ctx.dbGroup.defaultCurrency;
-  const balances = await computeGroupBalances(ctx.dbGroup.id, currency);
-  if (balances.length === 0) {
-    await ctx.reply("這個群組目前沒有結餘，可能還沒記任何支出。");
+  // In a private chat there is no group to ask about, so it answers for all of them at
+  // once — the one thing a group's own /balance can't show.
+  const groups = await memberGroups(ctx.dbUser.id);
+  if (groups.length === 0) {
+    await replyNoGroups(ctx);
     return;
   }
+  const view =
+    groups.length === 1
+      ? await balanceView(groups[0], target)
+      : await myBalancesView(ctx.dbUser.id, groups, (id) => pickCallback("balance", id));
+  await ctx.reply(view.text, { parse_mode: "HTML", reply_markup: view.reply_markup });
+});
 
-  const mentionOf = await loadMentionMap(balances.map((b) => b.userId));
-
-  // Positive (owed money) first, then negative (owes money).
-  const sorted = [...balances].sort((a, b) => b.amount - a.amount);
-  const lines = sorted.map((b) => {
-    const dot = b.amount >= 0 ? "🟢" : "🔴";
-    const sign = b.amount >= 0 ? "+" : "−";
-    return `${dot} ${mentionOf(b.userId)}　<b>${sign}${fmtGrouped(Math.abs(b.amount))}</b>`;
+/** 怎麼還 under a balance: answers with the group's /settle, keeping the balance on screen. */
+balanceCommand.callbackQuery(/^settle:/, async (ctx) => {
+  const groupId = parseSettleCallback(ctx.callbackQuery.data);
+  const group = groupId === null ? null : await groupForButton(ctx, groupId);
+  if (!group) {
+    await ctx.answerCallbackQuery({ text: TOAST.staleButton, show_alert: true });
+    return;
+  }
+  await ctx.answerCallbackQuery();
+  const view = await settleView(group, {
+    botUsername: ctx.me.username,
+    inPrivate: ctx.chat?.type === "private",
   });
-
-  const appUrl = groupLink(ctx.me.username, ctx.chat!.id);
-  const text =
-    `💰 <b>${escapeHtml(ctx.dbGroup.title)}</b>　餘額 · ${currency}\n\n` + lines.join("\n");
-  await ctx.reply(text, {
-    parse_mode: "HTML",
-    reply_markup: new InlineKeyboard().webApp(BTN.openApp, appUrl),
-  });
+  await ctx.reply(view.text, { parse_mode: "HTML", reply_markup: view.reply_markup });
 });

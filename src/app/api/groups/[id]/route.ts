@@ -7,7 +7,7 @@ import { groupDeleteRequests, groupMembers, groups, users } from "@/db/schema";
 import { chatTargetOf, sendToGroupChat } from "@/lib/notice-thread";
 import { assertGroupMember, getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
-import { BTN } from "@/lib/buttons";
+import { deleteRequestMessage } from "@/lib/group-delete-notice";
 import { deleteGroup } from "@/lib/group-delete";
 import { labelUser } from "@/lib/label";
 import { requireId } from "@/lib/route-params";
@@ -94,22 +94,13 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   // with a chat, on the message below).
   if (target !== null) {
     const { api } = getBot();
+    const message = deleteRequestMessage(name, group.title, request.id);
     const sent = await sendToGroupChat(api, target, (thread) =>
-      api.sendMessage(
-        target.chatId,
-        `${name} 申請刪除揪帳群組「${group.title}」，需要其他成員確認。\n\n同意後所有支出與還款紀錄將永久清除。`,
-        {
-          ...thread,
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: BTN.approveDeleteGroup, callback_data: `approve_del:${request.id}` },
-                { text: BTN.rejectDeleteGroup, callback_data: `cancel_del:${request.id}` },
-              ],
-            ],
-          },
-        },
-      ),
+      api.sendMessage(target.chatId, message.text, {
+        ...thread,
+        parse_mode: "HTML",
+        reply_markup: message.reply_markup,
+      }),
     ).catch(() => null);
 
     if (sent) {

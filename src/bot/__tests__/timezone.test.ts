@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { GROUP_ONLY } from "@/lib/buttons";
 import { COMMON_TIME_ZONES } from "@/lib/timezone";
 
 import { parseTimezoneCallback, timezoneCallback, timezoneCommand } from "../commands/timezone";
@@ -54,7 +55,7 @@ describe("/timezone", () => {
   it("explains itself outside a group", async () => {
     const t = testBot(timezoneCommand, { user: undefined, group: undefined });
     await t.send("/timezone");
-    expect(t.replies()).toEqual(["這個指令只能在群組裡用。"]);
+    expect(t.replies()).toEqual([GROUP_ONLY]);
   });
 });
 
@@ -76,7 +77,7 @@ describe("a zone button", () => {
       expect.objectContaining({ source: "bot" }),
     );
     const [edit] = t.callsOf("editMessageText");
-    expect(String(edit.text)).toContain("把群組時區改成 Asia/Tokyo (UTC+9)");
+    expect(String(edit.text)).toContain("Alice 改成了 Asia/Tokyo");
     expect(JSON.stringify(edit.reply_markup)).toContain("✓ Asia/Tokyo (UTC+9)");
   });
 

@@ -1,6 +1,6 @@
 import { Composer, InlineKeyboard } from "grammy";
 
-import { BTN } from "@/lib/buttons";
+import { button, GROUP_ONLY } from "@/lib/buttons";
 import { groupLink } from "@/lib/deep-link";
 import { db } from "@/db";
 import { groupMembers } from "@/db/schema";
@@ -15,7 +15,7 @@ import type { BotContext } from "../context";
 
 export const joinCommand = new Composer<BotContext>();
 
-const USAGE = "<b>回覆</b>對方的任何一則訊息，再打 <code>/join</code>，就會把他加進揪帳。";
+const USAGE = "<b>回覆</b>對方的訊息再打 <code>/join</code>，就能把他加進揪帳。\n自己要加入請點 👇";
 
 /**
  * A typed-out `@handle` is deliberately never resolved. The Bot API has no
@@ -30,7 +30,6 @@ const USAGE = "<b>回覆</b>對方的任何一則訊息，再打 <code>/join</co
  * `@username` for any account that has one, so it fires for so few people that
  * offering it as an instruction mostly sends users down a path that won't work.
  */
-const HANDLE_HINT = "改成<b>回覆</b>他的訊息再打 <code>/join</code>。";
 
 /** One person's outcome, bucketed for the summary reply. */
 type Outcome = "added" | "already" | "notInChat" | "unverifiable";
@@ -42,7 +41,7 @@ function nameOf(u: DbUser): string {
 joinCommand.command("join", async (ctx) => {
   const group = ctx.dbGroup;
   if (!group) {
-    await ctx.reply("這個指令只能在群組裡使用。");
+    await ctx.reply(GROUP_ONLY);
     return;
   }
 
@@ -67,8 +66,12 @@ joinCommand.command("join", async (ctx) => {
   );
   const staleHandles = mentionedHandles.filter((h) => !identifiedHandles.has(h));
 
+  // Whoever types a bare /join often wants to join themselves, so the button is offered.
+  const openApp = () =>
+    new InlineKeyboard().url(button("openApp"), groupLink(ctx.me.username, ctx.chat.id));
+
   if (identified.length === 0 && staleHandles.length === 0) {
-    await ctx.reply(USAGE, { parse_mode: "HTML" });
+    await ctx.reply(USAGE, { parse_mode: "HTML", reply_markup: openApp() });
     return;
   }
 
@@ -133,24 +136,20 @@ joinCommand.command("join", async (ctx) => {
   const notInChat = results.get("notInChat") ?? [];
   const unverifiable = results.get("unverifiable") ?? [];
 
-  if (added.length) lines.push(`✅ 已加入 ${added.length} 人：${added.map(nameOf).join("、")}`);
-  if (already.length) lines.push(`• 已經在揪帳裡：${already.map(nameOf).join("、")}`);
-  if (notInChat.length)
-    lines.push(`⚠️ 不在這個 Telegram 群組，沒有加入：${notInChat.map(nameOf).join("、")}`);
-  if (unverifiable.length)
-    lines.push(`⚠️ 無法確認是否在群組裡，沒有加入：${unverifiable.map(nameOf).join("、")}`);
+  // Names first, so the outcome reads at a glance; ⚠️ already says "not added".
+  const names = (list: DbUser[]) => list.map(nameOf).join("、");
+  if (added.length) lines.push(`✅ ${names(added)} 加入了`);
+  if (already.length) lines.push(`• ${names(already)} 已經在了`);
+  if (notInChat.length) lines.push(`⚠️ ${names(notInChat)} 不在這個群組`);
+  if (unverifiable.length) lines.push(`⚠️ ${names(unverifiable)} 確認不到，請再試一次`);
   if (staleHandles.length) {
-    lines.push(
-      `⚠️ 認不出這樣打的 @：${staleHandles.map((h) => "@" + escapeHtml(h)).join("、")}`,
-      HANDLE_HINT,
-    );
+    const handles = staleHandles.map((h) => "@" + escapeHtml(h)).join("、");
+    lines.push(`⚠️ ${handles} 要用<b>回覆</b>的方式加：回覆他的訊息再打 <code>/join</code>`);
   }
 
   // The button lets people seat themselves (opening the Mini App through a group
   // link auto-joins), so it's only worth offering when someone was left out.
-  const keyboard = staleHandles.length
-    ? new InlineKeyboard().url(BTN.openAppArrow, groupLink(ctx.me.username, ctx.chat.id))
-    : undefined;
+  const keyboard = staleHandles.length ? openApp() : undefined;
 
   await ctx.reply(lines.join("\n"), { parse_mode: "HTML", reply_markup: keyboard });
 });

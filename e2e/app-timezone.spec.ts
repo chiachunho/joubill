@@ -27,7 +27,7 @@ test.describe("Group time zone", () => {
     expect(await groupZone(db, seeded.groupId)).toBe("Asia/Taipei");
 
     await authedPage.goto(`/app/groups/${seeded.groupId}/settings/rates`);
-    await expect(authedPage.getByText(/決定「今天」是哪一天/)).toBeVisible();
+    await expect(authedPage.getByText(/記在這個時區的今天/)).toBeVisible();
 
     await authedPage.getByRole("combobox", { name: "時區" }).click();
     await authedPage.getByRole("option", { name: "Asia/Tokyo (UTC+9)" }).click();

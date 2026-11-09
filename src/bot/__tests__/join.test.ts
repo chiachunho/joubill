@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { User } from "@/db/schema";
-import { BTN } from "@/lib/buttons";
+import { BTN, GROUP_ONLY } from "@/lib/buttons";
 
 import { joinCommand } from "../commands/join";
 import {
@@ -54,13 +54,13 @@ describe("/join", () => {
   it("only works in a group", async () => {
     const t = testBot(joinCommand, { user: dbUser() });
     await t.send("/join", { privateChat: true });
-    expect(t.replies()).toEqual(["這個指令只能在群組裡使用。"]);
+    expect(t.replies()).toEqual([GROUP_ONLY]);
   });
 
   it("explains the reply form when nobody is named", async () => {
     const t = testBot(joinCommand);
     await t.send("/join");
-    expect(t.replies()[0]).toContain("<b>回覆</b>對方的任何一則訊息");
+    expect(t.replies()[0]).toContain("<b>回覆</b>對方的訊息再打");
     expect(testDb.inserts).toHaveLength(0);
   });
 
@@ -70,9 +70,9 @@ describe("/join", () => {
 
     expect(testDb.inserts).toHaveLength(0);
     const [sent] = t.callsOf("sendMessage");
-    expect(String(sent.text)).toContain("認不出這樣打的 @：@carol");
+    expect(String(sent.text)).toContain("@carol 要用<b>回覆</b>的方式加");
     const keyboard = sent.reply_markup as { inline_keyboard: { text: string }[][] };
-    expect(keyboard.inline_keyboard[0][0].text).toBe(BTN.openAppArrow);
+    expect(keyboard.inline_keyboard[0][0].text).toBe(BTN.openApp);
   });
 
   it("does not seat whoever an anonymous admin's message came from", async () => {
@@ -91,7 +91,7 @@ describe("/join", () => {
     await t.send("/join", { replyTo: groupMessage(BOB) });
 
     expect(testDb.inserts.map((i) => i.values)).toEqual([{ groupId: 7, userId: 2 }]);
-    expect(t.replies()[0]).toContain("✅ 已加入 1 人");
+    expect(t.replies()[0]).toContain("Bob</a> 加入了");
     // Only the bot's own status was asked about.
     expect(t.callsOf("getChatMember").map((p) => p.user_id)).toEqual([BOT_INFO.id]);
   });
@@ -102,7 +102,7 @@ describe("/join", () => {
     await t.send("/join", { replyTo: groupMessage(BOB) });
 
     expect(testDb.inserts).toHaveLength(0);
-    expect(t.replies()[0]).toContain("不在這個 Telegram 群組，沒有加入");
+    expect(t.replies()[0]).toContain("Bob</a> 不在這個群組");
   });
 
   it("doesn't seat anyone when the membership check fails", async () => {
@@ -112,7 +112,7 @@ describe("/join", () => {
     await t.send("/join", { replyTo: groupMessage(BOB) });
 
     expect(testDb.inserts).toHaveLength(0);
-    expect(t.replies()[0]).toContain("無法確認是否在群組裡，沒有加入");
+    expect(t.replies()[0]).toContain("Bob</a> 確認不到");
   });
 
   it("says when the person is already a member", async () => {
@@ -121,7 +121,7 @@ describe("/join", () => {
     testDb.state.returning = []; // the conflict clause fired
     await t.send("/join", { replyTo: groupMessage(BOB) });
 
-    expect(t.replies()[0]).toContain("已經在揪帳裡");
-    expect(t.replies()[0]).not.toContain("已加入");
+    expect(t.replies()[0]).toContain("Bob</a> 已經在了");
+    expect(t.replies()[0]).not.toContain("加入了");
   });
 });

@@ -16,6 +16,7 @@ import { timezoneCommand } from "./commands/timezone";
 import { topicCommand } from "./commands/topic";
 import { unlinkCommand } from "./commands/unlink";
 import { listCommand } from "./commands/list";
+import { privatePick } from "./commands/privatePick";
 import { receiptUploadHandler } from "./commands/receiptUpload";
 import { settleCommand } from "./commands/settle";
 import { startCommand } from "./commands/start";
@@ -68,6 +69,7 @@ export function getBot(): Bot<BotContext> {
   bot.use(balanceCommand);
   bot.use(settleCommand);
   bot.use(exportCommand);
+  bot.use(privatePick);
 
   bot.catch((err) => {
     console.error("[bot] unhandled error:", err);

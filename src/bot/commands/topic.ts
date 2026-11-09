@@ -1,7 +1,7 @@
 import { Composer, InlineKeyboard } from "grammy";
 import type { Message } from "grammy/types";
 
-import { TOAST } from "@/lib/buttons";
+import { button, GROUP_ONLY, TOAST, topicSetLabel } from "@/lib/buttons";
 import { changeNoticeThread, renameNoticeThread } from "@/lib/group-notice-thread";
 import { labelUser } from "@/lib/label";
 import {
@@ -62,7 +62,7 @@ export function topicOf(msg: Message | undefined): NoticeThread | null {
 
 /* ── the panel ────────────────────────────────────────────────────────── */
 
-export const NO_TOPICS_TEXT = "這個群組沒有開啟「主題」功能，記帳訊息都會直接發在群組裡。";
+export const NO_TOPICS_TEXT = "這個群組沒開「主題」，通知都會發在群組裡。";
 
 /**
  * The panel for a group whose setting is `current`, asked from topic `here` (null: General).
@@ -75,32 +75,22 @@ export function topicPanel(
   note?: string,
 ) {
   const keyboard = new InlineKeyboard();
-  const lines = [...(note ? [note, ""] : []), "📌 <b>記帳通知發送位置</b>"];
-
+  const where = current ? `# ${escapeHtml(topicName(current.name))}` : "General";
+  const lines = [...(note ? [note, ""] : []), `📌 <b>通知發送位置　${where}</b>`];
+  // In General the way to pick a topic is the useful line; inside a topic, what the setting does.
   lines.push(
-    current
-      ? `目前：<b># ${escapeHtml(topicName(current.name))}</b>`
-      : "目前：<b>General</b>（群組預設）",
+    here ? `<i>${escapeHtml(NOTICE_THREAD_PURPOSE)}</i>` : "<i>要換主題，到那個主題裡打 /topic</i>",
   );
-  lines.push(escapeHtml(NOTICE_THREAD_PURPOSE));
 
   if (here && here.id !== current?.id) {
     keyboard
       .text(
-        `📌 改發到「${topicName(here.name)}」`,
+        topicSetLabel(topicName(here.name)),
         topicCallback({ kind: "set", groupId, threadId: here.id }),
       )
       .row();
   }
-  if (!here) {
-    lines.push(
-      "",
-      current
-        ? "要換成別的主題，請到那個主題裡輸入 /topic。"
-        : "到想要的主題裡輸入 /topic，就能把記帳通知改發到那裡。",
-    );
-  }
-  if (current) keyboard.text("↩︎ 改回 General", topicCallback({ kind: "clear", groupId }));
+  if (current) keyboard.text(button("topicClear"), topicCallback({ kind: "clear", groupId }));
 
   return { text: lines.join("\n"), keyboard };
 }
@@ -108,7 +98,7 @@ export function topicPanel(
 topicCommand.command("topic", async (ctx) => {
   const group = ctx.dbGroup;
   if (!group) {
-    await ctx.reply("這個指令只能在群組裡用。");
+    await ctx.reply(GROUP_ONLY);
     return;
   }
   const current = noticeThreadOf(group);
@@ -132,7 +122,7 @@ topicCommand.callbackQuery(/^topic:/, async (ctx) => {
   // The bot-side counterpart of `assertGroupMember`: a button names a group by id, and the id
   // alone must not reach across chats.
   if (!action || action.groupId !== ctx.dbGroup.id) {
-    await ctx.answerCallbackQuery({ text: "這個按鈕已失效", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.staleButton, show_alert: true });
     return;
   }
 
@@ -142,7 +132,7 @@ topicCommand.callbackQuery(/^topic:/, async (ctx) => {
   let to: NoticeThread | null = null;
   if (action.kind === "set") {
     if (panelTopic?.id !== action.threadId) {
-      await ctx.answerCallbackQuery({ text: "這個按鈕已失效", show_alert: true });
+      await ctx.answerCallbackQuery({ text: TOAST.staleButton, show_alert: true });
       return;
     }
     to = panelTopic;

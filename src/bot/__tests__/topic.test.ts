@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { GROUP_ONLY } from "@/lib/buttons";
 import type { Message } from "grammy/types";
 
-import { parseTopicCallback, topicCallback, topicCommand, topicOf } from "../commands/topic";
+import {
+  NO_TOPICS_TEXT,
+  parseTopicCallback,
+  topicCallback,
+  topicCommand,
+  topicOf,
+} from "../commands/topic";
 import { CHAT_ID, dbGroup, expectAllCallsStubbed, testBot } from "./harness";
 
 const { changeNoticeThread, renameNoticeThread } = vi.hoisted(() => ({
@@ -82,7 +90,7 @@ describe("/topic", () => {
     await t.send("/topic", { extra: inTopic() });
 
     const [msg] = t.callsOf("sendMessage");
-    expect(String(msg.text)).toContain("記帳通知發送位置");
+    expect(String(msg.text)).toContain("通知發送位置");
     expect(String(msg.text)).toContain("General");
     const keyboard = JSON.stringify(msg.reply_markup);
     expect(keyboard).toContain("改發到「旅遊記帳」");
@@ -100,7 +108,7 @@ describe("/topic", () => {
 
     const [msg] = t.callsOf("sendMessage");
     expect(String(msg.text)).toContain("# 旅遊記帳");
-    expect(String(msg.text)).toContain("請到那個主題裡輸入 /topic");
+    expect(String(msg.text)).toContain("到那個主題裡打 /topic");
     const keyboard = JSON.stringify(msg.reply_markup);
     expect(keyboard).toContain(topicCallback({ kind: "clear", groupId: 7 }));
     expect(keyboard).not.toContain("topic:set");
@@ -109,13 +117,13 @@ describe("/topic", () => {
   it("says so in a group without topics", async () => {
     const t = testBot(topicCommand);
     await t.send("/topic");
-    expect(t.replies()).toEqual(["這個群組沒有開啟「主題」功能，記帳訊息都會直接發在群組裡。"]);
+    expect(t.replies()).toEqual([NO_TOPICS_TEXT]);
   });
 
   it("explains itself outside a group", async () => {
     const t = testBot(topicCommand, { user: undefined, group: undefined });
     await t.send("/topic");
-    expect(t.replies()).toEqual(["這個指令只能在群組裡用。"]);
+    expect(t.replies()).toEqual([GROUP_ONLY]);
   });
 });
 

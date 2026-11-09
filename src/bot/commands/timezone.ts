@@ -1,6 +1,6 @@
 import { Composer, InlineKeyboard } from "grammy";
 
-import { TOAST } from "@/lib/buttons";
+import { choice, GROUP_ONLY, TOAST } from "@/lib/buttons";
 import { labelUser } from "@/lib/label";
 import { changeGroupTimezone } from "@/lib/group-timezone";
 import {
@@ -54,16 +54,15 @@ export function timezonePanel(
   const keyboard = new InlineKeyboard();
   COMMON_TIME_ZONES.forEach((z, i) => {
     const name = describeTimeZone(z.tz, now);
-    keyboard.text(z.tz === current ? `✓ ${name}` : name, timezoneCallback(groupId, z.tz));
+    keyboard.text(choice(name, z.tz === current, "single"), timezoneCallback(groupId, z.tz));
     if (i % 2 === 1) keyboard.row();
   });
 
   const text = [
     ...(note ? [note, ""] : []),
-    `🕒 目前群組時區：<b>${escapeHtml(describeTimeZone(current, now))}</b>`,
-    `現在是 ${wallClock(current, now)}`,
-    "",
-    escapeHtml(TIMEZONE_PURPOSE),
+    `🕒 <b>群組時區　${escapeHtml(describeTimeZone(current, now))}</b>`,
+    `現在 ${wallClock(current, now)}`,
+    `<i>${escapeHtml(TIMEZONE_PURPOSE)}</i>`,
   ].join("\n");
   return { text, keyboard };
 }
@@ -72,7 +71,7 @@ export function timezonePanel(
 timezoneCommand.command("timezone", async (ctx) => {
   const group = ctx.dbGroup;
   if (!group) {
-    await ctx.reply("這個指令只能在群組裡用。");
+    await ctx.reply(GROUP_ONLY);
     return;
   }
   const { text, keyboard } = timezonePanel(group.id, group.timezone);
@@ -92,7 +91,7 @@ timezoneCommand.callbackQuery(/^tz:/, async (ctx) => {
   // The bot-side counterpart of `assertGroupMember`: a button names a group by id, and the id
   // alone must not reach across chats.
   if (ctx.dbGroup.id !== parsed.groupId) {
-    await ctx.answerCallbackQuery({ text: "這個按鈕已失效", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.staleButton, show_alert: true });
     return;
   }
 
@@ -110,10 +109,11 @@ timezoneCommand.callbackQuery(/^tz:/, async (ctx) => {
   }
 
   await ctx.answerCallbackQuery({
-    text: result.changed ? `已改為 ${describeTimeZone(result.to)}` : "已經是這個時區",
+    text: result.changed ? `已改為 ${result.to}` : "已經是這個時區",
   });
   if (!result.changed) return;
-  const note = `✅ ${escapeHtml(labelUser(ctx.dbUser))} 把群組時區改成 ${escapeHtml(describeTimeZone(result.to))}`;
+  // The panel below names the zone in full, so this line keeps it short.
+  const note = `✅ ${escapeHtml(labelUser(ctx.dbUser))} 改成了 ${escapeHtml(result.to)}`;
   const { text, keyboard } = timezonePanel(parsed.groupId, result.to, new Date(), note);
   await ctx.editMessageText(text, { parse_mode: "HTML", reply_markup: keyboard }).catch(() => null);
 });

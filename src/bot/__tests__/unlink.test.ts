@@ -49,7 +49,7 @@ describe("/unlink", () => {
   it("explains itself in a chat that has no group", async () => {
     const t = testBot(unlinkCommand, { user: undefined, group: undefined });
     await t.send("/unlink");
-    expect(t.replies()).toEqual(["這個指令只能在已綁定的群組裡使用。"]);
+    expect(t.replies()).toEqual(["這個指令要在已綁定的群組裡用。"]);
   });
 
   it("does nothing when cancelled", async () => {
@@ -74,7 +74,7 @@ describe("/unlink", () => {
     expect(unlinkChat).toHaveBeenCalledWith(7);
     expect(logChatUnlinked).toHaveBeenCalledWith(7, { userId: 1, source: "bot" }, "日本行");
     // The prompt is edited rather than a second message sent.
-    expect(t.callsOf("editMessageText")[0].text).toContain("已解除與 App 的綁定");
+    expect(t.callsOf("editMessageText")[0].text).toContain("已解除綁定");
     expect(t.callsOf("sendMessage")).toEqual([]);
     expect(t.callsOf("leaveChat")).toEqual([{ chat_id: -1001234567 }]);
   });
@@ -91,7 +91,7 @@ describe("/unlink", () => {
     });
     await t.press("unlink:yes:7");
 
-    expect(t.callsOf("sendMessage")[0].text).toContain("已解除與 App 的綁定");
+    expect(t.callsOf("sendMessage")[0].text).toContain("已解除綁定");
     expect(t.callsOf("leaveChat")).toHaveLength(1);
   });
 
