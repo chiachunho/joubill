@@ -1,38 +1,17 @@
 import { Composer } from "grammy";
 
-import { fmtGrouped } from "@/lib/money";
-import { computeGroupBalances, minimizeTransfers } from "@/lib/settlement";
-
-import { escapeHtml } from "../format";
-import { loadMentionMap } from "../profiles";
+import { settleView } from "../groupViews";
+import { pickGroup } from "../groupPicker";
 import type { BotContext } from "../context";
 
 export const settleCommand = new Composer<BotContext>();
 
 settleCommand.command("settle", async (ctx) => {
-  if (!ctx.dbGroup) {
-    await ctx.reply("這個指令只能在群組裡用。");
-    return;
-  }
+  const inPrivate = ctx.chat.type === "private";
+  const group =
+    ctx.dbGroup ?? (inPrivate ? await pickGroup(ctx, "settle", "要看哪個群組的還款建議？") : null);
+  if (!group) return;
 
-  const currency = ctx.dbGroup.defaultCurrency;
-  const balances = await computeGroupBalances(ctx.dbGroup.id, currency);
-  const transfers = minimizeTransfers(balances);
-
-  if (transfers.length === 0) {
-    await ctx.reply("所有帳款已結清 🎉");
-    return;
-  }
-
-  const mentionOf = await loadMentionMap(
-    Array.from(new Set(transfers.flatMap((t) => [t.fromUserId, t.toUserId]))),
-  );
-
-  const lines = transfers.map(
-    (t) => `${mentionOf(t.fromUserId)} → ${mentionOf(t.toUserId)}　<b>${fmtGrouped(t.amount)}</b>`,
-  );
-
-  const text =
-    `🤝 <b>${escapeHtml(ctx.dbGroup.title)}</b>　還款建議 · ${currency}\n\n` + lines.join("\n");
-  await ctx.reply(text, { parse_mode: "HTML" });
+  const view = await settleView(group, { botUsername: ctx.me.username, inPrivate });
+  await ctx.reply(view.text, { parse_mode: "HTML", reply_markup: view.reply_markup });
 });

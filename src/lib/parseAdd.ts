@@ -16,25 +16,13 @@ import { SUPPORTED_CURRENCIES } from "./zod";
  */
 
 /**
- * User-facing usage text, shown whenever someone types `/add` without telling
- * us anything — a bare `/add` in a group is the moment they most need it, so it
- * carries the same content as `/help`'s 記一筆 section rather than an abridged
- * version. Keep the two in step (`src/bot/commands/help.ts`).
+ * User-facing usage text for an `/add` with nothing after it. Short on purpose: the
+ * examples show the format, and `/help` and the help site have the rest.
  *
  * Plain text, no HTML or Markdown: the bot sends it through the same paths that
  * echo whatever the user typed, so there is no escaping dance.
  */
-export const ADD_USAGE = [
-  "記一筆支出：/add 金額 說明",
-  "例如：/add 500 晚餐",
-  "",
-  "金額怎麼寫都行：1,200 · 300元 · 3k · 150+200",
-  "別的幣別：/add 3000 JPY 拉麵",
-  "只給某些人分：/add 500 晚餐 @alice @bob",
-  "",
-  `記完點訊息下方的「${BTN.adjust}」：`,
-  `${BTN.who} · ${BTN.shares} · ${BTN.currency} · ${BTN.amount}`,
-].join("\n");
+export const ADD_USAGE = "記一筆：/add 金額 說明\n例如 /add 500 晚餐、/add 3000 JPY 拉麵";
 
 /* ── input normalisation ──────────────────────────────────────────────── */
 
@@ -406,10 +394,7 @@ export function parseAddMessage(text: string, entities: readonly MessageEntity[]
   const firstLine = lines[0];
 
   if (lines.slice(1).some((l) => l.trim())) {
-    throw new Error(
-      "多行分帳已經改用按鈕了。\n" +
-        `先記「/add 500 晚餐」，再點訊息下方的「${BTN.adjust}」選誰分、改份數。`,
-    );
+    throw new Error(`一次記一筆就好，誰分、份數記完再用 ${BTN.adjust} 改`);
   }
 
   const cmdMatch = firstLine.match(/^\/add(@\w+)?\s*/i);
@@ -421,9 +406,9 @@ export function parseAddMessage(text: string, entities: readonly MessageEntity[]
   const scan = scanAmount(firstLine, bodyStart);
   if (!scan) {
     const token = firstLine.slice(bodyStart).split(/\s+/)[0];
-    throw new Error(`看不懂金額「${token}」。\n第一個字要是金額，例如：/add 500 晚餐`);
+    throw new Error(`看不懂金額「${token}」，開頭要是數字`);
   }
-  if (scan.value <= 0) throw new Error("金額要大於 0。");
+  if (scan.value <= 0) throw new Error("金額要大於 0");
 
   // Mentions pick who splits; they're cut out of the description so
   // "/add 600 晚餐 @alice" describes 晚餐, not "晚餐 @alice".

@@ -11,7 +11,7 @@ import {
   groups,
   users,
 } from "@/db/schema";
-import { BTN } from "@/lib/buttons";
+import { button } from "@/lib/buttons";
 import { sendToGroupChat, type ChatTarget } from "@/lib/notice-thread";
 import { telegramChatId } from "@/lib/chat";
 import { botUsername } from "@/lib/bot-username";
@@ -242,7 +242,9 @@ function settlementKeyboard(
   loaded: LoadedNotice & { chatId: number },
 ): InlineKeyboard {
   const url = settlementLink(username, loaded.chatId, loaded.recordId);
-  return new InlineKeyboard().url(BTN.appEdit, url).text(BTN.delete, `del_exp:${loaded.recordId}`);
+  return new InlineKeyboard()
+    .url(button("appEdit"), url)
+    .text(button("delete"), `del_exp:${loaded.recordId}`);
 }
 
 type Rendered = { text: string; reply_markup: InlineKeyboard | undefined };
@@ -314,7 +316,7 @@ export async function sendRecordNotice(api: Api, recordId: number): Promise<void
  * message someone deleted, or one Telegram refuses to edit.
  *
  * An expense card is re-rendered in `default` mode, so a card someone had left
- * open on the ⚙️ panel collapses back to the summary view. That is intended:
+ * open on the ☰ panel collapses back to the summary view. That is intended:
  * the panel's state is a UI mode, not part of the record.
  *
  * `repost: false` only ever edits: with no message, or one Telegram won't edit, it does

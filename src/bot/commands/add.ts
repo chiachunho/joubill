@@ -13,7 +13,11 @@ import {
 } from "@/db/schema";
 import { upsertTelegramUser } from "@/lib/auth/upsertTelegramUser";
 import { clientEnv } from "@/lib/env";
-import { BTN, TOAST } from "@/lib/buttons";
+import { BTN, button, TOAST } from "@/lib/buttons";
+import type { Group } from "@/db/schema";
+import { telegramChatId } from "@/lib/chat";
+import { expenseLink } from "@/lib/deep-link";
+import { fmtGrouped } from "@/lib/money";
 import { labelUser } from "@/lib/label";
 import {
   ADD_USAGE,
@@ -32,12 +36,14 @@ import { spentAtForNow } from "@/lib/fx";
 import { escapeHtml, mention } from "../format";
 import { staleAwaitingBefore } from "../awaiting";
 import { USER_COLUMNS } from "../profiles";
+import { openAppKeyboard } from "../groupViews";
+import { pickGroup, quotedTitle } from "../groupPicker";
 import { canVerifyMembership, verifyInChat } from "../membership";
 import type { BotContext } from "../context";
 
 export const addCommand = new Composer<BotContext>();
 
-const PROMPT_NEW = `${ADD_USAGE}\n\n👇 直接回覆這則訊息`;
+const PROMPT_NEW = "要記什麼？直接回覆「金額 說明」👇\n例如 500 晚餐、3000 JPY 拉麵";
 
 /**
  * Send a ForceReply prompt and remember it, so the user's reply lands back in
@@ -90,7 +96,7 @@ function mentionRequester(ctx: BotContext): string {
 
 /** Report a parse failure and immediately offer a one-tap retry. */
 async function replyAddError(ctx: BotContext, message: string) {
-  await prompt(ctx, `${message}\n\n👇 直接回覆這則訊息重試`);
+  await prompt(ctx, `${message}\n👇 回覆這則重打`);
 }
 
 export async function promptForExpenseField(
@@ -101,8 +107,8 @@ export async function promptForExpenseField(
 ) {
   const text =
     field === "amount"
-      ? "輸入新的金額（例如 500、1,200、3k、150+200）"
-      : `輸入幣別代碼：${SUPPORTED_CURRENCIES.join(" / ")}`;
+      ? "新金額？👇 回覆這則"
+      : `幣別代碼？👇 回覆這則\n可用：${SUPPORTED_CURRENCIES.join(" ")}`;
   await prompt(ctx, text, { expenseId, field, panelMessageId });
 }
 
@@ -149,9 +155,8 @@ async function resolveParticipants(
       // Under privacy mode "just talk in the group" does NOT reach the bot, so
       // point at the paths that actually seat someone (see /join's docs).
       error:
-        `找不到揪帳裡的 ${missing.join("、")}。\n` +
-        `要先把人加進來：回覆對方的訊息再打 /join，或請他點群組裡「${BTN.openApp}」的按鈕。\n` +
-        `或者先「/add 500 晚餐」記起來，再用「${BTN.adjust} → ${BTN.who}」挑人。`,
+        `${missing.join("、")} 還沒加入揪帳，這筆沒記。\n` +
+        "回覆他的訊息打 /join 加入後再記一次。",
     };
   }
   return { participants: found };
@@ -162,15 +167,14 @@ async function resolveParticipants(
  * ForceReply path and the photo-caption path in receiptUpload.ts.
  */
 export async function handleAddParsed(
-  ctx: BotContext & {
-    dbGroup: NonNullable<BotContext["dbGroup"]>;
-    dbUser: NonNullable<BotContext["dbUser"]>;
-  },
+  ctx: BotContext & { dbUser: NonNullable<BotContext["dbUser"]> },
   parsed: ParsedAdd,
   entities: readonly import("grammy/types").MessageEntity[] = [],
-  opts: { receiptFileId?: string } = {},
+  /** `group` is set for an /add typed in a private chat, which belongs to no group. */
+  opts: { receiptFileId?: string; group?: Group } = {},
 ) {
-  const group = ctx.dbGroup;
+  const group = opts.group ?? ctx.dbGroup!;
+  const inPrivate = !ctx.dbGroup;
   const payer = ctx.dbUser;
 
   // Auto-register people picked from the @ list who have no public username.
@@ -185,7 +189,9 @@ export async function handleAddParsed(
   // wrongly-rejected here: /add's job is to record the expense.
   const namesByTelegramId = new Map<number, string>();
   let enforceMembership: boolean | null = null;
-  for (const entity of entities) {
+  // A private chat has no members to check a mention against, so there it only matches
+  // people already in the group.
+  for (const entity of inPrivate ? [] : entities) {
     if (entity.type !== "text_mention" || !entity.user || entity.user.is_bot) continue;
     namesByTelegramId.set(
       entity.user.id,
@@ -219,7 +225,9 @@ export async function handleAddParsed(
     return;
   }
   if (resolved.participants.length === 0) {
-    await ctx.reply("這個群組沒有可分帳的人。");
+    await ctx.reply(`還沒有人加入揪帳，點「${BTN.openApp}」加入後再記。`, {
+      reply_markup: openAppKeyboard(group, { botUsername: ctx.me.username, inPrivate }),
+    });
     return;
   }
 
@@ -254,6 +262,14 @@ export async function handleAddParsed(
     return row;
   });
 
+  if (inPrivate) {
+    // Posted to the group like a record made in the app (its card goes to the group's
+    // chat, if it has one); the private chat gets a confirmation.
+    await logCreated(ctx.api, expense.id, actorOf(ctx));
+    await replyPrivateConfirmation(ctx, group, expense.id);
+    return;
+  }
+
   const card = await renderCard(originOf(ctx), expense.id, "default");
   const sent = card
     ? await ctx.reply(card.text, { parse_mode: "HTML", reply_markup: card.reply_markup })
@@ -264,16 +280,60 @@ export async function handleAddParsed(
   await logCreated(null, expense.id, actorOf(ctx), { messageId: sent?.message_id });
 }
 
+/**
+ * "✓ 已記到「東京旅行」" over the same lines the group's card shows. No ☰ 調整 panel: its
+ * buttons work out the group from the chat they are pressed in, and this chat has none.
+ * ⊗ 刪除 still works here (`deleteExpense.ts` checks membership in a private chat).
+ */
+async function replyPrivateConfirmation(ctx: BotContext, group: Group, expenseId: number) {
+  const chatId = telegramChatId(group);
+  const card = await renderCard(
+    { botUsername: ctx.me.username, chatId: chatId ?? 0 },
+    expenseId,
+    "default",
+  );
+  if (!card) return;
+  const kb = new InlineKeyboard();
+  if (chatId !== null) kb.url(button("appEdit"), expenseLink(ctx.me.username, chatId, expenseId));
+  else kb.webApp(button("appEdit"), clientEnv.NEXT_PUBLIC_MINI_APP_URL);
+  kb.text(button("delete"), `del_exp:${expenseId}`);
+  await ctx.reply(`✓ 已記到${quotedTitle(group)}\n${card.text}`, {
+    parse_mode: "HTML",
+    reply_markup: kb,
+  });
+}
+
+/**
+ * A private `/add`: parsed first, so a typo is caught before asking which group. With one
+ * group it is recorded straight away; with several, the picker's callback
+ * (`privatePick.ts`) records it once a group is chosen.
+ */
+export async function privateAdd(ctx: BotContext & { dbUser: NonNullable<BotContext["dbUser"]> }) {
+  const text = ctx.message?.text ?? "";
+  if (!text.replace(/^\/add(@\w+)?\s*/i, "").trim()) {
+    await ctx.reply(ADD_USAGE);
+    return;
+  }
+  let parsed;
+  try {
+    parsed = parseAddMessage(text, ctx.message?.entities ?? []);
+  } catch (err) {
+    await ctx.reply(err instanceof Error ? err.message : ADD_USAGE);
+    return;
+  }
+
+  const desc = parsed.description ? `${escapeHtml(parsed.description)}　` : "";
+  const money = `${fmtGrouped(parsed.amount)}${parsed.currency ? ` ${parsed.currency}` : ""}`;
+  const group = await pickGroup(ctx, "add", `<b>${desc}${money}</b> 要記到哪個群組？`);
+  if (group) await handleAddParsed(ctx, parsed, [], { group });
+}
+
 /* ── /add ─────────────────────────────────────────────────────────────── */
 
 addCommand.command("add", async (ctx) => {
-  if (!ctx.dbGroup || !ctx.dbUser) {
-    const keyboard = new InlineKeyboard().webApp(BTN.openApp, clientEnv.NEXT_PUBLIC_MINI_APP_URL);
-    await ctx.reply(
-      "分帳要在群組裡才有意義 — 把我加進群組就能用 /add 記帳。\n" +
-        "想看自己現在的帳，可以直接開 App。",
-      { reply_markup: keyboard },
-    );
+  if (!ctx.dbUser) return;
+  if (!ctx.dbGroup) {
+    if (ctx.chat.type === "private") await privateAdd(ctx as Parameters<typeof privateAdd>[0]);
     return;
   }
 
@@ -317,13 +377,13 @@ addCommand.callbackQuery(/^upload_receipt:(\d+)$/, async (ctx) => {
 
   const chatId = ctx.chat?.id;
   if (!chatId) {
-    await ctx.answerCallbackQuery({ text: "無法取得群組資訊", show_alert: true });
+    await ctx.answerCallbackQuery({ text: TOAST.actionFailed, show_alert: true });
     return;
   }
 
   // Mention the requester so `selective` actually targets them — replying to
   // the bot's own card would target nobody. See prompt() above.
-  const sent = await ctx.reply(`${mentionRequester(ctx)} 請直接傳送收據照片 📷`, {
+  const sent = await ctx.reply(`${mentionRequester(ctx)} 📷 回覆這則，傳一張收據照片`, {
     parse_mode: "HTML",
     reply_markup: { force_reply: true, selective: true },
   });
@@ -380,6 +440,21 @@ addCommand.on("message:text", async (ctx, next) => {
   );
 });
 
+/** A rejected field reply: say why and ask again, like a failed /add does. */
+async function retryField(
+  ctx: BotContext,
+  message: string,
+  expenseId: number,
+  field: string,
+  panelMessageId: number | null,
+) {
+  await prompt(ctx, `${message}\n👇 回覆這則重打`, {
+    expenseId,
+    field,
+    panelMessageId: panelMessageId ?? undefined,
+  });
+}
+
 /** Apply a ForceReply answer to one field of an existing expense, then refresh its card. */
 async function applyFieldReply(
   ctx: BotContext & { chat: { id: number }; message: { text: string } },
@@ -396,14 +471,14 @@ async function applyFieldReply(
     .from(expenses)
     .where(eq(expenses.id, expenseId));
   if (!target || !ctx.dbGroup || target.groupId !== ctx.dbGroup.id) {
-    await ctx.reply("找不到這筆支出（可能已刪除）。");
+    await ctx.reply(TOAST.recordGone);
     return;
   }
 
   if (field === "amount") {
     const value = evalAmountExpr(raw);
     if (value === null || value <= 0) {
-      await ctx.reply(`看不懂金額「${raw}」，金額沒有改。`);
+      await retryField(ctx, `看不懂「${raw}」，金額沒改`, expenseId, field, panelMessageId);
       return;
     }
     await setExpenseAmount(expenseId, value, actorOf(ctx));
@@ -412,12 +487,16 @@ async function applyFieldReply(
     // Must be a currency the whole app supports: an unknown code makes getRate
     // fail, which takes down /balance and /settle for the entire group.
     if (!isSupportedCurrency(code)) {
-      await ctx.reply(
-        `「${raw}」不是支援的幣別，幣別沒有改。\n目前支援：${SUPPORTED_CURRENCIES.join(" / ")}`,
+      await retryField(
+        ctx,
+        `不支援「${raw}」，幣別沒改\n可用：${SUPPORTED_CURRENCIES.join(" ")}`,
+        expenseId,
+        field,
+        panelMessageId,
       );
       return;
     }
-    // Shared with the 💱 buttons: re-typing the current code must not discard a
+    // Shared with the 幣別 buttons: re-typing the current code must not discard a
     // pinned rate, and a real change must always drop it.
     await setExpenseCurrency(expenseId, code, actorOf(ctx));
   }

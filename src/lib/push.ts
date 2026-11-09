@@ -66,7 +66,7 @@ async function deliver(
         { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
         JSON.stringify(payload),
         // The topic makes the push service replace an undelivered notification about the
-        // same record (three quick 👥 誰分 taps arrive as one); the `tag` does it on the device.
+        // same record (three quick 誰分 taps arrive as one); the `tag` does it on the device.
         { TTL: TTL_SECONDS, urgency: "normal", ...(topic ? { topic } : {}) },
       ),
     ),

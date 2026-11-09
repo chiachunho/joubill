@@ -82,7 +82,7 @@ export async function setExpensePayer(
  */
 export async function setExpenseAmount(expenseId: number, total: number, actor: Actor) {
   await logUpdated(null, expenseId, actor, async (tx) => {
-    // Read under the lock, not before it: a 💳 誰付 change that commits in
+    // Read under the lock, not before it: a 誰付 change that commits in
     // between adds a payer row this function would otherwise never rescale, and
     // the payers would no longer sum to the new total.
     const payers = await tx
@@ -141,7 +141,7 @@ export async function setExpenseAmount(expenseId: number, total: number, actor: 
  *
  * The pin was quoted against the old currency, so keeping it would convert the
  * new amount at the old currency's rate — a wrong number with nothing to
- * announce it. This guard used to live in two places (the 💱 buttons and the
+ * announce it. This guard used to live in two places (the 幣別 buttons and the
  * ForceReply that answers 其他幣別) as hand-copied duplicates; either copy
  * forgetting to clear the pin fails silently, which is exactly the kind of
  * duplication CLAUDE.md says to collapse.
@@ -168,7 +168,7 @@ export async function setExpenseCurrency(expenseId: number, code: string, actor:
  *
  * The odd one out: it takes an `api` where the others pass `null`. The reply
  * that carries the photo is not a card button, so nobody is re-rendering the
- * card — without this the expense keeps offering 🧾 收據 for a receipt it
+ * card — without this the expense keeps offering ⊕ 收據 for a receipt it
  * already has.
  */
 export async function setExpenseReceipt(expenseId: number, fileId: string, actor: Actor, api: Api) {

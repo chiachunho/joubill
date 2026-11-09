@@ -29,23 +29,30 @@ async function setCommands(commands: { command: string; description: string }[],
 
 // Commands available in group chats
 const groupCommands = [
-  { command: "add", description: "記一筆（/add 500 晚餐）" },
-  { command: "list", description: "最近 10 筆支出" },
-  { command: "balance", description: "各人淨額" },
-  { command: "settle", description: "最少還款建議" },
-  { command: "export", description: "匯出全部帳目（CSV）" },
-  { command: "join", description: "把人加進揪帳（回覆對方訊息再打 /join）" },
-  { command: "link", description: "把網頁建立的群組綁到這個聊天室（/link 邀請碼）" },
-  { command: "timezone", description: "群組時區（決定 /add 記在哪一天）" },
-  { command: "topic", description: "設定記帳通知發送位置（開了主題的群組）" },
-  { command: "unlink", description: "解除這個聊天室與 App 的綁定（bot 會離開）" },
-  { command: "app", description: "開啟揪帳 Mini App" },
+  { command: "add", description: "記一筆" },
+  { command: "list", description: "最近紀錄" },
+  { command: "balance", description: "誰應收、誰應付" },
+  { command: "settle", description: "怎麼還最省事" },
+  { command: "export", description: "匯出 CSV" },
+  { command: "join", description: "回覆某人打 /join 把他加進來" },
+  { command: "link", description: "綁定網頁建立的群組" },
+  { command: "timezone", description: "群組時區" },
+  { command: "topic", description: "通知發到哪個主題" },
+  { command: "unlink", description: "解除綁定" },
+  { command: "app", description: "開啟揪帳" },
   { command: "help", description: "指令說明" },
 ];
 
-// Commands available in private chat
+// Commands available in private chat: the ones that work without a group's chat
+// (they ask which group, or answer for all of them).
 const privateCommands = [
   { command: "start", description: "開始使用揪帳" },
+  { command: "add", description: "記一筆到你的群組" },
+  { command: "balance", description: "你在各群組的餘額" },
+  { command: "settle", description: "怎麼還最省事" },
+  { command: "list", description: "最近紀錄" },
+  { command: "export", description: "匯出 CSV 給自己" },
+  { command: "app", description: "開啟揪帳" },
   { command: "help", description: "指令說明" },
 ];
 

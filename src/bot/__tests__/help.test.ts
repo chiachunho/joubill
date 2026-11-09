@@ -18,7 +18,7 @@ describe("/help", () => {
     const [text] = t.replies();
     expect(text).toContain("/add 500 晚餐");
     // Prose that names a button interpolates BTN, so a rename can't leave /help stale.
-    for (const label of [BTN.adjust, BTN.payer, BTN.who, BTN.shares, BTN.currency, BTN.amount]) {
+    for (const label of [BTN.adjust, BTN.payer, BTN.who, BTN.currency]) {
       expect(text).toContain(label);
     }
   });

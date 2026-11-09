@@ -227,7 +227,7 @@ export const receiptAwaiting = pgTable("receipt_awaiting", {
 /**
  * Tracks in-flight ForceReply prompts in group chats: either "waiting for /add
  * details" (bare /add) or "waiting for a new value" for one field of an
- * existing expense (the ✏️ 金額 / 💱 其他幣別 buttons on the expense card).
+ * existing expense (the ± 金額 / 其他… buttons on the expense card).
  * Deleted once the user replies (or the row expires after 24 h).
  */
 export const addAwaiting = pgTable("add_awaiting", {

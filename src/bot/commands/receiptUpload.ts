@@ -14,6 +14,12 @@ import type { BotContext } from "../context";
 export const receiptUploadHandler = new Composer<BotContext>();
 
 receiptUploadHandler.on("message:photo", async (ctx) => {
+  // A private /add records into a group chosen afterwards, so there is nowhere to attach
+  // the photo yet; say so rather than ignore it.
+  if (ctx.chat.type === "private" && /^\/add(@\w+)?(\s|$)/i.test(ctx.message.caption ?? "")) {
+    await ctx.reply("私訊記帳不能附照片。請在群組裡傳照片附上 /add，或記好後用 App 補上收據。");
+    return;
+  }
   if (!ctx.dbGroup || !ctx.dbUser) return;
 
   const fileId = ctx.message.photo.at(-1)!.file_id;
@@ -30,12 +36,12 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
 
     if (pending) {
       if (ctx.message.media_group_id) {
-        await ctx.reply("收據只支援單張照片，請單獨傳送一張照片。");
+        await ctx.reply("一次一張，請重新回覆一張照片。");
         return;
       }
       await Promise.all([
         // Passing the api refreshes the expense's card, which otherwise keeps
-        // offering 🧾 收據 for a receipt that has already been attached.
+        // offering ⊕ 收據 for a receipt that has already been attached.
         setExpenseReceipt(pending.expenseId, fileId, actorOf(ctx), ctx.api),
         db.delete(receiptAwaiting).where(eq(receiptAwaiting.id, pending.id)),
         ctx.api.deleteMessage(ctx.chat.id, replyToId).catch(() => undefined),
@@ -60,7 +66,7 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
   if (cmdText !== "/add" && cmdText !== `/add@${botUsername}`) return;
 
   if (ctx.message.media_group_id) {
-    await ctx.reply("Caption 模式不支援一次傳送多張照片，請單獨傳送一張照片。");
+    await ctx.reply("一次只能附一張收據，請只傳一張照片再寫 /add。");
     return;
   }
 
@@ -69,11 +75,11 @@ receiptUploadHandler.on("message:photo", async (ctx) => {
     parsed = parseAddMessage(caption, captionEntities);
   } catch (err) {
     // No ForceReply retry offered here — replying with text would lose the photo.
-    await ctx.reply(err instanceof Error ? err.message : ADD_USAGE);
+    await ctx.reply(`${err instanceof Error ? err.message : ADD_USAGE}\n請重新傳照片並附上 /add`);
     return;
   }
 
-  // Same path as a text /add — mentions and the ⚙️ 調整 panel work identically,
+  // Same path as a text /add — mentions and the ☰ 調整 panel work identically,
   // the only difference is that the receipt is already attached.
   await handleAddParsed(ctx as Parameters<typeof handleAddParsed>[0], parsed, captionEntities, {
     receiptFileId: fileId,

@@ -58,30 +58,28 @@ export function formatMcpLine(creator: Profile | null, via: string): string {
   return `✦ ${by}${escapeHtml(viaText(via))} 記錄`;
 }
 
-/** The group notice for a settlement: "💸 A → B　1,200 TWD", plus who it was entered through when an assistant did. */
+/** The group notice for a settlement: "💸 <b>還款　1,200 TWD</b>" over "A → B", plus who it was entered through when an assistant did. */
 export function formatSettlementNotice(
   record: NoticeRecord,
   mcp?: { creator: Profile | null; via: string } | null,
 ): string {
   const from = record.payers[0]?.user;
   const to = record.splits[0]?.user;
-  const amount = `<b>${money(record)}</b>`;
-  const line =
-    !from || !to ? `💸 還款　${amount}` : `💸 ${nameOf(from)} → ${nameOf(to)}　${amount}`;
-  return mcp ? `${line}\n${formatMcpLine(mcp.creator, mcp.via)}` : line;
+  const lines = [`💸 <b>還款　${money(record)}</b>`];
+  if (from && to) lines.push(`${nameOf(from)} → ${nameOf(to)}`);
+  if (mcp) lines.push(formatMcpLine(mcp.creator, mcp.via));
+  return lines.join("\n");
 }
 
-/** Short description of what was deleted, for the tombstone line. */
+/** What was deleted, struck through: `晚餐　600 TWD` or `還款 A → B　300 TWD`. */
 function whatWasDeleted(record: NoticeRecord): string {
   if (record.type === "settlement") {
     const from = record.payers[0]?.user;
     const to = record.splits[0]?.user;
-    return from && to
-      ? `還款 ${nameOf(from)} → ${nameOf(to)} ${money(record)}`
-      : `還款 ${money(record)}`;
+    const who = from && to ? ` ${escapeHtml(labelUser(from))} → ${escapeHtml(labelUser(to))}` : "";
+    return `還款${who}　${money(record)}`;
   }
-  const desc = record.description ? `（${escapeHtml(record.description)}）` : "";
-  return `${money(record)}${desc}`;
+  return record.description ? `${escapeHtml(record.description)}　${money(record)}` : money(record);
 }
 
 /**
@@ -89,6 +87,9 @@ function whatWasDeleted(record: NoticeRecord): string {
  * stays a readable history: it says what went, who had recorded it, and who
  * removed it. That attribution is what stands in for a per-record owner lock
  * (see CLAUDE.md), so don't quietly drop the names.
+ *
+ *   🗑 <s>晚餐　600 TWD</s>
+ *   小明 記錄 · 阿華 刪除
  */
 export function formatDeletedNotice(params: {
   record: NoticeRecord;
@@ -104,13 +105,9 @@ export function formatDeletedNotice(params: {
 
   const by = creator && creator.userId !== deleter.userId ? escapeHtml(labelUser(creator)) : null;
   const via = creatorVia ? escapeHtml(viaText(creatorVia)) : null;
-  // Same person deleting what their own assistant entered still says so: "原本是透過 Claude 記錄".
-  const origin = by
-    ? `，原本由 ${by}${via ? ` ${via}` : ""} 記錄`
-    : via
-      ? `，原本是${via} 記錄`
-      : "";
-  const deletedBy = `${nameOf(deleter)}${deleterVia ? ` ${escapeHtml(viaText(deleterVia))}` : ""}`;
+  // Same person deleting what their own assistant entered still says so: "透過 Claude 記錄".
+  const origin = by ? `${by}${via ? ` ${via}` : ""} 記錄` : via ? `${via} 記錄` : null;
+  const deletedBy = `${nameOf(deleter)}${deleterVia ? ` ${escapeHtml(viaText(deleterVia))}` : ""} 刪除`;
 
-  return `🗑 已刪除 ${whatWasDeleted(record)}${origin}\n— ${deletedBy}`;
+  return `🗑 <s>${whatWasDeleted(record)}</s>\n${origin ? `${origin} · ` : ""}${deletedBy}`;
 }
