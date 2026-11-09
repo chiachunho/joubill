@@ -519,7 +519,7 @@ Push notifications (issue #67) are optional too, read from `process.env` by `pus
 
 Optional, read from `process.env` by `contactEmail()` (`src/lib/contact.ts`):
 
-- `CONTACT_EMAIL` — shown on `/help/privacy` and `/help/terms`; unset, they read 尚未設定聯絡信箱. The pages are prerendered, so a change takes effect at the next deploy
+- `CONTACT_EMAIL` — shown on `/help/privacy`, `/help/terms` and `/help/troubleshooting`; unset, they read 尚未設定聯絡信箱. The pages are prerendered, so a change takes effect at the next deploy
 
 All route handlers must set `export const runtime = "nodejs"` and `export const dynamic = "force-dynamic"` because they use the Neon serverless driver.
 
