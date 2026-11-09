@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 
 import { Pool } from "@neondatabase/serverless";
 import { inArray } from "drizzle-orm";
@@ -64,11 +64,11 @@ function connectionString(): string {
  * keeps the seed from colliding with a real user in a branch database copied from production.
  */
 function randomTelegramId(): number {
-  return 2 ** 52 + Math.floor(Math.random() * 1_000_000_000);
+  return 2 ** 52 + randomInt(1_000_000_000);
 }
 
 function randomChatId(): string {
-  return `-100${900_000_000 + Math.floor(Math.random() * 100_000_000)}`;
+  return `-100${900_000_000 + randomInt(100_000_000)}`;
 }
 
 /**
