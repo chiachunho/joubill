@@ -44,17 +44,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { dayToLocalDate, localDateToDay } from "@/lib/day";
-import {
-  apiErrorStatus,
-  deleteErrorMessage,
-  FORMER_MEMBER,
-  saveErrorMessage,
-} from "@/lib/api-error";
+import { apiErrorStatus, deleteErrorMessage, saveErrorMessage } from "@/lib/api-error";
 import { rateSourceLabel } from "@/lib/rate-source-label";
 import { recordHistoryHref } from "@/lib/activity-link";
 import { stampLabel } from "@/lib/format";
 import { viaText } from "@/lib/app-ui";
-import { labelUser, memberLabels } from "@/lib/label";
+import { FORMER_MEMBER, labelUser, memberLabels } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
 import { n, splitEqual } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -339,7 +334,12 @@ export function ExpenseForm(props: Props) {
 
   /** Back to one payer: whoever is ticked first (or the viewer), paying the whole amount. */
   function leaveMultiPayerMode() {
-    const first = multiPayerEntries.find((e) => e.included)?.userId ?? props.currentUserId;
+    // Only a current member: an entry carried over for a payer who has left the group can't be
+    // picked in the single-payer select, and saving them as the sole payer is refused.
+    const memberIds = new Set(members.map((m) => m.id));
+    const first =
+      multiPayerEntries.find((e) => e.included && memberIds.has(e.userId))?.userId ??
+      props.currentUserId;
     lockedPayerAmounts.current = new Set();
     setMultiPayerMode(false);
     replacePayerFields([{ userId: String(first), amount: form.getValues("amount") }]);

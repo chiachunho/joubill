@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, countDistinct, eq, exists, or, sql } from "drizzle-orm";
+import { and, count, eq, exists, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -101,10 +101,10 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
   // Block removal if the member is referenced by any record in this group, either as a
   // debtor (expense_splits) or a payer (expense_payers). Missing the payer side lets a
   // payer-only member be deleted, which orphans their recorded contribution on edit.
-  // Counted per record: someone who both paid and shares one expense is one record, not two,
-  // since the number is shown to the person as "還有 N 筆紀錄".
+  // Counted per record (one row per expense, matched by EXISTS): someone who both paid and
+  // shares one expense is one record, not two, since the number is shown as "還有 N 筆紀錄".
   const [{ expenseCount }] = await db
-    .select({ expenseCount: countDistinct(expenses.id) })
+    .select({ expenseCount: count() })
     .from(expenses)
     .where(
       and(

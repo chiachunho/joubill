@@ -48,7 +48,7 @@ export function TimezonePrompt({ groupId }: { groupId: string }) {
 
   // "改成東京", or "改成 Europe/Paris" for a zone without a common name.
   const target = timeZoneLabel(deviceTimeZone);
-  const switchTo = /^[\x20-\x7E]/.test(target) ? `改成 ${target}` : `改成${target}`;
+  const switchTo = target === deviceTimeZone ? `改成 ${target}` : `改成${target}`;
 
   return (
     <section className="px-4">

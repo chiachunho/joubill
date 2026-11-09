@@ -189,6 +189,7 @@ export function GroupSettings({
               destructive: true,
               onSelect: () => {
                 setDeleteBlocked(null);
+                setDeleteError(null);
                 setDeleteTarget(member);
               },
             },
@@ -329,7 +330,7 @@ export function GroupSettings({
           deleteTarget ? (
             deleteBlocked !== null ? (
               <span className="block rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
-                {labelMember(deleteTarget)}還有 {deleteBlocked > 0 ? `${deleteBlocked} 筆` : ""}
+                {labelMember(deleteTarget)}還有{deleteBlocked > 0 ? ` ${deleteBlocked} 筆` : ""}
                 紀錄，不能移出。
                 {deleteTarget.status === "inactive"
                   ? "他已經暫停分帳了。"

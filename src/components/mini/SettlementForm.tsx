@@ -32,17 +32,12 @@ import {
 } from "@/components/ui/select";
 import { useAuthMode } from "@/components/AuthProvider";
 import { dayToLocalDate, localDateToDay } from "@/lib/day";
-import {
-  apiErrorStatus,
-  deleteErrorMessage,
-  FORMER_MEMBER,
-  saveErrorMessage,
-} from "@/lib/api-error";
+import { apiErrorStatus, deleteErrorMessage, saveErrorMessage } from "@/lib/api-error";
 import { rateSourceLabel } from "@/lib/rate-source-label";
 import { recordHistoryHref } from "@/lib/activity-link";
 import { stampLabel } from "@/lib/format";
 import { viaText } from "@/lib/app-ui";
-import { labelUser } from "@/lib/label";
+import { FORMER_MEMBER, labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 import { SUPPORTED_CURRENCIES, settlementFormSchema, type SettlementFormValues } from "@/lib/zod";

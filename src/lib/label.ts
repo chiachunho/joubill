@@ -10,6 +10,9 @@ export type Profile = {
   username: string | null;
 };
 
+/** How a record's creator or editor reads once they are no longer in the group's member list. */
+export const FORMER_MEMBER = "已不在群組的成員";
+
 /** Format a display name, optionally replacing the current user with "你". */
 export function labelUser(p: Profile | null, selfUserId?: number): string {
   if (!p) return "?";

@@ -16,9 +16,6 @@ export function deleteErrorMessage(res: { status: number }, noun = "這筆紀錄
   return "刪除失敗，請再試一次。";
 }
 
-/** How a record's creator or editor reads once they are no longer in the group's member list. */
-export const FORMER_MEMBER = "已不在群組的成員";
-
 /**
  * A failed save of an expense or settlement, in words the person can act on. The record routes
  * answer validation failures in English for the log (a zod dump, `users not in group: 12`),
