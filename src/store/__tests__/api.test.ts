@@ -4,6 +4,7 @@ import { apiErrorStatus, apiErrorText } from "@/lib/api-error";
 import { isUnauthorizedError } from "@/lib/auth-redirect";
 
 import { api } from "../api";
+import type { RawRequest } from "../base-query";
 import { makeStore } from "../store";
 import { Failure, fakeRequest } from "../test-utils";
 
@@ -201,16 +202,56 @@ describe("optimistic edits", () => {
     expect(data?.members.find((m) => m.id === 2)?.status).toBe("active");
   });
 
+  /**
+   * A members endpoint that keeps Bob's status as the server would. A read is answered
+   * from the state when it arrives, and while reads are held it returns only on
+   * `releaseReads()`, so a read that started before the PATCH can land after it.
+   */
+  function membersServer(deleteAnswer: () => unknown = () => ({})) {
+    let bob = "active";
+    let gate: Promise<void> | null = null;
+    let open = () => {};
+    const routes = fakeRequest({
+      "/api/groups/7/members": () => ({
+        members: [
+          { id: 1, firstName: "Alice", status: "active" },
+          { id: 2, firstName: "Bob", status: bob },
+        ],
+      }),
+      "/api/groups/7/members/placeholder": {},
+      "/api/groups/7/members/2": (init) => {
+        if (init?.method === "DELETE") return deleteAnswer();
+        bob = (JSON.parse(String(init?.body)) as { status: string }).status;
+        return { status: bob };
+      },
+    });
+    // The answer is built when the request arrives; a held read only returns it later.
+    const request = vi.fn<RawRequest>(async (path, init) => {
+      const response = await routes(path, init);
+      if (gate && path === "/api/groups/7/members") await gate;
+      return response;
+    });
+    return {
+      request,
+      holdReads: () => {
+        gate = new Promise((resolve) => (open = resolve));
+      },
+      releaseReads: () => {
+        gate = null;
+        open();
+      },
+    };
+  }
+
+  const bobStatus = (store: ReturnType<typeof makeStore>) =>
+    api.endpoints.getMembers
+      .select(7)(store.getState())
+      .data?.members.find((m) => m.id === 2)?.status;
+
   it("keeps a member paused when the pause follows a refused removal", async () => {
     // Group settings: 移出群組 is refused (the member is on records), then 改為暫停分帳.
-    // A members refetch started by the refused removal used to land after the optimistic
-    // pause and put the member back among the active ones.
-    const request = fakeRequest({
-      "/api/groups/7/members": members,
-      "/api/groups/7/members/2": (init) =>
-        init?.method === "DELETE" ? new Failure(409, { expenseCount: 1 }) : {},
-    });
-    const store = makeStore(request);
+    const server = membersServer(() => new Failure(409, { expenseCount: 1 }));
+    const store = makeStore(server.request);
     store.dispatch(api.endpoints.getMembers.initiate(7));
     await settle();
 
@@ -220,25 +261,56 @@ describe("optimistic edits", () => {
     );
     await settle();
 
-    const data = api.endpoints.getMembers.select(7)(store.getState()).data;
-    expect(data?.members.find((m) => m.id === 2)?.status).toBe("inactive");
-    // Nothing changed on the server, so there was nothing to refetch.
-    expect(reads(request, "/api/groups/7/members")).toBe(1);
+    expect(bobStatus(store)).toBe("inactive");
+    // The refusal changed nothing, so only the pause refetched.
+    expect(reads(server.request, "/api/groups/7/members")).toBe(2);
+  });
+
+  it("keeps a member paused when an older members read lands after the pause", async () => {
+    // Adding a member refetches the list; pausing someone while that read is still out
+    // used to be undone on screen when the read came back.
+    const server = membersServer();
+    const store = makeStore(server.request);
+    store.dispatch(api.endpoints.getMembers.initiate(7));
+    await settle();
+
+    server.holdReads();
+    await store.dispatch(
+      api.endpoints.addPlaceholderMember.initiate({ groupId: 7, firstName: "Carol" }),
+    );
+    await settle();
+    await store.dispatch(
+      api.endpoints.updateMemberStatus.initiate({ groupId: 7, userId: 2, status: "inactive" }),
+    );
+    server.releaseReads();
+    await settle();
+
+    expect(bobStatus(store)).toBe("inactive");
   });
 
   it("refreshes the member list after a removal goes through", async () => {
-    const request = fakeRequest({
-      "/api/groups/7/members": members,
-      "/api/groups/7/members/2": {},
-    });
-    const store = makeStore(request);
+    const server = membersServer();
+    const store = makeStore(server.request);
     store.dispatch(api.endpoints.getMembers.initiate(7));
     await settle();
 
     await store.dispatch(api.endpoints.removeMember.initiate({ groupId: 7, userId: 2 }));
     await settle();
 
-    expect(reads(request, "/api/groups/7/members")).toBe(2);
+    expect(reads(server.request, "/api/groups/7/members")).toBe(2);
+  });
+
+  it("refreshes the member list after a removal fails for any reason but a refusal", async () => {
+    // A lost response may come after the delete committed.
+    const server = membersServer(() => new Failure(500));
+    const store = makeStore(server.request);
+    store.dispatch(api.endpoints.getMembers.initiate(7));
+    await settle();
+
+    await store.dispatch(api.endpoints.removeMember.initiate({ groupId: 7, userId: 2 }));
+    await settle();
+
+    expect(reads(server.request, "/api/groups/7/members")).toBe(2);
   });
 
   it("puts the default currency back when the server refuses", async () => {
