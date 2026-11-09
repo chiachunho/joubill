@@ -32,7 +32,7 @@ test.describe("Group time zone", () => {
     await authedPage.getByRole("combobox", { name: "時區" }).click();
     await authedPage.getByRole("option", { name: "Asia/Tokyo (UTC+9)" }).click();
     // Nothing is saved until the dialog is confirmed.
-    await expect(authedPage.getByRole("dialog")).toContainText("已經記下的紀錄日期不會改變");
+    await expect(authedPage.getByRole("dialog")).toContainText("已記的紀錄不受影響");
     expect(await groupZone(db, seeded.groupId)).toBe("Asia/Taipei");
 
     await authedPage.getByRole("dialog").getByRole("button", { name: "變更" }).click();
