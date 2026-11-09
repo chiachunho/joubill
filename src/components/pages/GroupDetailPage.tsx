@@ -161,6 +161,7 @@ export function GroupDetailPage({
     if (!settleConfirm || !balance) return;
     const { transfer, idx } = settleConfirm;
     setSettleConfirm(null);
+    setSettleError(null);
     setPendingIdx(idx);
     startTransition(() => dropOptimisticTransfer(idx));
     try {
@@ -174,7 +175,7 @@ export function GroupDetailPage({
         },
       }).unwrap();
     } catch {
-      setSettleError("標記失敗，請再試一次");
+      setSettleError("沒有記成功，請再試一次。");
     }
     // A saved settlement already invalidated both; this holds the spinner until the new
     // numbers are in, and after a failure puts back the transfer that was optimistically dropped.
@@ -287,7 +288,7 @@ export function GroupDetailPage({
       {!allSettled && (
         <section className="px-4">
           <div className="mb-2.5 flex items-center justify-between">
-            <p className="sect">Balance · {balance.currency}</p>
+            <p className="sect">餘額 · {balance.currency}</p>
             <Link
               href={`${platform.basePath}/groups/${id}/stats`}
               className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -322,7 +323,7 @@ export function GroupDetailPage({
       {optimisticTransfers.length > 0 && (
         <section className="px-4">
           <div className="mb-2.5">
-            <p className="sect">To Settle</p>
+            <p className="sect">待還款</p>
           </div>
           <div className="space-y-2">
             {optimisticTransfers.map((t, i) => (
@@ -365,7 +366,7 @@ export function GroupDetailPage({
                     ) : (
                       <Check className="size-3" />
                     )}
-                    {pendingIdx === i ? "處理中" : "已轉"}
+                    {pendingIdx === i ? "處理中" : "標記已還"}
                   </button>
                 </div>
               </div>
@@ -378,7 +379,7 @@ export function GroupDetailPage({
       <section className="px-4">
         <div className="mb-2.5 flex items-center justify-between">
           <p className="sect">
-            Expenses (
+            紀錄 (
             {onlyMine
               ? // Filtered client-side over the loaded pages, so the count is a lower bound.
                 `${visibleExpenses.length}${hasMoreExpenses ? "+" : ""}`
@@ -445,11 +446,11 @@ export function GroupDetailPage({
             <p className="text-sm text-muted-foreground">
               {onlyMine
                 ? hasMoreExpenses
-                  ? "已載入的紀錄裡還沒有與你相關的支出"
-                  : "沒有與你相關的支出"
+                  ? "已載入的部分還沒有和你有關的紀錄"
+                  : "沒有和你有關的紀錄"
                 : onlyMember
                   ? "先加入成員，再記第一筆支出"
-                  : "尚無支出記錄"}
+                  : "還沒有任何紀錄"}
             </p>
           </div>
         ) : (
@@ -459,7 +460,7 @@ export function GroupDetailPage({
                 <p className="mb-2 text-xs font-medium text-muted-foreground">{month}</p>
                 <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
                   {exps.map((e) => {
-                    const day = e.spentAt.slice(8, 10);
+                    const day = Number(e.spentAt.slice(8, 10));
 
                     // Repayments render as a from → to row and link to the
                     // settlement form instead of the expense form.
@@ -541,17 +542,17 @@ export function GroupDetailPage({
                             ? `${labelUser(e.payers[0], selfUserId)}、${labelUser(e.payers[1], selfUserId)}`
                             : `${labelUser(e.payers[0], selfUserId)} +${e.payers.length - 1}`;
                     const bal = expenseUserBalance(e, selfUserId);
-                    // Balance view: spell out 墊付 (what you fronted) and 我分 (your share)
+                    // Balance view: spell out 你付 (what you fronted) and 你分 (your share)
                     // so the net on the right reads as 付 − 分. Avatars already show who paid.
                     const payerLine =
                       viewMode !== "balance"
                         ? `${payerLabel} 付`
                         : bal.paid > 0 && bal.owed > 0
-                          ? `墊付 ${fmt(bal.paid)} · 我分 ${fmt(bal.owed)}`
+                          ? `你付 ${fmt(bal.paid)} · 你分 ${fmt(bal.owed)}`
                           : bal.paid > 0
-                            ? `墊付 ${fmt(bal.paid)}`
+                            ? `你付 ${fmt(bal.paid)}`
                             : bal.owed > 0
-                              ? `我分 ${fmt(bal.owed)}`
+                              ? `你分 ${fmt(bal.owed)}`
                               : `${payerLabel} 付`;
                     return (
                       <Link
@@ -641,6 +642,12 @@ export function GroupDetailPage({
       {settleError && (
         <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
           {settleError}
+          <button
+            onClick={() => setSettleError(null)}
+            className="ml-2 text-xs underline opacity-70"
+          >
+            關閉
+          </button>
         </div>
       )}
 
@@ -649,11 +656,15 @@ export function GroupDetailPage({
         onOpenChange={(open) => {
           if (!open) setSettleConfirm(null);
         }}
-        title="確認已轉帳"
+        title={
+          settleConfirm
+            ? `確認${labelUser(settleConfirm.transfer.from, selfUserId)}已還${labelUser(settleConfirm.transfer.to, selfUserId)}？`
+            : ""
+        }
         description={
           settleConfirm && balance ? (
             <span>
-              {labelUser(settleConfirm.transfer.from, selfUserId)} →{" "}
+              會記一筆還款：{labelUser(settleConfirm.transfer.from, selfUserId)} →{" "}
               {labelUser(settleConfirm.transfer.to, selfUserId)}
               <br />
               <span className="num font-semibold text-foreground">
@@ -662,7 +673,7 @@ export function GroupDetailPage({
             </span>
           ) : undefined
         }
-        confirmLabel="已完成"
+        confirmLabel="記一筆還款"
         onConfirm={doSettle}
       />
     </div>

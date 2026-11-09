@@ -85,9 +85,9 @@ export function GroupCreatePage({ platform }: { platform: Platform }) {
       </label>
 
       <div className="space-y-2">
-        <span className="sect">預設幣別</span>
+        <span className="sect">預設貨幣</span>
         <Select value={currency} onValueChange={setCurrency}>
-          <SelectTrigger aria-label="預設幣別">
+          <SelectTrigger aria-label="預設貨幣">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

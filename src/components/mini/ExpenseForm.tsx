@@ -44,12 +44,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { dayToLocalDate, localDateToDay } from "@/lib/day";
-import { apiErrorStatus, apiErrorText, deleteErrorMessage } from "@/lib/api-error";
+import { apiErrorStatus, deleteErrorMessage, saveErrorMessage } from "@/lib/api-error";
 import { rateSourceLabel } from "@/lib/rate-source-label";
 import { recordHistoryHref } from "@/lib/activity-link";
 import { stampLabel } from "@/lib/format";
 import { viaText } from "@/lib/app-ui";
-import { labelUser, memberLabels } from "@/lib/label";
+import { FORMER_MEMBER, labelUser, memberLabels } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
 import { n, splitEqual } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -203,7 +203,9 @@ export function ExpenseForm(props: Props) {
   const recordedBy = useMemo(() => {
     if (createdBy == null) return null;
     const m = members.find((x) => x.id === createdBy);
-    return m ? labelUser({ ...m, userId: m.id }, props.currentUserId) : null;
+    // A creator who has since left the group is still named, not dropped: this line is what
+    // stands in for an owner lock.
+    return m ? labelUser({ ...m, userId: m.id }, props.currentUserId) : FORMER_MEMBER;
   }, [createdBy, members, props.currentUserId]);
   const recordedBySomeoneElse = createdBy != null && createdBy !== props.currentUserId;
 
@@ -214,7 +216,7 @@ export function ExpenseForm(props: Props) {
     if (!activity) return null;
     const m = members.find((x) => x.id === activity.actorId);
     return {
-      by: m ? labelUser({ ...m, userId: m.id }, props.currentUserId) : "?",
+      by: m ? labelUser({ ...m, userId: m.id }, props.currentUserId) : FORMER_MEMBER,
       at: activity.at,
       via: activity.via,
     };
@@ -328,6 +330,20 @@ export function ExpenseForm(props: Props) {
     }));
     setMultiPayerEntries(distributePayerAmounts(base, new Set(), totalAmt));
     setMultiPayerMode(true);
+  }
+
+  /** Back to one payer: whoever is ticked first (or the viewer), paying the whole amount. */
+  function leaveMultiPayerMode() {
+    // Only a current member: an entry carried over for a payer who has left the group can't be
+    // picked in the single-payer select, and saving them as the sole payer is refused.
+    const memberIds = new Set(members.map((m) => m.id));
+    const first =
+      multiPayerEntries.find((e) => e.included && memberIds.has(e.userId))?.userId ??
+      props.currentUserId;
+    lockedPayerAmounts.current = new Set();
+    setMultiPayerMode(false);
+    replacePayerFields([{ userId: String(first), amount: form.getValues("amount") }]);
+    void form.trigger("payers");
   }
 
   function togglePayerIncluded(userId: number, checked: boolean) {
@@ -543,7 +559,7 @@ export function ExpenseForm(props: Props) {
       }
     } catch (e) {
       form.setError("root", {
-        message: apiErrorText(e, `HTTP ${apiErrorStatus(e) ?? "error"}`),
+        message: saveErrorMessage(e, "這筆支出"),
       });
       return;
     }
@@ -568,6 +584,7 @@ export function ExpenseForm(props: Props) {
     if (!files.length) return;
     const remaining = 5 - receiptFileIds.length;
     const toUpload = files.slice(0, remaining);
+    const skipped = files.length - toUpload.length;
     setReceiptError(null);
     setReceiptUploading(true);
     try {
@@ -600,8 +617,11 @@ export function ExpenseForm(props: Props) {
         }));
         setReceiptFileIds((prev) => [...prev, ...succeeded.map((s) => s.fileId)].slice(0, 5));
       }
-      if (failedCount > 0)
-        setReceiptError(failedCount === 1 ? "1 張照片上傳失敗" : `${failedCount} 張照片上傳失敗`);
+      const problems = [
+        skipped > 0 ? `每筆最多 5 張，已略過 ${skipped} 張` : null,
+        failedCount > 0 ? `${failedCount} 張照片上傳失敗` : null,
+      ].filter(Boolean);
+      if (problems.length > 0) setReceiptError(`${problems.join("；")}。`);
     } finally {
       setReceiptUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -886,7 +906,18 @@ export function ExpenseForm(props: Props) {
             name="payers"
             render={() => (
               <FormItem>
-                <FormLabel>付款人</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>付款人</FormLabel>
+                  {multiPayerMode && (
+                    <button
+                      type="button"
+                      onClick={leaveMultiPayerMode}
+                      className="text-sm text-primary transition-opacity hover:underline"
+                    >
+                      改回一人付款
+                    </button>
+                  )}
+                </div>
                 {multiPayerMode ? (
                   <>
                     <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
@@ -935,7 +966,11 @@ export function ExpenseForm(props: Props) {
                         >
                           已付 {payerSum.toFixed(2)} / {totalAmount.toFixed(2)} {currency}
                           {!payersBalanced && (
-                            <> · 差 {Math.abs(totalAmount - payerSum).toFixed(2)}</>
+                            <>
+                              {" "}
+                              · {payerSum < totalAmount ? "還差" : "超出"}{" "}
+                              {Math.abs(totalAmount - payerSum).toFixed(2)}
+                            </>
                           )}
                           {payersBalanced ? (
                             <Check className="size-3.5 shrink-0" />
@@ -1230,7 +1265,13 @@ export function ExpenseForm(props: Props) {
                       )}
                     >
                       {inputSum.toFixed(2)}% / 100%
-                      {!splitsBalanced && <> · 尚餘 {Math.max(0, 100 - inputSum).toFixed(2)}%</>}
+                      {!splitsBalanced && (
+                        <>
+                          {" "}
+                          · {inputSum < 100 ? "還差" : "超出"} {Math.abs(100 - inputSum).toFixed(2)}
+                          %
+                        </>
+                      )}
                       {splitsBalanced ? (
                         <Check className="size-3.5 shrink-0" />
                       ) : (
@@ -1275,7 +1316,11 @@ export function ExpenseForm(props: Props) {
                     >
                       {inputSum.toFixed(2)} / {totalAmount.toFixed(2)} {currency}
                       {!splitsBalanced && totalAmount > 0 && (
-                        <> · 尚餘 {Math.abs(totalAmount - inputSum).toFixed(2)}</>
+                        <>
+                          {" "}
+                          · {inputSum < totalAmount ? "還差" : "超出"}{" "}
+                          {Math.abs(totalAmount - inputSum).toFixed(2)}
+                        </>
                       )}
                       {splitsBalanced ? (
                         <Check className="size-3.5 shrink-0" />
@@ -1356,8 +1401,8 @@ export function ExpenseForm(props: Props) {
           title="確認刪除"
           description={
             recordedBySomeoneElse && recordedBy
-              ? `這筆是 ${recordedBy} 記錄的，刪除後無法復原。`
-              : "這筆支出將被永久刪除。"
+              ? `這筆是 ${recordedBy} 記錄的。刪除後無法復原，動態紀錄會留下這次刪除。`
+              : "刪除後無法復原，動態紀錄會留下這次刪除。"
           }
           confirmLabel="刪除"
           variant="destructive"

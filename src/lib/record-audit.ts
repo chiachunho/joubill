@@ -407,11 +407,11 @@ export function changeHeading(entry: HeadingInput, withRecordName: boolean): str
   }
 }
 
-/** "影響 12 筆支出 · 3 筆轉帳" — a kind with nothing in it is left out entirely. */
+/** "影響 12 筆支出 · 3 筆還款" — a kind with nothing in it is left out entirely. */
 export function rateLockImpact(counts: { expenses: number; settlements: number }): string {
   const parts = [
     counts.expenses > 0 ? `${counts.expenses} 筆支出` : null,
-    counts.settlements > 0 ? `${counts.settlements} 筆轉帳` : null,
+    counts.settlements > 0 ? `${counts.settlements} 筆還款` : null,
   ].filter(Boolean);
   return parts.length > 0 ? `影響 ${parts.join(" · ")}` : "沒有影響既有紀錄";
 }

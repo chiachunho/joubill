@@ -12,9 +12,9 @@ test.describe("Balances and settle-up", () => {
 
   test("to-settle lists the partner paying the user", async ({ authedPage, seeded }) => {
     await authedPage.goto(`/app/groups/${seeded.groupId}`);
-    await expect(authedPage.getByText("To Settle", { exact: true })).toBeVisible();
+    await expect(authedPage.getByText("待還款", { exact: true })).toBeVisible();
     await expect(authedPage.getByText(seeded.partnerName, { exact: true }).first()).toBeVisible();
-    await expect(authedPage.getByRole("button", { name: "已轉" })).toBeVisible();
+    await expect(authedPage.getByRole("button", { name: "標記已還" })).toBeVisible();
   });
 
   test("marking a transfer as settled clears the balance and stays cleared", async ({
@@ -22,12 +22,12 @@ test.describe("Balances and settle-up", () => {
     seeded,
   }) => {
     await authedPage.goto(`/app/groups/${seeded.groupId}`);
-    await authedPage.getByRole("button", { name: "已轉" }).click();
+    await authedPage.getByRole("button", { name: "標記已還" }).click();
 
-    // "已轉" opens a confirmation dialog first; the settlement is only saved once confirmed.
+    // "標記已還" opens a confirmation dialog first; the settlement is only saved once confirmed.
     const dialog = authedPage.getByRole("dialog");
-    await expect(dialog.getByText("確認已轉帳")).toBeVisible();
-    await dialog.getByRole("button", { name: "已完成", exact: true }).click();
+    await expect(dialog.getByText(/^確認.+已還.+？$/)).toBeVisible();
+    await dialog.getByRole("button", { name: "記一筆還款", exact: true }).click();
 
     await expect(authedPage.getByText("所有帳款已結清")).toBeVisible();
 

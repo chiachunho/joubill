@@ -28,7 +28,7 @@ function WebHeaderLeading() {
       className="absolute left-4 inline-flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
     >
       <ChevronLeft className="size-4" />
-      返回
+      我的群組
     </Link>
   );
 }

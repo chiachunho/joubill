@@ -18,6 +18,28 @@ import { useGetGroupPhotosQuery, useGetMeQuery } from "@/store/api";
  */
 const handledInvites = new Set<string>();
 
+/**
+ * Group deep links already acted on, for the same reason: the group header's 我的群組 link leads
+ * here, and a second redirect would send the viewer straight back into the group (or the record).
+ */
+const handledDeepLinks = new Set<string>();
+
+/** Where a `startapp=group_…` deep link leads, or null when there is none. */
+function deepLinkTarget(
+  data: {
+    activeGroupId?: number | null;
+    activeExpenseId?: number | null;
+    activeSettlementId?: number | null;
+  },
+  basePath: string,
+): string | null {
+  if (!data.activeGroupId) return null;
+  const group = `${basePath}/groups/${data.activeGroupId}`;
+  if (data.activeExpenseId) return `${group}/expenses/${data.activeExpenseId}/edit`;
+  if (data.activeSettlementId) return `${group}/settlements/${data.activeSettlementId}`;
+  return group;
+}
+
 export function GroupsHome({ platform }: { platform: Platform }) {
   const router = useRouter();
   const { data, error } = useGetMeQuery();
@@ -36,15 +58,10 @@ export function GroupsHome({ platform }: { platform: Platform }) {
       router.replace(`${platform.basePath}/join/${data.activeInviteCode}`);
       return;
     }
-    if (!data?.activeGroupId) return;
-    const group = `${platform.basePath}/groups/${data.activeGroupId}`;
-    if (data.activeExpenseId) {
-      router.replace(`${group}/expenses/${data.activeExpenseId}/edit`);
-    } else if (data.activeSettlementId) {
-      router.replace(`${group}/settlements/${data.activeSettlementId}`);
-    } else {
-      router.replace(group);
-    }
+    const target = data && deepLinkTarget(data, platform.basePath);
+    if (!target || handledDeepLinks.has(target)) return;
+    handledDeepLinks.add(target);
+    router.replace(target);
   }, [data, router, platform.basePath]);
 
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
@@ -62,7 +79,9 @@ export function GroupsHome({ platform }: { platform: Platform }) {
 
   // Blank only while a redirect is about to happen; once the invite was handled the list shows.
   const invitePending = !!data.activeInviteCode && !handledInvites.has(data.activeInviteCode);
-  if (data.activeGroupId || invitePending) return null;
+  const target = deepLinkTarget(data, platform.basePath);
+  const deepLinkPending = !!target && !handledDeepLinks.has(target);
+  if (deepLinkPending || invitePending) return null;
 
   const { groups } = data;
 
@@ -94,7 +113,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
           </div>
           <p className="font-semibold">還沒有任何群組</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            在這裡建立群組，或輸入邀請碼加入；也可以把 Bot 加進 Telegram 群組，輸入 /start
+            在這裡建立群組，或輸入邀請碼加入；也可以把機器人加進 Telegram 群組，輸入 /start
           </p>
         </div>
       ) : (

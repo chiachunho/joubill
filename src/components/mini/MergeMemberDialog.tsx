@@ -184,7 +184,7 @@ export function MergeMemberDialog({
               <span>
                 一併刪除這些還款
                 <span className="block text-xs text-muted-foreground">
-                  不影響餘額，動態紀錄和群組訊息會留下刪除記錄。
+                  不影響餘額，動態紀錄和群組訊息會留下刪除紀錄。
                 </span>
               </span>
             </label>

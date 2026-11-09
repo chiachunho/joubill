@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
-import { Coins, Download, GitMerge, History, Pencil, Plus, Trash2 } from "lucide-react";
+import { Coins, Download, History, MoreHorizontal, Plus } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -11,6 +11,7 @@ import { MergeMemberDialog } from "@/components/mini/MergeMemberDialog";
 import { NavRow } from "@/components/mini/NavRow";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Platform } from "@/components/pages/platform";
 import { TelegramGlyph } from "@/components/TelegramIcon";
 import { activityFeedHref } from "@/lib/activity-link";
@@ -53,6 +54,8 @@ export function GroupSettings({
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  /** Set when the server refused the removal because the member is on records: how many. */
+  const [deleteBlocked, setDeleteBlocked] = useState<number | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -62,6 +65,7 @@ export function GroupSettings({
   async function toggleStatus(member: Member) {
     if (togglingId !== null) return;
     const newStatus = member.status === "active" ? "inactive" : "active";
+    setDeleteError(null);
     setTogglingId(member.id);
     setToggleError(null);
 
@@ -95,10 +99,12 @@ export function GroupSettings({
       setDeleteTarget(null);
     } catch (e) {
       if (apiErrorStatus(e) === 409) {
+        // Shown inside the dialog, which stays open and offers 改為暫停分帳 instead.
         const count = (e as { data?: { expenseCount?: number } }).data?.expenseCount;
-        setDeleteError(`無法刪除：此成員有 ${count ?? "多筆"} 筆費用記錄，只能停用。`);
+        setDeleteBlocked(count ?? 0);
       } else {
-        setDeleteError("刪除失敗，請再試一次");
+        setDeleteTarget(null);
+        setDeleteError("移出失敗，請再試一次");
       }
     } finally {
       setDeleteLoading(false);
@@ -119,9 +125,79 @@ export function GroupSettings({
     return <GroupSettingsSkeleton />;
   }
 
-  const sortedMembers = membersData.members.toSorted((a, b) =>
-    a.status === b.status ? 0 : a.status === "active" ? -1 : 1,
-  );
+  // Two groups instead of a status label: where a member sits says whether new expenses
+  // count them in by default.
+  const activeMembers = membersData.members.filter((m) => m.status !== "inactive");
+  const pausedMembers = membersData.members.filter((m) => m.status === "inactive");
+
+  function memberLabel(member: Member): string {
+    return labelUser(
+      {
+        userId: member.id,
+        displayName: member.displayName,
+        firstName: member.firstName,
+        lastName: member.lastName,
+        username: member.username,
+      },
+      selfUserId,
+    );
+  }
+
+  function memberRow(member: Member) {
+    const label = memberLabel(member);
+    const isPaused = member.status === "inactive";
+    const busy = togglingId === member.id;
+    return (
+      <div key={member.id} className="flex items-center gap-3 px-4 py-3">
+        <div className={isPaused ? "opacity-40" : undefined}>
+          <Avatar
+            src={avatars?.userPhotos[member.id] ?? null}
+            name={label}
+            userId={member.id}
+            size="sm"
+          />
+        </div>
+        <p className={`min-w-0 flex-1 truncate text-sm ${isPaused ? "text-muted-foreground" : ""}`}>
+          {label}
+          {member.isPlaceholder && (
+            <span className="ml-1.5 rounded-lg bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              無帳號
+            </span>
+          )}
+        </p>
+        {isPaused && (
+          <button
+            onClick={() => toggleStatus(member)}
+            disabled={busy}
+            className="rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+          >
+            恢復
+          </button>
+        )}
+        <MemberMenu
+          label={label}
+          disabled={busy}
+          actions={[
+            !isPaused && { label: "暫停分帳", onSelect: () => toggleStatus(member) },
+            member.isPlaceholder && { label: "改名", onSelect: () => setRenameTarget(member) },
+            member.isPlaceholder && {
+              label: "合併到真人成員…",
+              onSelect: () => setMergeTarget(member),
+            },
+            member.id !== selfUserId && {
+              label: "移出群組",
+              destructive: true,
+              onSelect: () => {
+                setDeleteBlocked(null);
+                setDeleteError(null);
+                setDeleteTarget(member);
+              },
+            },
+          ]}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 py-4">
@@ -133,82 +209,9 @@ export function GroupSettings({
 
       {/* 成員 */}
       <section className="px-4">
-        <p className="sect mb-2.5">成員 ({membersData.members.length})</p>
+        <p className="sect mb-2.5">一起分帳 ({activeMembers.length})</p>
         <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
-          {sortedMembers.map((member) => {
-            const photo = avatars?.userPhotos[member.id] ?? null;
-            const isInactive = member.status === "inactive";
-            const isToggling = togglingId === member.id;
-            const label = labelUser(
-              {
-                userId: member.id,
-                displayName: member.displayName,
-                firstName: member.firstName,
-                lastName: member.lastName,
-                username: member.username,
-              },
-              selfUserId,
-            );
-
-            return (
-              <div key={member.id} className="flex items-center gap-3 px-4 py-3">
-                <div className={isInactive ? "opacity-40" : undefined}>
-                  <Avatar src={photo} name={label} userId={member.id} size="sm" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`truncate text-sm ${isInactive ? "text-muted-foreground" : ""}`}>
-                    {label}
-                    {member.isPlaceholder && (
-                      <span className="ml-1.5 rounded-lg bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                        無帳號
-                      </span>
-                    )}
-                  </p>
-                  {isInactive && <p className="text-xs text-muted-foreground">已停用</p>}
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <button
-                    onClick={() => toggleStatus(member)}
-                    disabled={isToggling}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
-                      isInactive
-                        ? "bg-secondary text-muted-foreground hover:bg-muted"
-                        : "bg-primary/10 text-primary hover:bg-primary/20"
-                    }`}
-                  >
-                    {isInactive ? "停用中" : "啟用中"}
-                  </button>
-                  {member.isPlaceholder && (
-                    <button
-                      onClick={() => setMergeTarget(member)}
-                      disabled={isToggling}
-                      aria-label="合併到…"
-                      className="rounded-lg p-1.5 text-primary transition-colors hover:bg-primary/10 disabled:opacity-30"
-                    >
-                      <GitMerge className="size-3.5" />
-                    </button>
-                  )}
-                  {member.isPlaceholder && (
-                    <button
-                      onClick={() => setRenameTarget(member)}
-                      disabled={isToggling}
-                      aria-label="改名"
-                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-30"
-                    >
-                      <Pencil className="size-3.5" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setDeleteTarget(member)}
-                    disabled={isToggling}
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {activeMembers.map(memberRow)}
           <button
             onClick={() => setAddOpen(true)}
             className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-primary transition-colors hover:bg-secondary"
@@ -218,6 +221,15 @@ export function GroupSettings({
           </button>
         </div>
       </section>
+
+      {pausedMembers.length > 0 && (
+        <section className="px-4">
+          <p className="sect mb-2.5">暫停分帳 ({pausedMembers.length})</p>
+          <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/30">
+            {pausedMembers.map(memberRow)}
+          </div>
+        </section>
+      )}
 
       {toggleError && (
         <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
@@ -308,19 +320,90 @@ export function GroupSettings({
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
+          if (!open) {
+            setDeleteTarget(null);
+            setDeleteBlocked(null);
+          }
         }}
-        title="刪除成員"
+        title={deleteTarget ? `移出${labelMember(deleteTarget)}？` : ""}
         description={
-          deleteTarget
-            ? `確定要將「${labelMember(deleteTarget)}」從群組移除嗎？此動作無法復原。`
-            : undefined
+          deleteTarget ? (
+            deleteBlocked !== null ? (
+              <span className="block rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
+                {labelMember(deleteTarget)}還有{deleteBlocked > 0 ? ` ${deleteBlocked} 筆` : ""}
+                紀錄，不能移出。
+                {deleteTarget.status === "inactive"
+                  ? "他已經暫停分帳了。"
+                  : "可以改為暫停分帳，新支出就不會預設算他一份。"}
+              </span>
+            ) : (
+              `確定要將「${labelMember(deleteTarget)}」移出群組嗎？此動作無法復原。`
+            )
+          ) : undefined
         }
-        confirmLabel="刪除"
-        variant="destructive"
+        confirmLabel={
+          deleteBlocked === null
+            ? "移出"
+            : deleteTarget?.status === "inactive"
+              ? "知道了"
+              : "改為暫停分帳"
+        }
+        variant={deleteBlocked === null ? "destructive" : "default"}
         loading={deleteLoading}
-        onConfirm={doDelete}
+        onConfirm={async () => {
+          if (deleteBlocked === null) return doDelete();
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          setDeleteBlocked(null);
+          if (target && target.status !== "inactive") await toggleStatus(target);
+        }}
       />
     </div>
+  );
+}
+
+type MenuAction = { label: string; onSelect: () => void; destructive?: boolean };
+
+/** The "⋯" on a member row: everything but 恢復, which sits in the row itself. */
+function MemberMenu({
+  label,
+  disabled,
+  actions,
+}: {
+  label: string;
+  disabled: boolean;
+  actions: (MenuAction | false | null | undefined)[];
+}) {
+  const [open, setOpen] = useState(false);
+  const items = actions.filter((a): a is MenuAction => !!a);
+  if (items.length === 0) return null;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          aria-label={`${label} 的選項`}
+          disabled={disabled}
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-30"
+        >
+          <MoreHorizontal className="size-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 p-1">
+        {items.map((a) => (
+          <button
+            key={a.label}
+            onClick={() => {
+              setOpen(false);
+              a.onSelect();
+            }}
+            className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-secondary ${
+              a.destructive ? "text-destructive" : ""
+            }`}
+          >
+            {a.label}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
   );
 }

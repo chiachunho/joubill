@@ -67,7 +67,7 @@ export function formatSettlementNotice(
   const to = record.splits[0]?.user;
   const amount = `<b>${money(record)}</b>`;
   const line =
-    !from || !to ? `💸 轉帳　${amount}` : `💸 ${nameOf(from)} → ${nameOf(to)}　${amount}`;
+    !from || !to ? `💸 還款　${amount}` : `💸 ${nameOf(from)} → ${nameOf(to)}　${amount}`;
   return mcp ? `${line}\n${formatMcpLine(mcp.creator, mcp.via)}` : line;
 }
 
@@ -77,8 +77,8 @@ function whatWasDeleted(record: NoticeRecord): string {
     const from = record.payers[0]?.user;
     const to = record.splits[0]?.user;
     return from && to
-      ? `轉帳 ${nameOf(from)} → ${nameOf(to)} ${money(record)}`
-      : `轉帳 ${money(record)}`;
+      ? `還款 ${nameOf(from)} → ${nameOf(to)} ${money(record)}`
+      : `還款 ${money(record)}`;
   }
   const desc = record.description ? `（${escapeHtml(record.description)}）` : "";
   return `${money(record)}${desc}`;

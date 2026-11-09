@@ -366,7 +366,7 @@ export function GroupStatsPage({
       {/* By payer — kept as a secondary block, now scoped to the same range */}
       <section className="px-4">
         <div className="mb-2.5 flex items-center gap-1.5 opacity-80">
-          <p className="sect">誰花得最多</p>
+          <p className="sect">誰付得最多</p>
           <span className="text-[0.64rem] text-muted-foreground/80">· {rangeLabel}</span>
         </div>
         <div className="overflow-hidden rounded-2xl bg-secondary/30 px-4 py-4">

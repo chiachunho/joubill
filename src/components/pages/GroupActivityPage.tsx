@@ -138,7 +138,7 @@ export function GroupActivityPage({
           </span>
           <p className="max-w-[24ch] text-sm text-muted-foreground">
             {recordId
-              ? "這筆記錄還沒有被改動過"
+              ? "這筆紀錄還沒有被改動過"
               : source === "all"
                 ? "這個群組還沒有任何改動紀錄"
                 : "沒有符合的動態"}

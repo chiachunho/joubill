@@ -41,7 +41,7 @@ describe("TimezonePrompt", () => {
     expect(await screen.findByText(/你的裝置時區是/)).toBeInTheDocument();
     expect(screen.getAllByText(/Asia\/Tokyo \(UTC\+9\)/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Asia\/Taipei \(UTC\+8\)/)).toBeInTheDocument();
-    expect(screen.getByText(/影響整個群組/)).toBeInTheDocument();
+    expect(screen.getByText(/決定「今天」是哪一天/)).toBeInTheDocument();
   });
 
   it("says nothing for a zone at the same offset", async () => {

@@ -195,7 +195,7 @@ export function TelegramChatSettings({
         <section className="space-y-2.5 px-4">
           <p className="sect">如何綁定</p>
           <ol className="list-decimal space-y-0.5 pl-5 text-sm text-muted-foreground">
-            <li>把揪帳 bot 加進 Telegram 群組</li>
+            <li>把揪帳機器人加進 Telegram 群組</li>
             <li>在群組裡貼上下面的指令</li>
           </ol>
           <LinkCommand groupId={groupId} />
@@ -261,7 +261,7 @@ export function TelegramChatSettings({
           <p className="px-1 text-xs leading-relaxed text-muted-foreground">
             {thread ? "目前發到這個主題。" : "目前發在群組預設的 General。"}
             {NOTICE_THREAD_PURPOSE}
-            要換主題，到 Telegram 群組裡想要的主題貼上下面的指令，再按 bot 回覆裡的按鈕。
+            要換主題，到 Telegram 群組裡想要的主題貼上下面的指令，再按機器人回覆裡的按鈕。
           </p>
           <CopyCommand command="/topic" label="貼到想要的主題" />
         </section>
@@ -280,8 +280,8 @@ export function TelegramChatSettings({
             <ul className="list-disc space-y-1 pl-5 text-left">
               <li>成員、所有紀錄和邀請碼都會保留</li>
               <li>聊天室裡舊的卡片會停止更新，按鈕也不能再用</li>
-              <li>bot 會離開那個 Telegram 群組</li>
-              <li>要重新綁定：先把 bot 加回聊天室，再輸入 /link 邀請碼</li>
+              <li>機器人會離開那個 Telegram 群組</li>
+              <li>要重新綁定：先把機器人加回聊天室，再輸入 /link 邀請碼</li>
             </ul>
             {/* Inside the dialog: it stays open on failure, and closing it clears the error. */}
             {error && <p className="text-xs text-destructive">{error}</p>}

@@ -1,13 +1,16 @@
 "use client";
 
 import { use, useState } from "react";
-import { Download, Send } from "lucide-react";
+import { Download, ExternalLink, Send } from "lucide-react";
 
 import { ActionRow } from "@/components/mini/ActionRow";
 import { BeancountExportSection } from "@/components/mini/BeancountExportSection";
 import { BeancountSettingsSection } from "@/components/mini/BeancountSettingsSection";
+import { NavRow } from "@/components/mini/NavRow";
+import { TelegramGlyph } from "@/components/TelegramIcon";
 import type { Platform } from "@/components/pages/platform";
 import { saveResponseAsFile } from "@/lib/download";
+import { useGetGroupChatQuery } from "@/store/api";
 
 /**
  * 匯出: the one page behind the group settings row of the same name. The group's CSV on top, then
@@ -24,6 +27,11 @@ export function GroupExportPage({
 
   const backHref = `${platform.basePath}/groups/${id}/settings`;
   platform.useBack(backHref);
+
+  // A group with no Telegram chat has nowhere to post the CSV, so that row is replaced by the
+  // ways that do work. While the answer loads, or if it fails, the row shows as before.
+  const { data: chat } = useGetGroupChatQuery(id);
+  const noChat = chat?.linked === false;
 
   const [exportPending, setExportPending] = useState<"download" | "send" | null>(null);
   const [exportMessage, setExportMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -78,13 +86,37 @@ export function GroupExportPage({
               {exportPending === "download" ? "匯出中…" : "下載 CSV"}
             </ActionRow>
           )}
-          <ActionRow
-            icon={Send}
-            onClick={() => exportCsv("send")}
-            disabled={exportPending !== null}
-          >
-            {exportPending === "send" ? "傳送中…" : "匯出 CSV 到群組"}
-          </ActionRow>
+          {noChat ? (
+            <>
+              <p className="px-4 pb-1 pt-3 text-xs leading-relaxed text-muted-foreground">
+                {platform.canDownloadExport
+                  ? "這個群組還沒綁定 Telegram 群組，所以不能傳到群組。"
+                  : "這個群組還沒綁定 Telegram 群組，所以不能傳到群組；Mini App 也不能直接下載。"}
+              </p>
+              {!platform.canDownloadExport && platform.openInBrowser && (
+                <ActionRow
+                  icon={ExternalLink}
+                  onClick={() => platform.openInBrowser?.(`/app/groups/${id}/settings/export`)}
+                >
+                  用瀏覽器開啟網頁版下載
+                </ActionRow>
+              )}
+              <NavRow
+                href={`${platform.basePath}/groups/${id}/settings/telegram`}
+                icon={TelegramGlyph}
+              >
+                綁定 Telegram 群組
+              </NavRow>
+            </>
+          ) : (
+            <ActionRow
+              icon={Send}
+              onClick={() => exportCsv("send")}
+              disabled={exportPending !== null}
+            >
+              {exportPending === "send" ? "傳送中…" : "匯出 CSV 到群組"}
+            </ActionRow>
+          )}
         </div>
         {exportMessage && (
           <p

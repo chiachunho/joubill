@@ -94,7 +94,7 @@ describe("formatSettlementNotice", () => {
 
   it("survives a settlement missing a side", () => {
     expect(formatSettlementNotice(settlement({ payers: [], splits: [] }))).toBe(
-      "💸 轉帳　<b>1,200 TWD</b>",
+      "💸 還款　<b>1,200 TWD</b>",
     );
   });
 });
@@ -133,7 +133,7 @@ describe("formatDeletedNotice", () => {
     expect(
       formatDeletedNotice({ record: settlement(), creator: alice, deleter: bob }).split("\n")[0],
     ).toBe(
-      '🗑 已刪除 轉帳 <a href="tg://user?id=111">Alice</a> → <a href="tg://user?id=222">Bob</a> 1,200 TWD，原本由 Alice 記錄',
+      '🗑 已刪除 還款 <a href="tg://user?id=111">Alice</a> → <a href="tg://user?id=222">Bob</a> 1,200 TWD，原本由 Alice 記錄',
     );
   });
 

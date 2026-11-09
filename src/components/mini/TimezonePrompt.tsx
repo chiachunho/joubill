@@ -8,6 +8,7 @@ import {
   describeTimeZone,
   deviceTimeZone as readDeviceTimeZone,
   shouldPromptTimezone,
+  TIMEZONE_PURPOSE,
   timezonePromptKey,
 } from "@/lib/timezone";
 import { useGetSettingsQuery, useUpdateGroupTimezoneMutation } from "@/store/api";
@@ -49,12 +50,9 @@ export function TimezonePrompt({ groupId }: { groupId: string }) {
       <div className="space-y-3 rounded-2xl bg-secondary/50 px-4 py-3 text-sm">
         <p className="leading-relaxed">
           你的裝置時區是 <b>{describeTimeZone(deviceTimeZone)}</b>，這個群組目前是{" "}
-          <b>{describeTimeZone(settings.timezone)}</b>。要改成 {describeTimeZone(deviceTimeZone)}{" "}
-          嗎？
+          <b>{describeTimeZone(settings.timezone)}</b>。要改成 {deviceTimeZone} 嗎？
         </p>
-        <p className="text-xs text-muted-foreground">
-          這會影響整個群組：bot 記帳的日期，以及匯率使用的日期。已經記下的紀錄日期不會改變。
-        </p>
+        <p className="text-xs text-muted-foreground">{TIMEZONE_PURPOSE}</p>
         {failed && <p className="text-xs text-destructive">更新失敗，請再試一次</p>}
         <div className="flex gap-2">
           <Button size="sm" onClick={accept}>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { UserCircle } from "lucide-react";
+import { ChevronLeft, UserCircle } from "lucide-react";
 
 import type { Platform } from "@/components/pages/platform";
 import { appUrl } from "@/lib/help-url";
@@ -21,12 +21,15 @@ function useTelegramSelfPhoto(): string | null {
 }
 
 function MiniHeaderLeading() {
+  // Telegram's back button stays hidden on the group page, so this is the way back to the
+  // group list (and from there to 建立群組, 輸入邀請碼 and 個人設定).
   return (
     <Link
-      href="/mini/settings"
-      className="absolute left-4 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      href="/mini"
+      className="absolute left-4 inline-flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
     >
-      <UserCircle className="size-4" />
+      <ChevronLeft className="size-4" />
+      我的群組
     </Link>
   );
 }

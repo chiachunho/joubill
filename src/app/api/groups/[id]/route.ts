@@ -59,7 +59,7 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
         (thread) =>
           api.sendMessage(
             target.chatId,
-            `${name} 已刪除揪帳群組，所有費用與結算紀錄均已清除。`,
+            `${name} 已刪除揪帳群組，所有支出與還款紀錄均已清除。`,
             thread,
           ),
         { lastMessage: true },
@@ -97,7 +97,7 @@ export const DELETE = withAuth(async (req: Request, { params }: Params) => {
     const sent = await sendToGroupChat(api, target, (thread) =>
       api.sendMessage(
         target.chatId,
-        `${name} 申請刪除揪帳群組「${group.title}」，需要其他成員確認。\n\n同意後所有費用與結算紀錄將永久清除。`,
+        `${name} 申請刪除揪帳群組「${group.title}」，需要其他成員確認。\n\n同意後所有支出與還款紀錄將永久清除。`,
         {
           ...thread,
           reply_markup: {

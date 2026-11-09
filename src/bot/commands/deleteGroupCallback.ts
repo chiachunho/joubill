@@ -71,7 +71,7 @@ deleteGroupCallback.callbackQuery(/^approve_del:(\d+)$/, async (ctx) => {
   // Telegram client never shows an indefinite loading spinner on the button.
   try {
     await ctx
-      .editMessageText(`${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`)
+      .editMessageText(`${name} 同意刪除群組，揪帳已關閉。所有支出與還款紀錄均已清除。`)
       .catch(() => null);
 
     await ctx.api.leaveChat(requireTelegramChatId(group)).catch(() => null);

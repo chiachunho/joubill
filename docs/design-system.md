@@ -97,7 +97,7 @@ Nested inner elements (e.g. options inside a segmented toggle) use `rounded-md`
 
 - Font: **Plus Jakarta Sans**, loaded in [`layout.tsx`](../src/app/layout.tsx) as `--font-sans`; `font-sans` applies it automatically. Don't import other fonts.
 - **Financial numbers always get `.num`** (`globals.css`): enables `tabular-nums` + tighter tracking so amounts line up. Add it anywhere you show an amount, percentage, or balance.
-- **Section micro-labels always use `.sect`**: uppercase, widened-tracking micro-label above a grouped panel (e.g. `Balance · TWD`, `Expenses (12)`).
+- **Section micro-labels always use `.sect`**: uppercase, widened-tracking micro-label above a grouped panel (e.g. `餘額 · TWD`, `紀錄 (12)`).
 - Page titles: `text-lg font-semibold` (not `text-xl font-bold` — that's the old style).
 - Body: `text-sm` by default; supporting info `text-xs text-muted-foreground`.
 

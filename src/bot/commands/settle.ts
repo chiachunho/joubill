@@ -20,7 +20,7 @@ settleCommand.command("settle", async (ctx) => {
   const transfers = minimizeTransfers(balances);
 
   if (transfers.length === 0) {
-    await ctx.reply("目前沒有未結算的金額 🎉");
+    await ctx.reply("所有帳款已結清 🎉");
     return;
   }
 

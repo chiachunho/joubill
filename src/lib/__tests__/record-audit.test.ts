@@ -356,9 +356,9 @@ describe("isGroupEventPayload chatUnlinked", () => {
 
 describe("rateLockImpact", () => {
   it("leaves out a kind that nothing happened to", () => {
-    expect(rateLockImpact({ expenses: 12, settlements: 3 })).toBe("影響 12 筆支出 · 3 筆轉帳");
+    expect(rateLockImpact({ expenses: 12, settlements: 3 })).toBe("影響 12 筆支出 · 3 筆還款");
     expect(rateLockImpact({ expenses: 12, settlements: 0 })).toBe("影響 12 筆支出");
-    expect(rateLockImpact({ expenses: 0, settlements: 3 })).toBe("影響 3 筆轉帳");
+    expect(rateLockImpact({ expenses: 0, settlements: 3 })).toBe("影響 3 筆還款");
   });
 
   it("says so rather than rendering a dangling 影響", () => {

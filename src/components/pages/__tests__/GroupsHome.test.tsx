@@ -126,6 +126,18 @@ describe("GroupsHome", () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  it("redirects to a group deep link once, then lets the group list show", async () => {
+    const first = renderHome(miniPlatform, { activeGroupId: 8, groups: [GROUP] });
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/mini/groups/8"));
+    first.unmount();
+    mockReplace.mockClear();
+
+    // 我的群組 from the group header: the same start param is still in initData.
+    renderHome(miniPlatform, { activeGroupId: 8, groups: [GROUP] });
+    expect(await screen.findByText(GROUP.title)).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   it("shows the Mini App its load error when the session check fails with 401", async () => {
     const location = stubLocation("/mini");
     renderHome(miniPlatform, {}, new Failure(401));

@@ -135,7 +135,7 @@ export function DeleteGroupRow({ groupId, membersCount, selfUserId, redirectPath
               {pendingRequest.requestedByName} 申請刪除此群組
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              同意後所有費用與結算紀錄將永久清除。
+              同意後所有支出與還款紀錄將永久清除。
             </p>
             <div className="mt-3 flex gap-2">
               <button
@@ -184,8 +184,8 @@ export function DeleteGroupRow({ groupId, membersCount, selfUserId, redirectPath
         title="刪除群組"
         description={
           membersCount > 1
-            ? "群組有多位成員，申請後需要另一位成員確認才會刪除。所有費用與結算紀錄將永久清除。"
-            : "確定要刪除此群組嗎？所有費用與結算紀錄將永久清除，此動作無法復原。"
+            ? "群組有多位成員，申請後需要另一位成員確認才會刪除。所有支出與還款紀錄將永久清除。"
+            : "確定要刪除此群組嗎？所有支出與還款紀錄將永久清除，此動作無法復原。"
         }
         confirmLabel={membersCount > 1 ? "申請刪除" : "刪除"}
         variant="destructive"

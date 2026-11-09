@@ -7,7 +7,6 @@ import {
   COMMON_TIME_ZONES,
   describeTimeZone,
   isValidTimeZone,
-  timeZoneLabel,
   TIMEZONE_PURPOSE,
 } from "@/lib/timezone";
 
@@ -54,9 +53,9 @@ export function timezonePanel(
 ) {
   const keyboard = new InlineKeyboard();
   COMMON_TIME_ZONES.forEach((z, i) => {
-    const label = z.tz === current ? `✓ ${z.label}` : z.label;
-    keyboard.text(label, timezoneCallback(groupId, z.tz));
-    if (i % 3 === 2) keyboard.row();
+    const name = describeTimeZone(z.tz, now);
+    keyboard.text(z.tz === current ? `✓ ${name}` : name, timezoneCallback(groupId, z.tz));
+    if (i % 2 === 1) keyboard.row();
   });
 
   const text = [
@@ -111,10 +110,10 @@ timezoneCommand.callbackQuery(/^tz:/, async (ctx) => {
   }
 
   await ctx.answerCallbackQuery({
-    text: result.changed ? `已改為 ${timeZoneLabel(result.to)}` : "已經是這個時區",
+    text: result.changed ? `已改為 ${describeTimeZone(result.to)}` : "已經是這個時區",
   });
   if (!result.changed) return;
-  const note = `✅ ${escapeHtml(labelUser(ctx.dbUser))} 把群組時區改成 ${escapeHtml(timeZoneLabel(result.to))}`;
+  const note = `✅ ${escapeHtml(labelUser(ctx.dbUser))} 把群組時區改成 ${escapeHtml(describeTimeZone(result.to))}`;
   const { text, keyboard } = timezonePanel(parsed.groupId, result.to, new Date(), note);
   await ctx.editMessageText(text, { parse_mode: "HTML", reply_markup: keyboard }).catch(() => null);
 });

@@ -62,7 +62,7 @@ export function DeleteRequestBanner({
             {request.requestedByName} 申請刪除此群組
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            同意後所有費用與結算紀錄將永久清除。
+            同意後所有支出與還款紀錄將永久清除。
           </p>
         </div>
       </div>

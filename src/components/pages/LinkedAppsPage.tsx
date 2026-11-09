@@ -113,7 +113,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
             <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Sparkles className="size-5" />
             </span>
-            <p className="mt-2 text-sm font-semibold">還沒有連線</p>
+            <p className="mt-2 text-sm font-semibold">還沒有連結的應用程式</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               建立個人存取權杖，或用上面的網址新增連接器
             </p>
