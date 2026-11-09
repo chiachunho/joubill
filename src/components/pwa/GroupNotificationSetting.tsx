@@ -42,7 +42,8 @@ export function GroupNotificationSetting({ groupId }: { groupId: number }) {
         {isError && <p className="mt-1.5 text-xs text-destructive">沒有存成功，請再試一次。</p>}
         {data.telegramLinked && (
           <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-            這個群組已連結 Telegram，群組訊息本身就會提醒你。不想同一件事收到兩次，可以在這裡關掉。
+            這個群組已綁定 Telegram
+            群組，群組訊息本身就會提醒你。不想同一件事收到兩次，可以在這裡關掉。
           </p>
         )}
       </div>

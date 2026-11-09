@@ -103,7 +103,7 @@ export const POST = withAuth(async (req: Request, { params }: Params) => {
   const target = chatTargetOf(group);
   if (target !== null) {
     const { api } = getBot();
-    const text = `${name} 同意刪除群組，揪帳已關閉。所有費用與結算紀錄均已清除。`;
+    const text = `${name} 同意刪除群組，揪帳已關閉。所有支出與還款紀錄均已清除。`;
     if (request.telegramMessageId) {
       await api.editMessageText(target.chatId, request.telegramMessageId, text).catch(() => null);
     } else {

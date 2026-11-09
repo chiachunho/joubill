@@ -108,7 +108,7 @@ export function sameOffset(a: string, b: string, at: Date = new Date()): boolean
  * never moves a record that already has a date, and a rate follows the record's own date.
  */
 export const TIMEZONE_PURPOSE =
-  "時區決定「今天」是哪一天：bot 的 /add 沒指定日期時，記在這個時區的今天。已經記下的紀錄日期不會改變。";
+  "時區決定「今天」是哪一天：機器人的 /add 沒指定日期時，記在這個時區的今天。已經記下的紀錄日期不會改變。";
 
 /** The localStorage key remembering that this device said 不用 for this group at this device zone. */
 export function timezonePromptKey(groupId: number | string, deviceTimeZone: string): string {

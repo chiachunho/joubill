@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 
 const sections = [
   { slug: "getting-started", label: "快速入門" },
-  { slug: "adding-expenses", label: "記帳（加入費用）" },
+  { slug: "adding-expenses", label: "記帳（加入支出）" },
   { slug: "balances", label: "查看帳務" },
-  { slug: "settlement", label: "結清" },
+  { slug: "settlement", label: "還款" },
   { slug: "multi-currency", label: "多幣別" },
   { slug: "group-management", label: "群組與成員" },
   { slug: "stats", label: "統計" },

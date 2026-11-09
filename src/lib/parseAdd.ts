@@ -25,7 +25,7 @@ import { SUPPORTED_CURRENCIES } from "./zod";
  * echo whatever the user typed, so there is no escaping dance.
  */
 export const ADD_USAGE = [
-  "記一筆花費：/add 金額 說明",
+  "記一筆支出：/add 金額 說明",
   "例如：/add 500 晚餐",
   "",
   "金額怎麼寫都行：1,200 · 300元 · 3k · 150+200",

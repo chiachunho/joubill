@@ -26,7 +26,7 @@ export function AddPlaceholderDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="新增成員"
-      description="沒有帳號的成員也能當付款人或分攤者。"
+      description="沒有帳號的成員也能當付款人或參與者。"
       confirmLabel="新增"
       onSubmit={async (name) => {
         try {

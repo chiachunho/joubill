@@ -75,7 +75,7 @@ describe("GroupTelegramPage: binding", () => {
     fireEvent.click(screen.getByRole("button", { name: /解除綁定/ }));
 
     expect(await screen.findByText("解除與「日本行」的綁定？")).toBeInTheDocument();
-    expect(screen.getByText(/bot 會離開那個 Telegram 群組/)).toBeInTheDocument();
+    expect(screen.getByText(/機器人會離開那個 Telegram 群組/)).toBeInTheDocument();
   });
 
   it("does not unlink until the dialog is confirmed", async () => {

@@ -113,7 +113,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
           </div>
           <p className="font-semibold">還沒有任何群組</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            在這裡建立群組，或輸入邀請碼加入；也可以把 Bot 加進 Telegram 群組，輸入 /start
+            在這裡建立群組，或輸入邀請碼加入；也可以把機器人加進 Telegram 群組，輸入 /start
           </p>
         </div>
       ) : (

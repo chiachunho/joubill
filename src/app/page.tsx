@@ -18,7 +18,7 @@ export default function Home() {
       <Card>
         <CardHeader>
           <CardTitle>開始使用</CardTitle>
-          <CardDescription>把 Bot 加進群組，輸入 /start，就這樣。</CardDescription>
+          <CardDescription>把機器人加進群組，輸入 /start，就這樣。</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <Button asChild>
@@ -27,7 +27,7 @@ export default function Home() {
             </a>
           </Button>
           <Button variant="secondary" asChild>
-            <a href="/app">開啟 Web App</a>
+            <a href="/app">開啟網頁版</a>
           </Button>
           <Button variant="outline" asChild>
             <a href="/help">使用說明</a>

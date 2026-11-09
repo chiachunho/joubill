@@ -29,7 +29,7 @@ test.describe("Unlinking a group from its Telegram chat", () => {
     await expect(authedPage.getByRole("button", { name: /解除綁定/ })).toBeVisible();
 
     await authedPage.getByRole("button", { name: /解除綁定/ }).click();
-    await expect(authedPage.getByText(/bot 會離開那個 Telegram 群組/)).toBeVisible();
+    await expect(authedPage.getByText(/機器人會離開那個 Telegram 群組/)).toBeVisible();
     // Nothing happens until the dialog is confirmed.
     const [stillLinked] = await db
       .select()
