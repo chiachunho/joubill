@@ -21,8 +21,11 @@ import { memberGroups, pickedGroup } from "./myGroups";
 export const PICK_KINDS = ["add", "list", "balance", "settle", "export"] as const;
 export type PickKind = (typeof PICK_KINDS)[number];
 
-/** More than this and the picker becomes a wall; the most recently used ones come first. */
-const MAX_PICKS = 8;
+/**
+ * The most recently used groups come first. The cap only guards Telegram's keyboard size
+ * (100 buttons); set well above any real person's group count, so no group is unreachable.
+ */
+const MAX_PICKS = 50;
 
 export function pickCallback(kind: PickKind, groupId: number): string {
   return `pick:${kind}:${groupId}`;

@@ -14,6 +14,12 @@ import type { BotContext } from "../context";
 export const receiptUploadHandler = new Composer<BotContext>();
 
 receiptUploadHandler.on("message:photo", async (ctx) => {
+  // A private /add records into a group chosen afterwards, so there is nowhere to attach
+  // the photo yet; say so rather than ignore it.
+  if (ctx.chat.type === "private" && /^\/add(@\w+)?(\s|$)/i.test(ctx.message.caption ?? "")) {
+    await ctx.reply("私訊記帳不能附照片。請在群組裡傳照片附上 /add，或記好後用 App 補上收據。");
+    return;
+  }
   if (!ctx.dbGroup || !ctx.dbUser) return;
 
   const fileId = ctx.message.photo.at(-1)!.file_id;

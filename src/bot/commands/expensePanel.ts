@@ -207,9 +207,10 @@ async function stepWeight(ctx: BotContext, expenseId: number, userId: number, de
     await ctx.answerCallbackQuery({ text: TOAST.staleButton, show_alert: true });
     return;
   }
-  const next = Math.round(target.weight) + delta;
-  if (next < 1) {
-    await ctx.answerCallbackQuery({ text: "最少 1 份" });
+  // Not rounded: a fractional 份數 set in the App (1.5) moves by one share (2.5), not to 3.
+  const next = target.weight + delta;
+  if (next <= 0) {
+    await ctx.answerCallbackQuery({ text: "已經是最少了" });
     return;
   }
   if (next > MAX_WEIGHT) {

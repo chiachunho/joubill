@@ -1,5 +1,5 @@
 import { InlineKeyboard } from "grammy";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, users, type Group } from "@/db/schema";
@@ -8,6 +8,7 @@ import { telegramChatId } from "@/lib/chat";
 import { groupLink } from "@/lib/deep-link";
 import { clientEnv } from "@/lib/env";
 import { fmtGrouped } from "@/lib/money";
+import { displayName, type NameParts } from "@/lib/profile";
 import { computeGroupBalances, minimizeTransfers } from "@/lib/settlement";
 
 import { escapeHtml } from "./format";
@@ -124,9 +125,11 @@ export async function listView(group: Group, target: ViewTarget): Promise<GroupV
   if (rows.length === 0) return { text: "還沒有紀錄，試試 <code>/add 50 飲料</code>" };
 
   const ids = rows.map((r) => r.id);
+  const settlementIds = rows.filter((r) => r.type === "settlement").map((r) => r.id);
   const nameCols = {
     displayName: users.displayName,
     firstName: users.firstName,
+    lastName: users.lastName,
     username: users.username,
   };
   const [payerRows, receiverRows] = await Promise.all([
@@ -137,18 +140,19 @@ export async function listView(group: Group, target: ViewTarget): Promise<GroupV
       .where(inArray(expensePayers.expenseId, ids))
       .orderBy(expensePayers.id),
     // A repayment's receiver is its one split row.
-    db
-      .select({ ...nameCols, expenseId: expenseSplits.expenseId })
-      .from(expenseSplits)
-      .innerJoin(expenses, eq(expenses.id, expenseSplits.expenseId))
-      .innerJoin(users, eq(users.id, expenseSplits.debtorId))
-      .where(and(inArray(expenseSplits.expenseId, ids), eq(expenses.type, "settlement"))),
+    settlementIds.length === 0
+      ? []
+      : db
+          .select({ ...nameCols, expenseId: expenseSplits.expenseId })
+          .from(expenseSplits)
+          .innerJoin(users, eq(users.id, expenseSplits.debtorId))
+          .where(inArray(expenseSplits.expenseId, settlementIds)),
   ]);
 
-  // A chosen name first; otherwise the @handle, which is shorter than most full names,
-  // then the provider's first name.
-  const short = (p: { displayName: string | null; username: string | null; firstName: string }) =>
-    escapeHtml(p.displayName ?? (p.username ? "@" + p.username : p.firstName));
+  // A chosen name first (through displayName, which trims it); otherwise the @handle,
+  // which is shorter than most full names, then the provider's name.
+  const short = (p: NameParts) =>
+    escapeHtml(p.displayName?.trim() || !p.username ? displayName(p) : "@" + p.username);
   const namesBy = (list: typeof payerRows) => {
     const out = new Map<number, string[]>();
     for (const p of list) out.set(p.expenseId, [...(out.get(p.expenseId) ?? []), short(p)]);

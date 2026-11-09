@@ -29,7 +29,10 @@ privatePick.callbackQuery(/^pick:/, async (ctx) => {
   await ctx.answerCallbackQuery();
   const target = { botUsername: ctx.me.username, inPrivate: true };
   const edit = (text: string, reply_markup?: InlineKeyboard) =>
-    ctx.editMessageText(text, { parse_mode: "HTML", reply_markup }).catch(() => undefined);
+    ctx.editMessageText(text, { parse_mode: "HTML", reply_markup }).then(
+      () => true,
+      () => false,
+    );
 
   switch (pick.kind) {
     case "list":
@@ -43,8 +46,9 @@ privatePick.callbackQuery(/^pick:/, async (ctx) => {
       return;
     }
     case "export":
-      await edit(`📄 匯出${quotedTitle(group)}`);
-      await sendExport(ctx, group);
+      // A second tap on the same picker finds the text already changed ("message is not
+      // modified"), so only the first one sends the file.
+      if (await edit(`📄 匯出${quotedTitle(group)}`)) await sendExport(ctx, group);
       return;
     case "add": {
       // The picker replied to the /add, so the command is read back from there rather
@@ -57,7 +61,13 @@ privatePick.callbackQuery(/^pick:/, async (ctx) => {
         await edit(ADD_USAGE);
         return;
       }
-      await ctx.deleteMessage().catch(() => undefined);
+      // Deleting the picker is what claims it: a second tap racing the first finds it gone
+      // and records nothing, instead of a duplicate expense.
+      const claimed = await ctx.deleteMessage().then(
+        () => true,
+        () => false,
+      );
+      if (!claimed) return;
       await handleAddParsed(ctx as Parameters<typeof handleAddParsed>[0], parsed, [], { group });
       return;
     }
