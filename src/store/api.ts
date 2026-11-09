@@ -38,6 +38,7 @@ import type {
   StatsResponse,
 } from "@/lib/api-types";
 import type { ActivitySource } from "@/lib/activity-source";
+import { apiErrorStatus } from "@/lib/api-error";
 import type { CallFilter } from "@/lib/mcp-call-log";
 import type { CreateConnectionInput, UpdateConnectionInput } from "@/lib/mcp-connection-input";
 import type { BeancountConfigInput } from "@/lib/zod";
@@ -469,10 +470,13 @@ const baseApi = createApi({
         url: `/api/groups/${groupId}/members/${userId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (_r, _e, { groupId }) => [
-        tag("Members", g(groupId)),
-        tag("Avatars", g(groupId)),
-      ],
+      // A refusal (409: the member is on records) changed nothing, so there is nothing to
+      // refetch. Any other failure may have come after the delete committed (a lost
+      // response), so the list is refetched then too.
+      invalidatesTags: (_r, error, { groupId }) =>
+        apiErrorStatus(error) === 409
+          ? []
+          : [tag("Members", g(groupId)), tag("Avatars", g(groupId))],
     }),
 
     // ---- rates -------------------------------------------------------------------
@@ -654,6 +658,10 @@ export const api = baseApi.injectEndpoints({
         method: "PATCH",
         body: { status },
       }),
+      // Once saved, refetch: a members refetch already in flight (after adding, renaming
+      // or a refused removal) would otherwise land after the optimistic edit and undo it
+      // on screen, with nothing to correct it.
+      invalidatesTags: (_r, error, { groupId }) => (error ? [] : [tag("Members", g(groupId))]),
       async onQueryStarted({ groupId, userId, status }, { dispatch, queryFulfilled }) {
         const patch = dispatch(
           baseApi.util.updateQueryData("getMembers", groupId, (draft) => {
