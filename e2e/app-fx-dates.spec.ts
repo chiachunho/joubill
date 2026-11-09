@@ -10,6 +10,11 @@ const RATE_A = 0.2;
 const RATE_B = 0.25;
 
 test.describe("Market rate follows the record's date", () => {
+  // Both cases insert and then delete the same rows of the shared exchange_rates table.
+  // Under fullyParallel one case's cleanup deleted the other's rows mid-run, so its rate
+  // lookup missed the cache, the FX API call failed and marketRate came back null.
+  test.describe.configure({ mode: "default" });
+
   test("two foreign-currency records convert at their own day's rate", async ({
     authedPage,
     seeded,
