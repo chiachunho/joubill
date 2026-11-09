@@ -46,7 +46,7 @@ describe("/timezone", () => {
     expect(String(msg.text)).toContain("Asia/Tokyo (UTC+9)");
     expect(String(msg.text)).toContain("/add");
     const keyboard = JSON.stringify(msg.reply_markup);
-    expect(keyboard).toContain("✓ 東京");
+    expect(keyboard).toContain("✓ Asia/Tokyo (UTC+9)");
     expect(keyboard).toContain(timezoneCallback(7, "Asia/Taipei"));
     expect(keyboard).toContain(timezoneCallback(7, "America/Los_Angeles"));
   });
@@ -76,8 +76,8 @@ describe("a zone button", () => {
       expect.objectContaining({ source: "bot" }),
     );
     const [edit] = t.callsOf("editMessageText");
-    expect(String(edit.text)).toContain("把群組時區改成 東京");
-    expect(JSON.stringify(edit.reply_markup)).toContain("✓ 東京");
+    expect(String(edit.text)).toContain("把群組時區改成 Asia/Tokyo (UTC+9)");
+    expect(JSON.stringify(edit.reply_markup)).toContain("✓ Asia/Tokyo (UTC+9)");
   });
 
   it("leaves the message alone when the zone is already that one", async () => {

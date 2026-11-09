@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { describeError } from "@/lib/api-error";
-import { friendlyTimeZone, TIMEZONE_PURPOSE } from "@/lib/timezone";
+import { describeTimeZone, TIMEZONE_PURPOSE } from "@/lib/timezone";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 import {
   useGetSettingsQuery,
@@ -173,7 +173,7 @@ export function GroupRatesPage({
         title="變更群組時區"
         description={
           pendingTimezone
-            ? `要把群組時區改成 ${friendlyTimeZone(pendingTimezone)} 嗎？整個群組都會跟著改。${TIMEZONE_PURPOSE}`
+            ? `要把群組時區改成 ${describeTimeZone(pendingTimezone)} 嗎？整個群組都會跟著改。${TIMEZONE_PURPOSE}`
             : undefined
         }
         confirmLabel="變更"

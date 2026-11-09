@@ -39,8 +39,8 @@ describe("TimezonePrompt", () => {
     renderPrompt("Asia/Taipei");
 
     expect(await screen.findByText(/你的裝置時區是/)).toBeInTheDocument();
-    expect(screen.getAllByText(/東京 \(UTC\+9\)/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/台北 \(UTC\+8\)/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Asia\/Tokyo \(UTC\+9\)/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Asia\/Taipei \(UTC\+8\)/)).toBeInTheDocument();
     expect(screen.getByText(/決定「今天」是哪一天/)).toBeInTheDocument();
   });
 
@@ -78,7 +78,7 @@ describe("TimezonePrompt", () => {
     const request = renderPrompt("Asia/Taipei", {
       "/api/groups/7/settings?": {},
     });
-    fireEvent.click(await screen.findByRole("button", { name: "改成東京" }));
+    fireEvent.click(await screen.findByRole("button", { name: "改成 Asia/Tokyo" }));
 
     await waitFor(() =>
       expect(request).toHaveBeenCalledWith(

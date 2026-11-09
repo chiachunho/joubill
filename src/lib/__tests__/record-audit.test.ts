@@ -471,7 +471,7 @@ describe("timezone_changed", () => {
         },
         true,
       ),
-    ).toBe("把群組時區從 台北 改成 東京");
+    ).toBe("把群組時區從 Asia/Taipei 改成 Asia/Tokyo");
     expect(changeHeading({ action: "timezone_changed", recordType: "group" }, true)).toBe(
       "改了群組時區",
     );

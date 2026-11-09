@@ -83,25 +83,19 @@ export function describeTimeZone(tz: string, at: Date = new Date()): string {
   return `${tz} (${formatUtcOffset(utcOffsetMinutes(tz, at))})`;
 }
 
-/** The zones the bot's `/timezone` offers as buttons, and the settings select lists first. */
-export const COMMON_TIME_ZONES: readonly { tz: string; label: string }[] = [
-  { tz: "Asia/Taipei", label: "台北" },
-  { tz: "Asia/Tokyo", label: "東京" },
-  { tz: "Asia/Seoul", label: "首爾" },
-  { tz: "Asia/Bangkok", label: "曼谷" },
-  { tz: "Asia/Singapore", label: "新加坡" },
-  { tz: "America/Los_Angeles", label: "洛杉磯" },
+/**
+ * The zones the bot's `/timezone` offers as buttons, and the settings select lists first.
+ * Every surface names a zone the same way, `Asia/Tokyo (UTC+9)` (`describeTimeZone`), so
+ * there is no second, city-name spelling to keep in step.
+ */
+export const COMMON_TIME_ZONES: readonly { tz: string }[] = [
+  { tz: "Asia/Taipei" },
+  { tz: "Asia/Tokyo" },
+  { tz: "Asia/Seoul" },
+  { tz: "Asia/Bangkok" },
+  { tz: "Asia/Singapore" },
+  { tz: "America/Los_Angeles" },
 ];
-
-/** Button label for a zone: the common city's name, otherwise the IANA name. */
-export function timeZoneLabel(tz: string): string {
-  return COMMON_TIME_ZONES.find((z) => z.tz === tz)?.label ?? tz;
-}
-
-/** `東京 (UTC+9)`, or `Europe/Paris (UTC+1)` for a zone without a common name: what a person reads. */
-export function friendlyTimeZone(tz: string, at: Date = new Date()): string {
-  return `${timeZoneLabel(tz)} (${formatUtcOffset(utcOffsetMinutes(tz, at))})`;
-}
 
 /** Whether the device and the group are on the same clock right now (same UTC offset). */
 export function sameOffset(a: string, b: string, at: Date = new Date()): boolean {

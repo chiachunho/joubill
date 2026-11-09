@@ -40,7 +40,7 @@ test.describe("Group time zone", () => {
 
     expect(await auditActions(dbPool, seeded.groupId)).toContain("timezone_changed");
     await authedPage.goto(`/app/groups/${seeded.groupId}/activity`);
-    await expect(authedPage.getByText("把群組時區從 台北 改成 東京")).toBeVisible();
+    await expect(authedPage.getByText("把群組時區從 Asia/Taipei 改成 Asia/Tokyo")).toBeVisible();
   });
 
   test("the API refuses an arbitrary string, and a no-op change logs nothing", async ({
@@ -108,7 +108,7 @@ test.describe("Group time zone", () => {
     try {
       await page.goto(`/app/groups/${seeded.groupId}`);
       await expect(page.getByText(/你的裝置時區是/)).toBeVisible();
-      await expect(page.getByText(/東京 \(UTC\+9\)/).first()).toBeVisible();
+      await expect(page.getByText(/Asia\/Tokyo \(UTC\+9\)/).first()).toBeVisible();
 
       await page.getByRole("button", { name: "不用" }).click();
       await expect(page.getByText(/你的裝置時區是/)).toBeHidden();
@@ -133,7 +133,7 @@ test.describe("Group time zone", () => {
     });
     try {
       await page.goto(`/app/groups/${seeded.groupId}`);
-      await page.getByRole("button", { name: "改成首爾" }).click();
+      await page.getByRole("button", { name: "改成 Asia/Seoul" }).click();
       await expect.poll(() => groupZone(db, seeded.groupId)).toBe("Asia/Seoul");
       await expect(page.getByText(/你的裝置時區是/)).toBeHidden();
     } finally {

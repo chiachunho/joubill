@@ -5,10 +5,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocalPref } from "@/lib/use-local-pref";
 import {
+  describeTimeZone,
   deviceTimeZone as readDeviceTimeZone,
-  friendlyTimeZone,
   shouldPromptTimezone,
-  timeZoneLabel,
   TIMEZONE_PURPOSE,
   timezonePromptKey,
 } from "@/lib/timezone";
@@ -46,22 +45,18 @@ export function TimezonePrompt({ groupId }: { groupId: string }) {
     }
   }
 
-  // "改成東京", or "改成 Europe/Paris" for a zone without a common name.
-  const target = timeZoneLabel(deviceTimeZone);
-  const switchTo = target === deviceTimeZone ? `改成 ${target}` : `改成${target}`;
-
   return (
     <section className="px-4">
       <div className="space-y-3 rounded-2xl bg-secondary/50 px-4 py-3 text-sm">
         <p className="leading-relaxed">
-          你的裝置時區是 <b>{friendlyTimeZone(deviceTimeZone)}</b>，這個群組目前是{" "}
-          <b>{friendlyTimeZone(settings.timezone)}</b>。要{switchTo}嗎？
+          你的裝置時區是 <b>{describeTimeZone(deviceTimeZone)}</b>，這個群組目前是{" "}
+          <b>{describeTimeZone(settings.timezone)}</b>。要改成 {deviceTimeZone} 嗎？
         </p>
         <p className="text-xs text-muted-foreground">{TIMEZONE_PURPOSE}</p>
         {failed && <p className="text-xs text-destructive">更新失敗，請再試一次</p>}
         <div className="flex gap-2">
           <Button size="sm" onClick={accept}>
-            {switchTo}
+            改成 {deviceTimeZone}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setDismissed("1")}>
             不用
