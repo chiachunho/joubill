@@ -25,7 +25,7 @@ type Stage = {
   caption: [string, string];
 };
 
-export const STAGES: Stage[] = [
+const STAGES: Stage[] = [
   {
     tab: "記下來",
     amount: "300",
@@ -111,10 +111,11 @@ export function LifeDemo() {
                     </span>
                   ))}
                 </Bubble>
-                <div className="grid grid-cols-2 gap-1 text-center text-xs">
+                {/* The card's default keyboard: one row, as `cardKeyboard` builds it. App 編輯 is
+                    inside the ☰ 調整 panel, not on the card itself. */}
+                <div className="grid grid-cols-3 gap-1 text-center text-xs">
                   <KeyButton>{BTN.adjust}</KeyButton>
                   <KeyButton>{BTN.receipt}</KeyButton>
-                  <KeyButton>{BTN.appEdit}</KeyButton>
                   <KeyButton danger>{BTN.delete}</KeyButton>
                 </div>
               </>

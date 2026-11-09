@@ -124,7 +124,7 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
           <div className="divide-y">
             <Reason title="不用說服朋友裝 App">
               把揪帳加進 Telegram 群組，記帳、看餘額、結算都在聊天室裡。想看細節，點卡片上的「
-              {BTN.appEdit}」就在 Telegram 裡打開，不用下載也不用註冊。
+              {BTN.adjust}」→「{BTN.appEdit}」就在 Telegram 裡打開，不用下載也不用註冊。
             </Reason>
             <Reason
               title="免費，記再多筆也一樣"
@@ -306,7 +306,7 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
         <h2 className="text-3xl font-bold sm:text-4xl">三分鐘開始第一筆</h2>
         <ol className="mt-10 grid gap-10 md:grid-cols-3">
           <Step n={1} title="把揪帳加進群組">
-            在群組裡輸入 /start。用過揪帳的人會自動成為成員。
+            在群組裡輸入 /start，每個人點一下「{BTN.openApp}」就會加入分帳。
           </Step>
           <Step n={2} title="誰付錢誰記一筆">
             打「/add 金額 說明」，要改誰分、份數或幣別，點卡片上的「{BTN.adjust}」。
