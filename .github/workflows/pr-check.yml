@@ -13,6 +13,10 @@ env:
   NEXT_PUBLIC_MINI_APP_URL: http://localhost:3000/mini
   AUTH_SECRET: dummy-secret-for-ci-build-only
 
+# Every job only reads the repository; page-pairs widens its own token to post a comment.
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint
