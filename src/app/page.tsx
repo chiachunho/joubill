@@ -1,39 +1,27 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Logo } from "@/components/Logo";
+import { Api } from "grammy";
 
-export default function Home() {
-  return (
-    <main className="container mx-auto flex min-h-screen max-w-3xl flex-col gap-8 py-16">
-      <header className="space-y-4">
-        <Logo size={72} />
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">揪帳</h1>
-          <p className="text-muted-foreground">
-            聚餐、旅遊、下午茶，每次到了結帳時刻總是最尷尬？用揪帳，就這樣算清楚。
-          </p>
-        </div>
-      </header>
+import { Landing } from "@/components/landing/Landing";
+import { botUsername } from "@/lib/bot-username";
+import { addToGroupLink } from "@/lib/deep-link";
+import { fetchRepoStars } from "@/lib/github-repo";
+import { HELP_PATH } from "@/lib/help-url";
 
-      <Card>
-        <CardHeader>
-          <CardTitle>開始使用</CardTitle>
-          <CardDescription>把機器人加進群組，輸入 /start，就這樣。</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <Button asChild>
-            <a href="https://t.me/" target="_blank" rel="noreferrer">
-              開啟 Telegram
-            </a>
-          </Button>
-          <Button variant="secondary" asChild>
-            <a href="/app">開啟網頁版</a>
-          </Button>
-          <Button variant="outline" asChild>
-            <a href="/help">使用說明</a>
-          </Button>
-        </CardContent>
-      </Card>
-    </main>
-  );
+// Rebuilt at most hourly: the bot's username and the star count change rarely, and neither
+// is worth a request to Telegram or GitHub on every visit.
+export const revalidate = 3600;
+
+/**
+ * Telegram's "add to group" link for the bot. A bare grammY `Api` rather than `getBot()`, so the
+ * landing page doesn't pull in the bot's commands and `@/db` (which needs every server env var).
+ * Without a token or a reachable Telegram (a CI build) the button points at the help site.
+ */
+async function addToGroupHref(): Promise<string> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const username = token ? await botUsername(new Api(token)) : null;
+  return username ? addToGroupLink(username) : HELP_PATH;
+}
+
+export default async function Home() {
+  const [href, stars] = await Promise.all([addToGroupHref(), fetchRepoStars()]);
+  return <Landing addToGroupHref={href} stars={stars} />;
 }
