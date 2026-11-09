@@ -201,6 +201,46 @@ describe("optimistic edits", () => {
     expect(data?.members.find((m) => m.id === 2)?.status).toBe("active");
   });
 
+  it("keeps a member paused when the pause follows a refused removal", async () => {
+    // Group settings: 移出群組 is refused (the member is on records), then 改為暫停分帳.
+    // A members refetch started by the refused removal used to land after the optimistic
+    // pause and put the member back among the active ones.
+    const request = fakeRequest({
+      "/api/groups/7/members": members,
+      "/api/groups/7/members/2": (init) =>
+        init?.method === "DELETE" ? new Failure(409, { expenseCount: 1 }) : {},
+    });
+    const store = makeStore(request);
+    store.dispatch(api.endpoints.getMembers.initiate(7));
+    await settle();
+
+    await store.dispatch(api.endpoints.removeMember.initiate({ groupId: 7, userId: 2 }));
+    await store.dispatch(
+      api.endpoints.updateMemberStatus.initiate({ groupId: 7, userId: 2, status: "inactive" }),
+    );
+    await settle();
+
+    const data = api.endpoints.getMembers.select(7)(store.getState()).data;
+    expect(data?.members.find((m) => m.id === 2)?.status).toBe("inactive");
+    // Nothing changed on the server, so there was nothing to refetch.
+    expect(reads(request, "/api/groups/7/members")).toBe(1);
+  });
+
+  it("refreshes the member list after a removal goes through", async () => {
+    const request = fakeRequest({
+      "/api/groups/7/members": members,
+      "/api/groups/7/members/2": {},
+    });
+    const store = makeStore(request);
+    store.dispatch(api.endpoints.getMembers.initiate(7));
+    await settle();
+
+    await store.dispatch(api.endpoints.removeMember.initiate({ groupId: 7, userId: 2 }));
+    await settle();
+
+    expect(reads(request, "/api/groups/7/members")).toBe(2);
+  });
+
   it("puts the default currency back when the server refuses", async () => {
     const request = fakeRequest({
       "/api/groups/7/settings": (init) =>

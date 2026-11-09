@@ -469,10 +469,11 @@ const baseApi = createApi({
         url: `/api/groups/${groupId}/members/${userId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (_r, _e, { groupId }) => [
-        tag("Members", g(groupId)),
-        tag("Avatars", g(groupId)),
-      ],
+      // Only a removal that went through changes anything. A refused one (409: the member
+      // is on records) is followed by 改為暫停分帳, whose optimistic edit a refetch started
+      // here would overwrite with the member still active.
+      invalidatesTags: (_r, error, { groupId }) =>
+        error ? [] : [tag("Members", g(groupId)), tag("Avatars", g(groupId))],
     }),
 
     // ---- rates -------------------------------------------------------------------
