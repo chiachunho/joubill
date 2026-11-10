@@ -3,7 +3,7 @@ import { z } from "zod";
 const serverSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().trim().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.string().trim().min(1),
-  // Short name from BotFather /newapp (e.g. "splitbill"). Used to build the
+  // Short name from BotFather /newapp (e.g. "joubill"). Used to build the
   // direct-link Mini App URL: t.me/<bot>/<TELEGRAM_MINI_APP_NAME>
   TELEGRAM_MINI_APP_NAME: z.string().min(1),
   // Private channel where the bot stores receipt photos; chat_id is a large negative number.

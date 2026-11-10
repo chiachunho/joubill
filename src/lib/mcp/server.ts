@@ -43,7 +43,7 @@ function logCalls(server: McpServer, auth: McpAuth): void {
 /** A fresh server per request (stateless transport), closed over the caller's auth. */
 export function createMcpServer(auth: McpAuth): McpServer {
   const server = new McpServer(
-    { name: "splitbill", version: "1.0.0" },
+    { name: "joubill", version: "1.0.0" },
     { instructions: MCP_INSTRUCTIONS },
   );
   logCalls(server, auth);

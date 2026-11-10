@@ -32,7 +32,7 @@ Mini App（`/mini`）、瀏覽器網頁版（`/app`）、REST API（`/api`）和
      - Photo: 任意 640x360
      - Web App URL: https://<你的對外網址>/mini
        (本機開發用 tunnel 網址；之後可用 /editapp 改)
-     - Short name: splitbill  ← 這個填到 TELEGRAM_MINI_APP_NAME
+     - Short name: joubill  ← 這個填到 TELEGRAM_MINI_APP_NAME
    ```
 3. （選填，Web 登入用）BotFather → Bot Settings → Web Login → 記下 Client ID / Secret。
 4. 在 [neon.tech](https://neon.tech) 建立專案，拿 `DATABASE_URL`（pooled，`?sslmode=require`）。

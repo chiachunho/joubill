@@ -173,11 +173,11 @@ describe("recordToBeancount: settlements", () => {
 });
 
 describe("recordToBeancount: formatting", () => {
-  it("writes the header, the splitbill_id and escaped narration", () => {
+  it("writes the header, the joubill_id and escaped narration", () => {
     const out = render(expense({ description: 'Say "hi"\nnow' }));
     const [header, meta] = out.split("\n");
     expect(header).toBe('2026-06-30 * "Say \\"hi\\" now"');
-    expect(meta).toBe('  splitbill_id: "42"');
+    expect(meta).toBe('  joubill_id: "42"');
   });
 
   it("uses the narration override", () => {
@@ -248,7 +248,7 @@ describe("groupToBeancount", () => {
     expect(out.included).toBe(3);
     expect(out.skipped).toBe(1);
     expect(out.text).toContain("; 3 筆，略過 1 筆跟你無關的紀錄");
-    expect(out.text.match(/splitbill_id/g)).toHaveLength(3);
+    expect(out.text.match(/joubill_id/g)).toHaveLength(3);
   });
 
   it("leaves the event account at U's net balance", () => {

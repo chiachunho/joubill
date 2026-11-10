@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { helpPage } from "./help-pages";
 
 export const SITE_NAME = "揪帳";
-/** The product's English name; the repository and package keep the old `splitbill` slug. */
+/** The product's English name; the repository, package and plugin are named `joubill`. */
 export const SITE_NAME_EN = "Joubill";
 export const SITE_TITLE = `${SITE_NAME} ${SITE_NAME_EN}｜Telegram 分帳機器人`;
 export const SITE_DESCRIPTION =

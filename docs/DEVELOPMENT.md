@@ -32,7 +32,7 @@ The package manager is **pnpm**; Node is pinned to 24.x (`.nvmrc`).
      - Photo: any 640x360
      - Web App URL: https://<your-public-url>/mini
        (use a tunnel URL for local dev; change later with /editapp)
-     - Short name: splitbill  ← this goes into TELEGRAM_MINI_APP_NAME
+     - Short name: joubill  ← this goes into TELEGRAM_MINI_APP_NAME
    ```
 3. (Optional, for web login) BotFather → Bot Settings → Web Login → note the Client ID / Secret.
 4. Create a Neon project at [neon.tech](https://neon.tech) and get `DATABASE_URL` (pooled connection, `?sslmode=require`).

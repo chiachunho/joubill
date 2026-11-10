@@ -5,7 +5,7 @@
 正式環境:**Vercel**(前端 + Bot webhook + API)+ **Neon Postgres** + **Telegram BotFather**,對外用**自訂網域**。
 前提:Neon DB、Vercel 帳號、Telegram bot、自訂網域都已擁有。程式碼已 push 到 GitHub。
 
-> 下文以 `splitbill.example.com` 代表你的自訂網域,實際操作時換成你的。
+> 下文以 `joubill.example.com` 代表你的自訂網域,實際操作時換成你的。
 > 只有你能做的外部步驟用 **🧑 手動** 標記;其餘是本機指令。
 
 **為什麼先綁網域**:`NEXT_PUBLIC_MINI_APP_URL` 是 build 時就編進前端的,webhook 與 BotFather 也都要填網址。
@@ -35,10 +35,10 @@ Framework 會自動偵測為 **Next.js**,設定用預設即可,**先別按 Deplo
 
 ## 2. 🧑 綁定自訂網域 + DNS
 
-Project → **Settings → Domains** → 輸入 `splitbill.example.com` → Add。
+Project → **Settings → Domains** → 輸入 `joubill.example.com` → Add。
 Vercel 會給你 DNS 設定值,到你的網域註冊商 / DNS 服務商加上:
 
-- 子網域（如 `splitbill.example.com`）:加一筆 **CNAME** → `cname.vercel-dns.com`
+- 子網域（如 `joubill.example.com`）:加一筆 **CNAME** → `cname.vercel-dns.com`
 - 根網域（如 `example.com`）:依 Vercel 指示加 **A record**（通常 `76.76.21.21`）
 
 加完等 DNS 生效,Vercel 會自動簽發 TLS 憑證（Telegram 要求 HTTPS,這步必成）。
@@ -54,10 +54,10 @@ Project → **Settings → Environment Variables**,以下所有變數都加（En
 | ----------------------------- | --------------------------------------------- | ------------------------------------------------------- |
 | `TELEGRAM_BOT_TOKEN`          | BotFather 給的 token                          |                                                         |
 | `TELEGRAM_WEBHOOK_SECRET`     | 自訂的強隨機字串                              | **要記下來**,步驟 8 本機要用同一個值                    |
-| `TELEGRAM_MINI_APP_NAME`      | BotFather 的 app short name（例:`splitbill`） |                                                         |
+| `TELEGRAM_MINI_APP_NAME`      | BotFather 的 app short name（例:`joubill`）   |                                                         |
 | `TELEGRAM_STORAGE_CHAT_ID`    | 私有頻道的 chat_id（負數）                    | 見下方說明                                              |
 | `DATABASE_URL`                | Neon **Pooled** 連線字串 + `?sslmode=require` | 用 pooled,不要用 direct                                 |
-| `NEXT_PUBLIC_MINI_APP_URL`    | `https://splitbill.example.com/mini`          | **填自訂網域**,不要填 `*.vercel.app`                    |
+| `NEXT_PUBLIC_MINI_APP_URL`    | `https://joubill.example.com/mini`            | **填自訂網域**,不要填 `*.vercel.app`                    |
 | `AUTH_SECRET`                 | 隨機字串                                      | Auth.js 簽署 session 用。`openssl rand -base64 32` 生成 |
 | `AUTH_TELEGRAM_CLIENT_ID`     | BotFather Web Login 的 Client ID              | 步驟 4 取得                                             |
 | `AUTH_TELEGRAM_CLIENT_SECRET` | BotFather Web Login 的 Client Secret          | 步驟 4 取得                                             |
@@ -86,9 +86,9 @@ Project → **Settings → Environment Variables**,以下所有變數都加（En
 
 每個登入方式要兩個值都設才會顯示在登入頁；都沒設則只顯示 Telegram 登入按鈕。Callback URL 填:
 
-- `https://splitbill.example.com/api/auth/callback/github`
-- `https://splitbill.example.com/api/auth/callback/google`
-- `https://splitbill.example.com/api/auth/callback/line`
+- `https://joubill.example.com/api/auth/callback/github`
+- `https://joubill.example.com/api/auth/callback/google`
+- `https://joubill.example.com/api/auth/callback/line`
 
 **Google**:Google Cloud Console → API 和服務 → 憑證 → 建立憑證 → OAuth 用戶端 ID → 網頁應用程式,
 把 Callback URL 填進「已授權的重新導向 URI」。專案還沒有 OAuth 同意畫面的話要先設定。
@@ -115,14 +115,14 @@ Telegram OIDC 需要在 BotFather 取得 OIDC 憑證,並註冊 Redirect URI:
 ```
 @BotFather → /mybots → 選你的 bot → Bot Settings → Web Login
   → 記下 Client ID 與 Client Secret（填入步驟 3 的環境變數）
-  → 新增 Redirect URI: https://splitbill.example.com/api/auth/callback/telegram
+  → 新增 Redirect URI: https://joubill.example.com/api/auth/callback/telegram
 ```
 
 > ⚠️ Redirect URI 必須完全吻合（含 https、路徑、無結尾斜線）,否則 OIDC 回呼會被 Telegram 拒絕。
 
 ## 5. 🧑 Deploy
 
-按 **Deploy**。完成後,用自訂網域開 `https://splitbill.example.com/mini` 應該看到 Mini App 的瀏覽器預覽畫面（正式啟動要從 Telegram 進）。
+按 **Deploy**。完成後,用自訂網域開 `https://joubill.example.com/mini` 應該看到 Mini App 的瀏覽器預覽畫面（正式啟動要從 Telegram 進）。
 
 ## 6. 把 schema 推到 Neon
 
@@ -152,7 +152,7 @@ pnpm db:migrate-identities
 且 **secret 必須和步驟 3 在 Vercel 設的完全相同**（部署後的 `/api/telegram` 會驗證這個 header,不一致會被擋）:
 
 ```bash
-pnpm bot:set-webhook https://splitbill.example.com
+pnpm bot:set-webhook https://joubill.example.com
 ```
 
 腳本會自動接上 `/api/telegram`,設定 `secret_token`、`drop_pending_updates`,並印出 `getWebhookInfo` 供確認。
@@ -163,7 +163,7 @@ pnpm bot:set-webhook https://splitbill.example.com
 
 ```
 @BotFather → /myapps → 選你的 app → Edit Web App URL
-  → https://splitbill.example.com/mini
+  → https://joubill.example.com/mini
 ```
 
 （私訊裡的按鈕走 `NEXT_PUBLIC_MINI_APP_URL`,已在步驟 3 設定。）
@@ -181,7 +181,7 @@ pnpm bot:set-webhook https://splitbill.example.com
 
 **Web 登入**
 
-- 開 `https://splitbill.example.com/login` → 看到「使用 Telegram 登入」按鈕。
+- 開 `https://joubill.example.com/login` → 看到「使用 Telegram 登入」按鈕。
 - 點按鈕 → 跳到 Telegram OAuth → 授權 → 跳回 `/app` → 看到群組列表。
 - 點一個群組 → 餘額、支出列表正常顯示。
 
