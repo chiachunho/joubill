@@ -33,8 +33,8 @@ function byMagnitude(a: Cents, b: Cents): number {
  * Balances are floats after FX conversion, so rounding each one to cents can
  * leave the total a few cents off, and then no subset would ever sum to 0.
  * The residual is moved onto the people with the largest balances, one cent
- * each per pass, because that distorts them least in relative terms. A person
- * is never pushed across zero.
+ * each per pass, because that distorts them least in relative terms. Nobody is
+ * pushed down into the dust band or across zero.
  */
 function toBalancedCents(balances: NetBalance[]): Cents[] {
   const people: Cents[] = balances
@@ -48,8 +48,9 @@ function toBalancedCents(balances: NetBalance[]): Cents[] {
     let moved = false;
     for (const p of people) {
       if (residual === 0) break;
-      // Keep the sign: a creditor may not drop to 0 or below, nor a debtor rise to it.
-      if (Math.sign(p.cents + step) !== Math.sign(p.cents)) continue;
+      // Never shrink someone into the dust band (or across zero): they would be
+      // settled by the rule above, or asked for a 0.01 transfer.
+      if (Math.abs(p.cents + step) <= DUST_CENTS) continue;
       p.cents += step;
       residual += step;
       moved = true;

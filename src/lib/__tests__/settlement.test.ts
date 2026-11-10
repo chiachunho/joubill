@@ -268,33 +268,37 @@ function bestTransferCount(cents: number[]): number {
 describe("minimizeTransfers against brute force", () => {
   it("matches the true minimum and conserves every balance (small groups)", () => {
     const rand = mulberry32(170);
+    const value = () => (3 + Math.floor(rand() * 60)) * (rand() < 0.5 ? 1 : -1);
+    let checked = 0;
+    let withSubgroups = 0;
     for (let round = 0; round < 400; round++) {
       const n = 2 + Math.floor(rand() * 7); // 2..8
+      // Cut n people into clusters; each cluster sums to exactly 0 by construction, so
+      // settling inside clusters is possible (often with fewer transfers than greedy finds).
       const cents: number[] = [];
-      // Build from small zero-sum clusters half the time so subsets exist to find.
-      if (rand() < 0.5) {
-        while (cents.length < n) {
-          const v = (3 + Math.floor(rand() * 60)) * (rand() < 0.5 ? 1 : -1);
-          cents.push(v);
-          if (cents.length < n && rand() < 0.4) cents.push(-v);
-        }
-        cents.length = n;
-      } else {
-        for (let i = 0; i < n; i++)
-          cents.push((3 + Math.floor(rand() * 60)) * (rand() < 0.5 ? 1 : -1));
+      while (cents.length < n) {
+        const left = n - cents.length;
+        let size = Math.min(left, 2 + Math.floor(rand() * 4));
+        if (left - size === 1) size = left; // never strand a single person
+        const cluster = Array.from({ length: size - 1 }, value);
+        cents.push(...cluster, -cluster.reduce((s, c) => s + c, 0));
       }
-      const total = cents.reduce((s, c) => s + c, 0);
-      if (Math.abs(total) <= DUST_CENTS) continue; // not a valid ledger; the loop would need a nonzero last
-      cents[n - 1] -= total; // make the sum exactly 0
-      if (Math.abs(cents[n - 1]) <= DUST_CENTS) continue;
+      // Anyone inside the dust band is dropped by design, so keep to real balances.
+      if (cents.some((c) => Math.abs(c) <= DUST_CENTS)) continue;
 
       const balances: NetBalance[] = cents.map((c, i) => ({ userId: i + 1, amount: c / 100 }));
       const transfers = minimizeTransfers(balances);
 
-      expect(transfers).toHaveLength(bestTransferCount(cents));
+      const best = bestTransferCount(cents);
+      expect(transfers).toHaveLength(best);
+      if (best < n - 1) withSubgroups++;
       const net = sumByUser(transfers);
       for (const b of balances) expect(net.get(b.userId) ?? 0).toBeCloseTo(b.amount, 2);
       for (const t of transfers) expect(t.amount).toBeGreaterThan(0);
+      checked++;
     }
+    // Guard against the generator quietly skipping everything, or never producing subgroups.
+    expect(checked).toBeGreaterThan(300);
+    expect(withSubgroups).toBeGreaterThan(50);
   });
 });
