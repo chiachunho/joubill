@@ -256,6 +256,15 @@ Mini App's own webview to `/help` would replace the app and strip its back butto
 change alters bot copy, a button label, a form field, or who is allowed to do
 something, update `src/app/help/**` in the same commit.
 
+### Landing page (`src/app/page.tsx` + `src/components/landing/`)
+
+The public `/` page: product introduction and portfolio piece. Rules:
+
+- `page.tsx` is a server component with `revalidate = 3600`. It asks Telegram for the bot's username (for `addToGroupLink`) through a **bare grammY `Api`**, never `getBot()`, which would pull in `@/db` and need every server env var at build time; with no token or no answer the button points at `HELP_PATH`. The GitHub star count comes from `fetchRepoStars` (`src/lib/github-repo.ts`, 2 s timeout, null hides the number).
+- Repository and author links live only in `src/lib/github-repo.ts`.
+- `LifeDemo` pictures a real expense card (recorded → edited in place → tombstone), so its button labels come from `BTN` and the tombstone keeps the real `X 記錄 · Y 刪除` wording; prose naming a button interpolates `BTN` too.
+- Statements about other tools stay general and carry the date they were checked; a change of a competitor's plan, or of a figure derived from code (the currency count reads `SUPPORTED_CURRENCIES`), updates the page.
+
 ### API Auth (`src/lib/auth/`)
 
 Every API route handler wraps with `withAuth` (`src/lib/auth/route.ts`), which turns any thrown `HttpError` (`AuthError`, `BadRequestError`) into its status; the handler calls `getAuth(req)`. `getAuth` accepts **two** auth sources and returns the same `Auth { user, groupFromParam? }` shape regardless:

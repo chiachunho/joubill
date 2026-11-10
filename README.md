@@ -91,3 +91,7 @@ Neon Postgres database.
   domain
 - [CLAUDE.md](CLAUDE.md) and [docs/architecture/](docs/architecture/): how the
   code is organised and why
+
+## License
+
+[MIT](LICENSE)
