@@ -5,7 +5,7 @@ import { expect, test } from "./fixtures";
 test.describe("Landing page", () => {
   test("loads signed out and walks the demo card through its life", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("帳記在群組裡");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("記帳分帳就是這麼簡單");
 
     const card = page.getByTestId("life-demo-card");
     await expect(card).toContainText("300 TWD");
@@ -21,7 +21,7 @@ test.describe("Landing page", () => {
     await expect(add).toHaveAttribute("href", /^(https:\/\/t\.me\/.+\?startgroup=true|\/help)$/);
     await expect(page.getByRole("link", { name: /^在 GitHub 上給 Star/ }).first()).toHaveAttribute(
       "href",
-      "https://github.com/chiachunho/splitbill-telegram-bot",
+      "https://github.com/chiachunho/joubill",
     );
     await page.getByRole("link", { name: "開啟網頁版" }).click();
     await expect(page).toHaveURL(/\/(app|login)/);

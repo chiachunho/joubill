@@ -188,7 +188,7 @@ describe("parseAddMessage", () => {
   });
 
   it("handles the /add@botname form", () => {
-    expect(parseAddMessage("/add@splitbill_bot 200 lunch").amount).toBe(200);
+    expect(parseAddMessage("/add@joubill_bot 200 lunch").amount).toBe(200);
   });
 
   it("throws on a missing or unreadable amount", () => {

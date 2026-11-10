@@ -221,7 +221,7 @@ export function BeancountExportSection({
         </div>
         <p className="mt-2 px-1 text-xs text-muted-foreground">
           上次匯出後的變動包含新增的紀錄，以及已匯出、之後被修改或刪除的紀錄。修正會寫成沖銷分錄，帶有
-          splitbill_correction 標記；每筆都帶 splitbill_id，可以用來對照。
+          joubill_correction 標記；每筆都帶 joubill_id，可以用來對照。
         </p>
       </section>
 

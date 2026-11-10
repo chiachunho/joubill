@@ -31,7 +31,7 @@ function toAdapterSession(row: { id: string; userId: number; expiresAt: Date }):
  * session mapping: sessions.id ↔ sessionToken; sessions.expiresAt ↔ expires
  * account mapping: auth_identities.providerUid ↔ providerAccountId
  */
-export const splitbillAdapter: Adapter = {
+export const joubillAdapter: Adapter = {
   async createUser(data) {
     const parts = data.name?.split(" ") ?? [];
     const [user] = await db

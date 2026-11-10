@@ -35,7 +35,7 @@ describe("/help", () => {
 
   it("answers the command addressed to this bot", async () => {
     const t = testBot(helpCommand);
-    await t.send("/help@splitbill_test_bot");
+    await t.send("/help@joubill_test_bot");
     expect(t.replies()).toHaveLength(1);
   });
 

@@ -44,7 +44,7 @@ describe("loginUrl", () => {
 });
 
 describe("loginCallbackUrl", () => {
-  const REMEMBERED = "https://splitbill.example/join/K7M2QX9PAB";
+  const REMEMBERED = "https://joubill.example/join/K7M2QX9PAB";
 
   it("returns to ?next= when it is a path on this site", () => {
     expect(loginCallbackUrl("/join/K7M2QX9PAB", undefined, undefined)).toBe("/join/K7M2QX9PAB");
@@ -68,7 +68,7 @@ describe("loginCallbackUrl", () => {
 
   it("keeps the query of the remembered page", () => {
     expect(
-      loginCallbackUrl(undefined, "AccessDenied", "https://splitbill.example/app/groups/3?tab=x"),
+      loginCallbackUrl(undefined, "AccessDenied", "https://joubill.example/app/groups/3?tab=x"),
     ).toBe("/app/groups/3?tab=x");
   });
 

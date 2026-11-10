@@ -1,5 +1,5 @@
 /**
- * Render splitbill records as beancount transactions, from the **personal-ledger
+ * Render Joubill records as beancount transactions, from the **personal-ledger
  * perspective** of one user (U), for the group's beancount export (issue #117).
  *
  * Three accounts, configurable per (user, group) (see docs/architecture/exports.md):
@@ -28,7 +28,7 @@ import { BEANCOUNT_LEAF_RE } from "@/lib/zod";
 export type BeancountParty = { userId: number; amount: number };
 
 export type BeancountRecord = {
-  /** The record id, written as `splitbill_id` metadata so a re-import can be deduplicated. */
+  /** The record id, written as `joubill_id` metadata so a re-import can be deduplicated. */
   id: number;
   type: "expense" | "settlement";
   amount: number;
@@ -153,7 +153,7 @@ export function negatePostings(postings: Posting[]): Posting[] {
 
 /**
  * How a transaction is marked when it is part of a correction (issue #124):
- * `correction` becomes the `splitbill_correction` metadata line, `reverse` cancels
+ * `correction` becomes the `joubill_correction` metadata line, `reverse` cancels
  * the record's postings instead of repeating them.
  */
 export type BeancountMark = { correction?: "edited" | "deleted"; reverse?: boolean };
@@ -199,9 +199,9 @@ export function recordToBeancount(
   const text = narration ?? record.description ?? "";
   const lines = [
     `${beancountDate(record.spentAt)} * "${escapeString(text)}"`,
-    `  splitbill_id: "${record.id}"`,
+    `  joubill_id: "${record.id}"`,
   ];
-  if (mark?.correction) lines.push(`  splitbill_correction: "${mark.correction}"`);
+  if (mark?.correction) lines.push(`  joubill_correction: "${mark.correction}"`);
 
   const showPrice = !!fx && fx.quote !== record.currency;
   const amountStrs = postings.map((p) => p.amount.toFixed(2));

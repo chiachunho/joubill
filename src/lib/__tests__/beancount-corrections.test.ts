@@ -165,7 +165,7 @@ describe("a correction written into the file", () => {
     const original = lunch();
     const { text, first, corrected } = render(plan(original, null), original);
     expect(corrected).toBe(1);
-    expect(text).toContain('splitbill_correction: "deleted"');
+    expect(text).toContain('joubill_correction: "deleted"');
     for (const sum of Object.values(totals(`${first}\n${text}`))) expect(sum).toBe(0);
   });
 
@@ -180,7 +180,7 @@ describe("a correction written into the file", () => {
       ],
     });
     const { text, first } = render(plan(original, now), original);
-    expect(text.match(/splitbill_correction: "edited"/g)).toHaveLength(2);
+    expect(text.match(/joubill_correction: "edited"/g)).toHaveLength(2);
     expect(totals(`${first}\n${text}`)).toEqual({
       "Expenses:Food": 180,
       "Assets:Cash": -360,

@@ -48,7 +48,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** A Telegram chat (group / supergroup) maps to one splitbill group. */
+/** A Telegram chat (group / supergroup) maps to one Joubill group. */
 export const groups = pgTable(
   "groups",
   {

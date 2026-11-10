@@ -1,11 +1,11 @@
 ---
-name: splitbill
+name: joubill
 description: Record or look up shared expenses, settlements, balances and receipts in Splitbill (揪帳). Use when the user wants to log who paid for something, split a bill or a receipt, record a repayment, or ask who owes whom.
 ---
 
 # Splitbill
 
-The `splitbill` MCP server does the work; its own instructions describe the workflow and are sent to you
+The `joubill` MCP server does the work; its own instructions describe the workflow and are sent to you
 on connect, so follow those rather than anything repeated here. This skill only says when to reach for it.
 
 Use it when the user:

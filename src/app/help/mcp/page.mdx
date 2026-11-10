@@ -54,7 +54,7 @@ export const metadata = helpMetadata("mcp");
 **Claude Code**
 
 ```bash
-claude mcp add --transport http splitbill <MCP 伺服器網址> \
+claude mcp add --transport http joubill <MCP 伺服器網址> \
   --header "Authorization: Bearer sbk_…"
 ```
 
@@ -63,7 +63,7 @@ claude mcp add --transport http splitbill <MCP 伺服器網址> \
 ```json
 {
   "mcpServers": {
-    "splitbill": {
+    "joubill": {
       "url": "<MCP 伺服器網址>",
       "headers": { "Authorization": "Bearer sbk_…" }
     }
@@ -74,8 +74,8 @@ claude mcp add --transport http splitbill <MCP 伺服器網址> \
 **Claude Code 外掛**：不想自己寫設定的話，安裝外掛就會一次設好。先在 個人設定 建立個人存取權杖，把網址（不含結尾斜線，例如 `https://你的網域`）和權杖放進啟動 Claude Code 的環境變數 `SPLITBILL_URL` 與 `SPLITBILL_TOKEN`，再執行：
 
 ```
-/plugin marketplace add chiachunho/splitbill-telegram-bot
-/plugin install splitbill@splitbill
+/plugin marketplace add chiachunho/joubill
+/plugin install joubill@joubill
 ```
 
 外掛包含 MCP 伺服器設定和一個 skill，不需要再手動 `claude mcp add`。

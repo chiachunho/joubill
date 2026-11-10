@@ -29,7 +29,7 @@ test.describe("beancount export", () => {
 
     const text = await res.text();
     const event = `Assets:Receivable:${leaf(seeded.groupTitle)}`;
-    expect(text).toContain(`splitbill_id: "${seeded.expenseId}"`);
+    expect(text).toContain(`joubill_id: "${seeded.expenseId}"`);
     expect(text).toMatch(/Expenses:Uncategorized\s+150\.00 TWD/);
     expect(text).toMatch(/Assets:Cash\s+-300\.00 TWD/);
     expect(text).toMatch(new RegExp(`${event}\\s+150\\.00 TWD`));
@@ -65,8 +65,8 @@ test.describe("beancount export", () => {
     const text = await (
       await request.get(`/api/groups/${seeded.groupId}/beancount/export?range=new`)
     ).text();
-    expect(text).not.toContain(`splitbill_id: "${seeded.expenseId}"`);
-    expect(text).not.toContain(`splitbill_id: "${third}"`);
+    expect(text).not.toContain(`joubill_id: "${seeded.expenseId}"`);
+    expect(text).not.toContain(`joubill_id: "${third}"`);
     expect(text).toMatch(/Assets:Cash\s+150\.00 TWD/);
     expect(text).toMatch(/^; \d{4}-\d{2}-\d{2} open Assets:Receivable:/m);
     expect((await summary("new")).included).toBe(0);
@@ -102,8 +102,8 @@ test.describe("beancount export", () => {
     expect(summary).toMatchObject({ included: 0, corrected: 2 });
 
     const text = await (await request.get(`${base}/beancount/export?range=new`)).text();
-    expect(text.match(/splitbill_correction: "edited"/g)).toHaveLength(2);
-    expect(text.match(/splitbill_correction: "deleted"/g)).toHaveLength(1);
+    expect(text.match(/joubill_correction: "edited"/g)).toHaveLength(2);
+    expect(text.match(/joubill_correction: "deleted"/g)).toHaveLength(1);
     // The exported 300 is reversed, then the 360 version is written.
     expect(text).toMatch(/Assets:Cash\s+300\.00 TWD/);
     expect(text).toMatch(/Assets:Cash\s+-360\.00 TWD/);
@@ -144,7 +144,7 @@ test.describe("beancount export", () => {
     const qs = new URLSearchParams({ range: "custom", from, to }).toString();
     const res = await request.get(`/api/groups/${seeded.groupId}/beancount/export?${qs}`);
     expect(res.status()).toBe(200);
-    expect(await res.text()).toContain(`splitbill_id: "${seeded.expenseId}"`);
+    expect(await res.text()).toContain(`joubill_id: "${seeded.expenseId}"`);
 
     const summary = await request.get(
       `/api/groups/${seeded.groupId}/beancount/export/summary?range=new`,

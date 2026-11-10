@@ -57,7 +57,9 @@ export default function HelpLayout({ children }: { children: React.ReactNode }) 
           </button>
           <Link href="/help/getting-started" className="flex items-center gap-2">
             <Logo size={28} />
-            <span className="text-base font-semibold text-foreground">揪帳說明</span>
+            <span className="text-base font-semibold text-foreground">
+              揪帳說明 <span className="text-sm font-medium text-muted-foreground">Joubill</span>
+            </span>
           </Link>
           <div className="ml-auto">
             <Link

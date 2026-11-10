@@ -1,4 +1,4 @@
-# 揪帳 Splitbill
+# 揪帳 Joubill
 
 > 中文版：[README.zh-TW.md](README.zh-TW.md)
 
@@ -77,8 +77,8 @@ Settings > Linked applications, then start Claude Code with `SPLITBILL_URL` (you
 trailing slash) and `SPLITBILL_TOKEN` set, and run:
 
 ```
-/plugin marketplace add chiachunho/splitbill-telegram-bot
-/plugin install splitbill@splitbill
+/plugin marketplace add chiachunho/joubill
+/plugin install joubill@joubill
 ```
 
 ## Running your own instance

@@ -49,6 +49,7 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
           <Link href="/" className="flex items-center gap-2.5 text-xl font-bold">
             <Logo size={28} />
             揪帳
+            <span className="text-sm font-medium text-muted-foreground">Joubill</span>
           </Link>
           <div className="flex items-center gap-6 text-sm">
             <a href="#why" className="hidden text-muted-foreground hover:text-foreground md:inline">
@@ -76,9 +77,9 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
         <header className="grid items-start gap-14 pb-24 pt-10 lg:grid-cols-[1fr_440px]">
           <div>
             <h1 className="text-balance text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
-              帳記在群組裡，
+              就這樣，
               <br />
-              大家都看得到。
+              記帳分帳就是這麼簡單
             </h1>
             <p className="mt-6 max-w-[27em] text-lg text-muted-foreground">
               每一筆帳都是聊天室裡的一則訊息。誰付的、怎麼分、後來誰改過，全群組一眼就看到。不用每個人下載
@@ -360,7 +361,7 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
         </div>
         <footer className="flex flex-wrap justify-between gap-4 border-t pb-12 pt-7 text-sm text-muted-foreground">
           <p>
-            © {todayIn(DEFAULT_TIME_ZONE).slice(0, 4)} 揪帳，由{" "}
+            © {todayIn(DEFAULT_TIME_ZONE).slice(0, 4)} 揪帳 Joubill，由{" "}
             <a href={AUTHOR_URL} className="text-foreground underline-offset-4 hover:underline">
               {AUTHOR_NAME}
             </a>{" "}

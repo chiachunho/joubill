@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const VALID = {
   TELEGRAM_BOT_TOKEN: "123:abc",
   TELEGRAM_WEBHOOK_SECRET: "secret",
-  TELEGRAM_MINI_APP_NAME: "splitbill",
+  TELEGRAM_MINI_APP_NAME: "joubill",
   TELEGRAM_STORAGE_CHAT_ID: "-1001234567890",
   DATABASE_URL: "postgres://user:pw@ep-cool-123.ap-southeast-1.aws.neon.tech/db?sslmode=require",
 };
@@ -50,9 +50,9 @@ describe("serverEnv", () => {
 describe("clientEnv", () => {
   it("parses a valid mini app URL", async () => {
     const { clientEnv } = await loadEnv({
-      NEXT_PUBLIC_MINI_APP_URL: "https://splitbill.example/mini",
+      NEXT_PUBLIC_MINI_APP_URL: "https://joubill.example/mini",
     });
-    expect(clientEnv.NEXT_PUBLIC_MINI_APP_URL).toBe("https://splitbill.example/mini");
+    expect(clientEnv.NEXT_PUBLIC_MINI_APP_URL).toBe("https://joubill.example/mini");
   });
 
   it("throws at import when the URL is malformed", async () => {

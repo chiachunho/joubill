@@ -10,7 +10,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const ADD = "https://t.me/splitbill_bot?startgroup=true";
+const ADD = "https://t.me/joubill_bot?startgroup=true";
 
 describe("Landing", () => {
   it("sends both add-to-group buttons to Telegram's group picker in a new tab", () => {

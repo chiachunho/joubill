@@ -8,7 +8,7 @@ Production runs on **Vercel** (frontend + bot webhook + API) + **Neon Postgres**
   Assumes you already own: a Neon DB, a Vercel account, a Telegram bot, and a
   custom domain. The code is already pushed to GitHub.
 
-> Below, `splitbill.example.com` stands for your custom domain — substitute your own.
+> Below, `joubill.example.com` stands for your custom domain — substitute your own.
 > External steps only you can do are marked **🧑 manual**; the rest are local commands.
 
 **Why bind the domain first**: `NEXT_PUBLIC_MINI_APP_URL` is compiled into the
@@ -41,10 +41,10 @@ hit Deploy yet** — do steps 2, 3, 4 first.
 
 ## 2. 🧑 Bind the custom domain + DNS
 
-Project → **Settings → Domains** → enter `splitbill.example.com` → Add.
+Project → **Settings → Domains** → enter `joubill.example.com` → Add.
 Vercel gives you DNS values; add them at your registrar / DNS provider:
 
-- Subdomain (e.g. `splitbill.example.com`): add a **CNAME** → `cname.vercel-dns.com`
+- Subdomain (e.g. `joubill.example.com`): add a **CNAME** → `cname.vercel-dns.com`
 - Apex domain (e.g. `example.com`): add the **A record** Vercel shows (usually `76.76.21.21`)
 
 Wait for DNS to propagate; Vercel auto-issues a TLS certificate (Telegram
@@ -62,10 +62,10 @@ both **Production** and **Preview**):
 | ----------------------------- | ------------------------------------------------------ | ------------------------------------------------------- |
 | `TELEGRAM_BOT_TOKEN`          | the token from BotFather                               |                                                         |
 | `TELEGRAM_WEBHOOK_SECRET`     | a strong random string                                 | **write it down** — step 8 needs the same value locally |
-| `TELEGRAM_MINI_APP_NAME`      | the BotFather app short name (e.g. `splitbill`)        |                                                         |
+| `TELEGRAM_MINI_APP_NAME`      | the BotFather app short name (e.g. `joubill`)          |                                                         |
 | `TELEGRAM_STORAGE_CHAT_ID`    | the private channel's chat_id (negative number)        | see below                                               |
 | `DATABASE_URL`                | Neon **Pooled** connection string + `?sslmode=require` | use pooled, not direct                                  |
-| `NEXT_PUBLIC_MINI_APP_URL`    | `https://splitbill.example.com/mini`                   | **use the custom domain**, not `*.vercel.app`           |
+| `NEXT_PUBLIC_MINI_APP_URL`    | `https://joubill.example.com/mini`                     | **use the custom domain**, not `*.vercel.app`           |
 | `AUTH_SECRET`                 | random string                                          | signs Auth.js sessions; `openssl rand -base64 32`       |
 | `AUTH_TELEGRAM_CLIENT_ID`     | BotFather Web Login Client ID                          | from step 4                                             |
 | `AUTH_TELEGRAM_CLIENT_SECRET` | BotFather Web Login Client Secret                      | from step 4                                             |
@@ -96,9 +96,9 @@ as a store:
 A provider shows up on the login page only when both of its values are set; with none
 set, only the Telegram button appears. The Callback URLs are:
 
-- `https://splitbill.example.com/api/auth/callback/github`
-- `https://splitbill.example.com/api/auth/callback/google`
-- `https://splitbill.example.com/api/auth/callback/line`
+- `https://joubill.example.com/api/auth/callback/github`
+- `https://joubill.example.com/api/auth/callback/google`
+- `https://joubill.example.com/api/auth/callback/line`
 
 **Google**: Google Cloud Console → APIs & Services → Credentials → Create credentials →
 OAuth client ID → Web application. Add the callback URL under _Authorized redirect URIs_.
@@ -155,14 +155,14 @@ Telegram OIDC needs OIDC credentials from BotFather plus a registered Redirect U
 ```
 @BotFather → /mybots → pick your bot → Bot Settings → Web Login
   → note the Client ID and Client Secret (fill into step 3's env vars)
-  → add Redirect URI: https://splitbill.example.com/api/auth/callback/telegram
+  → add Redirect URI: https://joubill.example.com/api/auth/callback/telegram
 ```
 
 > ⚠️ The Redirect URI must match exactly (including https, path, no trailing slash), or Telegram rejects the OIDC callback.
 
 ## 5. 🧑 Deploy
 
-Hit **Deploy**. When it finishes, opening `https://splitbill.example.com/mini`
+Hit **Deploy**. When it finishes, opening `https://joubill.example.com/mini`
 on the custom domain should show the Mini App's browser preview (real launch is
 from inside Telegram).
 
@@ -200,7 +200,7 @@ and the **secret must be identical to the one set in Vercel in step 3** (the
 deployed `/api/telegram` validates this header and rejects mismatches):
 
 ```bash
-pnpm bot:set-webhook https://splitbill.example.com
+pnpm bot:set-webhook https://joubill.example.com
 ```
 
 The script appends `/api/telegram`, sets `secret_token`,
@@ -231,7 +231,7 @@ Opening the Mini App inside a group uses the BotFather-registered direct-link
 
 ```
 @BotFather → /myapps → pick your app → Edit Web App URL
-  → https://splitbill.example.com/mini
+  → https://joubill.example.com/mini
 ```
 
 (The button in private chats uses `NEXT_PUBLIC_MINI_APP_URL`, already set in step 3.)
@@ -249,7 +249,7 @@ Opening the Mini App inside a group uses the BotFather-registered direct-link
 
 **Web login**
 
-- Open `https://splitbill.example.com/login` → see the "Sign in with Telegram" button.
+- Open `https://joubill.example.com/login` → see the "Sign in with Telegram" button.
 - Tap it → redirect to Telegram OAuth → authorize → redirect back to `/app` → see the group list.
 - Tap a group → balances and the expense list render.
 

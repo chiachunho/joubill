@@ -4,7 +4,7 @@ import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import Line from "next-auth/providers/line";
 
-import { splitbillAdapter } from "@/lib/auth/nextAuthAdapter";
+import { joubillAdapter } from "@/lib/auth/nextAuthAdapter";
 import { SESSION_COOKIE } from "@/lib/auth";
 import { CALLBACK_URL_COOKIE } from "@/lib/auth-redirect";
 import { syncIdentityProfile } from "@/lib/auth/identity-profile";
@@ -89,7 +89,7 @@ const TelegramOIDC = {
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: splitbillAdapter,
+  adapter: joubillAdapter,
   session: { strategy: "database" },
   providers: [
     TelegramOIDC,

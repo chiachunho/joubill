@@ -10,8 +10,8 @@
 export type ExpenseViewMode = "total" | "balance";
 
 /** localStorage keys for the expense-list view preferences (shared by the Mini App and Web App pages). */
-export const EXPENSE_VIEW_MODE_KEY = "splitbill:expenseView";
-export const EXPENSE_ONLY_MINE_KEY = "splitbill:expenseOnlyMine";
+export const EXPENSE_VIEW_MODE_KEY = "joubill:expenseView";
+export const EXPENSE_ONLY_MINE_KEY = "joubill:expenseOnlyMine";
 
 export type ExpenseLike = {
   payers: { userId: number; amount: number }[];
