@@ -3,7 +3,7 @@
  * footer. One place, so the links can't point at two different repositories.
  */
 export const REPO_OWNER = "chiachunho";
-export const REPO_NAME = "splitbill-telegram-bot";
+export const REPO_NAME = "joubill";
 export const REPO_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}`;
 export const REPO_FORK_URL = `${REPO_URL}/fork`;
 export const REPO_ISSUES_URL = `${REPO_URL}/issues`;

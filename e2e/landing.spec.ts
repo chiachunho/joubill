@@ -21,7 +21,7 @@ test.describe("Landing page", () => {
     await expect(add).toHaveAttribute("href", /^(https:\/\/t\.me\/.+\?startgroup=true|\/help)$/);
     await expect(page.getByRole("link", { name: /^在 GitHub 上給 Star/ }).first()).toHaveAttribute(
       "href",
-      "https://github.com/chiachunho/splitbill-telegram-bot",
+      "https://github.com/chiachunho/joubill",
     );
     await page.getByRole("link", { name: "開啟網頁版" }).click();
     await expect(page).toHaveURL(/\/(app|login)/);

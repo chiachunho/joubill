@@ -77,7 +77,7 @@ Settings > Linked applications, then start Claude Code with `SPLITBILL_URL` (you
 trailing slash) and `SPLITBILL_TOKEN` set, and run:
 
 ```
-/plugin marketplace add chiachunho/splitbill-telegram-bot
+/plugin marketplace add chiachunho/joubill
 /plugin install splitbill@splitbill
 ```
 
