@@ -3,9 +3,11 @@ import type { Metadata } from "next";
 import { helpPage } from "./help-pages";
 
 export const SITE_NAME = "揪帳";
-export const SITE_TITLE = "揪帳｜Telegram 分帳機器人";
+/** The product's English name; the repository and package keep the old `splitbill` slug. */
+export const SITE_NAME_EN = "Joubill";
+export const SITE_TITLE = `${SITE_NAME} ${SITE_NAME_EN}｜Telegram 分帳機器人`;
 export const SITE_DESCRIPTION =
-  "聚餐、旅遊、下午茶，分帳就這樣搞定。在 Telegram 群組輸入 /add 記帳，自動算出誰欠誰、最少轉帳次數，支援多幣別與歷史匯率。";
+  "就這樣，記帳分帳就是這麼簡單。聚餐、旅遊、下午茶，在 Telegram 群組輸入 /add 記帳，自動算出誰欠誰、最少轉帳次數，支援多幣別與歷史匯率。";
 
 /**
  * The site's origin, from `NEXT_PUBLIC_MINI_APP_URL` (the same source as `appUrl`; see help-url.ts).
@@ -45,6 +47,7 @@ export function softwareApplicationJsonLd(origin: string | null) {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: SITE_NAME,
+    alternateName: SITE_NAME_EN,
     description: SITE_DESCRIPTION,
     applicationCategory: "FinanceApplication",
     operatingSystem: "Web, Telegram",

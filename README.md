@@ -1,4 +1,4 @@
-# 揪帳 Splitbill
+# 揪帳 Joubill
 
 > 中文版：[README.zh-TW.md](README.zh-TW.md)
 

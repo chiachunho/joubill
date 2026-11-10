@@ -272,7 +272,7 @@ Only `/` and `/help/**` are for search engines. Rules:
 
 - The site origin comes from `NEXT_PUBLIC_MINI_APP_URL` through `siteOrigin()` (read from `process.env`, so a build without it still works); the root layout's `metadataBase`, `robots.ts` and `sitemap.ts` all use it. The root `title` has a `%s｜揪帳` template, so a page that wants a bare title uses `{ absolute }`.
 - **`/app`, `/mini`, `/login` and `/join/<code>` carry `NO_INDEX`** (`robots: { index: false }`) and are also disallowed in `robots.ts`; a new page behind a login does the same. An invite link is a credential.
-- Help pages get title, description, canonical and Open Graph from `helpMetadata(slug)` (descriptions live in `help-pages.ts`); the landing page carries `SoftwareApplication` JSON-LD (`softwareApplicationJsonLd`, serialised by `jsonLdString`, which escapes `<`). The landing copy and `SITE_DESCRIPTION` change together.
+- Help pages get title, description, canonical and Open Graph from `helpMetadata(slug)` (descriptions live in `help-pages.ts`); the landing page carries `SoftwareApplication` JSON-LD (`softwareApplicationJsonLd`, serialised by `jsonLdString`, which escapes `<`). The landing copy, `SITE_DESCRIPTION` and the manifest description change together (the slogan 就這樣，記帳分帳就是這麼簡單 leads all three). The English name is `SITE_NAME_EN` (Joubill), shown beside 揪帳 in the title, landing nav and footer and as JSON-LD `alternateName`; the repo, package and plugin keep the `splitbill` slug.
 - The social card is a static `src/app/opengraph-image.png` (copied to `twitter-image.png`); `ImageResponse` has no CJK font, so it is rendered from HTML once rather than generated at build.
 
 ### Landing page (`src/app/page.tsx` + `src/components/landing/`)

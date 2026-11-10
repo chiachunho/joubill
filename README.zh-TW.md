@@ -1,4 +1,4 @@
-# 揪帳 Splitbill
+# 揪帳 Joubill
 
 > English version: [README.md](README.md)
 
