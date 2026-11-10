@@ -7,46 +7,86 @@ import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
-const sections = [
-  { slug: "getting-started", label: "快速入門" },
-  { slug: "adding-expenses", label: "記帳（加入支出）" },
-  { slug: "balances", label: "查看帳務" },
-  { slug: "settlement", label: "還款" },
-  { slug: "multi-currency", label: "多幣別" },
-  { slug: "group-management", label: "群組與成員" },
-  { slug: "stats", label: "統計" },
-  { slug: "web-app", label: "網頁版" },
-  { slug: "add-to-home-screen", label: "加到主畫面與通知" },
-  { slug: "invite-members", label: "網頁建群組與邀請碼" },
-  { slug: "mcp", label: "用 MCP 串接 Claude、ChatGPT 與自動化" },
-  { slug: "troubleshooting", label: "常見問題" },
-  { slug: "privacy", label: "隱私權政策" },
-  { slug: "terms", label: "服務條款" },
+/**
+ * The sidebar, in groups. Adding a page means adding its `page.mdx` and an entry here: a page
+ * without one is unreachable. A renamed or merged page also gets a redirect in next.config.mjs.
+ */
+const groups: { title: string; pages: { slug: string; label: string }[] }[] = [
+  {
+    title: "開始使用",
+    pages: [
+      { slug: "getting-started", label: "快速入門" },
+      { slug: "account", label: "登入與帳號" },
+    ],
+  },
+  {
+    title: "記帳與還款",
+    pages: [
+      { slug: "adding-expenses", label: "記帳" },
+      { slug: "settlement", label: "還款" },
+      { slug: "multi-currency", label: "多幣別" },
+    ],
+  },
+  {
+    title: "看帳",
+    pages: [
+      { slug: "balances", label: "查看帳務" },
+      { slug: "stats", label: "統計" },
+      { slug: "export", label: "匯出" },
+    ],
+  },
+  {
+    title: "群組",
+    pages: [
+      { slug: "members", label: "成員" },
+      { slug: "group-settings", label: "群組設定" },
+    ],
+  },
+  {
+    title: "更多",
+    pages: [
+      { slug: "add-to-home-screen", label: "加到主畫面與通知" },
+      { slug: "mcp", label: "連結 AI 工具（MCP）" },
+    ],
+  },
+  {
+    title: "說明",
+    pages: [
+      { slug: "troubleshooting", label: "常見問題" },
+      { slug: "privacy", label: "隱私權政策" },
+      { slug: "terms", label: "服務條款" },
+    ],
+  },
 ];
 
 function NavLinks({ onNav }: { onNav?: () => void }) {
   const pathname = usePathname();
   return (
-    <nav className="flex flex-col gap-0.5">
-      {sections.map((s) => {
-        const href = `/help/${s.slug}`;
-        const active = pathname === href;
-        return (
-          <Link
-            key={s.slug}
-            href={href}
-            onClick={onNav}
-            className={cn(
-              "rounded-lg px-3 py-2 text-sm transition-colors",
-              active
-                ? "bg-primary/10 font-medium text-primary"
-                : "text-foreground/70 hover:bg-secondary hover:text-foreground",
-            )}
-          >
-            {s.label}
-          </Link>
-        );
-      })}
+    <nav className="flex flex-col gap-4">
+      {groups.map((g) => (
+        <div key={g.title} className="flex flex-col gap-0.5">
+          <p className="sect mb-1 px-3">{g.title}</p>
+          {g.pages.map((s) => {
+            const href = `/help/${s.slug}`;
+            const active = pathname === href;
+            return (
+              <Link
+                key={s.slug}
+                href={href}
+                onClick={onNav}
+                className={cn(
+                  "rounded-lg px-3 py-2 text-sm transition-colors",
+                  active
+                    ? "bg-primary/10 font-medium text-primary"
+                    : "text-foreground/70 hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                {s.label}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }
@@ -85,7 +125,7 @@ export default function HelpLayout({ children }: { children: React.ReactNode }) 
       {open && (
         <div className="fixed inset-0 z-20 md:hidden" onClick={() => setOpen(false)}>
           <div
-            className="absolute left-0 top-14 w-64 border-r border-border/40 bg-background p-4 shadow-lg"
+            className="absolute left-0 top-14 max-h-[calc(100vh-3.5rem)] w-64 overflow-y-auto border-r border-border/40 bg-background p-4 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <NavLinks onNav={() => setOpen(false)} />

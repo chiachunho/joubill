@@ -238,9 +238,17 @@ new third-party service or a new login provider updates `privacy/page.mdx` in th
 same commit. The contact address comes from `CONTACT_EMAIL` through
 `<ContactEmail />` (`src/components/help/ContactEmail.tsx`), never a literal.
 
-`src/app/help/layout.tsx` holds the section list. **Adding a page means adding
-both `src/app/help/<slug>/page.mdx` and an entry in that `sections` array** —
-the array drives the sidebar, so a page without one is unreachable.
+`src/app/help/layout.tsx` holds the sidebar, as titled groups (開始使用, 記帳與還款,
+看帳, 群組, 更多, 說明). **Adding a page means adding both
+`src/app/help/<slug>/page.mdx` and an entry in that `groups` array** — the array
+drives the sidebar, so a page without one is unreachable. Pages are split by
+topic, not by surface: 成員 (`members`) and 群組設定 (`group-settings`) cover
+Telegram and web groups alike, and 登入與帳號 (`account`) covers both front ends.
+**Renaming or merging a page adds a redirect in `next.config.mjs`** (old slugs
+`group-management`, `invite-members`, `web-app` already have one), since old
+links live on in chat history. Each topic has one full explanation; other pages
+link to it with a heading anchor (`rehype-slug` ids, e.g.
+`/help/members#誰會自動加入帳本`) rather than repeating it.
 
 Entry points into the site are deliberately spread across every surface, since
 documentation nobody can find is worthless: the bot's `/help` reply and both
@@ -519,7 +527,7 @@ Push notifications (issue #67) are optional too, read from `process.env` by `pus
 
 Optional, read from `process.env` by `contactEmail()` (`src/lib/contact.ts`):
 
-- `CONTACT_EMAIL` — shown on `/help/privacy` and `/help/terms`; unset, they read 尚未設定聯絡信箱. The pages are prerendered, so a change takes effect at the next deploy
+- `CONTACT_EMAIL` — shown on `/help/privacy`, `/help/terms` and `/help/troubleshooting`; unset, they read 尚未設定聯絡信箱. The pages are prerendered, so a change takes effect at the next deploy
 
 All route handlers must set `export const runtime = "nodejs"` and `export const dynamic = "force-dynamic"` because they use the Neon serverless driver.
 

@@ -48,6 +48,15 @@ const nextConfig = {
       },
     ];
   },
+  // Help pages that were merged or renamed (src/app/help/layout.tsx). Old links live on in
+  // chat history and shared URLs, so they keep working. A #fragment survives the redirect.
+  async redirects() {
+    return [
+      { source: "/help/group-management", destination: "/help/members", permanent: true },
+      { source: "/help/invite-members", destination: "/help/members", permanent: true },
+      { source: "/help/web-app", destination: "/help/account", permanent: true },
+    ];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",
