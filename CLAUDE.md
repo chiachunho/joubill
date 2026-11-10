@@ -238,10 +238,12 @@ new third-party service or a new login provider updates `privacy/page.mdx` in th
 same commit. The contact address comes from `CONTACT_EMAIL` through
 `<ContactEmail />` (`src/components/help/ContactEmail.tsx`), never a literal.
 
-`src/app/help/layout.tsx` holds the sidebar, as titled groups (開始使用, 記帳與還款,
-看帳, 群組, 更多, 說明). **Adding a page means adding both
-`src/app/help/<slug>/page.mdx` and an entry in that `groups` array** — the array
-drives the sidebar, so a page without one is unreachable. Pages are split by
+`src/lib/help-pages.ts` (`HELP_GROUPS`) is the one list of help pages: it drives the sidebar
+(`src/app/help/layout.tsx`), the sitemap and each page's `<title>` / description (titled
+groups 開始使用, 記帳與還款, 看帳, 群組, 更多, 說明). **Adding a page means adding
+`src/app/help/<slug>/page.mdx` and an entry in `HELP_GROUPS`**, and the page starts with
+`export const metadata = helpMetadata("<slug>")` (imported from `@/lib/seo`); `help-pages.test.ts`
+fails when the folders, the list or the `metadata` export disagree. Pages are split by
 topic, not by surface: 成員 (`members`) and 群組設定 (`group-settings`) cover
 Telegram and web groups alike, and 登入與帳號 (`account`) covers both front ends.
 **Renaming or merging a page adds a redirect in `next.config.mjs`** (old slugs
@@ -263,6 +265,15 @@ Mini App's own webview to `/help` would replace the app and strip its back butto
 **The docs describe user-visible behaviour, so they go stale silently.** When a
 change alters bot copy, a button label, a form field, or who is allowed to do
 something, update `src/app/help/**` in the same commit.
+
+### SEO (`src/lib/seo.ts`, `src/app/{robots,sitemap}.ts`)
+
+Only `/` and `/help/**` are for search engines. Rules:
+
+- The site origin comes from `NEXT_PUBLIC_MINI_APP_URL` through `siteOrigin()` (read from `process.env`, so a build without it still works); the root layout's `metadataBase`, `robots.ts` and `sitemap.ts` all use it. The root `title` has a `%s｜揪帳` template, so a page that wants a bare title uses `{ absolute }`.
+- **`/app`, `/mini`, `/login` and `/join/<code>` carry `NO_INDEX`** (`robots: { index: false }`) and are also disallowed in `robots.ts`; a new page behind a login does the same. An invite link is a credential.
+- Help pages get title, description, canonical and Open Graph from `helpMetadata(slug)` (descriptions live in `help-pages.ts`); the landing page carries `SoftwareApplication` JSON-LD (`softwareApplicationJsonLd`, serialised by `jsonLdString`, which escapes `<`). The landing copy and `SITE_DESCRIPTION` change together.
+- The social card is a static `src/app/opengraph-image.png` (copied to `twitter-image.png`); `ImageResponse` has no CJK font, so it is rendered from HTML once rather than generated at build.
 
 ### Landing page (`src/app/page.tsx` + `src/components/landing/`)
 

@@ -2,11 +2,24 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { LAUNCH_SCRIPT } from "@/lib/pwa";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, siteOrigin } from "@/lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "揪帳",
-  description: "聚餐、旅遊、下午茶，分帳就這樣搞定。",
+  // Relative URLs below (canonical, the social card) resolve against this. Unset, they stay
+  // relative, which is only ever the case for a build without NEXT_PUBLIC_MINI_APP_URL.
+  metadataBase: siteOrigin() ? new URL(siteOrigin()!) : undefined,
+  title: { default: SITE_TITLE, template: `%s｜${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "zh_TW",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: { card: "summary_large_image", title: SITE_TITLE, description: SITE_DESCRIPTION },
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
