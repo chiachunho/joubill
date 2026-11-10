@@ -76,9 +76,9 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
         <header className="grid items-start gap-14 pb-24 pt-10 lg:grid-cols-[1fr_440px]">
           <div>
             <h1 className="text-balance text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
-              帳記在群組裡，
+              就這樣，
               <br />
-              大家都看得到。
+              記帳分帳就是這麼簡單
             </h1>
             <p className="mt-6 max-w-[27em] text-lg text-muted-foreground">
               每一筆帳都是聊天室裡的一則訊息。誰付的、怎麼分、後來誰改過，全群組一眼就看到。不用每個人下載
