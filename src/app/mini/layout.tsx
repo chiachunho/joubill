@@ -5,9 +5,11 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { StoreProvider } from "./StoreProvider";
 import { TelegramApp } from "@/components/mini/TelegramApp";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { NO_INDEX } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "揪帳",
+  title: { absolute: "揪帳" },
+  ...NO_INDEX,
 };
 
 export default function MiniLayout({ children }: { children: React.ReactNode }) {

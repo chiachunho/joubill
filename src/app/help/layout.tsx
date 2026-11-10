@@ -5,59 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { HELP_GROUPS as groups } from "@/lib/help-pages";
 import { cn } from "@/lib/utils";
-
-/**
- * The sidebar, in groups. Adding a page means adding its `page.mdx` and an entry here: a page
- * without one is unreachable. A renamed or merged page also gets a redirect in next.config.mjs.
- */
-const groups: { title: string; pages: { slug: string; label: string }[] }[] = [
-  {
-    title: "開始使用",
-    pages: [
-      { slug: "getting-started", label: "快速入門" },
-      { slug: "account", label: "登入與帳號" },
-    ],
-  },
-  {
-    title: "記帳與還款",
-    pages: [
-      { slug: "adding-expenses", label: "記帳" },
-      { slug: "settlement", label: "還款" },
-      { slug: "multi-currency", label: "多幣別" },
-    ],
-  },
-  {
-    title: "看帳",
-    pages: [
-      { slug: "balances", label: "查看帳務" },
-      { slug: "stats", label: "統計" },
-      { slug: "export", label: "匯出" },
-    ],
-  },
-  {
-    title: "群組",
-    pages: [
-      { slug: "members", label: "成員" },
-      { slug: "group-settings", label: "群組設定" },
-    ],
-  },
-  {
-    title: "更多",
-    pages: [
-      { slug: "add-to-home-screen", label: "加到主畫面與通知" },
-      { slug: "mcp", label: "連結 AI 工具（MCP）" },
-    ],
-  },
-  {
-    title: "說明",
-    pages: [
-      { slug: "troubleshooting", label: "常見問題" },
-      { slug: "privacy", label: "隱私權政策" },
-      { slug: "terms", label: "服務條款" },
-    ],
-  },
-];
 
 function NavLinks({ onNav }: { onNav?: () => void }) {
   const pathname = usePathname();

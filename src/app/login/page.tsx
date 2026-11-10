@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -11,6 +12,9 @@ import { resolveSessionFromCookies } from "@/lib/auth";
 import { CALLBACK_URL_COOKIE, loginCallbackUrl } from "@/lib/auth-redirect";
 import { PRIVACY_PATH, TERMS_PATH } from "@/lib/help-url";
 import { authErrorRedirect, loginErrorMessage } from "@/lib/identities";
+import { NO_INDEX } from "@/lib/seo";
+
+export const metadata: Metadata = { title: "登入", ...NO_INDEX };
 
 type Props = { searchParams: Promise<{ next?: string | string[]; error?: string | string[] }> };
 

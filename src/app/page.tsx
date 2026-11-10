@@ -5,6 +5,7 @@ import { botUsername } from "@/lib/bot-username";
 import { addToGroupLink } from "@/lib/deep-link";
 import { fetchRepoStars } from "@/lib/github-repo";
 import { HELP_PATH } from "@/lib/help-url";
+import { jsonLdString, siteOrigin, softwareApplicationJsonLd } from "@/lib/seo";
 
 // Rebuilt at most hourly: the bot's username and the star count change rarely, and neither
 // is worth a request to Telegram or GitHub on every visit.
@@ -23,5 +24,13 @@ async function addToGroupHref(): Promise<string> {
 
 export default async function Home() {
   const [href, stars] = await Promise.all([addToGroupHref(), fetchRepoStars()]);
-  return <Landing addToGroupHref={href} stars={stars} />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdString(softwareApplicationJsonLd(siteOrigin())) }}
+      />
+      <Landing addToGroupHref={href} stars={stars} />
+    </>
+  );
 }
