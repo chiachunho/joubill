@@ -1,11 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Landing } from "@/components/landing/Landing";
 import { REPO_FORK_URL, REPO_URL } from "@/lib/github-repo";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 const ADD = "https://t.me/splitbill_bot?startgroup=true";
 
@@ -51,5 +54,13 @@ describe("Landing", () => {
       "/help/privacy",
     );
     expect(screen.getByRole("link", { name: "服務條款" })).toHaveAttribute("href", "/help/terms");
+  });
+
+  it("dates the copyright by the year in Taiwan, not UTC", () => {
+    // 00:30 on 1 January in Taipei is still 31 December in UTC.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-12-31T16:30:00Z"));
+    render(<Landing addToGroupHref={ADD} stars={null} />);
+    expect(screen.getByText(/© 2027 揪帳/)).toBeInTheDocument();
   });
 });

@@ -17,7 +17,9 @@ import {
   formatStars,
 } from "@/lib/github-repo";
 import { BTN } from "@/lib/buttons";
+import { todayIn } from "@/lib/day";
 import { HELP_PATH, PRIVACY_PATH, TERMS_PATH } from "@/lib/help-url";
+import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 import { SUPPORTED_CURRENCIES } from "@/lib/zod";
 
 import { GitHubMark } from "./GitHubMark";
@@ -358,7 +360,7 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
         </div>
         <footer className="flex flex-wrap justify-between gap-4 border-t pb-12 pt-7 text-sm text-muted-foreground">
           <p>
-            © 2026 揪帳，由{" "}
+            © {todayIn(DEFAULT_TIME_ZONE).slice(0, 4)} 揪帳，由{" "}
             <a href={AUTHOR_URL} className="text-foreground underline-offset-4 hover:underline">
               {AUTHOR_NAME}
             </a>{" "}
