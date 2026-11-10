@@ -44,7 +44,9 @@ export default async function LoginPage({ searchParams }: Props) {
         <div className="flex flex-col items-center gap-3 text-center">
           <Logo size={64} />
           <div className="space-y-1">
-            <h1 className="text-lg font-semibold">揪帳</h1>
+            <h1 className="text-lg font-semibold">
+              揪帳 <span className="font-medium text-muted-foreground">Joubill</span>
+            </h1>
             <p className="text-sm text-muted-foreground">選個方式登入，就這樣。</p>
           </div>
         </div>
