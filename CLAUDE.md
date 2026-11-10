@@ -360,8 +360,14 @@ Schema is pushed with `db:push` in the Vercel build, after the data migrations b
 
 Split across two files deliberately:
 
-- `src/lib/settlement-core.ts` — pure greedy min-transfer algorithm, no DB, fully testable
+- `src/lib/settlement-core.ts` — pure min-transfer algorithm, no DB, fully testable (see below)
 - `src/lib/settlement.ts` — DB queries that build `NetBalance[]`, then delegates to core
+
+`minimizeTransfers` (issue #170) gives the **minimum** number of transfers: k people who are not square need `k − g`, where g is the most groups that sum to 0 among themselves. A subset DP over bitmasks finds g (exact up to `MAX_EXACT_PEOPLE` = 20 people), and each group is settled greedily, which is exactly `size − 1` there. Above 20 it falls back to plain greedy (at most k − 1, not always minimal). Rules that are easy to break:
+
+- **It works in integer cents.** The float nets rarely sum to exactly 0 after FX, so `toBalancedCents` moves the rounding residual one cent at a time onto the largest balances (never across zero); without it no subset could sum to 0.
+- **Balances of `DUST_CENTS` (2) or fewer are treated as settled.** The residual can leave someone 1–2 cents off, and paying the suggestion exactly must not make the next `/settle` ask for a 0.01 transfer back. Don't lower it without re-running the "asks for nothing more once paid" test.
+- Output is deterministic (ties broken by user id) and sorted largest first, so the same ledger reads the same each time. The interface is unchanged; callers need nothing.
 
 `computeGroupBalances` joins through `expense_payers` (not `expenses`) to credit payers, and through `expense_splits` to debit debtors. Both sides are FX-normalised to the group's `defaultCurrency` using historical rates. Settlements need no special handling: stored as `type='settlement'` expenses, their sender/receiver flow through the same payer/split legs.
 
