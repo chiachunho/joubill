@@ -54,7 +54,7 @@ export const metadata = helpMetadata("mcp");
 **Claude Code**
 
 ```bash
-claude mcp add --transport http splitbill <MCP 伺服器網址> \
+claude mcp add --transport http joubill <MCP 伺服器網址> \
   --header "Authorization: Bearer sbk_…"
 ```
 
@@ -63,7 +63,7 @@ claude mcp add --transport http splitbill <MCP 伺服器網址> \
 ```json
 {
   "mcpServers": {
-    "splitbill": {
+    "joubill": {
       "url": "<MCP 伺服器網址>",
       "headers": { "Authorization": "Bearer sbk_…" }
     }
@@ -75,7 +75,7 @@ claude mcp add --transport http splitbill <MCP 伺服器網址> \
 
 ```
 /plugin marketplace add chiachunho/joubill
-/plugin install splitbill@splitbill
+/plugin install joubill@joubill
 ```
 
 外掛包含 MCP 伺服器設定和一個 skill，不需要再手動 `claude mcp add`。

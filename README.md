@@ -78,7 +78,7 @@ trailing slash) and `SPLITBILL_TOKEN` set, and run:
 
 ```
 /plugin marketplace add chiachunho/joubill
-/plugin install splitbill@splitbill
+/plugin install joubill@joubill
 ```
 
 ## Running your own instance

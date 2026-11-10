@@ -1,11 +1,11 @@
 {
-  "name": "splitbill",
+  "name": "joubill",
   "owner": {
     "name": "chiachunho"
   },
   "plugins": [
     {
-      "name": "splitbill",
+      "name": "joubill",
       "source": "./plugin",
       "description": "Record and check shared expenses in Splitbill (揪帳) from Claude Code."
     }

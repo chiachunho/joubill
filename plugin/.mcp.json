@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "splitbill": {
+    "joubill": {
       "type": "http",
       "url": "${SPLITBILL_URL}/api/mcp",
       "headers": {

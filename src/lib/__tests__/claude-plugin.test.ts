@@ -25,7 +25,7 @@ describe("Claude Code plugin", () => {
   });
 
   it("points an http server at the MCP path, with the address and token from the environment", () => {
-    const server = json(path.join(entry.source, ".mcp.json")).mcpServers.splitbill;
+    const server = json(path.join(entry.source, ".mcp.json")).mcpServers.joubill;
     expect(server.type).toBe("http");
     expect(server.url).toBe(`\${SPLITBILL_URL}${MCP_PATH}`);
     expect(server.headers.Authorization).toBe("Bearer ${SPLITBILL_TOKEN}");
@@ -34,14 +34,14 @@ describe("Claude Code plugin", () => {
   });
 
   it("ships one skill with the front matter Claude Code reads", () => {
-    const skill = readFileSync(path.join(dir, "skills/splitbill/SKILL.md"), "utf8");
+    const skill = readFileSync(path.join(dir, "skills/joubill/SKILL.md"), "utf8");
     const front = skill.match(/^---\r?\nname: (\S+)\r?\ndescription: (.+)\r?\n---\r?\n/);
-    expect(front?.[1]).toBe("splitbill");
+    expect(front?.[1]).toBe("joubill");
     expect(front?.[2].length).toBeGreaterThan(40);
   });
 
   it("names only tools and prompts the server really registers", async () => {
-    const skill = readFileSync(path.join(dir, "skills/splitbill/SKILL.md"), "utf8");
+    const skill = readFileSync(path.join(dir, "skills/joubill/SKILL.md"), "utf8");
     // Listing needs no auth: nothing runs until a tool is called.
     const server = createMcpServer({} as McpAuth);
     const [a, b] = InMemoryTransport.createLinkedPair();

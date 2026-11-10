@@ -1,5 +1,5 @@
 {
-  "name": "splitbill",
+  "name": "joubill",
   "description": "Record and check shared expenses in Splitbill (揪帳) from Claude Code: groups, balances, expenses, settlements and receipts.",
   "homepage": "https://github.com/chiachunho/joubill",
   "author": {

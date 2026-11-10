@@ -64,7 +64,7 @@
 
 ```
 /plugin marketplace add chiachunho/joubill
-/plugin install splitbill@splitbill
+/plugin install joubill@joubill
 ```
 
 ## 自己架一個
