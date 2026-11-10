@@ -6,7 +6,7 @@ import { isLoginProvider, type LoginProvider } from "@/lib/identities";
  * page reads it back here to name it in the message (issue #105). Both ends live in this
  * file, since a key that drifts between them fails silently into the unnamed wording.
  */
-const KEY = "splitbill:linking";
+const KEY = "joubill:linking";
 
 export function rememberLinking(provider: LoginProvider): void {
   try {

@@ -19,7 +19,7 @@ export const BOT_INFO: UserFromGetMe = {
   id: 999,
   is_bot: true,
   first_name: "揪帳",
-  username: "splitbill_test_bot",
+  username: "joubill_test_bot",
   can_join_groups: true,
   can_read_all_group_messages: false,
   supports_inline_queries: false,

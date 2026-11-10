@@ -4,7 +4,7 @@ import { generateInviteCode } from "@/lib/invite";
 
 import { expenseLink, groupLink, joinLink, parseStartParam, settlementLink } from "@/lib/deep-link";
 
-const BOT = "splitbill_bot";
+const BOT = "joubill_bot";
 /** Group chat ids are negative — the most common way a naive pattern breaks. */
 const CHAT = -1001234567890;
 
@@ -15,8 +15,8 @@ function startParamOf(url: string): string {
 
 describe("builders", () => {
   it("point at the configured bot and app", () => {
-    // TELEGRAM_MINI_APP_NAME is injected as "splitbill_test" by the vitest config.
-    expect(groupLink(BOT, CHAT)).toBe(`https://t.me/${BOT}/splitbill_test?startapp=group_${CHAT}`);
+    // TELEGRAM_MINI_APP_NAME is injected as "joubill_test" by the vitest config.
+    expect(groupLink(BOT, CHAT)).toBe(`https://t.me/${BOT}/joubill_test?startapp=group_${CHAT}`);
   });
 
   it("tag a record with its kind", () => {
