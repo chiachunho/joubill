@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { McpAuth } from "@/lib/auth/mcp";
+import { imageSize } from "@/lib/image-size";
 import { enforceMcpRateLimit } from "@/lib/rate-limit";
 import { fetchReceiptImage, ReceiptFetchError } from "@/lib/receipt-fetch";
 import {
@@ -22,7 +23,9 @@ export const imageSchema = z.union([
       .string()
       .min(16)
       .max(MAX_BASE64_CHARS)
-      .describe("Image bytes, base64 (a data: URL prefix is fine)."),
+      .describe(
+        "Image bytes, base64 (a data: URL prefix is fine). The original photo, never a cropped, shrunk or grayscale copy.",
+      ),
   }),
   z.object({
     url: z
@@ -67,6 +70,41 @@ export async function loadImage(arg: ImageArg, index: number): Promise<Uint8Arra
 
 /** Validates every image argument; nothing is uploaded, so a bad one stops the whole call. */
 export const loadImages = (args: ImageArg[]) => Promise.all(args.map((a, i) => loadImage(a, i)));
+
+/**
+ * Below this many pixels on the long edge a photo of a receipt has probably been shrunk to fit
+ * into base64 (issue #163): a phone camera takes 3000 and more, a phone screenshot is over 1000.
+ * Such an image is still stored, since it may be all there is, but the result says so.
+ */
+export const LOW_RES_LONG_EDGE = 1000;
+
+export type ImageWarning = {
+  code: "low_resolution";
+  image: number;
+  width: number;
+  height: number;
+};
+
+/** The images that look shrunk. An image whose size can't be read is not flagged. */
+export function imageWarnings(images: Uint8Array[]): ImageWarning[] {
+  return images.flatMap((bytes, image) => {
+    const mime = sniffImage(bytes);
+    const size = mime && imageSize(bytes, mime);
+    if (!size || Math.max(size.width, size.height) >= LOW_RES_LONG_EDGE) return [];
+    return [{ code: "low_resolution" as const, image, ...size }];
+  });
+}
+
+/**
+ * The advice that goes with a warning, written for the agent, which may see only the result.
+ * `hasLink` says whether this result carries uploadUrl (it does once the expense exists).
+ */
+export function imageWarningAdvice(hasLink: boolean): string {
+  const next = hasLink
+    ? "give the user uploadUrl so they can add the original photo in the app"
+    : "record the expense without images and give the user the uploadUrl in the result, so they can add the original photo in the app";
+  return `Some images are smaller than ${LOW_RES_LONG_EDGE} px on the long edge, so small print on a receipt may be unreadable. Never crop, shrink or convert a photo to grayscale to fit it into base64; if the user has a larger original, ${next}.`;
+}
 
 /**
  * Uploads already-validated images and returns their file ids. The call itself was counted

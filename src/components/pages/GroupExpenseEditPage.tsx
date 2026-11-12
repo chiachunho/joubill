@@ -1,12 +1,14 @@
 "use client";
 
 import { use, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExpenseForm } from "@/components/mini/ExpenseForm";
 import { FormSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
 import { describeError } from "@/lib/api-error";
+import { focusesReceipts } from "@/lib/record-path";
 import {
   useGetAvatarsQuery,
   useGetExpenseQuery,
@@ -24,6 +26,7 @@ export function GroupExpenseEditPage({
   const { id, expenseId } = use(params);
   const groupId = Number(id);
   const eid = Number(expenseId);
+  const focusReceipts = focusesReceipts(useSearchParams());
 
   const { data: me, error: meError } = useGetMeQuery();
   const { data: ms, error: msError } = useGetMembersQuery(groupId);
@@ -74,6 +77,7 @@ export function GroupExpenseEditPage({
       photos={photos}
       returnPath={`${platform.basePath}/groups/${groupId}`}
       initial={exp}
+      focusReceipts={focusReceipts}
     />
   );
 }

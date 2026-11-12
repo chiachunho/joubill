@@ -25,7 +25,7 @@ export function splitReceiptText(opts: { groupId?: string; payer?: string }): st
     "4. Share tax and service charge in proportion to each person's items, unless the user says otherwise.",
     "5. Rounding: if the per-person amounts differ from the total by a few cents or yen, add the difference to the person with the largest amount and tell the user you did.",
     "6. Call add_expense with split.type 'exact' (an amount per person that sums to the total) and dryRun: true. Show the per-person amounts and wait for a clear yes.",
-    "7. Call add_expense again without dryRun, using an idempotencyKey and the receipt image in images (also on the dryRun call, so a bad image is found early), so the expense and its photo are recorded together. Use attach_receipt only to add photos to an expense that already exists.",
+    "7. Call add_expense again without dryRun, using an idempotencyKey and the receipt image in images (also on the dryRun call, so a bad image is found early), so the expense and its photo are recorded together. Use attach_receipt only to add photos to an expense that already exists. If you can't send the original image (never crop, shrink or grayscale it to fit), leave images out and give the user uploadUrl from the result instead.",
     "If the user changes their mind about an item after step 6, start from the totals again; do not edit a recorded expense unless asked.",
   ].join("\n");
 }

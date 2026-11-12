@@ -20,7 +20,15 @@ import {
 } from "@/lib/zod";
 
 import { openGroup, type McpMember } from "../context";
-import { imagesSchema, loadImages, uploadImages } from "../receipt-images";
+import {
+  imagesSchema,
+  imageWarningAdvice,
+  imageWarnings,
+  loadImages,
+  uploadImages,
+  type ImageWarning,
+} from "../receipt-images";
+import { receiptLinks } from "../receipt-links";
 import { guarded, ok, ToolError } from "../result";
 
 const WRITE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
@@ -37,6 +45,16 @@ const keySchema = z
   .describe("Send the same key when retrying so the record is not created twice (kept 24 h).");
 
 const ME_WORDS = new Set(["me", "myself", "self", "我", "本人"]);
+
+/** Appended to a result's fixed first sentence: a count, never user text. */
+export function warningNote(warnings: ImageWarning[]): string {
+  return warnings.length ? `; ${warnings.length} image(s) look shrunk, see warnings` : "";
+}
+
+/** `warnings` and the advice for them, or nothing when every image is large enough. */
+export function withWarnings(warnings: ImageWarning[], hasLink: boolean) {
+  return warnings.length ? { warnings, advice: imageWarningAdvice(hasLink) } : {};
+}
 
 export function makeResolver(members: McpMember[], meId: number) {
   return (ref: number | string): McpMember => {
@@ -155,7 +173,7 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
     {
       title: "Add expense",
       description:
-        "Record a new expense the user paid for (not a repayment between members: use add_settlement). Call with dryRun: true first, show the user the preview, and only write after they confirm. amount is a number or text such as '1,200', '$300', '3k' or '150+200'. Defaults: payer is the user (paidBy / payers to change it), split is equal among all active members (split to change it), currency is the group's default, date is today in the group's time zone. People are given as memberId (preferred) or an exact name; a name that matches nobody or several members writes nothing and returns the candidates, so ask the user. If an identical expense (same amount, currency and payer) was recorded in the last 10 minutes, nothing is written and possibleDuplicateOf is returned: ask the user, and resend with allowDuplicate: true only if it is intended. Send an idempotencyKey so a retry does not record it twice. If the user has receipt photos, send them in images (base64 or public https urls, up to 5) so the expense and its receipts are recorded together; use attach_receipt only to add photos to an expense that already exists.",
+        "Record a new expense the user paid for (not a repayment between members: use add_settlement). Call with dryRun: true first, show the user the preview, and only write after they confirm. amount is a number or text such as '1,200', '$300', '3k' or '150+200'. Defaults: payer is the user (paidBy / payers to change it), split is equal among all active members (split to change it), currency is the group's default, date is today in the group's time zone. People are given as memberId (preferred) or an exact name; a name that matches nobody or several members writes nothing and returns the candidates, so ask the user. If an identical expense (same amount, currency and payer) was recorded in the last 10 minutes, nothing is written and possibleDuplicateOf is returned: ask the user, and resend with allowDuplicate: true only if it is intended. Send an idempotencyKey so a retry does not record it twice. If the user has receipt photos, send them in images (base64 or public https urls, up to 5) so the expense and its receipts are recorded together; use attach_receipt only to add photos to an expense that already exists. Send photos whole: never crop, shrink or convert them to grayscale to fit into base64. If you can't send the original, record without images and give the user uploadUrl from the result (also telegramUrl when present), where they add the photo in the app and save. warnings: low_resolution means an image looked shrunk.",
       inputSchema: {
         groupId: idSchema,
         amount: z.union([z.number().positive().max(10_000_000), z.string().min(1).max(60)]),
@@ -234,9 +252,11 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
         if (args.dryRun) {
           // Images are checked too, so a bad one is found before the user confirms.
           const checked = args.images ? await loadImages(args.images) : [];
-          return ok("dry run: nothing written", {
+          const warnings = imageWarnings(checked);
+          return ok(`dry run: nothing written${warningNote(warnings)}`, {
             status: "dry_run",
             preview: { ...preview, receipts: checked.length },
+            ...withWarnings(warnings, false),
           });
         }
 
@@ -272,9 +292,8 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
           }
           // Checked and uploaded only now, after a repeat or a duplicate has returned, and
           // before the record exists: a bad or unstorable image records nothing.
-          const receiptFileIds = args.images
-            ? await uploadImages(auth, await loadImages(args.images))
-            : undefined;
+          const images = args.images ? await loadImages(args.images) : [];
+          const receiptFileIds = args.images ? await uploadImages(auth, images) : undefined;
           const { id } = await createExpense(
             args.groupId,
             { ...built.input, ...(receiptFileIds && { receiptFileIds }) },
@@ -283,11 +302,14 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
           // The record exists now: a failed bind must not free the key, or a retry would
           // book it twice.
           await reservation?.bind(id).catch((err) => console.error("[mcp] bindKey failed", err));
-          return ok(`created expense ${id}`, {
+          const warnings = imageWarnings(images);
+          return ok(`created expense ${id}${warningNote(warnings)}`, {
             status: "created",
             recordId: id,
             receiptCount: receiptFileIds?.length ?? 0,
+            ...(await receiptLinks(group, id)),
             preview,
+            ...withWarnings(warnings, true),
           });
         } catch (err) {
           await reservation?.release().catch(() => {});

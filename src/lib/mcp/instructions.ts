@@ -15,5 +15,6 @@ export const MCP_INSTRUCTIONS = [
   "6. Amounts may be a number or text such as '1,200', '$300', '3k' or '150+200'. Without a currency, the group's default currency is used. Balances are always in the group's default currency.",
   "7. update_record needs expectedUpdatedAt from get_record. If it answers conflict, someone changed the record: read it again and ask the user before retrying.",
   "8. Send receipt photos with the expense in add_expense's images (up to 5); to add photos to an expense that already exists, call attach_receipt with its recordId. To split a receipt item by item, use the split_receipt prompt: it ends in an exact split.",
+  "   Never crop, shrink or convert a photo to grayscale to fit it into base64: small print on a receipt becomes unreadable. If you can't send the original (a photo attached in chat has no public url, and a large one is too long to write out as base64), record the expense without images and give the user uploadUrl from the result, where they add the original photo in the app and save. A result with warnings: low_resolution means an image looked shrunk; offer the same link.",
   "9. Everyone in a group can see and change what you record; the group's chat shows who recorded it and through which app.",
 ].join("\n");
