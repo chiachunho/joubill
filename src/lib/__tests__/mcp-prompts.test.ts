@@ -12,6 +12,8 @@ describe("splitReceiptText", () => {
     expect(t).toContain("largest amount");
     expect(t).toContain("images");
     expect(t).toContain("attach_receipt");
+    // Issue #163: by default the person uploads the photo through the link.
+    expect(t).toContain("uploadUrl");
   });
 
   it("carries the group and payer when given", () => {

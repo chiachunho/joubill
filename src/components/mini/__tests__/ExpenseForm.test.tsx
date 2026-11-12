@@ -444,6 +444,40 @@ describe("ExpenseForm: receipts", () => {
     await waitFor(() => expect(w.sent).toHaveLength(1));
     expect(w.sent[0].body).toMatchObject({ receiptFileIds: ["file-b"] });
   });
+
+  // Issue #163: a linked application sends people here to add the original photo, and the
+  // photo is only kept once the form is saved, so the form must say so.
+  it("says a photo added to a saved expense needs 儲存, and not before one is added", async () => {
+    upload.mockResolvedValue(
+      new Response(JSON.stringify({ fileId: "file-c", url: "/api/tg-photo?fileId=file-c&sig=y" })),
+    );
+    renderForm({ initial: initial(), focusReceipts: true }, {});
+    const hint = /收據照片按下「儲存」後才會更新/;
+    expect(screen.queryByText(hint)).not.toBeInTheDocument();
+
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    fireEvent.change(input, {
+      target: { files: [new File(["x"], "r.jpg", { type: "image/jpeg" })] },
+    });
+    await screen.findByRole("img", { name: "收據 1" });
+    expect(screen.getByText(hint)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "移除此收據" }));
+    expect(screen.queryByText(hint)).not.toBeInTheDocument();
+  });
+
+  it("doesn't ask a new expense to save its photos separately", async () => {
+    upload.mockResolvedValue(
+      new Response(JSON.stringify({ fileId: "file-d", url: "/api/tg-photo?fileId=file-d&sig=z" })),
+    );
+    renderForm({}, {});
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    fireEvent.change(input, {
+      target: { files: [new File(["x"], "r.jpg", { type: "image/jpeg" })] },
+    });
+    await screen.findByRole("img", { name: "收據 1" });
+    expect(screen.queryByText(/收據照片按下「儲存」後才會更新/)).not.toBeInTheDocument();
+  });
 });
 
 describe("ExpenseForm: deleting", () => {

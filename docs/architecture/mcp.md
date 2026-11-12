@@ -145,6 +145,32 @@ Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. W
   method: one item at a time, running totals, remainder on the largest amount, then an `exact` split
   with `dryRun`, then `attach_receipt`.
 
+## Photos a chat can't send (issue #163)
+
+A chat client such as Claude.ai can't hand an attachment to a tool, and a model writes base64 one
+character at a time: a phone photo is millions of characters, so in practice the model shrank,
+cropped or greyed the photo until it fit. The bottleneck is the model's output, not the 10 MB cap.
+
+- **The way out is a link, not a smaller limit.** `add_expense` (once created), `attach_receipt` and
+  `get_record` (for an expense, since `attach_receipt` needs at least one image) return `uploadUrl`: the Web App's edit form for that expense with `?focus=receipts`
+  (`expenseEditPath` / `focusesReceipts` in `src/lib/record-path.ts`, built and read in one file), and
+  `telegramUrl` (`expenseLink`) when the group has a chat. `receipt-links.ts` builds both.
+- **No one-time upload link, by decision.** Such a link is a credential, and it would sit in a chat
+  transcript; the edit form needs no new authorisation path. The person signs in as usual.
+- **The photo is saved with the form**, like any other field: the form says so once the receipts
+  differ from the saved ones (收據照片按下「儲存」後才會更新到這筆支出). An immediate attach endpoint was
+  considered and left out.
+- **The 10 MB base64 cap stays**: n8n and scripts send real bytes and are not limited by a model.
+  Instead `imageWarnings` reads each image's pixel size from its header (`src/lib/image-size.ts`)
+  and flags one under `LOW_RES_LONG_EDGE` (1000 px) on the long edge as `warnings: low_resolution`,
+  with `advice` for the agent. The image is still stored, since it may be all there is.
+- **By default the agent sends no photo at all** (decision): it records the expense and gives the
+  person `uploadUrl`, and the person uploads the original. `images` and `attach_receipt` stay for a
+  client that has the original file itself (ChatGPT apps' temporary download url, n8n's bytes). This
+  also avoids a shrunk copy sitting next to the original once the person uploads it. The
+  instructions, both tool descriptions, `split_receipt` and the plugin skill say so, and never to
+  crop, shrink or grayscale a photo.
+
 ## Usage log (issue #153)
 
 Each connection has a 使用紀錄 page (`McpConnectionCallsPage`, `/{mini,app}/settings/apps/[id]/calls`,

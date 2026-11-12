@@ -10,6 +10,7 @@ import { GroupsListSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { describeError } from "@/lib/api-error";
+import { expenseEditPath } from "@/lib/record-path";
 import { useGetGroupPhotosQuery, useGetMeQuery } from "@/store/api";
 
 /**
@@ -35,7 +36,8 @@ function deepLinkTarget(
 ): string | null {
   if (!data.activeGroupId) return null;
   const group = `${basePath}/groups/${data.activeGroupId}`;
-  if (data.activeExpenseId) return `${group}/expenses/${data.activeExpenseId}/edit`;
+  if (data.activeExpenseId)
+    return expenseEditPath(basePath, data.activeGroupId, data.activeExpenseId);
   if (data.activeSettlementId) return `${group}/settlements/${data.activeSettlementId}`;
   return group;
 }

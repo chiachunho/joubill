@@ -5,6 +5,7 @@ import type { PushAction } from "@/lib/push-plan";
 import { openedFromPush } from "@/lib/pwa";
 import { diffRecords, type RecordSnapshot } from "@/lib/record-audit";
 import type { NoticeLeg, NoticePerson, NoticeRecord } from "@/lib/record-notice";
+import { expenseEditPath } from "@/lib/record-path";
 
 /**
  * The text of one push notification, written for the person receiving it (issue #67): 你分
@@ -59,7 +60,7 @@ export function recordPushUrl(
   return openedFromPush(
     type === "settlement"
       ? `/app/groups/${groupId}/settlements/${recordId}`
-      : `/app/groups/${groupId}/expenses/${recordId}/edit`,
+      : expenseEditPath("/app", groupId, recordId),
   );
 }
 

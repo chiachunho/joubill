@@ -377,6 +377,50 @@ test.describe("MCP server", () => {
       expect((await receipts(dbPool, seeded.expenseId)).rows[0].n).toBe(0);
     });
 
+    // Issue #163: a chat can't hand over the original photo, so the result links to the edit
+    // form, and a photo that looks shrunk to fit into base64 is flagged.
+    test("a preview links to the edit form's receipts, which keeps the link through sign-in", async ({
+      page,
+      request,
+      seeded,
+      dbPool,
+    }) => {
+      const { token } = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+      const res = await call(request, token, "attach_receipt", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+        images: [{ base64: PNG }],
+        dryRun: true,
+      });
+      expect(res.structuredContent!.warnings).toEqual([
+        { code: "low_resolution", image: 0, width: 1, height: 1 },
+      ]);
+      expect(res.structuredContent!.advice).toContain("uploadUrl");
+      const link = new URL(res.structuredContent!.uploadUrl as string);
+      expect(link.pathname + link.search).toBe(
+        `/app/groups/${seeded.groupId}/expenses/${seeded.expenseId}/edit?focus=receipts`,
+      );
+
+      // An agent that can't send a photo at all gets the same link from get_record.
+      const read = await call(request, token, "get_record", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+      });
+      expect(read.structuredContent!.uploadUrl).toBe(link.toString());
+
+      // Not signed in: /login must bring the person back to the receipts, not the group list.
+      const target = link.pathname + link.search;
+      await page.goto(target);
+      await page.waitForURL(/\/login\?next=/);
+      expect(decodeURIComponent(page.url())).toContain(target);
+
+      await page
+        .context()
+        .addCookies([{ name: "session", value: seeded.sessionToken, url: page.url() }]);
+      await page.goto(target);
+      await expect(page.getByRole("button", { name: "附上收據照片" })).toBeInViewport();
+    });
+
     test("something that is not an image, or too many images, is refused", async ({
       request,
       seeded,

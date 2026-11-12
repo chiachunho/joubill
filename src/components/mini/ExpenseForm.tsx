@@ -116,6 +116,8 @@ type Props = {
   initial?: Initial;
   /** Where to navigate after save/delete. Defaults to /mini/groups/:groupId. */
   returnPath?: string;
+  /** Opened to add receipt photos (`?focus=receipts`, `src/lib/record-path.ts`): scroll there. */
+  focusReceipts?: boolean;
 };
 
 function distributePayerAmounts(
@@ -185,7 +187,7 @@ function buildDefaults(props: Props): ExpenseFormValues {
 }
 
 export function ExpenseForm(props: Props) {
-  const { groupId, members, photos, initial, returnPath } = props;
+  const { groupId, members, photos, initial, returnPath, focusReceipts } = props;
   // Display names are free text, so two members can read the same; the payer and participant
   // rows must still be told apart.
   const labels = useMemo(() => memberLabels(members), [members]);
@@ -578,6 +580,18 @@ export function ExpenseForm(props: Props) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const receiptsRef = useRef<HTMLDivElement>(null);
+  // A link from a linked application (issue #163) opens the form to add photos: start there.
+  // Optional call, since jsdom has no scrollIntoView.
+  useEffect(() => {
+    if (focusReceipts) receiptsRef.current?.scrollIntoView?.({ block: "center" });
+  }, [focusReceipts]);
+  // Photos are saved with the rest of the form, so an edit that changed them says so before
+  // the person leaves thinking they're already attached.
+  const receiptsChanged =
+    isEdit &&
+    (receiptFileIds.length !== (initial?.receiptFileIds?.length ?? 0) ||
+      receiptFileIds.some((id, i) => id !== initial?.receiptFileIds?.[i]));
 
   async function handleReceiptChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -816,7 +830,7 @@ export function ExpenseForm(props: Props) {
           />
 
           {/* Receipt photos */}
-          <div className="flex flex-col gap-1.5">
+          <div ref={receiptsRef} className="flex flex-col gap-1.5">
             <span className="text-sm font-medium leading-none">收據照片</span>
             <input
               ref={fileInputRef}
@@ -898,6 +912,11 @@ export function ExpenseForm(props: Props) {
               </button>
             )}
             {receiptError && <p className="text-sm text-destructive">{receiptError}</p>}
+            {receiptsChanged && !receiptUploading && (
+              <p className="text-sm text-muted-foreground">
+                收據照片按下「儲存」後才會更新到這筆支出。
+              </p>
+            )}
           </div>
 
           {/* Payers */}
