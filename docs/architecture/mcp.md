@@ -164,8 +164,12 @@ cropped or greyed the photo until it fit. The bottleneck is the model's output, 
   Instead `imageWarnings` reads each image's pixel size from its header (`src/lib/image-size.ts`)
   and flags one under `LOW_RES_LONG_EDGE` (1000 px) on the long edge as `warnings: low_resolution`,
   with `advice` for the agent. The image is still stored, since it may be all there is.
-- The instructions, both tool descriptions, `split_receipt` and the plugin skill tell the agent never
-  to crop, shrink or grayscale a photo, and to give `uploadUrl` instead.
+- **By default the agent sends no photo at all** (decision): it records the expense and gives the
+  person `uploadUrl`, and the person uploads the original. `images` and `attach_receipt` stay for a
+  client that has the original file itself (ChatGPT apps' temporary download url, n8n's bytes). This
+  also avoids a shrunk copy sitting next to the original once the person uploads it. The
+  instructions, both tool descriptions, `split_receipt` and the plugin skill say so, and never to
+  crop, shrink or grayscale a photo.
 
 ## Usage log (issue #153)
 

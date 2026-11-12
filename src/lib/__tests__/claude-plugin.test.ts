@@ -56,6 +56,7 @@ describe("Claude Code plugin", () => {
     const named = [...skill.matchAll(/`([a-z]+(?:_[a-z]+)+)`/g)].map((m) => m[1]);
     expect(named).toContain("split_receipt");
     expect(named).toContain("attach_receipt");
+    expect(skill).toContain("`uploadUrl`");
     for (const name of named) expect([...tools, ...prompts]).toContain(name);
     // The skill tells the agent to preview writes with dryRun; the write tools must take it.
     expect(skill).toContain("dryRun: true");
