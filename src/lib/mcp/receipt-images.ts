@@ -106,6 +106,16 @@ export function imageWarningAdvice(hasLink: boolean): string {
   return `Some images are smaller than ${LOW_RES_LONG_EDGE} px on the long edge, so small print on a receipt may be unreadable. Never crop, shrink or convert a photo to grayscale to fit it into base64; if the user has a larger original, ${next}.`;
 }
 
+/** Appended to a result's fixed first sentence: a count, never user text. */
+export function warningNote(warnings: ImageWarning[]): string {
+  return warnings.length ? `; ${warnings.length} image(s) look shrunk, see warnings` : "";
+}
+
+/** `warnings` and the advice for them, or nothing when every image is large enough. */
+export function withWarnings(warnings: ImageWarning[], hasLink: boolean) {
+  return warnings.length ? { warnings, advice: imageWarningAdvice(hasLink) } : {};
+}
+
 /**
  * Uploads already-validated images and returns their file ids. The call itself was counted
  * once; each further image is another write. A failure stores nothing the record can use.

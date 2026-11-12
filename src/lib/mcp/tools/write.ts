@@ -22,11 +22,11 @@ import {
 import { openGroup, type McpMember } from "../context";
 import {
   imagesSchema,
-  imageWarningAdvice,
   imageWarnings,
   loadImages,
   uploadImages,
-  type ImageWarning,
+  warningNote,
+  withWarnings,
 } from "../receipt-images";
 import { receiptLinks } from "../receipt-links";
 import { guarded, ok, ToolError } from "../result";
@@ -45,16 +45,6 @@ const keySchema = z
   .describe("Send the same key when retrying so the record is not created twice (kept 24 h).");
 
 const ME_WORDS = new Set(["me", "myself", "self", "我", "本人"]);
-
-/** Appended to a result's fixed first sentence: a count, never user text. */
-export function warningNote(warnings: ImageWarning[]): string {
-  return warnings.length ? `; ${warnings.length} image(s) look shrunk, see warnings` : "";
-}
-
-/** `warnings` and the advice for them, or nothing when every image is large enough. */
-export function withWarnings(warnings: ImageWarning[], hasLink: boolean) {
-  return warnings.length ? { warnings, advice: imageWarningAdvice(hasLink) } : {};
-}
 
 export function makeResolver(members: McpMember[], meId: number) {
   return (ref: number | string): McpMember => {

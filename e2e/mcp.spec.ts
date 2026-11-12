@@ -401,6 +401,13 @@ test.describe("MCP server", () => {
         `/app/groups/${seeded.groupId}/expenses/${seeded.expenseId}/edit?focus=receipts`,
       );
 
+      // An agent that can't send a photo at all gets the same link from get_record.
+      const read = await call(request, token, "get_record", {
+        groupId: seeded.groupId,
+        recordId: seeded.expenseId,
+      });
+      expect(read.structuredContent!.uploadUrl).toBe(link.toString());
+
       // Not signed in: /login must bring the person back to the receipts, not the group list.
       const target = link.pathname + link.search;
       await page.goto(target);

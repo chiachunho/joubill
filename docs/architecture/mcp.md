@@ -151,8 +151,8 @@ A chat client such as Claude.ai can't hand an attachment to a tool, and a model 
 character at a time: a phone photo is millions of characters, so in practice the model shrank,
 cropped or greyed the photo until it fit. The bottleneck is the model's output, not the 10 MB cap.
 
-- **The way out is a link, not a smaller limit.** `add_expense` (once created) and `attach_receipt`
-  return `uploadUrl`: the Web App's edit form for that expense with `?focus=receipts`
+- **The way out is a link, not a smaller limit.** `add_expense` (once created), `attach_receipt` and
+  `get_record` (for an expense, since `attach_receipt` needs at least one image) return `uploadUrl`: the Web App's edit form for that expense with `?focus=receipts`
   (`expenseEditPath` / `focusesReceipts` in `src/lib/record-path.ts`, built and read in one file), and
   `telegramUrl` (`expenseLink`) when the group has a chat. `receipt-links.ts` builds both.
 - **No one-time upload link, by decision.** Such a link is a credential, and it would sit in a chat

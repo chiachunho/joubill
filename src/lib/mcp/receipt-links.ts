@@ -21,14 +21,25 @@ export type ReceiptLinks = {
   telegramUrl?: string;
 };
 
+/**
+ * Never throws: it runs after the record or its photos are written, where an error would tell
+ * the agent the write failed (and, for add_expense, free the idempotency key for a second one).
+ * Without the bot's name the result carries only `uploadUrl`.
+ */
 export async function receiptLinks(
   group: GroupChat & { id: number },
   expenseId: number,
 ): Promise<ReceiptLinks> {
   const uploadUrl = appUrl(expenseEditPath("/app", group.id, expenseId, { focus: "receipts" }));
   const chatId = telegramChatId(group);
-  const username = chatId === null ? null : await botUsername(getBot().api);
-  return chatId !== null && username
+  if (chatId === null) return { uploadUrl };
+  let username: string | null = null;
+  try {
+    username = await botUsername(getBot().api);
+  } catch (err) {
+    console.error("[mcp] receiptLinks: no bot username", err);
+  }
+  return username
     ? { uploadUrl, telegramUrl: expenseLink(username, chatId, expenseId) }
     : { uploadUrl };
 }

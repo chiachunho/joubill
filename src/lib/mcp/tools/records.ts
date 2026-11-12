@@ -10,6 +10,7 @@ import { n } from "@/lib/money";
 import { daySchema, idSchema } from "@/lib/zod";
 
 import { openGroup } from "../context";
+import { receiptLinks } from "../receipt-links";
 import { guarded, ok, ToolError } from "../result";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
@@ -173,16 +174,19 @@ export function registerRecordTools(server: McpServer, auth: McpAuth) {
     {
       title: "Get record",
       description:
-        "One expense or settlement with its payers and splits. Use before changing or deleting a record, to show the user what it is. Its updatedAt is what update_record needs as expectedUpdatedAt.",
+        "One expense or settlement with its payers and splits. Use before changing or deleting a record, to show the user what it is. Its updatedAt is what update_record needs as expectedUpdatedAt. For an expense it also returns uploadUrl (and telegramUrl when present): give it to the user to add receipt photos you can't send whole.",
       inputSchema: { groupId: idSchema, recordId: idSchema },
       annotations: READ,
     },
     ({ groupId, recordId }) =>
       guarded(async () => {
-        const { labels } = await openGroup(auth, groupId, "read");
+        const { group, labels } = await openGroup(auth, groupId, "read");
         const [record] = await loadMcpRecords(groupId, [recordId], labels);
         if (!record) throw new ToolError("not_found", "record not found");
-        return ok(`record ${recordId}`, { record });
+        return ok(`record ${recordId}`, {
+          record,
+          ...(record.type === "expense" && (await receiptLinks(group, recordId))),
+        });
       }),
   );
 }
