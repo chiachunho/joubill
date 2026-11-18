@@ -35,6 +35,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { NoteBox, NoteToggle, useNoteToggle } from "@/components/mini/NoteField";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -94,6 +95,8 @@ type Initial = {
   fxRate?: number | null;
   fxQuote?: string | null;
   description: string | null;
+  /** 備註: required so a detail endpoint that stops sending it fails the type check. */
+  note: string | null;
   payers: Array<{ payerId: number; amount: number }>;
   spentAt: string;
   receiptFileIds?: string[];
@@ -169,6 +172,7 @@ function buildDefaults(props: Props): ExpenseFormValues {
     fxRate:
       initial?.fxRate != null && initial.fxQuote === defaultCurrency ? String(initial.fxRate) : "",
     description: initial?.description ?? "",
+    note: initial?.note ?? "",
     payers: initial?.payers.length
       ? initial.payers.map((p) => ({ userId: String(p.payerId), amount: p.amount.toFixed(2) }))
       : [{ userId: String(currentUserId), amount: initial ? initial.amount.toFixed(2) : "" }],
@@ -386,6 +390,8 @@ export function ExpenseForm(props: Props) {
   const amount = useWatch({ control: form.control, name: "amount" });
   const currency = useWatch({ control: form.control, name: "currency" });
   const spentDate = useWatch({ control: form.control, name: "spentDate" });
+  const note = useWatch({ control: form.control, name: "note" });
+  const noteToggle = useNoteToggle(initial?.note);
   const shareType = useWatch({ control: form.control, name: "shareType" });
   const participants = useWatch({ control: form.control, name: "participants" });
   const payers = useWatch({ control: form.control, name: "payers" });
@@ -538,6 +544,7 @@ export function ExpenseForm(props: Props) {
           ? parseFloat(values.fxRate)
           : null,
       description: values.description.trim() || null,
+      note: values.note.trim() || null,
       payers: values.payers.map((p) => ({
         payerId: Number(p.userId),
         amount: parseFloat(p.amount),
@@ -820,11 +827,27 @@ export function ExpenseForm(props: Props) {
             name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>說明</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>說明</FormLabel>
+                  <NoteToggle
+                    open={noteToggle.open}
+                    hasText={note.trim() !== ""}
+                    onToggle={noteToggle.toggle}
+                  />
+                </div>
                 <FormControl>
                   <Input placeholder="例如：晚餐、機票" maxLength={500} {...field} />
                 </FormControl>
                 <FormMessage />
+                {/* 備註 folds under 說明 (src/components/mini/NoteField.tsx). */}
+                {noteToggle.open && (
+                  <NoteBox
+                    value={note}
+                    onChange={(v) => form.setValue("note", v, { shouldValidate: true })}
+                    placeholder="選填，例如：誰點了什麼、發票號碼"
+                    autoFocus={noteToggle.autoFocus}
+                  />
+                )}
               </FormItem>
             )}
           />

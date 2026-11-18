@@ -6,6 +6,7 @@ const base: ExportRecord = {
   type: "expense",
   spentAt: "2026-10-01",
   description: "晚餐",
+  note: null,
   amount: 1000,
   currency: "JPY",
   rate: 0.21547,
@@ -24,8 +25,14 @@ describe("exportRecordsToCsv", () => {
     expect(lines).toHaveLength(2);
     expect(lines[0]).toContain("換算金額");
     expect(lines[1]).toBe(
-      "2026-10-01,支出,晚餐,1000,JPY,215.47,TWD,0.21547,Alice:1000,Alice:500; Bob:500,Alice,2026-10-01 12:05",
+      "2026-10-01,支出,晚餐,1000,JPY,215.47,TWD,0.21547,Alice:1000,Alice:500; Bob:500,Alice,2026-10-01 12:05,",
     );
+  });
+
+  it("puts the 備註 in the last column, quoted when it spans lines", () => {
+    const csv = exportRecordsToCsv([{ ...base, note: "第一行\n第二行" }], "TWD");
+    expect(csv.trim().split("\r\n")[0].endsWith(",備註")).toBe(true);
+    expect(csv).toContain(',2026-10-01 12:05,"第一行\n第二行"\r\n');
   });
 
   it("labels settlements and keeps multiple payers on one row", () => {

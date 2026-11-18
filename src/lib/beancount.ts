@@ -34,6 +34,8 @@ export type BeancountRecord = {
   amount: number;
   currency: string;
   description: string | null;
+  /** 備註, written as `note` metadata. Optional: older audit snapshots have none. */
+  note?: string | null;
   /** `YYYY-MM-DD`; an audit snapshot from before the date column may hold an ISO timestamp. */
   spentAt: string;
   payers: BeancountParty[];
@@ -202,6 +204,7 @@ export function recordToBeancount(
     `  joubill_id: "${record.id}"`,
   ];
   if (mark?.correction) lines.push(`  joubill_correction: "${mark.correction}"`);
+  if (record.note) lines.push(`  note: "${escapeString(record.note)}"`);
 
   const showPrice = !!fx && fx.quote !== record.currency;
   const amountStrs = postings.map((p) => p.amount.toFixed(2));

@@ -98,6 +98,7 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     fxRate: expense.fxRate != null ? n(expense.fxRate) : null,
     fxQuote: expense.fxQuote,
     description: expense.description,
+    note: expense.note,
     payers: payers.map((p) => ({ payerId: p.payerId, amount: n(p.amount) })),
     spentAt: expense.spentAt,
     receiptFileIds,

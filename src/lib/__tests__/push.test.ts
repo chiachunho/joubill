@@ -220,6 +220,16 @@ describe("formatPushNotice", () => {
     ).toBe("小明 修改了你記的「電費（十月）」：金額 1,200 → 1,450 等 2 項");
   });
 
+  it("quotes only the start of a long changed 備註, so the payload stays under the push limit", () => {
+    const before = { ...expense(), note: "舊".repeat(1000) };
+    const after = { ...before, note: "新".repeat(1000) };
+    const body = formatPushNotice(
+      input({ action: "updated", before, after, actor: ming, creatorId: 2, recipientId: 2 }),
+    )?.body;
+    expect(body).toContain(`備註 ${"舊".repeat(40)}… → ${"新".repeat(40)}…`);
+    expect(body!.length).toBeLessThan(200);
+  });
+
   it("opens a deleted record's history", () => {
     const n = formatPushNotice(
       input({ action: "deleted", before: expense(), after: null, actor: hua, recipientId: 1 }),

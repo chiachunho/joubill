@@ -5,7 +5,7 @@ import { HttpError, TooManyRequestsError } from "@/lib/auth/errors";
 /**
  * Tool results carry the data twice: as `structuredContent`, and as one JSON text block in
  * `content`, because some clients show a model only `content`. **User-controlled text
- * (descriptions, names, group titles) appears only inside that JSON**; the first text block
+ * (descriptions, notes, names, group titles) appears only inside that JSON**; the first text block
  * is a fixed sentence built from ids and numbers, so a hostile description is never part of
  * the prose, only a string value in data the server's `instructions` call data.
  */

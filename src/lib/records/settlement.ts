@@ -60,6 +60,7 @@ export async function createSettlement(
         amount,
         currency: input.currency,
         description: null,
+        note: input.note ?? null,
         spentAt: day,
         createdBy: ctx.actor.userId,
         fxRate: fx.fxRate,
@@ -112,6 +113,7 @@ export async function updateSettlement(
         amount,
         currency: input.currency,
         ...(fx && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
+        ...(input.note !== undefined && { note: input.note }),
         spentAt: input.settledAt,
         updatedAt: new Date(),
       })

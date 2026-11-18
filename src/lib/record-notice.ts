@@ -35,6 +35,8 @@ export type NoticeRecord = {
   amount: number;
   currency: string;
   description?: string | null;
+  /** 備註. Optional because audit snapshots written before the field existed lack it. */
+  note?: string | null;
   /** Who paid. A settlement has exactly one: the sender. */
   payers: NoticeLeg[];
   /** Who owes. A settlement has exactly one: the receiver. */
@@ -58,6 +60,11 @@ export function formatMcpLine(creator: Profile | null, via: string): string {
   return `✦ ${by}${escapeHtml(viaText(via))} 記錄`;
 }
 
+/** `✎ 小明點了兩杯`: a record's 備註 under its card or notice, or null when it has none. */
+export function formatNoteLine(note: string | null | undefined): string | null {
+  return note ? `✎ ${escapeHtml(note)}` : null;
+}
+
 /** The group notice for a settlement: "💸 <b>還款　1,200 TWD</b>" over "A → B", plus who it was entered through when an assistant did. */
 export function formatSettlementNotice(
   record: NoticeRecord,
@@ -67,6 +74,8 @@ export function formatSettlementNotice(
   const to = record.splits[0]?.user;
   const lines = [`💸 <b>還款　${money(record)}</b>`];
   if (from && to) lines.push(`${nameOf(from)} → ${nameOf(to)}`);
+  const note = formatNoteLine(record.note);
+  if (note) lines.push(note);
   if (mcp) lines.push(formatMcpLine(mcp.creator, mcp.via));
   return lines.join("\n");
 }

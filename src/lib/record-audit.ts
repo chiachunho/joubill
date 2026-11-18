@@ -134,7 +134,16 @@ export function rateLockTouches(payload: RateLockPayload, recordId: number): boo
 /* ── diffing ──────────────────────────────────────────────────────────── */
 
 export type ChangedField = {
-  key: "amount" | "currency" | "description" | "spentAt" | "payers" | "splits" | "fx" | "receipts";
+  key:
+    | "amount"
+    | "currency"
+    | "description"
+    | "note"
+    | "spentAt"
+    | "payers"
+    | "splits"
+    | "fx"
+    | "receipts";
   /** Traditional-Chinese label, shared by both front ends so they can't drift. */
   label: string;
   before: string;
@@ -260,6 +269,15 @@ export function diffRecords(before: RecordSnapshot, after: RecordSnapshot): Chan
       label: "說明",
       before: before.description || NONE,
       after: after.description || NONE,
+    });
+  }
+
+  if ((before.note ?? "") !== (after.note ?? "")) {
+    out.push({
+      key: "note",
+      label: "備註",
+      before: before.note || NONE,
+      after: after.note || NONE,
     });
   }
 

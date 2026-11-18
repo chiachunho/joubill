@@ -110,6 +110,21 @@ function createdBody(input: PushNoticeInput, record: NoticeRecord, actorName: st
   return `${actorName} 記了${what(record)}${yourPart(record, input.recipientId)}`;
 }
 
+/** Longest before / after value a notification quotes, in code points. */
+const PUSH_VALUE_MAX = 40;
+
+/**
+ * A changed value as a notification quotes it. A 備註 can run to 1,000 characters; quoted
+ * whole on both sides it would pass the push service's ~4 KB payload limit and the
+ * notification would be refused. Cut by code point so an emoji isn't split in half.
+ */
+function clip(value: string): string {
+  const chars = Array.from(value.replace(/\s+/g, " "));
+  return chars.length > PUSH_VALUE_MAX
+    ? `${chars.slice(0, PUSH_VALUE_MAX).join("")}…`
+    : chars.join("");
+}
+
 function updatedBody(
   input: PushNoticeInput,
   before: RecordSnapshot,
@@ -121,7 +136,7 @@ function updatedBody(
   const changes = diffRecords(before, after);
   const first = changes[0];
   const summary = first
-    ? `：${first.label} ${first.before} → ${first.after}${changes.length > 1 ? ` 等 ${changes.length} 項` : ""}`
+    ? `：${first.label} ${clip(first.before)} → ${clip(first.after)}${changes.length > 1 ? ` 等 ${changes.length} 項` : ""}`
     : "";
   return `${actorName} 修改了${yours(input)}${name}${summary}`;
 }

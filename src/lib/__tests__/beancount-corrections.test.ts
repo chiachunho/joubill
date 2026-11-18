@@ -226,6 +226,7 @@ describe("snapshotToBeancountRecord", () => {
       fxQuote: null,
       receipts: 0,
     };
-    expect(snapshotToBeancountRecord(7, snap)).toEqual(lunch());
+    // A snapshot from before 備註 existed has no `note` key: it reads back as none.
+    expect(snapshotToBeancountRecord(7, snap)).toEqual({ ...lunch(), note: null });
   });
 });

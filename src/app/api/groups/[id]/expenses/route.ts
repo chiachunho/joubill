@@ -41,6 +41,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       amount: expenses.amount,
       currency: expenses.currency,
       description: expenses.description,
+      // The list only marks a record that has a 備註; the text itself is read on its page.
+      hasNote: sql<boolean>`${expenses.note} is not null`,
       spentAt: expenses.spentAt,
       createdBy: expenses.createdBy,
       legacyReceiptFileId: expenses.receiptFileId,
@@ -140,6 +142,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       amount: n(e.amount),
       currency: e.currency,
       description: e.description,
+      hasNote: e.hasNote,
       spentAt: e.spentAt,
       fxRate: e.fxRate != null ? n(e.fxRate) : null,
       fxQuote: e.fxQuote,

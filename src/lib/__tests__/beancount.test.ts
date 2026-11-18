@@ -180,6 +180,12 @@ describe("recordToBeancount: formatting", () => {
     expect(meta).toBe('  joubill_id: "42"');
   });
 
+  it("writes a 備註 as escaped note metadata, and nothing when there is none", () => {
+    const out = render(expense({ note: '小明 "兩杯"\n發票' }));
+    expect(out.split("\n")[2]).toBe('  note: "小明 \\"兩杯\\" 發票"');
+    expect(render(expense()).includes("note:")).toBe(false);
+  });
+
   it("uses the narration override", () => {
     const out = recordToBeancount(settlement(BOB, U), U, ACCOUNTS, null, "還款 Bob → 我");
     expect(out?.split("\n")[0]).toBe('2026-06-30 * "還款 Bob → 我"');

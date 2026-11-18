@@ -10,7 +10,13 @@ import { carryOverPayers, carryOverSplit, sameInstantIso } from "@/lib/mcp-edit"
 import { parseMcpAmount } from "@/lib/mcp-amount";
 import { buildExpenseInput, type McpPayer } from "@/lib/mcp-split";
 import { deleteRecord, updateExpense, updateSettlement } from "@/lib/records";
-import { daySchema, idSchema, settlementInputSchema, SUPPORTED_CURRENCIES } from "@/lib/zod";
+import {
+  daySchema,
+  idSchema,
+  NOTE_MAX,
+  settlementInputSchema,
+  SUPPORTED_CURRENCIES,
+} from "@/lib/zod";
 
 import { openGroup } from "../context";
 import { guarded, ok, ToolError } from "../result";
@@ -62,7 +68,7 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
     {
       title: "Update record",
       description:
-        "Change an existing expense or settlement. Only the fields you send change; everything else is kept (an unchanged split follows a new amount). Read the record with get_record first and send its updatedAt as expectedUpdatedAt: if someone changed the record since, nothing is written and you get conflict with the current record, so ask the user before retrying. Call with dryRun: true first and confirm with the user. Expense fields: amount ('1,200', '150+200'), currency, description, spentAt (YYYY-MM-DD in the group's time zone), paidBy or payers, split. Settlement fields: amount, currency, spentAt, from, to. People are memberId (preferred) or an exact name; a miss or tie writes nothing and returns the candidates. If the amount changes on a record with several payers or a per-person split, send payers / split too.",
+        "Change an existing expense or settlement. Only the fields you send change; everything else is kept (an unchanged split follows a new amount). Read the record with get_record first and send its updatedAt as expectedUpdatedAt: if someone changed the record since, nothing is written and you get conflict with the current record, so ask the user before retrying. Call with dryRun: true first and confirm with the user. Expense fields: amount ('1,200', '150+200'), currency, description, note, spentAt (YYYY-MM-DD in the group's time zone), paidBy or payers, split. Settlement fields: amount, currency, spentAt, note, from, to. People are memberId (preferred) or an exact name; a miss or tie writes nothing and returns the candidates. If the amount changes on a record with several payers or a per-person split, send payers / split too.",
       inputSchema: {
         groupId: idSchema,
         recordId: idSchema,
@@ -77,6 +83,12 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
           .optional(),
         currency: z.enum(SUPPORTED_CURRENCIES).optional(),
         description: z.string().trim().max(500).optional().describe("Empty text clears it."),
+        note: z
+          .string()
+          .trim()
+          .max(NOTE_MAX)
+          .optional()
+          .describe("備註, on expenses and settlements. Empty text clears it."),
         spentAt: daySchema.optional().describe("YYYY-MM-DD in the group's time zone."),
         paidBy: memberRef.optional().describe("Expense only: a single payer."),
         payers: z
@@ -133,6 +145,8 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
             ? Number(fxRow.fxRate)
             : null;
 
+        const note = args.note !== undefined ? args.note || null : cur.note;
+
         const label = (id: number) => labels.get(id) ?? "?";
         const actor = mcpActor(auth);
 
@@ -158,6 +172,7 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
             currency,
             fxRate,
             settledAt: spentAt,
+            note,
           });
           if (!input.success) throw new ToolError("bad_request", input.error.issues[0].message);
           const after = {
@@ -166,6 +181,7 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
             amount,
             currency,
             spentAt,
+            note,
           };
           if (args.dryRun)
             return ok("dry run: nothing written", { status: "dry_run", before: cur, after });
@@ -226,6 +242,7 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
             amount: built.input.amount,
             currency,
             description: built.input.description,
+            note,
             spentAt,
             shareType: built.input.shareType,
             payers: built.input.payers.map((p) => ({
@@ -245,7 +262,7 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
             await updateExpense(
               args.groupId,
               args.recordId,
-              built.input,
+              { ...built.input, note },
               { actor },
               {
                 expectedUpdatedAt: expected,

@@ -99,6 +99,13 @@ describe("formatSettlementNotice", () => {
   });
 });
 
+describe("formatSettlementNotice 備註", () => {
+  it("puts the note on its own line, escaped", () => {
+    const lines = formatSettlementNotice(settlement({ note: "末五碼 <12345>" })).split("\n");
+    expect(lines[2]).toBe("✎ 末五碼 &lt;12345&gt;");
+  });
+});
+
 describe("formatDeletedNotice", () => {
   it("strikes out what went, then says who recorded it and who removed it", () => {
     expect(formatDeletedNotice({ record: expense(), creator: alice, deleter: bob })).toBe(

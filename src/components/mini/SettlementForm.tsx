@@ -21,6 +21,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { NoteBox, NoteToggle, useNoteToggle } from "@/components/mini/NoteField";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -73,6 +74,8 @@ type Initial = {
   fxRate?: number | null;
   fxQuote?: string | null;
   settledAt: string;
+  /** 備註: required so a detail endpoint that stops sending it fails the type check. */
+  note: string | null;
   from: { userId: number };
   to: { userId: number };
 };
@@ -156,12 +159,15 @@ export function SettlementForm({
           ? String(initial.fxRate)
           : "",
       settledDate: initial ? dayToLocalDate(initial.settledAt) : new Date(),
+      note: initial?.note ?? "",
     },
   });
 
   const amount = useWatch({ control: form.control, name: "amount" });
   const currency = useWatch({ control: form.control, name: "currency" });
   const settledDate = useWatch({ control: form.control, name: "settledDate" });
+  const note = useWatch({ control: form.control, name: "note" });
+  const noteToggle = useNoteToggle(initial?.note);
   const isForeignCurrency = currency !== defaultCurrency;
 
   // A rate typed for one currency is meaningless for another — clear the field
@@ -207,6 +213,7 @@ export function SettlementForm({
           ? parseFloat(values.fxRate)
           : null,
       settledAt: localDateToDay(values.settledDate),
+      note: values.note.trim() || null,
     };
 
     try {
@@ -407,7 +414,14 @@ export function SettlementForm({
           name="settledDate"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>日期</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>日期</FormLabel>
+                <NoteToggle
+                  open={noteToggle.open}
+                  hasText={note.trim() !== ""}
+                  onToggle={noteToggle.toggle}
+                />
+              </div>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -428,6 +442,15 @@ export function SettlementForm({
                   />
                 </PopoverContent>
               </Popover>
+              {/* 備註 folds under 日期 (src/components/mini/NoteField.tsx); a settlement has no 說明. */}
+              {noteToggle.open && (
+                <NoteBox
+                  value={note}
+                  onChange={(v) => form.setValue("note", v, { shouldValidate: true })}
+                  placeholder="選填，例如：轉帳末五碼"
+                  autoFocus={noteToggle.autoFocus}
+                />
+              )}
             </FormItem>
           )}
         />

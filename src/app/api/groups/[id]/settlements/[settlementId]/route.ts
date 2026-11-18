@@ -51,6 +51,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
       fxRate: expenses.fxRate,
       fxQuote: expenses.fxQuote,
       settledAt: expenses.spentAt,
+      note: expenses.note,
       createdBy: expenses.createdBy,
       createdAt: expenses.createdAt,
     })
@@ -92,6 +93,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     fxRate: row.fxRate != null ? n(row.fxRate) : null,
     fxQuote: row.fxQuote,
     settledAt: row.settledAt,
+    note: row.note,
     from: {
       userId: row.fromUserId,
       displayName: row.fromDisplayName,

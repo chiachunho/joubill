@@ -124,6 +124,7 @@ type CardData = {
     amount: number;
     currency: string;
     description: string | null;
+    note: string | null;
     createdBy: number;
     receiptFileId: string | null;
     /** `YYYY-MM-DD`. */
@@ -156,6 +157,7 @@ export async function loadCard(expenseId: number): Promise<CardData | null> {
       amount: expenses.amount,
       currency: expenses.currency,
       description: expenses.description,
+      note: expenses.note,
       createdBy: expenses.createdBy,
       receiptFileId: expenses.receiptFileId,
       spentAt: expenses.spentAt,
@@ -274,6 +276,7 @@ async function cardText(card: CardData, mode: CardMode): Promise<string> {
 
   const lines = cardBody({
     description: expense.description,
+    note: expense.note,
     amount: expense.amount,
     currency: expense.currency,
     converted,
