@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>備註欄位 mockup</title>
+<style>
+:root{--bg:hsl(43 21% 94%);--fg:hsl(0 0% 10%);--card:#fff;--primary:hsl(161 61% 46%);--muted:hsl(43 18% 88%);--mfg:hsl(0 0% 44%);--border:hsl(43 12% 84%);--r:.625rem}
+*{box-sizing:border-box}body{margin:0;background:#e9e6df;font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;color:var(--fg);padding:24px}
+h1{font-size:18px;margin:0 0 4px}p.sub{margin:0 0 20px;color:var(--mfg);font-size:13px}
+.row{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+.col{width:300px}.cap{font-size:13px;font-weight:600;margin-bottom:8px}.cap small{display:block;font-weight:400;color:var(--mfg);margin-top:2px}
+.phone{background:var(--bg);border-radius:24px;padding:16px;box-shadow:0 4px 18px #0002}
+.field{margin-bottom:14px}.lab{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:500;margin-bottom:6px}
+.input,.ta{width:100%;border:1px solid var(--border);border-radius:var(--r);background:transparent;padding:8px 12px;font-size:14px;font-family:inherit;color:var(--fg)}
+.input{height:36px}.ta{min-height:60px;resize:none;line-height:1.4}
+.ph{color:var(--mfg)}
+.link{font-size:12px;color:var(--primary);font-weight:500;display:inline-flex;align-items:center;gap:3px;padding:2px 4px;border-radius:6px}
+.link.muted{color:var(--mfg)}
+.focus{border-color:var(--primary);box-shadow:0 0 0 3px hsl(161 61% 46%/.25)}
+.ghost{opacity:.35}.ghost .box{height:36px;border:1px dashed var(--border);border-radius:var(--r)}
+.note-gap{margin-top:6px}.counter{text-align:right;font-size:11px;color:var(--mfg);margin-top:3px}
+.tap{position:relative}.tap::after{content:"";position:absolute;right:-6px;top:-6px;width:26px;height:26px;border-radius:50%;background:hsl(161 61% 46%/.25)}
+</style></head><body>
+<h1>備註欄位 mockup：收在「說明」右上角</h1>
+<p class="sub">只有「說明」一欄；右上角的「＋ 備註」點了才展開備註框。已經有備註的紀錄打開時直接是展開的。</p>
+<div class="row">
+
+<div class="col"><div class="cap">① 預設（沒有備註）<small>只多了一個小連結，不佔空間</small></div><div class="phone">
+ <div class="field ghost"><div class="lab">日期</div><div class="box"></div></div>
+ <div class="field"><div class="lab"><span>說明</span><span class="link tap">＋ 備註</span></div><div class="input"><span class="ph">例如：晚餐、機票</span></div></div>
+ <div class="field ghost"><div class="lab">收據照片</div><div class="box" style="height:70px"></div></div>
+</div></div>
+
+<div class="col"><div class="cap">② 點了之後（正在輸入）<small>備註框接在說明下面，自動 focus；連結變成「收起」</small></div><div class="phone">
+ <div class="field ghost"><div class="lab">日期</div><div class="box"></div></div>
+ <div class="field"><div class="lab"><span>說明</span><span class="link muted">收起</span></div>
+  <div class="input">晚餐</div>
+  <div class="ta note-gap focus">小明點了兩杯調酒，多的他自己出<span style="border-left:1.5px solid var(--fg);margin-left:1px"></span></div>
+  <div class="counter">17 / 1000</div></div>
+ <div class="field ghost"><div class="lab">收據照片</div><div class="box" style="height:70px"></div></div>
+</div></div>
+
+<div class="col"><div class="cap">③ 編輯已有備註的紀錄<small>一打開就展開，不會讓人以為沒有備註；清空後存檔即刪除</small></div><div class="phone">
+ <div class="field ghost"><div class="lab">日期</div><div class="box"></div></div>
+ <div class="field"><div class="lab"><span>說明</span><span class="link muted">收起</span></div>
+  <div class="input">晚餐</div>
+  <div class="ta note-gap">發票 AB-12345678</div></div>
+ <div class="field ghost"><div class="lab">收據照片</div><div class="box" style="height:70px"></div></div>
+</div></div>
+
+</div>
+<p class="sub" style="margin-top:20px">還款表單沒有「說明」欄，所以「＋ 備註」放在「日期」的右上角，行為相同。</p>
+</body></html>
