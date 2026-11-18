@@ -390,3 +390,34 @@ describe("groupCreateSchema timezone", () => {
     }
   });
 });
+
+describe("note (備註) in record bodies", () => {
+  const expense = {
+    amount: 100,
+    currency: "TWD",
+    description: null,
+    payers: [{ payerId: 1, amount: 100 }],
+    spentAt: "2026-07-10",
+    shareType: "equal",
+    splits: [{ debtorId: 1, amount: 100 }],
+  };
+
+  it("leaves it undefined when absent, so an edit keeps the stored note", () => {
+    expect(expenseInputSchema.parse(expense).note).toBeUndefined();
+    expect(
+      settlementInputSchema.parse({ fromUserId: 1, toUserId: 2, amount: 5, currency: "TWD" }).note,
+    ).toBeUndefined();
+  });
+
+  it("trims it, and turns blank or null into null", () => {
+    expect(expenseInputSchema.parse({ ...expense, note: "  兩杯  " }).note).toBe("兩杯");
+    expect(expenseInputSchema.parse({ ...expense, note: "   " }).note).toBeNull();
+    expect(expenseInputSchema.parse({ ...expense, note: null }).note).toBeNull();
+  });
+
+  it("refuses one past the limit", () => {
+    expect(expenseInputSchema.safeParse({ ...expense, note: "x".repeat(1001) }).success).toBe(
+      false,
+    );
+  });
+});

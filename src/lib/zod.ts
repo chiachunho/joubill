@@ -9,6 +9,23 @@ export const daySchema = z.string().refine(isDay, { message: "must be a date as 
 /** Every id in the schema is a Postgres `integer` (int4). */
 export const MAX_ID = 2_147_483_647;
 
+/** Longest 備註 a record may carry. */
+export const NOTE_MAX = 1000;
+
+/**
+ * A record's 備註 in a request body. Absent = leave the stored note as it is (so a caller
+ * that predates the field, or edits only other fields, can't wipe it); `null` or blank =
+ * clear it. Trimmed, and blank becomes null, so the column never holds "".
+ */
+export const noteSchema = z
+  .string()
+  .max(NOTE_MAX)
+  .nullable()
+  .optional()
+  .transform((v) =>
+    v === undefined ? undefined : v === null || v.trim() === "" ? null : v.trim(),
+  );
+
 /** A database id in a request body: the same int4 range `requireId` accepts from a URL. */
 export const idSchema = z.number().int().positive().max(MAX_ID);
 
@@ -57,6 +74,7 @@ export const expenseInputSchema = z
     currency: z.enum(SUPPORTED_CURRENCIES),
     fxRate: z.number().positive().max(1_000_000_000).nullable().optional(),
     description: z.string().max(500).nullable(),
+    note: noteSchema,
     payers: z.array(payerItemSchema).min(1),
     spentAt: daySchema,
     shareType: z.enum(SHARE_TYPES),
@@ -102,6 +120,7 @@ export const settlementInputSchema = z.object({
   fxRate: z.number().positive().max(1_000_000_000).nullable().optional(),
   /** Omitted = today in the group's zone. */
   settledAt: daySchema.optional(),
+  note: noteSchema,
 });
 
 export type SettlementInput = z.infer<typeof settlementInputSchema>;
@@ -126,6 +145,7 @@ export const expenseFormSchema = z
         "請輸入有效匯率",
       ),
     description: z.string().max(500),
+    note: z.string().max(NOTE_MAX),
     payers: z
       .array(
         z.object({
@@ -235,6 +255,7 @@ export const settlementFormSchema = z
         "請輸入有效匯率",
       ),
     settledDate: z.date(),
+    note: z.string().max(NOTE_MAX),
   })
   .refine((d) => d.fromUserId !== d.toUserId, {
     message: "付款人與收款人不能相同",

@@ -21,6 +21,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -40,7 +41,12 @@ import { viaText } from "@/lib/app-ui";
 import { FORMER_MEMBER, labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
-import { SUPPORTED_CURRENCIES, settlementFormSchema, type SettlementFormValues } from "@/lib/zod";
+import {
+  NOTE_MAX,
+  SUPPORTED_CURRENCIES,
+  settlementFormSchema,
+  type SettlementFormValues,
+} from "@/lib/zod";
 import {
   useCreateSettlementMutation,
   useDeleteSettlementMutation,
@@ -73,6 +79,8 @@ type Initial = {
   fxRate?: number | null;
   fxQuote?: string | null;
   settledAt: string;
+  /** 備註: required so a detail endpoint that stops sending it fails the type check. */
+  note: string | null;
   from: { userId: number };
   to: { userId: number };
 };
@@ -156,6 +164,7 @@ export function SettlementForm({
           ? String(initial.fxRate)
           : "",
       settledDate: initial ? dayToLocalDate(initial.settledAt) : new Date(),
+      note: initial?.note ?? "",
     },
   });
 
@@ -207,6 +216,7 @@ export function SettlementForm({
           ? parseFloat(values.fxRate)
           : null,
       settledAt: localDateToDay(values.settledDate),
+      note: values.note.trim() || null,
     };
 
     try {
@@ -428,6 +438,26 @@ export function SettlementForm({
                   />
                 </PopoverContent>
               </Popover>
+            </FormItem>
+          )}
+        />
+
+        {/* Note */}
+        <FormField
+          control={form.control}
+          name="note"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>備註</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="選填，例如：轉帳末五碼"
+                  maxLength={NOTE_MAX}
+                  rows={2}
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />

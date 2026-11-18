@@ -8,6 +8,7 @@ import {
   Check,
   HandCoins,
   Loader2,
+  NotebookPen,
   Plus,
   Settings,
   User,
@@ -501,6 +502,7 @@ export function GroupDetailPage({
                               </TooltipTrigger>
                               <TooltipContent>還款</TooltipContent>
                             </Tooltip>
+                            {e.note && <NoteMark />}
                           </div>
                           <div className="shrink-0 text-right">
                             {viewMode === "balance" ? (
@@ -584,11 +586,17 @@ export function GroupDetailPage({
                         <div className="min-w-0 flex-1">
                           {e.description ? (
                             <>
-                              <p className="truncate text-sm font-medium">{e.description}</p>
+                              <p className="flex items-center gap-1 text-sm font-medium">
+                                <span className="truncate">{e.description}</span>
+                                {e.note && <NoteMark />}
+                              </p>
                               <p className="truncate text-xs text-muted-foreground">{payerLine}</p>
                             </>
                           ) : (
-                            <p className="truncate text-sm font-medium">{payerLine}</p>
+                            <p className="flex items-center gap-1 text-sm font-medium">
+                              <span className="truncate">{payerLine}</span>
+                              {e.note && <NoteMark />}
+                            </p>
                           )}
                         </div>
                         <div className="shrink-0 text-right">
@@ -677,5 +685,12 @@ export function GroupDetailPage({
         onConfirm={doSettle}
       />
     </div>
+  );
+}
+
+/** Marks a list row whose record has a 備註; the note itself is read on the record's page. */
+function NoteMark() {
+  return (
+    <NotebookPen className="size-3 shrink-0 text-muted-foreground" aria-label="有備註" role="img" />
   );
 }

@@ -28,6 +28,7 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
         amount: expenses.amount,
         currency: expenses.currency,
         description: expenses.description,
+        note: expenses.note,
         spentAt: expenses.spentAt,
         createdBy: expenses.createdBy,
         createdAt: expenses.createdAt,
@@ -59,6 +60,7 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
       amount: n(r.amount),
       currency: r.currency,
       description: r.description,
+      note: r.note,
       spentAt: r.spentAt,
       createdByMemberId: r.createdBy,
       createdAt: r.createdAt.toISOString(),
@@ -86,7 +88,7 @@ export function registerRecordTools(server: McpServer, auth: McpAuth) {
     {
       title: "List records",
       description:
-        "Use to search or review history: expenses and settlements, newest first (by date, then entry order). Pass the previous nextCursor to get the next page (null = no more). Filters: from/to (YYYY-MM-DD in the group's time zone, inclusive), keyword in the description, mineOnly (only records the user paid or owes in).",
+        "Use to search or review history: expenses and settlements, newest first (by date, then entry order). Pass the previous nextCursor to get the next page (null = no more). Filters: from/to (YYYY-MM-DD in the group's time zone, inclusive), keyword in the description or note, mineOnly (only records the user paid or owes in).",
       inputSchema: {
         groupId: idSchema,
         cursor: z.string().max(64).optional(),
@@ -118,7 +120,10 @@ export function registerRecordTools(server: McpServer, auth: McpAuth) {
               args.from ? sql`${expenses.spentAt} >= ${args.from}::date` : undefined,
               args.to ? sql`${expenses.spentAt} <= ${args.to}::date` : undefined,
               args.keyword
-                ? ilike(expenses.description, `%${escapeLike(args.keyword)}%`)
+                ? or(
+                    ilike(expenses.description, `%${escapeLike(args.keyword)}%`),
+                    ilike(expenses.note, `%${escapeLike(args.keyword)}%`),
+                  )
                 : undefined,
               args.mineOnly
                 ? or(

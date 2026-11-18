@@ -41,6 +41,12 @@ describe("cardBody", () => {
     ]);
   });
 
+  it("ends with the 備註 when there is one, escaped", () => {
+    const lines = cardBody(expense({ note: "小明 <兩杯>" }));
+    expect(lines.at(-1)).toBe("✎ 小明 &lt;兩杯&gt;");
+    expect(cardBody(expense({ note: null })).at(-1)).toBe("・Amy 200");
+  });
+
   it("leaves the description out when there is none", () => {
     expect(cardBody(expense({ description: null }))[0]).toBe("小明 付 <b>600 TWD</b>");
   });

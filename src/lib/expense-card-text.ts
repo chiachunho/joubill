@@ -1,5 +1,6 @@
 import { labelUser, type Profile } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
+import { formatNoteLine } from "@/lib/record-notice";
 import { escapeHtml, mention } from "@/lib/telegram-html";
 
 /**
@@ -10,6 +11,7 @@ import { escapeHtml, mention } from "@/lib/telegram-html";
  *   <b>晚餐</b>　小明 付 <b>600 TWD</b>
  *   ・小明 200
  *   ・阿華 200
+ *   ✎ 小明點了兩杯          (only when it has a 備註)
  *
  * One person per line, because a long name squeezed into "A、B、C 各 200" wraps into
  * something unreadable. With several payers each line says what that person paid and
@@ -20,6 +22,8 @@ export type CardPerson = Profile & { id: number; telegramId: number | null };
 
 export type ExpenseCardInput = {
   description: string | null;
+  /** 備註, shown on its own line under the people. */
+  note?: string | null;
   amount: number;
   currency: string;
   /** The amount in the group's default currency, when the expense is in another one. */
@@ -71,5 +75,6 @@ export function cardPeopleLines(e: ExpenseCardInput): string[] {
 }
 
 export function cardBody(e: ExpenseCardInput): string[] {
-  return [cardHeadline(e), ...cardPeopleLines(e)];
+  const note = formatNoteLine(e.note);
+  return [cardHeadline(e), ...cardPeopleLines(e), ...(note ? [note] : [])];
 }

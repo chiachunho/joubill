@@ -22,6 +22,8 @@ export const EXPORT_HEADER = [
   "分攤",
   "記錄者",
   "建立時間 (UTC)",
+  // Last, so adding it didn't move any column a spreadsheet formula already points at.
+  "備註",
 ] as const;
 
 /** Decimals kept on 換算金額 and 匯率, so column sums reconcile with /balance (which rounds once, at the end). */
@@ -32,6 +34,7 @@ export type ExportRecord = {
   /** `YYYY-MM-DD`. */
   spentAt: string;
   description: string | null;
+  note: string | null;
   amount: number;
   currency: string;
   /** Rate to the group's default currency, as resolved by `resolveRate`. */
@@ -64,6 +67,7 @@ export function exportRecordsToCsv(records: readonly ExportRecord[], quote: stri
     formatLegs(r.splits),
     r.createdByName,
     formatUtcMinute(r.createdAt),
+    r.note ?? "",
   ]);
   return buildCsv(EXPORT_HEADER, rows);
 }
@@ -76,6 +80,7 @@ export type LoadedRecord = {
   spentAt: string;
   createdAt: Date;
   description: string | null;
+  note: string | null;
   amount: number;
   currency: string;
   /** Rate to the group's default currency (`resolveRate`); 1 when `rates: false`. */
@@ -175,6 +180,7 @@ export async function loadGroupRecords(
     spentAt: r.spentAt,
     createdAt: r.createdAt,
     description: r.description,
+    note: r.note,
     amount: n(r.amount),
     currency: r.currency,
     rate: resolved[i],
@@ -201,6 +207,7 @@ export async function buildGroupExport(
     type: r.type,
     spentAt: r.spentAt,
     description: r.description,
+    note: r.note,
     amount: r.amount,
     currency: r.currency,
     rate: r.rate,

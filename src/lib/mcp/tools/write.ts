@@ -16,6 +16,7 @@ import {
   idSchema,
   settlementInputSchema,
   SUPPORTED_CURRENCIES,
+  NOTE_MAX,
   type SupportedCurrency,
 } from "@/lib/zod";
 
@@ -172,6 +173,14 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
           .optional()
           .describe("Default: the group's default currency."),
         description: z.string().trim().max(500).optional(),
+        note: z
+          .string()
+          .trim()
+          .max(NOTE_MAX)
+          .optional()
+          .describe(
+            "備註: longer free text than the one-line description, e.g. who ordered what or a transfer reference. Optional.",
+          ),
         spentAt: daySchema
           .optional()
           .describe("YYYY-MM-DD in the group's time zone. Default: today there."),
@@ -220,12 +229,14 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
           split: mcpSplit,
         });
         if (!built.ok) throw new ToolError("bad_request", built.message);
+        const note = args.note || null;
 
         const label = (id: number) => labels.get(id) ?? "?";
         const preview = {
           amount: built.input.amount,
           currency,
           description: built.input.description,
+          note,
           spentAt,
           shareType: built.input.shareType,
           payers: built.input.payers.map((p) => ({
@@ -286,7 +297,7 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
           const receiptFileIds = args.images ? await uploadImages(auth, images) : undefined;
           const { id } = await createExpense(
             args.groupId,
-            { ...built.input, ...(receiptFileIds && { receiptFileIds }) },
+            { ...built.input, note, ...(receiptFileIds && { receiptFileIds }) },
             { actor: mcpActor(auth) },
           );
           // The record exists now: a failed bind must not free the key, or a retry would
@@ -323,6 +334,14 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
         settledAt: daySchema
           .optional()
           .describe("YYYY-MM-DD, default today in the group's time zone."),
+        note: z
+          .string()
+          .trim()
+          .max(NOTE_MAX)
+          .optional()
+          .describe(
+            "備註: longer free text than the one-line description, e.g. who ordered what or a transfer reference. Optional.",
+          ),
         idempotencyKey: keySchema,
         dryRun: z.boolean().optional().describe("Preview only: nothing is written."),
       },
@@ -351,6 +370,7 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
               amount: parsed.amount,
               currency,
               settledAt: args.settledAt ?? todayIn(group.timezone),
+              note: args.note || null,
             },
           });
         }
@@ -366,6 +386,7 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
           amount: parsed.amount,
           currency,
           settledAt: args.settledAt,
+          note: args.note || null,
         });
         if (!input.success) {
           await reservation?.release().catch(() => {});

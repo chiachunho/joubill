@@ -53,6 +53,8 @@ export type ExpenseBody = {
   currency?: string;
   /** A pinned rate for this record; none when left out. */
   fxRate?: number | null;
+  /** 備註; none when left out. */
+  note?: string | null;
 };
 
 function expenseData(body: ExpenseBody) {

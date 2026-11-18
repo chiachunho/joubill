@@ -37,6 +37,7 @@ export function snapshotToBeancountRecord(id: number, snap: RecordSnapshot): Bea
     amount: snap.amount,
     currency: snap.currency,
     description: snap.description ?? null,
+    note: snap.note ?? null,
     spentAt: snap.spentAt,
     payers: snap.payers.map((l) => ({ userId: l.user.userId, amount: l.amount })),
     splits: snap.splits.map((l) => ({ userId: l.user.userId, amount: l.amount })),

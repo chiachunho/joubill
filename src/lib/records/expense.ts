@@ -55,6 +55,7 @@ export async function createExpense(
         amount: input.amount.toFixed(2),
         currency: input.currency,
         description: input.description,
+        note: input.note ?? null,
         spentAt: input.spentAt,
         createdBy: ctx.actor.userId,
         fxRate: fx.fxRate,
@@ -110,6 +111,7 @@ export async function updateExpense(
         currency: input.currency,
         ...(fx && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
         description: input.description,
+        ...(input.note !== undefined && { note: input.note }),
         spentAt: input.spentAt,
         // When receipts are explicitly managed, also clear the legacy single-file column so
         // the GET fallback cannot resurrect a "cleared" bot-uploaded receipt.

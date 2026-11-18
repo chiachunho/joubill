@@ -8,6 +8,7 @@ const base = {
   currency: "TWD" as const,
   fxRate: "",
   description: "dinner",
+  note: "",
   payers: [{ userId: "1", amount: "300" }],
   spentDate: new Date("2026-05-27T12:00:00Z"),
   shareType: "equal" as const,

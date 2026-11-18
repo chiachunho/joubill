@@ -124,6 +124,8 @@ export type ExpenseListItem = {
   amount: number;
   currency: string;
   description: string | null;
+  /** 備註, or null. */
+  note: string | null;
   spentAt: string;
   payers: ExpensePayer[];
   splits: ExpenseSplit[];
@@ -161,6 +163,8 @@ export type ExpenseDetail = {
   fxRate: number | null;
   fxQuote: string | null;
   description: string | null;
+  /** 備註, or null. */
+  note: string | null;
   payers: Array<{ payerId: number; amount: number }>;
   spentAt: string;
   receiptFileIds: string[];
@@ -186,6 +190,8 @@ export type SettlementDetail = {
   fxRate: number | null;
   fxQuote: string | null;
   settledAt: string;
+  /** 備註, or null. */
+  note: string | null;
   from: { userId: number };
   to: { userId: number };
 };

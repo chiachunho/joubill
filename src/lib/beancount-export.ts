@@ -69,6 +69,7 @@ function toBeancountRecord(r: LoadedRecord): BeancountRecord {
     amount: r.amount,
     currency: r.currency,
     description: r.description,
+    note: r.note,
     spentAt: r.spentAt,
     payers: r.payers,
     splits: r.splits,

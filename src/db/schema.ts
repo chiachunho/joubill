@@ -113,6 +113,9 @@ export const expenses = pgTable(
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull(),
     description: text("description"),
+    /** Free-text 備註: longer detail than the one-line description (who ordered what, a
+     *  transfer's reference number). Optional on both kinds; NULL = none, never "". */
+    note: text("note"),
     /** The day the record is on: a calendar date with no time and no zone (`YYYY-MM-DD`).
      *  Query and compare it as that string; nothing derives a day from a timestamp. */
     spentAt: date("spent_date", { mode: "string" }).notNull(),

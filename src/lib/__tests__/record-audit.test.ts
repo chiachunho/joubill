@@ -63,6 +63,14 @@ describe("diffRecords", () => {
     expect(diffRecords(snapshot(), snapshot())).toEqual([]);
   });
 
+  it("reports a changed 備註, and reads a snapshot from before the field as having none", () => {
+    expect(diffRecords(snapshot(), snapshot({ note: "發票 AB-123" }))).toEqual([
+      { key: "note", label: "備註", before: "（無）", after: "發票 AB-123" },
+    ]);
+    // Snapshots logged before the column existed have no `note` key at all.
+    expect(diffRecords(snapshot(), snapshot({ note: null }))).toEqual([]);
+  });
+
   it("treats reordered legs as unchanged", () => {
     const reordered = snapshot({
       splits: [

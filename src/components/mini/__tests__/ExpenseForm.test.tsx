@@ -61,6 +61,7 @@ function initial(over: Partial<Initial> = {}): Initial {
     fxRate: null,
     fxQuote: null,
     description: "晚餐",
+    note: null,
     payers: [{ payerId: 1, amount: 300 }],
     spentAt: SPENT_AT,
     receiptFileIds: [],
@@ -79,6 +80,7 @@ type Body = {
   currency: string;
   fxRate: number | null;
   description: string | null;
+  note: string | null;
   shareType: string;
   payers: { payerId: number; amount: number }[];
   splits: { debtorId: number; amount: number; splitValue: number | null }[];
@@ -151,6 +153,7 @@ describe("ExpenseForm: new expense", () => {
       currency: "TWD",
       fxRate: null,
       description: "午餐",
+      note: null,
       shareType: "equal",
       payers: [{ payerId: 1, amount: 300 }],
     });
@@ -292,6 +295,25 @@ describe("ExpenseForm: editing", () => {
       [1, 200, 2],
       [2, 100, 1],
     ]);
+  });
+
+  it("sends the 備註 trimmed, and clears it when emptied", async () => {
+    const w = writes({ ok: true });
+    renderForm(
+      { initial: initial({ note: "小明點了兩杯" }) },
+      { "/api/groups/7/expenses/11": w.handler },
+    );
+    expect(screen.getByLabelText("備註")).toHaveValue("小明點了兩杯");
+
+    fireEvent.change(screen.getByLabelText("備註"), { target: { value: "  發票 AB-123  " } });
+    await submit();
+    await waitFor(() => expect(w.sent).toHaveLength(1));
+    expect(w.sent[0].body!.note).toBe("發票 AB-123");
+
+    fireEvent.change(screen.getByLabelText("備註"), { target: { value: "   " } });
+    await submit();
+    await waitFor(() => expect(w.sent).toHaveLength(2));
+    expect(w.sent[1].body!.note).toBeNull();
   });
 
   it("keeps an old shares record (no saved weights) as shares on a description-only edit", async () => {
