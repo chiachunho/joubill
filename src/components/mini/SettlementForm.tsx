@@ -21,7 +21,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { NoteBox, NoteToggle, useNoteOpen } from "@/components/mini/NoteField";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -41,12 +41,7 @@ import { viaText } from "@/lib/app-ui";
 import { FORMER_MEMBER, labelUser } from "@/lib/label";
 import { cn } from "@/lib/utils";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
-import {
-  NOTE_MAX,
-  SUPPORTED_CURRENCIES,
-  settlementFormSchema,
-  type SettlementFormValues,
-} from "@/lib/zod";
+import { SUPPORTED_CURRENCIES, settlementFormSchema, type SettlementFormValues } from "@/lib/zod";
 import {
   useCreateSettlementMutation,
   useDeleteSettlementMutation,
@@ -171,6 +166,10 @@ export function SettlementForm({
   const amount = useWatch({ control: form.control, name: "amount" });
   const currency = useWatch({ control: form.control, name: "currency" });
   const settledDate = useWatch({ control: form.control, name: "settledDate" });
+  const note = useWatch({ control: form.control, name: "note" });
+  const [noteOpen, setNoteOpen] = useNoteOpen(initial?.note);
+  // Only a tap on ＋ 備註 focuses the box; a record that opens with a note doesn't grab focus.
+  const [noteTapped, setNoteTapped] = useState(false);
   const isForeignCurrency = currency !== defaultCurrency;
 
   // A rate typed for one currency is meaningless for another — clear the field
@@ -417,7 +416,17 @@ export function SettlementForm({
           name="settledDate"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>日期</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>日期</FormLabel>
+                <NoteToggle
+                  open={noteOpen}
+                  hasText={note.trim() !== ""}
+                  onToggle={() => {
+                    setNoteTapped(true);
+                    setNoteOpen((o) => !o);
+                  }}
+                />
+              </div>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -438,26 +447,15 @@ export function SettlementForm({
                   />
                 </PopoverContent>
               </Popover>
-            </FormItem>
-          )}
-        />
-
-        {/* Note */}
-        <FormField
-          control={form.control}
-          name="note"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>備註</FormLabel>
-              <FormControl>
-                <Textarea
+              {/* 備註 folds under 日期 (src/components/mini/NoteField.tsx); a settlement has no 說明. */}
+              {noteOpen && (
+                <NoteBox
+                  value={note}
+                  onChange={(v) => form.setValue("note", v, { shouldValidate: true })}
                   placeholder="選填，例如：轉帳末五碼"
-                  maxLength={NOTE_MAX}
-                  rows={2}
-                  {...field}
+                  autoFocus={noteTapped}
                 />
-              </FormControl>
-              <FormMessage />
+              )}
             </FormItem>
           )}
         />

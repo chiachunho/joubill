@@ -35,7 +35,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { NoteBox, NoteToggle, useNoteOpen } from "@/components/mini/NoteField";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -58,12 +58,7 @@ import { useAuthMode } from "@/components/AuthProvider";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
 import { tmaRawFetch } from "@/lib/tma-fetch";
 import { webRawFetch } from "@/lib/web-fetch";
-import {
-  NOTE_MAX,
-  SUPPORTED_CURRENCIES,
-  expenseFormSchema,
-  type ExpenseFormValues,
-} from "@/lib/zod";
+import { SUPPORTED_CURRENCIES, expenseFormSchema, type ExpenseFormValues } from "@/lib/zod";
 import {
   useCreateExpenseMutation,
   useDeleteExpenseMutation,
@@ -395,6 +390,10 @@ export function ExpenseForm(props: Props) {
   const amount = useWatch({ control: form.control, name: "amount" });
   const currency = useWatch({ control: form.control, name: "currency" });
   const spentDate = useWatch({ control: form.control, name: "spentDate" });
+  const note = useWatch({ control: form.control, name: "note" });
+  const [noteOpen, setNoteOpen] = useNoteOpen(initial?.note);
+  // Only a tap on ＋ 備註 focuses the box; a record that opens with a note doesn't grab focus.
+  const [noteTapped, setNoteTapped] = useState(false);
   const shareType = useWatch({ control: form.control, name: "shareType" });
   const participants = useWatch({ control: form.control, name: "participants" });
   const payers = useWatch({ control: form.control, name: "payers" });
@@ -830,31 +829,30 @@ export function ExpenseForm(props: Props) {
             name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>說明</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>說明</FormLabel>
+                  <NoteToggle
+                    open={noteOpen}
+                    hasText={note.trim() !== ""}
+                    onToggle={() => {
+                      setNoteTapped(true);
+                      setNoteOpen((o) => !o);
+                    }}
+                  />
+                </div>
                 <FormControl>
                   <Input placeholder="例如：晚餐、機票" maxLength={500} {...field} />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Note */}
-          <FormField
-            control={form.control}
-            name="note"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>備註</FormLabel>
-                <FormControl>
-                  <Textarea
+                {/* 備註 folds under 說明 (src/components/mini/NoteField.tsx). */}
+                {noteOpen && (
+                  <NoteBox
+                    value={note}
+                    onChange={(v) => form.setValue("note", v, { shouldValidate: true })}
                     placeholder="選填，例如：誰點了什麼、發票號碼"
-                    maxLength={NOTE_MAX}
-                    rows={2}
-                    {...field}
+                    autoFocus={noteTapped}
                   />
-                </FormControl>
-                <FormMessage />
+                )}
               </FormItem>
             )}
           />

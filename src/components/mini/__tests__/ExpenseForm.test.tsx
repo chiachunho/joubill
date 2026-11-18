@@ -297,7 +297,7 @@ describe("ExpenseForm: editing", () => {
     ]);
   });
 
-  it("sends the 備註 trimmed, and clears it when emptied", async () => {
+  it("opens with the 備註 shown when the record has one, and sends it trimmed or cleared", async () => {
     const w = writes({ ok: true });
     renderForm(
       { initial: initial({ note: "小明點了兩杯" }) },
@@ -314,6 +314,30 @@ describe("ExpenseForm: editing", () => {
     await submit();
     await waitFor(() => expect(w.sent).toHaveLength(2));
     expect(w.sent[1].body!.note).toBeNull();
+  });
+
+  it("folds the 備註 behind ＋ 備註, and keeps what was typed when folded again", async () => {
+    const w = writes({ ok: true });
+    renderForm({ initial: initial() }, { "/api/groups/7/expenses/11": w.handler });
+    expect(screen.queryByLabelText("備註")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "＋ 備註" }));
+    expect(screen.getByLabelText("備註")).toHaveFocus();
+    fireEvent.change(screen.getByLabelText("備註"), { target: { value: "刷玉山卡" } });
+    fireEvent.click(screen.getByRole("button", { name: "收起" }));
+    expect(screen.queryByLabelText("備註")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "顯示備註" })).toBeInTheDocument();
+
+    await submit();
+    await waitFor(() => expect(w.sent).toHaveLength(1));
+    expect(w.sent[0].body!.note).toBe("刷玉山卡");
+  });
+
+  it("counts the 備註's characters only once it nears the limit", () => {
+    renderForm({ initial: initial({ note: "x".repeat(899) }) }, {});
+    expect(screen.queryByText("899 / 1000")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("備註"), { target: { value: "x".repeat(900) } });
+    expect(screen.getByText("900 / 1000")).toBeInTheDocument();
   });
 
   it("keeps an old shares record (no saved weights) as shares on a description-only edit", async () => {

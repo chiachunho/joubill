@@ -15,6 +15,8 @@ test.describe("Record 備註", () => {
     const note = `E2E note ${Date.now()}`;
     const form = `/app/groups/${seeded.groupId}/expenses/${seeded.expenseId}/edit`;
     await authedPage.goto(form);
+    // Folded behind the link in the 說明 / 日期 row until a record has one.
+    await authedPage.getByRole("button", { name: "＋ 備註" }).click();
     await authedPage.getByLabel("備註", { exact: true }).fill(`  ${note}  `);
     await authedPage.getByRole("button", { name: "儲存", exact: true }).click();
     await expect(authedPage).toHaveURL(new RegExp(`/app/groups/${seeded.groupId}$`));
@@ -90,6 +92,8 @@ test.describe("Record 備註", () => {
     const note = `E2E 末五碼 ${Date.now()}`;
     const form = `/app/groups/${seeded.groupId}/settlements/${id}`;
     await authedPage.goto(form);
+    // Folded behind the link in the 說明 / 日期 row until a record has one.
+    await authedPage.getByRole("button", { name: "＋ 備註" }).click();
     await authedPage.getByLabel("備註", { exact: true }).fill(note);
     await authedPage.getByRole("button", { name: "儲存", exact: true }).click();
     await expect(authedPage).toHaveURL(new RegExp(`/app/groups/${seeded.groupId}$`));
