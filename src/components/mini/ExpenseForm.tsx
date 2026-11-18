@@ -35,7 +35,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { NoteBox, NoteToggle, useNoteOpen } from "@/components/mini/NoteField";
+import { NoteBox, NoteToggle, useNoteToggle } from "@/components/mini/NoteField";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -391,9 +391,7 @@ export function ExpenseForm(props: Props) {
   const currency = useWatch({ control: form.control, name: "currency" });
   const spentDate = useWatch({ control: form.control, name: "spentDate" });
   const note = useWatch({ control: form.control, name: "note" });
-  const [noteOpen, setNoteOpen] = useNoteOpen(initial?.note);
-  // Only a tap on ＋ 備註 focuses the box; a record that opens with a note doesn't grab focus.
-  const [noteTapped, setNoteTapped] = useState(false);
+  const noteToggle = useNoteToggle(initial?.note);
   const shareType = useWatch({ control: form.control, name: "shareType" });
   const participants = useWatch({ control: form.control, name: "participants" });
   const payers = useWatch({ control: form.control, name: "payers" });
@@ -832,12 +830,9 @@ export function ExpenseForm(props: Props) {
                 <div className="flex items-center justify-between">
                   <FormLabel>說明</FormLabel>
                   <NoteToggle
-                    open={noteOpen}
+                    open={noteToggle.open}
                     hasText={note.trim() !== ""}
-                    onToggle={() => {
-                      setNoteTapped(true);
-                      setNoteOpen((o) => !o);
-                    }}
+                    onToggle={noteToggle.toggle}
                   />
                 </div>
                 <FormControl>
@@ -845,12 +840,12 @@ export function ExpenseForm(props: Props) {
                 </FormControl>
                 <FormMessage />
                 {/* 備註 folds under 說明 (src/components/mini/NoteField.tsx). */}
-                {noteOpen && (
+                {noteToggle.open && (
                   <NoteBox
                     value={note}
                     onChange={(v) => form.setValue("note", v, { shouldValidate: true })}
                     placeholder="選填，例如：誰點了什麼、發票號碼"
-                    autoFocus={noteTapped}
+                    autoFocus={noteToggle.autoFocus}
                   />
                 )}
               </FormItem>

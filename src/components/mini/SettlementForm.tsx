@@ -21,7 +21,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { NoteBox, NoteToggle, useNoteOpen } from "@/components/mini/NoteField";
+import { NoteBox, NoteToggle, useNoteToggle } from "@/components/mini/NoteField";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -167,9 +167,7 @@ export function SettlementForm({
   const currency = useWatch({ control: form.control, name: "currency" });
   const settledDate = useWatch({ control: form.control, name: "settledDate" });
   const note = useWatch({ control: form.control, name: "note" });
-  const [noteOpen, setNoteOpen] = useNoteOpen(initial?.note);
-  // Only a tap on ＋ 備註 focuses the box; a record that opens with a note doesn't grab focus.
-  const [noteTapped, setNoteTapped] = useState(false);
+  const noteToggle = useNoteToggle(initial?.note);
   const isForeignCurrency = currency !== defaultCurrency;
 
   // A rate typed for one currency is meaningless for another — clear the field
@@ -419,12 +417,9 @@ export function SettlementForm({
               <div className="flex items-center justify-between">
                 <FormLabel>日期</FormLabel>
                 <NoteToggle
-                  open={noteOpen}
+                  open={noteToggle.open}
                   hasText={note.trim() !== ""}
-                  onToggle={() => {
-                    setNoteTapped(true);
-                    setNoteOpen((o) => !o);
-                  }}
+                  onToggle={noteToggle.toggle}
                 />
               </div>
               <Popover>
@@ -448,12 +443,12 @@ export function SettlementForm({
                 </PopoverContent>
               </Popover>
               {/* 備註 folds under 日期 (src/components/mini/NoteField.tsx); a settlement has no 說明. */}
-              {noteOpen && (
+              {noteToggle.open && (
                 <NoteBox
                   value={note}
                   onChange={(v) => form.setValue("note", v, { shouldValidate: true })}
                   placeholder="選填，例如：轉帳末五碼"
-                  autoFocus={noteTapped}
+                  autoFocus={noteToggle.autoFocus}
                 />
               )}
             </FormItem>

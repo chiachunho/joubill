@@ -420,4 +420,9 @@ describe("note (備註) in record bodies", () => {
       false,
     );
   });
+
+  it("measures the limit after trimming", () => {
+    const parsed = expenseInputSchema.safeParse({ ...expense, note: ` ${"x".repeat(1000)}\n` });
+    expect(parsed.success && parsed.data.note).toBe("x".repeat(1000));
+  });
 });

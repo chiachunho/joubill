@@ -14,9 +14,9 @@ import { createExpense, createSettlement } from "@/lib/records";
 import {
   daySchema,
   idSchema,
+  NOTE_MAX,
   settlementInputSchema,
   SUPPORTED_CURRENCIES,
-  NOTE_MAX,
   type SupportedCurrency,
 } from "@/lib/zod";
 
@@ -179,7 +179,7 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
           .max(NOTE_MAX)
           .optional()
           .describe(
-            "備註: longer free text than the one-line description, e.g. who ordered what or a transfer reference. Optional.",
+            "備註: longer free text than the one-line description, e.g. who ordered what or an invoice number. Optional.",
           ),
         spentAt: daySchema
           .optional()
@@ -340,7 +340,7 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
           .max(NOTE_MAX)
           .optional()
           .describe(
-            "備註: longer free text than the one-line description, e.g. who ordered what or a transfer reference. Optional.",
+            "備註: free text about the repayment, e.g. the transfer's reference number. A settlement has no description, so this is its only text. Optional.",
           ),
         idempotencyKey: keySchema,
         dryRun: z.boolean().optional().describe("Preview only: nothing is written."),

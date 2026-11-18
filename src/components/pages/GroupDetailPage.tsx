@@ -502,7 +502,7 @@ export function GroupDetailPage({
                               </TooltipTrigger>
                               <TooltipContent>還款</TooltipContent>
                             </Tooltip>
-                            {e.note && <NoteMark />}
+                            {e.hasNote && <NoteMark />}
                           </div>
                           <div className="shrink-0 text-right">
                             {viewMode === "balance" ? (
@@ -588,14 +588,14 @@ export function GroupDetailPage({
                             <>
                               <p className="flex items-center gap-1 text-sm font-medium">
                                 <span className="truncate">{e.description}</span>
-                                {e.note && <NoteMark />}
+                                {e.hasNote && <NoteMark />}
                               </p>
                               <p className="truncate text-xs text-muted-foreground">{payerLine}</p>
                             </>
                           ) : (
                             <p className="flex items-center gap-1 text-sm font-medium">
                               <span className="truncate">{payerLine}</span>
-                              {e.note && <NoteMark />}
+                              {e.hasNote && <NoteMark />}
                             </p>
                           )}
                         </div>

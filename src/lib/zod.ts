@@ -19,12 +19,13 @@ export const NOTE_MAX = 1000;
  */
 export const noteSchema = z
   .string()
+  // Trimmed before the length check, like the form and the MCP tools: surrounding
+  // whitespace is never stored, so it must not push a note over the limit.
+  .trim()
   .max(NOTE_MAX)
   .nullable()
   .optional()
-  .transform((v) =>
-    v === undefined ? undefined : v === null || v.trim() === "" ? null : v.trim(),
-  );
+  .transform((v) => (v === undefined ? undefined : v || null));
 
 /** A database id in a request body: the same int4 range `requireId` accepts from a URL. */
 export const idSchema = z.number().int().positive().max(MAX_ID);

@@ -124,8 +124,8 @@ export type ExpenseListItem = {
   amount: number;
   currency: string;
   description: string | null;
-  /** 備註, or null. */
-  note: string | null;
+  /** Whether the record has a 備註; the list marks it, the record's page shows it. */
+  hasNote: boolean;
   spentAt: string;
   payers: ExpensePayer[];
   splits: ExpenseSplit[];

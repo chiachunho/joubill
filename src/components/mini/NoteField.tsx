@@ -15,9 +15,19 @@ export const NOTE_COUNT_FROM = 900;
  * The two forms share the link and the box here so they can't drift.
  */
 
-/** Open from the start when the record already has a note: a hidden note reads as no note. */
-export function useNoteOpen(initialNote: string | null | undefined) {
-  return React.useState(() => !!initialNote);
+/**
+ * Whether the box is open, whether it should take focus, and the link's toggle. Open from the
+ * start when the record already has a note (a hidden note reads as no note), but only a tap on
+ * the link focuses it: a record that opens with a note doesn't grab focus.
+ */
+export function useNoteToggle(initialNote: string | null | undefined) {
+  const [open, setOpen] = React.useState(() => !!initialNote);
+  const [tapped, setTapped] = React.useState(false);
+  const toggle = React.useCallback(() => {
+    setTapped(true);
+    setOpen((o) => !o);
+  }, []);
+  return { open, autoFocus: tapped, toggle };
 }
 
 /**
@@ -52,15 +62,11 @@ export function NoteToggle({
 export function NoteBox({
   value,
   onChange,
-  onBlur,
-  name,
   placeholder,
   autoFocus,
 }: {
   value: string;
   onChange: (value: string) => void;
-  onBlur?: () => void;
-  name?: string;
   placeholder: string;
   autoFocus: boolean;
 }) {
@@ -68,13 +74,11 @@ export function NoteBox({
     <div className="flex flex-col gap-1">
       <Textarea
         aria-label="備註"
-        name={name}
         rows={2}
         maxLength={NOTE_MAX}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
         autoFocus={autoFocus}
       />
       {value.length >= NOTE_COUNT_FROM && (
