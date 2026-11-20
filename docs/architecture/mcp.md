@@ -85,6 +85,11 @@ longer one is a new token. A revoked connection answers 404. The client side is 
 Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. Write:
 `add_expense`, `add_settlement`, `add_refund`, `update_record`, `delete_record`, `attach_receipt`. One prompt, `split_receipt` (拆收據).
 
+- **Refunds** (issue #178): `add_refund` records money that came back on an expense (default:
+  to the expense's payer, in its split proportions). `get_record` / `list_records` show a refund's
+  `refundOfRecordId` and `refundSplit` and an expense's `refundRecordIds`; `update_record` takes
+  `receivedBy` / `refundSplit` / `shares` for a refund (a custom refund rescales when only the
+  amount changes); `delete_record` on an expense lists the refunds that go with it.
 - **Agent-facing text** (issue #151): the server `instructions` live in `src/lib/mcp/instructions.ts`,
   every tool has a description saying when to use it and its defaults, and every write tool takes
   `dryRun` (counted against the read bucket). A name error's `message` lists the candidates and the
