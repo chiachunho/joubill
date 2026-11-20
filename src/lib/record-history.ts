@@ -236,6 +236,15 @@ export async function loadRecordHistory(
             inArray(recordAuditLog.action, ["member_claimed", "account_merged"]),
             sql`${recordAuditLog.after}->'recordIds' @> ${JSON.stringify(recordId)}::jsonb`,
           ),
+          // An expense's refunds (issue #178): their snapshots name it as `refundOf`, which
+          // still finds a refund that has since been deleted.
+          and(
+            eq(recordAuditLog.recordType, "refund"),
+            or(
+              sql`${recordAuditLog.after} @> ${JSON.stringify({ refundOf: recordId })}::jsonb`,
+              sql`${recordAuditLog.before} @> ${JSON.stringify({ refundOf: recordId })}::jsonb`,
+            ),
+          ),
           and(
             eq(recordAuditLog.action, "rate_locked"),
             // Two separate fragments joined by drizzle's `or`, which parenthesises

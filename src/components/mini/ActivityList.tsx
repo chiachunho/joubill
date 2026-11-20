@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { IconTile } from "@/components/mini/IconTile";
+import { RefundIcon } from "@/components/mini/RefundIcon";
 import { Avatar } from "@/components/mini/Avatar";
 import { activityFeedHref, recordHistoryHref } from "@/lib/activity-link";
 import { viaText } from "@/lib/app-ui";
@@ -51,6 +52,8 @@ type Props = {
   linkRows?: boolean;
   /** Day headings only make sense on the feed; a record's history is short. */
   groupByDay?: boolean;
+  /** On one record's history: that record, so rows of its refunds can link out. */
+  currentRecordId?: number;
 };
 
 /** The group-level events, which have no one record to show and so wear an icon, not an avatar. */
@@ -105,6 +108,7 @@ function Row({
   showRecordLabel,
   showDate,
   linkRows,
+  currentRecordId,
 }: {
   entry: ActivityEntry;
   photos?: Record<number, string | null>;
@@ -114,6 +118,7 @@ function Row({
   showRecordLabel: boolean;
   showDate: boolean;
   linkRows: boolean;
+  currentRecordId?: number;
 }) {
   const who = entry.actor
     ? labelUser({ ...entry.actor, userId: entry.actor.userId }, currentUserId)
@@ -125,14 +130,23 @@ function Row({
   // A rate lock belongs to the group rather than to any one row, so it has no
   // history to open. A deleted record does: its log rows outlive it (`record_id`
   // has no foreign key), and that history is how you find out who removed it.
+  // On an expense's own history, its refunds' rows (issue #178) are another record's: they
+  // are marked and open that refund's history, whose 返回 comes back here.
+  const ofRefund =
+    currentRecordId != null &&
+    entry.recordType === "refund" &&
+    entry.recordId != null &&
+    entry.recordId !== currentRecordId;
   const href =
-    linkRows && entry.recordId != null && entry.action !== "rate_locked"
+    (linkRows || ofRefund) && entry.recordId != null && entry.action !== "rate_locked"
       ? recordHistoryHref({
           appBase,
           groupId,
           recordId: entry.recordId,
-          // 返回 on the history page comes back to this feed.
-          from: activityFeedHref({ appBase, groupId }),
+          // 返回 on the history page comes back to this feed, or to this record's history.
+          from: ofRefund
+            ? recordHistoryHref({ appBase, groupId, recordId: currentRecordId })
+            : activityFeedHref({ appBase, groupId }),
         })
       : null;
 
@@ -166,6 +180,11 @@ function Row({
         <p className="text-sm leading-snug">
           <span className="font-semibold">{who}</span>
           {entry.via && ` ${viaText(entry.via)}`} {changeHeading(entry, showRecordLabel)}
+          {ofRefund && (
+            <span className="ml-1.5 inline-flex translate-y-0.5 rounded-lg bg-muted p-1 align-baseline text-muted-foreground">
+              <RefundIcon className="size-3" aria-label="退稅" role="img" />
+            </span>
+          )}
         </p>
         <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
           <ChangeLine entry={entry} />
@@ -213,6 +232,7 @@ export function ActivityList({
   showRecordLabel = false,
   groupByDay = false,
   linkRows = true,
+  currentRecordId,
 }: Props) {
   if (!groupByDay) {
     return (
@@ -229,6 +249,7 @@ export function ActivityList({
               showRecordLabel={showRecordLabel}
               showDate
               linkRows={linkRows}
+              currentRecordId={currentRecordId}
             />
           ))}
         </div>
@@ -260,6 +281,7 @@ export function ActivityList({
                 showRecordLabel={showRecordLabel}
                 showDate={false}
                 linkRows={linkRows}
+                currentRecordId={currentRecordId}
               />
             ))}
           </div>

@@ -52,6 +52,9 @@ export type NoticeRecord = {
   description?: string | null;
   /** 備註. Optional because audit snapshots written before the field existed lack it. */
   note?: string | null;
+  /** A refund: the expense it came back on. Kept in audit snapshots so the expense's own
+   *  history can find its refunds' rows, even after a refund is deleted. */
+  refundOf?: number | null;
   /** Who paid. A settlement has exactly one: the sender. A refund: the people it is
    *  shared back to. */
   payers: NoticeLeg[];

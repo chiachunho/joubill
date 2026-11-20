@@ -58,6 +58,15 @@ test.describe("Refunds", () => {
     const detail = await request.get(`/api/groups/${seeded.groupId}/expenses/${expenseId}`);
     const { refunds } = (await detail.json()) as { refunds: { id: number }[] };
     expect(refunds.map((r) => r.id)).toEqual([refundId]);
+
+    // The expense's own history includes the refund's row.
+    const history = await request.get(`/api/groups/${seeded.groupId}/activity?record=${expenseId}`);
+    const { entries } = (await history.json()) as {
+      entries: { recordId: number | null; recordType: string; action: string }[];
+    };
+    expect(entries).toContainEqual(
+      expect.objectContaining({ recordId: refundId, recordType: "refund", action: "created" }),
+    );
   });
 
   test("a ratio refund follows its expense's new split, and says so in its history", async ({
