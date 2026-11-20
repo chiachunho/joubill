@@ -110,6 +110,7 @@ export const miniPlatform: Platform = {
   loginPath: null,
   HelpAction: MiniHelpAction,
   canDownloadExport: false,
+  deepLinks: true,
   inviteHint: ({ telegramLink }) =>
     telegramLink
       ? "在 Telegram 裡請傳 Telegram 連結，對方點開會直接進 Mini App；網頁連結在 Telegram 點開會跳到外部瀏覽器。"

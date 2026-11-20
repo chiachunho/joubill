@@ -94,13 +94,21 @@ export function GroupsListSkeleton() {
   return (
     <div className="py-6">
       <Skeleton className="mb-3 ml-4 h-3 w-20" />
+      <div className="mx-4 mb-2 flex items-center justify-between pl-1">
+        <Skeleton className="h-2.5 w-12" />
+        <Skeleton className="h-7 w-28 rounded-lg" />
+      </div>
       <div className="mx-4 divide-y divide-border/50 overflow-hidden rounded-2xl bg-secondary/50">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-3.5">
             <Skeleton className="size-9 rounded-full" />
             <div className="flex-1 space-y-1.5">
               <Skeleton className="h-3.5 w-32" />
-              <Skeleton className="h-2.5 w-10" />
+              <Skeleton className="h-2.5 w-16" />
+            </div>
+            <div className="flex flex-col items-end gap-1.5">
+              <Skeleton className="h-2.5 w-6" />
+              <Skeleton className="h-3.5 w-16" />
             </div>
           </div>
         ))}

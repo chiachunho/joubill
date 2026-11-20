@@ -7,6 +7,7 @@ import { button } from "@/lib/buttons";
 import { telegramChatId } from "@/lib/chat";
 import { groupLink } from "@/lib/deep-link";
 import { clientEnv } from "@/lib/env";
+import { MY_BALANCES_LIMIT, STANDING_LABEL, standingOf } from "@/lib/group-list";
 import { fmtGrouped } from "@/lib/money";
 import { displayName, type NameParts } from "@/lib/profile";
 import { computeGroupBalances, minimizeTransfers } from "@/lib/settlement";
@@ -188,9 +189,6 @@ export async function listView(group: Group, target: ViewTarget): Promise<GroupV
   };
 }
 
-/** How many groups a private /balance lists; the rest are a tap away in the app. */
-const MY_BALANCES_SIZE = 10;
-
 /**
  * A private `/balance`: where the person stands in each of their groups, one line each,
  * each in that group's own currency (they are not added up). Pressing a group's button
@@ -201,7 +199,7 @@ export async function myBalancesView(
   groups: Group[],
   pickData: (groupId: number) => string,
 ): Promise<GroupView> {
-  const shown = groups.slice(0, MY_BALANCES_SIZE);
+  const shown = groups.slice(0, MY_BALANCES_LIMIT);
   const mine = await Promise.all(
     shown.map(async (g) => {
       const balances = await computeGroupBalances(g.id, g.defaultCurrency);
@@ -212,9 +210,10 @@ export async function myBalancesView(
   const lines = shown.map((g, i) => {
     const amount = mine[i];
     const title = escapeHtml(g.title);
-    if (amount === 0) return `・${title} 已結清`;
+    const standing = standingOf(amount);
+    if (standing === "settled") return `・${title} ${STANDING_LABEL.settled}`;
     const money = `<b>${fmtGrouped(Math.abs(amount))} ${g.defaultCurrency}</b>`;
-    return `・${title} ${amount > 0 ? "應收" : "應付"} ${money}`;
+    return `・${title} ${STANDING_LABEL[standing]} ${money}`;
   });
 
   const kb = new InlineKeyboard();

@@ -181,6 +181,15 @@ Telegram Mini App accessed via the bot's `web_app` button. All pages are client 
 
 **Before changing any Mini App UI, read [`docs/design-system.md`](docs/design-system.md).** It defines the design tokens and patterns — most importantly: radius has only two tiers (`rounded-2xl` containers / `rounded-lg` controls, both driven by `--radius`; never `rounded-xl` or arbitrary `rounded-[Npx]`), colors must go through the shadcn CSS vars (Telegram themes override them at runtime), financial figures use the `.num` utility, section headers use `.sect`, and loading states use the page-shaped skeletons in `components/mini/skeletons.tsx` (not spinners).
 
+### Group list (`GroupsHome`, `src/lib/group-list.ts`, issue #179)
+
+The home page lists each group with its last update and the viewer's balance, sorted by 最近更新 (default) or 名稱, remembered per device (`GROUP_SORT_KEY` via `useLocalPref`). Rules:
+
+- `lastActivityAt` comes with `GET /api/me/groups`: the newest record write in `record_audit_log` (deletes count, anyone's change counts), else the newest `expenses.updated_at` for records older than the log, else the group's creation. Sorting is client-side (`sortGroups`, zh-Hant collation, ties by the other key then id).
+- Balances come from a separate `GET /api/me/groups/balances`, so the list never waits for every group's FX conversion. Only the `MY_BALANCES_LIMIT` (10) most recently updated groups get one (ordered by the shared `lastActivityAt` SQL in `src/lib/group-activity.ts`); the bot's private `/balance` stops at the same constant. `getMyBalances` provides every group's `Balance` tag plus `Me`, and `ledgerTags` includes `Me`, so a record change refreshes both the order and the numbers.
+- **The Mini App asks for balances only once it knows it is staying**: a `startapp` deep link redirects straight off the home page, so with `Platform.deepLinks` the query is skipped until `/api/me/groups` answers and no redirect is pending (the web, which never redirects, asks for both at once).
+- 應收 / 應付 / 已結清 is `standingOf` + `STANDING_LABEL`, shared with the bot's private `/balance` (`myBalancesView`).
+
 ### Client data layer (`src/store/`)
 
 All client reads and writes of `/api/**` go through **RTK Query** (`@reduxjs/toolkit` + `react-redux`); there is no other client-side store. `src/store/api.ts` is the one `createApi` for both apps, and **every endpoint is defined there** — a page never builds a URL or calls `fetch` for data the cache could hold.

@@ -52,6 +52,12 @@ export type Platform = {
    */
   canDownloadExport: boolean;
   /**
+   * Whether opening the home page can redirect straight away: a Telegram `startapp` link names
+   * a group, a record or an invite. Only the Mini App gets one. Where it can, the group list
+   * holds back its costly requests (every group's balance) until it knows it will stay.
+   */
+  deepLinks: boolean;
+  /**
    * Starts linking another login method to the signed-in account, or null where it can't be
    * done. OAuth can't run inside Telegram's webview, so the Mini App has none and only lists
    * what is linked; the Web App re-runs that provider's sign-in, which Auth.js binds to the

@@ -23,6 +23,7 @@ import type {
   GroupChatResponse,
   GroupNotificationsResponse,
   GroupPhotosResponse,
+  MyBalancesResponse,
   InvitePreviewResponse,
   InviteResponse,
   MeResponse,
@@ -109,9 +110,13 @@ const peopleTags = [
   "DeleteRequest",
 ] as const satisfies readonly Tag["type"][];
 
-/** What any create / edit / delete of an expense or settlement changes. */
+/**
+ * What any create / edit / delete of an expense or settlement changes. `Me` is in it because the
+ * group list sorts by, and shows, when each group last changed.
+ */
 function ledgerTags(groupId: GroupId): Tag[] {
   return [
+    tag("Me", "LIST"),
     tag("Expenses", g(groupId)),
     tag("Balance", g(groupId)),
     tag("Stats", g(groupId)),
@@ -149,6 +154,18 @@ const baseApi = createApi({
     getMe: build.query<MeResponse, void>({
       query: () => ({ url: "/api/me/groups" }),
       providesTags: [tag("Me", "LIST")],
+    }),
+    /**
+     * The viewer's balance in each group, for the group list. Tagged with every group's
+     * `Balance`, so whatever refreshes one group's balance refreshes this too, and with `Me`, so
+     * joining or leaving a group does.
+     */
+    getMyBalances: build.query<MyBalancesResponse, void>({
+      query: () => ({ url: "/api/me/groups/balances" }),
+      providesTags: (r) => [
+        tag("Me", "LIST"),
+        ...Object.keys(r?.balances ?? {}).map((id) => tag("Balance", id)),
+      ],
     }),
     getGroupPhotos: build.query<GroupPhotosResponse, void>({
       query: () => ({ url: "/api/me/groups/photos" }),
@@ -907,6 +924,7 @@ export const {
   useGetMeQuery,
   useUpdateGroupTimezoneMutation,
   useGetGroupPhotosQuery,
+  useGetMyBalancesQuery,
   useGetInviteQuery,
   useGetInvitePreviewQuery,
   useGetProfileQuery,

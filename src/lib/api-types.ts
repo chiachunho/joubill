@@ -13,7 +13,13 @@ export type ActivityResponse = { entries: ActivityEntry[]; nextCursor: number | 
 
 export type MeResponse = {
   userId: number;
-  groups: Array<{ id: number; title: string; defaultCurrency: string }>;
+  groups: Array<{
+    id: number;
+    title: string;
+    defaultCurrency: string;
+    /** ISO time anything in the group's ledger last changed, by anyone; the group's creation if never. */
+    lastActivityAt: string;
+  }>;
   /** Set by a Telegram deep link (startapp); always null on the web. */
   activeGroupId: number | null;
   activeExpenseId: number | null;
@@ -24,6 +30,11 @@ export type MeResponse = {
 };
 
 export type GroupPhotosResponse = { photos: Record<number, string | null> };
+
+/** The caller's net balance per group id (positive = others owe them), in that group's currency. */
+export type MyBalancesResponse = {
+  balances: Record<number, { amount: number; currency: string }>;
+};
 
 export type ProfileResponse = {
   /** The name the person chose; null = the provider's (`firstName` + `lastName`). */

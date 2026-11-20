@@ -1,0 +1,50 @@
+import { NextResponse } from "next/server";
+import { desc, eq } from "drizzle-orm";
+
+import { db } from "@/db";
+import { groupMembers, groups } from "@/db/schema";
+import type { MyBalancesResponse } from "@/lib/api-types";
+import { getAuth } from "@/lib/auth";
+import { withAuth } from "@/lib/auth/route";
+import { lastActivityAt } from "@/lib/group-activity";
+import { MY_BALANCES_LIMIT } from "@/lib/group-list";
+import { computeGroupBalances } from "@/lib/settlement";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * The caller's own net balance in each of their groups, in that group's default currency (they
+ * are never added up). Separate from `GET /api/me/groups` so the list shows at once and the
+ * balances, which convert every record, fill in after it. Only the `MY_BALANCES_LIMIT` most
+ * recently updated groups get one; the rest of the list shows none.
+ */
+export const GET = withAuth(async (req: Request) => {
+  const auth = await getAuth(req);
+
+  const rows = await db
+    .select({ id: groups.id, defaultCurrency: groups.defaultCurrency })
+    .from(groups)
+    .innerJoin(groupMembers, eq(groupMembers.groupId, groups.id))
+    .where(eq(groupMembers.userId, auth.user.id))
+    .orderBy(desc(lastActivityAt), desc(groups.id))
+    .limit(MY_BALANCES_LIMIT);
+
+  const balances: MyBalancesResponse["balances"] = {};
+  // One group failing (a rate lookup that throws) leaves only that group's row without a
+  // balance, rather than failing the whole response and blanking every group's.
+  const results = await Promise.allSettled(
+    rows.map(async (g) => {
+      const all = await computeGroupBalances(g.id, g.defaultCurrency);
+      const amount = all.find((b) => b.userId === auth.user.id)?.amount ?? 0;
+      balances[g.id] = { amount, currency: g.defaultCurrency };
+    }),
+  );
+  results.forEach((r, i) => {
+    if (r.status === "rejected") {
+      console.error(`balance for group ${rows[i].id} failed`, r.reason);
+    }
+  });
+
+  return NextResponse.json({ balances } satisfies MyBalancesResponse);
+});
