@@ -417,13 +417,15 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
     {
       title: "Add refund",
       description:
-        "Record money that came back on an existing expense, for example a tax refund (退稅) at the airport or a partial refund from a shop. Use this instead of add_expense with swapped payers: the refund stays linked to its expense. By default it is shared back in the expense's split proportions (split: 'ratio'), recomputed if that split changes later; with split: 'custom' give shares that sum to the amount. amount and currency are what actually arrived (any currency; default the expense's). receivedBy is who the money landed with (default the user). Call with dryRun: true first and confirm with the user.",
+        "Record money that came back on an existing expense, for example a tax refund (退稅) at the airport or a partial refund from a shop. Use this instead of add_expense with swapped payers: the refund stays linked to its expense. By default it is shared back in the expense's split proportions (split: 'ratio'), recomputed if that split changes later; with split: 'custom' give shares that sum to the amount. amount and currency are what actually arrived (any currency; default the expense's). receivedBy is who the money landed with (default whoever paid the expense). Call with dryRun: true first and confirm with the user.",
       inputSchema: {
         groupId: idSchema,
         expenseId: idSchema.describe("The expense it came back on (list_records / get_record)."),
         amount: z.union([z.number().positive().max(10_000_000), z.string().min(1).max(60)]),
         currency: z.enum(SUPPORTED_CURRENCIES).optional(),
-        receivedBy: memberRef.optional().describe("Who received the money; default me."),
+        receivedBy: memberRef
+          .optional()
+          .describe("Who received the money; default whoever paid the expense."),
         split: z.enum(["ratio", "custom"]).optional().describe("Default 'ratio'."),
         shares: z
           .array(z.object({ member: memberRef, amount: z.number().nonnegative() }))
@@ -461,7 +463,10 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
         const parsed = parseMcpAmount(args.amount);
         if (!parsed.ok) throw new ToolError("bad_request", parsed.message);
         const currency = resolveCurrency(args.currency, parsed.currency, parent.currency);
-        const receivedBy = args.receivedBy !== undefined ? find(args.receivedBy).id : auth.user.id;
+        const receivedBy =
+          args.receivedBy !== undefined
+            ? find(args.receivedBy).id
+            : (parent.payers[0]?.userId ?? auth.user.id);
         const split = args.split ?? "ratio";
         const shares =
           split === "custom"

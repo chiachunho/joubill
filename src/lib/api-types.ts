@@ -197,6 +197,8 @@ export type RefundParent = {
   spentAt: string;
   /** Its split, which a 'ratio' refund is shared back by. */
   splits: Array<{ userId: number; amount: number }>;
+  /** Who paid it, largest share first: a new refund lands with the first by default. */
+  payers: Array<{ userId: number; amount: number }>;
 };
 
 export type RefundDetail = {

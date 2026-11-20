@@ -113,7 +113,11 @@ export function RefundForm({
   const [note, setNote] = useState(initial?.note ?? "");
   const noteToggle = useNoteToggle(initial?.note);
   const receipts = useReceiptPhotos(initial);
-  const [receivedBy, setReceivedBy] = useState(String(initial?.receivedBy ?? currentUserId));
+  const [receivedBy, setReceivedBy] = useState(
+    // Default: whoever paid the expense, since a refund usually goes back to the card it was
+    // paid with. The person recording it when the payer can't be read.
+    String(initial?.receivedBy ?? parent.payers[0]?.userId ?? currentUserId),
+  );
   const [split, setSplit] = useState<RefundSplit>(initial?.split ?? "ratio");
   // Custom amounts per member, as typed. Starts from the saved shares, or from the ratio.
   const total = positive(amount) ?? 0;

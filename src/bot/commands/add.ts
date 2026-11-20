@@ -28,7 +28,7 @@ import {
 } from "@/lib/parseAdd";
 import { logCreated } from "@/lib/record-mutation";
 import { refundInputSchema, SUPPORTED_CURRENCIES } from "@/lib/zod";
-import { createRefund } from "@/lib/records/refund";
+import { createRefund, loadRefundParent } from "@/lib/records/refund";
 
 import { loadGroupMembers, originOf, renderCard, splitRowsFor, type DbUser } from "../expenseCard";
 import { setExpenseAmount, setExpenseCurrency } from "../expenseEdits";
@@ -480,7 +480,8 @@ async function applyFieldReply(
 
   if (field === "refund") {
     // "1000" or "205 TWD": what actually arrived, in the expense's currency unless named.
-    // Shared back in the expense's proportions; whoever pressed ⊕ 退稅 received it.
+    // Shared back in the expense's proportions; it landed with whoever paid the expense
+    // (the presser when that can't be read). Either can be changed in the app.
     const m = raw.match(/^(.*?)\s*([A-Za-z]{3})$/);
     const code = m && isSupportedCurrency(m[2].toUpperCase()) ? m[2].toUpperCase() : null;
     const value = evalAmountExpr(code ? m![1] : raw);
@@ -491,7 +492,8 @@ async function applyFieldReply(
     const input = refundInputSchema.safeParse({
       amount: value,
       currency: code ?? target.currency,
-      receivedBy: ctx.dbUser.id,
+      receivedBy:
+        (await loadRefundParent(target.groupId, expenseId))?.payers[0]?.userId ?? ctx.dbUser.id,
       split: "ratio",
     });
     if (!input.success) {

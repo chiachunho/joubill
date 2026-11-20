@@ -51,6 +51,8 @@ type Parent = {
   fxRate: string | null;
   fxQuote: string | null;
   splits: RefundShare[];
+  /** Who paid the expense, largest share first: a new refund lands with them by default. */
+  payers: RefundShare[];
 };
 
 async function loadParent(exec: Tx | typeof db, groupId: number, expenseId: number) {
@@ -68,14 +70,24 @@ async function loadParent(exec: Tx | typeof db, groupId: number, expenseId: numb
       and(eq(expenses.id, expenseId), eq(expenses.groupId, groupId), eq(expenses.type, "expense")),
     );
   if (!row) return null;
-  const splits = await exec
-    .select({ userId: expenseSplits.debtorId, amount: expenseSplits.amount })
-    .from(expenseSplits)
-    .where(eq(expenseSplits.expenseId, expenseId))
-    .orderBy(asc(expenseSplits.id));
+  const [splits, payers] = await Promise.all([
+    exec
+      .select({ userId: expenseSplits.debtorId, amount: expenseSplits.amount })
+      .from(expenseSplits)
+      .where(eq(expenseSplits.expenseId, expenseId))
+      .orderBy(asc(expenseSplits.id)),
+    exec
+      .select({ userId: expensePayers.payerId, amount: expensePayers.amount })
+      .from(expensePayers)
+      .where(eq(expensePayers.expenseId, expenseId))
+      .orderBy(asc(expensePayers.id)),
+  ]);
   return {
     ...row,
     splits: splits.map((s) => ({ userId: s.userId, amount: n(s.amount) })),
+    payers: payers
+      .map((p) => ({ userId: p.userId, amount: n(p.amount) }))
+      .sort((a, b) => b.amount - a.amount),
   } satisfies Parent;
 }
 

@@ -43,6 +43,7 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
       currency: parent.currency,
       spentAt: parent.spentAt,
       splits: parent.splits,
+      payers: parent.payers,
     },
     // Attribution, as on the expense and settlement endpoints: the form shows it.
     createdBy: row.createdBy,
