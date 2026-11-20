@@ -126,6 +126,54 @@ export const settlementInputSchema = z.object({
 
 export type SettlementInput = z.infer<typeof settlementInputSchema>;
 
+/** How a refund is shared back: in the parent's split proportions, or typed per person. */
+export const REFUND_SPLITS = ["ratio", "custom"] as const;
+export type RefundSplit = (typeof REFUND_SPLITS)[number];
+
+/**
+ * Body schema for POST /api/groups/[id]/expenses/[expenseId]/refunds and PATCH
+ * /api/groups/[id]/refunds/[refundId]: money that came back on an expense (a tax refund).
+ *
+ * `amount` / `currency` are what actually arrived, in whatever currency it arrived in.
+ * `receivedBy` is the person it landed with. With `split: "ratio"` (the default) it is
+ * shared back in the parent expense's split proportions and `shares` is ignored; with
+ * `"custom"` `shares` lists what each person gets back and must sum to `amount`.
+ * `fxRate` follows the same rules as on any record (absent = the group's custom rate or the
+ * market rate on `refundedAt`); it is not tied to the expense's rate.
+ */
+export const refundInputSchema = z
+  .object({
+    amount: z.number().positive().max(10_000_000),
+    currency: z.enum(SUPPORTED_CURRENCIES),
+    fxRate: z.number().positive().max(1_000_000_000).nullable().optional(),
+    description: z.string().max(500).nullable().optional(),
+    note: noteSchema,
+    receivedBy: idSchema,
+    /** Omitted = today in the group's zone. */
+    refundedAt: daySchema.optional(),
+    split: z.enum(REFUND_SPLITS).default("ratio"),
+    shares: z.array(z.object({ userId: idSchema, amount: z.number().nonnegative() })).optional(),
+    receiptFileIds: z.array(z.string().max(256)).max(5).optional(),
+  })
+  .refine((d) => d.split !== "custom" || (d.shares && d.shares.some((s) => s.amount > 0)), {
+    message: "custom split needs shares",
+  })
+  .refine(
+    (d) =>
+      d.split !== "custom" ||
+      Math.abs((d.shares ?? []).reduce((s, x) => s + x.amount, 0) - d.amount) < 0.005,
+    { message: "shares sum must equal amount (within ±0.005)" },
+  )
+  .refine(
+    (d) => {
+      const ids = (d.shares ?? []).map((s) => s.userId);
+      return ids.length === new Set(ids).size;
+    },
+    { message: "duplicate userId in shares" },
+  );
+
+export type RefundInput = z.infer<typeof refundInputSchema>;
+
 /**
  * Client-side form schema for the Mini App ExpenseForm (react-hook-form +
  * zodResolver). Fields are strings as typed into inputs; cross-field rules

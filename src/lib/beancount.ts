@@ -30,7 +30,7 @@ export type BeancountParty = { userId: number; amount: number };
 export type BeancountRecord = {
   /** The record id, written as `joubill_id` metadata so a re-import can be deduplicated. */
   id: number;
-  type: "expense" | "settlement";
+  type: "expense" | "settlement" | "refund";
   amount: number;
   currency: string;
   description: string | null;
@@ -132,6 +132,20 @@ export function recordPostings(
       ];
     }
     return null;
+  }
+
+  if (record.type === "refund") {
+    // A refund's payers are what each person gets back (their cost goes down) and its
+    // sole split is who the money landed with (cash comes in).
+    const back = round2(sumFor(record.payers, userId));
+    const received = round2(sumFor(record.splits, userId));
+    if (back === 0 && received === 0) return null;
+    const event = round2(back - received);
+    const postings: Posting[] = [];
+    if (back !== 0) postings.push({ account: accounts.expenses, amount: 0 - back });
+    if (received !== 0) postings.push({ account: accounts.cash, amount: received });
+    if (event !== 0) postings.push({ account: accounts.event, amount: event });
+    return postings;
   }
 
   const paid = round2(sumFor(record.payers, userId));

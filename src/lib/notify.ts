@@ -15,12 +15,14 @@ import { button } from "@/lib/buttons";
 import { sendToGroupChat, type ChatTarget } from "@/lib/notice-thread";
 import { telegramChatId } from "@/lib/chat";
 import { botUsername } from "@/lib/bot-username";
-import { settlementLink } from "@/lib/deep-link";
+import { refundLink, settlementLink } from "@/lib/deep-link";
 import { n } from "@/lib/money";
 import { type RecordSnapshot } from "@/lib/record-audit";
 import {
   formatDeletedNotice,
+  formatRefundNotice,
   formatSettlementNotice,
+  recordKind,
   type NoticeLeg,
   type NoticePerson,
 } from "@/lib/record-notice";
@@ -100,6 +102,7 @@ export async function loadNoticeRecord(
       currency: expenses.currency,
       description: expenses.description,
       note: expenses.note,
+      refundOf: expenses.refundOfExpenseId,
       spentAt: expenses.spentAt,
       fxRate: expenses.fxRate,
       fxQuote: expenses.fxQuote,
@@ -192,11 +195,12 @@ export async function loadNoticeRecord(
         : null,
     createdVia: viaByRecord.get(recordId) ?? null,
     record: {
-      type: row.type === "settlement" ? "settlement" : "expense",
+      type: recordKind(row.type),
       amount: n(row.amount),
       currency: row.currency,
       description: row.description,
       note: row.note,
+      ...(row.refundOf != null && { refundOf: row.refundOf }),
       spentAt: row.spentAt,
       fxRate: row.fxRate != null ? n(row.fxRate) : null,
       fxQuote: row.fxQuote,
@@ -238,12 +242,15 @@ export async function rememberNoticeMessage(recordId: number, messageId: number)
     .catch(() => undefined);
 }
 
-/** The 編輯 / 刪除 buttons on a settlement notice (expenses get the card's own). */
+/** The 編輯 / 刪除 buttons on a settlement or refund notice (expenses get the card's own). */
 function settlementKeyboard(
   username: string,
   loaded: LoadedNotice & { chatId: number },
 ): InlineKeyboard {
-  const url = settlementLink(username, loaded.chatId, loaded.recordId);
+  const url =
+    loaded.record.type === "refund"
+      ? refundLink(username, loaded.chatId, loaded.recordId)
+      : settlementLink(username, loaded.chatId, loaded.recordId);
   return new InlineKeyboard()
     .url(button("appEdit"), url)
     .text(button("delete"), `del_exp:${loaded.recordId}`);
@@ -262,6 +269,16 @@ async function render(
 ): Promise<Rendered | null> {
   const username = await botUsername(api);
   if (!username) return null;
+
+  if (loaded.record.type === "refund") {
+    return {
+      text: formatRefundNotice(
+        loaded.record,
+        loaded.createdVia ? { creator: loaded.creator, via: loaded.createdVia } : null,
+      ),
+      reply_markup: settlementKeyboard(username, loaded),
+    };
+  }
 
   if (loaded.record.type === "settlement") {
     return {

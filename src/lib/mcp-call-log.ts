@@ -10,6 +10,7 @@ export const CALLS_PAGE_SIZE = 30;
 export const WRITE_TOOLS = [
   "add_expense",
   "add_settlement",
+  "add_refund",
   "update_record",
   "delete_record",
   "attach_receipt",

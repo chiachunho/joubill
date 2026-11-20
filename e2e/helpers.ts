@@ -172,7 +172,7 @@ export async function legsNaming(dbPool: Pool, expenseIds: number[], userId: num
   return payers.some((p) => p.payerId === userId) || splits.some((s) => s.debtorId === userId);
 }
 
-/** The audit actions logged for a group, or for one of its records when `recordId` is given. */
+/** The audit actions logged for a group, or for one of its records when `recordId` is given, oldest first. */
 export async function auditActions(dbPool: Pool, groupId: number, recordId?: number) {
   const rows = await drizzle(dbPool, { schema })
     .select({ action: schema.recordAuditLog.action })
@@ -182,7 +182,9 @@ export async function auditActions(dbPool: Pool, groupId: number, recordId?: num
         eq(schema.recordAuditLog.groupId, groupId),
         recordId === undefined ? undefined : eq(schema.recordAuditLog.recordId, recordId),
       ),
-    );
+    )
+    // Oldest first: without an order Postgres may return the rows in any order.
+    .orderBy(asc(schema.recordAuditLog.id));
   return rows.map((r) => r.action);
 }
 

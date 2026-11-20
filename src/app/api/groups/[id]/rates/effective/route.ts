@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -77,7 +77,8 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
         .where(
           and(
             eq(expenses.groupId, groupId),
-            eq(expenses.type, "expense"),
+            // Refunds are converted like the expenses they came back on.
+            inArray(expenses.type, ["expense", "refund"]),
             eq(expenses.currency, base),
             noApplicablePin(expenses, quote),
           ),

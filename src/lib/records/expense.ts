@@ -13,6 +13,7 @@ import {
   replacePayersAndSplits,
   resolveUpdateFx,
 } from "./shared";
+import { syncRefundsOf } from "./refund";
 import { apiOf, type RecordContext, type UpdateOptions } from "./types";
 
 const payerRows = (id: number, input: ExpenseInput) =>
@@ -135,4 +136,7 @@ export async function updateExpense(
       }
     }
   });
+
+  // A refund shared back in this expense's proportions follows the new split.
+  await syncRefundsOf(expenseId, ctx);
 }

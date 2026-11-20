@@ -6,6 +6,8 @@ import { db } from "@/db";
 import { expenses } from "@/db/schema";
 import { deleterOf } from "@/lib/notify";
 import { logDeleted } from "@/lib/record-mutation";
+import { assertNoRefundsLeft, deleteRefundsOf } from "@/lib/records/refund";
+import { ConflictError } from "@/lib/auth/errors";
 import { formatDeletedNotice } from "@/lib/record-notice";
 
 import { actorOf } from "../actor";
@@ -49,15 +51,27 @@ deleteExpenseCallback.callbackQuery(/^del_exp:(\d+)$/, async (ctx) => {
   // hands back the snapshot it took before the row (and its payers/splits,
   // cascade-deleted by FK) disappeared.
   const inGroup = ctx.dbGroup !== undefined;
-  const notice = await logDeleted(
-    inGroup ? null : ctx.api,
-    recordId,
-    actorOf(ctx),
-    user,
-    async (tx) => {
-      await tx.delete(expenses).where(eq(expenses.id, recordId));
-    },
-  );
+  // An expense's refunds go first, each with its own audit row and tombstone; the
+  // foreign key refuses the expense's delete otherwise.
+  await deleteRefundsOf(recordId, user, { actor: actorOf(ctx), api: ctx.api });
+  let notice;
+  try {
+    notice = await logDeleted(
+      inGroup ? null : ctx.api,
+      recordId,
+      actorOf(ctx),
+      user,
+      async (tx) => {
+        // A refund recorded since deleteRefundsOf ran: refuse rather than fail on the key.
+        await assertNoRefundsLeft(tx, recordId);
+        await tx.delete(expenses).where(eq(expenses.id, recordId));
+      },
+    );
+  } catch (err) {
+    if (!(err instanceof ConflictError)) throw err;
+    await ctx.answerCallbackQuery({ text: "剛剛有人記了退稅，請再按一次刪除", show_alert: true });
+    return;
+  }
 
   await ctx.answerCallbackQuery({ text: "已刪除" });
   if (!notice) return;

@@ -6,22 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  ArrowLeft,
-  Calendar as CalendarIcon,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  ImagePlus,
-  Loader2,
-  Plus,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronRight, Plus, X } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { MemberSelect } from "@/components/mini/MemberSelect";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ReceiptPhotos, useReceiptPhotos } from "@/components/mini/ReceiptPhotos";
+import { RefundIcon } from "@/components/mini/RefundIcon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -52,12 +43,11 @@ import { stampLabel } from "@/lib/format";
 import { viaText } from "@/lib/app-ui";
 import { FORMER_MEMBER, labelUser, memberLabels } from "@/lib/label";
 import { computeSplits } from "@/lib/splits";
-import { n, splitEqual } from "@/lib/money";
+import { fmtGrouped, n, splitEqual } from "@/lib/money";
+import type { RefundSummary } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 import { useAuthMode } from "@/components/AuthProvider";
 import { useTelegramBackButton } from "@/lib/use-tg-back-button";
-import { tmaRawFetch } from "@/lib/tma-fetch";
-import { webRawFetch } from "@/lib/web-fetch";
 import { SUPPORTED_CURRENCIES, expenseFormSchema, type ExpenseFormValues } from "@/lib/zod";
 import {
   useCreateExpenseMutation,
@@ -108,6 +98,8 @@ type Initial = {
     shareType: string;
     splitValue?: number | null;
   }>;
+  /** Money that came back on this expense (issue #178). */
+  refunds?: RefundSummary[];
 };
 
 type Props = {
@@ -575,83 +567,9 @@ export function ExpenseForm(props: Props) {
     router.push(back);
   }
 
-  const [receiptFileIds, setReceiptFileIds] = useState<string[]>(initial?.receiptFileIds ?? []);
-  const [receiptUrls, setReceiptUrls] = useState<Record<string, string>>(
-    initial?.receiptUrls ?? {},
-  );
-  const [receiptUploading, setReceiptUploading] = useState(false);
-  const [receiptError, setReceiptError] = useState<string | null>(null);
-  const [loadedFileIds, setLoadedFileIds] = useState<Set<string>>(
-    () => new Set(initial?.receiptFileIds ?? []),
-  );
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const receiptsRef = useRef<HTMLDivElement>(null);
-  // A link from a linked application (issue #163) opens the form to add photos: start there.
-  // Optional call, since jsdom has no scrollIntoView.
-  useEffect(() => {
-    if (focusReceipts) receiptsRef.current?.scrollIntoView?.({ block: "center" });
-  }, [focusReceipts]);
-  // Photos are saved with the rest of the form, so an edit that changed them says so before
-  // the person leaves thinking they're already attached.
-  const receiptsChanged =
-    isEdit &&
-    (receiptFileIds.length !== (initial?.receiptFileIds?.length ?? 0) ||
-      receiptFileIds.some((id, i) => id !== initial?.receiptFileIds?.[i]));
-
-  async function handleReceiptChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    const remaining = 5 - receiptFileIds.length;
-    const toUpload = files.slice(0, remaining);
-    const skipped = files.length - toUpload.length;
-    setReceiptError(null);
-    setReceiptUploading(true);
-    try {
-      const fetchFn = mode === "web" ? webRawFetch : tmaRawFetch;
-      const results = await Promise.allSettled(
-        toUpload.map(async (file) => {
-          const body = new FormData();
-          body.append("file", file);
-          const res = await fetchFn("/api/tg-upload", { method: "POST", body });
-          if (!res.ok) {
-            const parsed = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-            throw new Error(parsed.error ?? "上傳失敗");
-          }
-          const { fileId, url } = (await res.json()) as { fileId: string; url: string };
-          return { fileId, url };
-        }),
-      );
-      const succeeded = results
-        .filter(
-          (r): r is PromiseFulfilledResult<{ fileId: string; url: string }> =>
-            r.status === "fulfilled",
-        )
-        .map((r) => r.value);
-      const failedCount = results.filter((r) => r.status === "rejected").length;
-      // Cap at 5 in the updater in case `remaining` was computed from stale closure state.
-      if (succeeded.length > 0) {
-        setReceiptUrls((prev) => ({
-          ...prev,
-          ...Object.fromEntries(succeeded.map((s) => [s.fileId, s.url])),
-        }));
-        setReceiptFileIds((prev) => [...prev, ...succeeded.map((s) => s.fileId)].slice(0, 5));
-      }
-      const problems = [
-        skipped > 0 ? `每筆最多 5 張，已略過 ${skipped} 張` : null,
-        failedCount > 0 ? `${failedCount} 張照片上傳失敗` : null,
-      ].filter(Boolean);
-      if (problems.length > 0) setReceiptError(`${problems.join("；")}。`);
-    } finally {
-      setReceiptUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
-  function removeReceipt(index: number) {
-    setReceiptFileIds((prev) => prev.filter((_, i) => i !== index));
-  }
+  const receipts = useReceiptPhotos(initial);
+  const receiptFileIds = receipts.fileIds;
+  const receiptUploading = receipts.uploading;
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
@@ -853,94 +771,12 @@ export function ExpenseForm(props: Props) {
           />
 
           {/* Receipt photos */}
-          <div ref={receiptsRef} className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium leading-none">收據照片</span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleReceiptChange}
-            />
-            {receiptFileIds.length > 0 ? (
-              <div className="grid grid-cols-3 gap-1.5">
-                {receiptFileIds.map((fileId, i) => (
-                  <div
-                    key={fileId}
-                    className="relative aspect-square overflow-hidden rounded-lg bg-secondary/50"
-                  >
-                    {!loadedFileIds.has(fileId) && (
-                      <Skeleton className="absolute inset-0 rounded-none" />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLightboxIndex(i);
-                        setLightboxOpen(true);
-                      }}
-                      className="absolute inset-0"
-                      aria-label={`查看第 ${i + 1} 張收據大圖`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={receiptUrls[fileId]}
-                        alt={`收據 ${i + 1}`}
-                        className="h-full w-full object-cover"
-                        onLoad={() => setLoadedFileIds((prev) => new Set([...prev, fileId]))}
-                        onError={() => setLoadedFileIds((prev) => new Set([...prev, fileId]))}
-                      />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeReceipt(i)}
-                      className="absolute right-1 top-1 rounded-md bg-black/50 p-1 text-white backdrop-blur-sm"
-                      aria-label="移除此收據"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </div>
-                ))}
-                {receiptFileIds.length < 5 && (
-                  <button
-                    type="button"
-                    disabled={receiptUploading}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-input bg-secondary/30 text-muted-foreground hover:bg-secondary/60 disabled:opacity-50"
-                  >
-                    {receiptUploading ? (
-                      <Loader2 className="size-5 animate-spin" />
-                    ) : (
-                      <>
-                        <ImagePlus className="size-5" />
-                        <span className="text-xs">{receiptFileIds.length}/5</span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <button
-                type="button"
-                disabled={receiptUploading}
-                onClick={() => fileInputRef.current?.click()}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-input bg-secondary/30 py-4 text-sm text-muted-foreground hover:bg-secondary/60 disabled:opacity-50"
-              >
-                {receiptUploading ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <ImagePlus className="size-4" />
-                )}
-                {receiptUploading ? "上傳中…" : "附上收據照片"}
-              </button>
-            )}
-            {receiptError && <p className="text-sm text-destructive">{receiptError}</p>}
-            {receiptsChanged && !receiptUploading && (
-              <p className="text-sm text-muted-foreground">
-                收據照片按下「儲存」後才會更新到這筆支出。
-              </p>
-            )}
-          </div>
+          <ReceiptPhotos
+            state={receipts}
+            initialFileIds={isEdit ? (initial?.receiptFileIds ?? []) : null}
+            focus={focusReceipts}
+            recordLabel="這筆支出"
+          />
 
           {/* Payers */}
           <FormField
@@ -1377,6 +1213,44 @@ export function ExpenseForm(props: Props) {
             )}
           />
 
+          {/* Refunds (issue #178): a quiet action, since few expenses have one. Green with
+              a ＋ like 新增付款人, so it doesn't read as the grey 最後由…修改 › link below. */}
+          {isEdit && initial && (
+            <div className="flex flex-col gap-2">
+              {(initial.refunds ?? []).map((r) => {
+                const to = r.receivedBy != null ? members.find((m) => m.id === r.receivedBy) : null;
+                return (
+                  <Link
+                    key={r.id}
+                    href={`${appBase}/groups/${groupId}/refunds/${r.id}`}
+                    className="flex items-center gap-3 rounded-2xl bg-secondary/50 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+                  >
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <RefundIcon className="size-4" aria-hidden />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="num text-sm font-medium">
+                        已退稅 {fmtGrouped(r.amount)} {r.currency}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {to ? labels.get(to.id) : FORMER_MEMBER} 收到 ·{" "}
+                        {Number(r.refundedAt.slice(5, 7))}/{Number(r.refundedAt.slice(8, 10))}
+                      </p>
+                    </div>
+                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+                  </Link>
+                );
+              })}
+              <Link
+                href={`${appBase}/groups/${groupId}/expenses/${initial.id}/refunds/new`}
+                className="flex items-center gap-1.5 self-start text-sm text-primary transition-opacity hover:underline"
+              >
+                <Plus className="size-3.5" />
+                記一筆退稅
+              </Link>
+            </div>
+          )}
+
           {form.formState.errors.root && (
             <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
               {form.formState.errors.root.message}
@@ -1405,6 +1279,22 @@ export function ExpenseForm(props: Props) {
                     最後由 {lastEdit.by} {lastEdit.via ? `${viaText(lastEdit.via)} ` : ""}於{" "}
                     {stampLabel(lastEdit.at)} 修改
                   </span>
+                  <ChevronRight className="size-3.5 shrink-0" />
+                </Link>
+              )}
+              {/* Never edited, but its refunds have history of their own (issue #178): the
+                  same grey link, so that history is still one tap away. */}
+              {!lastEdit && !!initial?.refunds?.length && (
+                <Link
+                  href={recordHistoryHref({
+                    appBase,
+                    groupId,
+                    recordId: initial.id,
+                    from: pathname,
+                  })}
+                  className="-mx-2 flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary"
+                >
+                  <span>變更紀錄（含 {initial.refunds.length} 筆退稅）</span>
                   <ChevronRight className="size-3.5 shrink-0" />
                 </Link>
               )}
@@ -1441,75 +1331,20 @@ export function ExpenseForm(props: Props) {
           open={deleteConfirmOpen}
           onOpenChange={setDeleteConfirmOpen}
           title="確認刪除"
-          description={
+          description={`${
             recordedBySomeoneElse && recordedBy
               ? `這筆是 ${recordedBy} 記錄的。刪除後無法復原，動態紀錄會留下這次刪除。`
               : "刪除後無法復原，動態紀錄會留下這次刪除。"
-          }
+          }${
+            // Its refunds go with it (each logged and tombstoned), so say so first.
+            initial?.refunds?.length ? `它的 ${initial.refunds.length} 筆退稅也會一起刪除。` : ""
+          }`}
           confirmLabel="刪除"
           variant="destructive"
           loading={deletePending}
           onConfirm={handleDelete}
         />
       </Form>
-
-      {/* Receipt lightbox */}
-      <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
-        <DialogContent className="flex max-w-[calc(100vw-2rem)] flex-col items-center gap-3 border-0 bg-black/90 p-4 shadow-none backdrop-blur-sm [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
-          {receiptFileIds.length > 0 &&
-            (() => {
-              const safeIdx = Math.min(lightboxIndex, receiptFileIds.length - 1);
-              return (
-                <>
-                  <DialogTitle className="sr-only">
-                    收據大圖 {safeIdx + 1} / {receiptFileIds.length}
-                  </DialogTitle>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={receiptUrls[receiptFileIds[safeIdx]]}
-                    alt="收據大圖"
-                    className="max-h-[80dvh] w-full rounded-2xl object-contain"
-                  />
-                  {receiptFileIds.length > 1 && (
-                    <div className="flex items-center gap-4 text-white">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setLightboxIndex(
-                            (i) =>
-                              (Math.min(i, receiptFileIds.length - 1) - 1 + receiptFileIds.length) %
-                              receiptFileIds.length,
-                          )
-                        }
-                        className="rounded-lg p-1.5 hover:bg-white/10"
-                        aria-label="上一張"
-                      >
-                        <ChevronLeft className="size-5" />
-                      </button>
-                      <span className="text-sm tabular-nums">
-                        {safeIdx + 1} / {receiptFileIds.length}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setLightboxIndex(
-                            (i) =>
-                              (Math.min(i, receiptFileIds.length - 1) + 1) % receiptFileIds.length,
-                          )
-                        }
-                        className="rounded-lg p-1.5 hover:bg-white/10"
-                        aria-label="下一張"
-                      >
-                        <ChevronRight className="size-5" />
-                      </button>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          {receiptFileIds.length === 0 && <DialogTitle className="sr-only">收據大圖</DialogTitle>}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

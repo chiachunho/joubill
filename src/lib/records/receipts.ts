@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { expenseReceipts, expenses } from "@/db/schema";
 import { BadRequestError, NotFoundError } from "@/lib/auth/errors";
@@ -9,23 +9,36 @@ import { MAX_RECEIPTS } from "@/lib/receipt-upload";
 import { apiOf, type RecordContext } from "./types";
 import { db } from "@/db";
 
-/** How many receipts an expense has now, legacy single-file column included. */
-export async function countReceipts(groupId: number, recordId: number): Promise<number> {
+/**
+ * How many receipts an expense (or a refund) has now, legacy single-file column included, and
+ * which kind it is: only an expense has an edit form at the expense path.
+ */
+export async function countReceipts(
+  groupId: number,
+  recordId: number,
+): Promise<{ count: number; type: "expense" | "refund" }> {
   const [row] = await db
-    .select({ id: expenses.id, legacy: expenses.receiptFileId })
+    .select({ id: expenses.id, legacy: expenses.receiptFileId, type: expenses.type })
     .from(expenses)
     .where(
-      and(eq(expenses.id, recordId), eq(expenses.groupId, groupId), eq(expenses.type, "expense")),
+      and(
+        eq(expenses.id, recordId),
+        eq(expenses.groupId, groupId),
+        inArray(expenses.type, ["expense", "refund"]),
+      ),
     );
   if (!row) throw new NotFoundError("expense not found");
   const rows = await db
     .select({ fileId: expenseReceipts.fileId })
     .from(expenseReceipts)
     .where(eq(expenseReceipts.expenseId, recordId));
-  return resolveReceiptFileIds(
-    rows.map((r) => r.fileId),
-    row.legacy,
-  ).length;
+  return {
+    count: resolveReceiptFileIds(
+      rows.map((r) => r.fileId),
+      row.legacy,
+    ).length,
+    type: row.type === "refund" ? "refund" : "expense",
+  };
 }
 
 /**
@@ -44,7 +57,11 @@ export async function addReceipts(
       .select({ id: expenses.id, legacy: expenses.receiptFileId })
       .from(expenses)
       .where(
-        and(eq(expenses.id, recordId), eq(expenses.groupId, groupId), eq(expenses.type, "expense")),
+        and(
+          eq(expenses.id, recordId),
+          eq(expenses.groupId, groupId),
+          inArray(expenses.type, ["expense", "refund"]),
+        ),
       );
     if (!row) throw new NotFoundError("expense not found");
 

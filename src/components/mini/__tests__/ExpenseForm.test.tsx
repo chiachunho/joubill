@@ -232,6 +232,30 @@ describe("ExpenseForm: editing", () => {
     );
   });
 
+  it("links the history of a never-edited expense that has refunds", () => {
+    renderForm(
+      {
+        initial: initial({
+          createdBy: 2,
+          lastActivity: null,
+          refunds: [
+            { id: 30, amount: 100, currency: "JPY", refundedAt: "2026-07-12", receivedBy: 1 },
+          ],
+        }),
+      },
+      {},
+    );
+    expect(screen.getByRole("link", { name: /變更紀錄（含 1 筆退稅）/ })).toHaveAttribute(
+      "href",
+      `/mini/groups/7/activity?record=11&from=${encodeURIComponent("/mini/groups/7/expenses/11/edit")}`,
+    );
+  });
+
+  it("shows no history link for a never-edited expense without refunds", () => {
+    renderForm({ initial: initial({ createdBy: 2, lastActivity: null }) }, {});
+    expect(screen.queryByRole("link", { name: /變更紀錄|最後由/ })).not.toBeInTheDocument();
+  });
+
   it("still names who recorded it after they left the group", () => {
     renderForm({ initial: initial({ createdBy: 42 }) }, {});
     expect(screen.getByText(/由 已不在群組的成員 .*記錄/)).toBeInTheDocument();

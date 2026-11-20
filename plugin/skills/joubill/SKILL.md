@@ -11,6 +11,7 @@ on connect, so follow those rather than anything repeated here. This skill only 
 Use it when the user:
 
 - logs an expense ("I paid 1,200 for dinner, split with Hua and Jenny") or a repayment;
+- got money back on an expense, such as a tax refund at the airport: `add_refund` on that expense, not a new expense;
 - asks for a balance, who owes whom, or what was spent in a period;
 - shows a receipt: use the `split_receipt` prompt to go item by item. Don't send the photo yourself by default:
   record the expense, then give the user the `uploadUrl` from the result so they upload the original in the app.

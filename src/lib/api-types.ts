@@ -24,6 +24,7 @@ export type MeResponse = {
   activeGroupId: number | null;
   activeExpenseId: number | null;
   activeSettlementId: number | null;
+  activeRefundId: number | null;
   /** Set by a `join_<code>` deep link; always null on the web. */
   activeInviteCode: string | null;
 };
@@ -131,7 +132,7 @@ export type ExpenseSplit = {
 
 export type ExpenseListItem = {
   id: number;
-  type: "expense" | "settlement";
+  type: "expense" | "settlement" | "refund";
   amount: number;
   currency: string;
   description: string | null;
@@ -187,6 +188,50 @@ export type ExpenseDetail = {
     shareType: string;
     splitValue: number | null;
   }>;
+  /** Money that came back on this expense (issue #178), oldest first. */
+  refunds?: RefundSummary[];
+};
+
+export type RefundSummary = {
+  id: number;
+  amount: number;
+  currency: string;
+  refundedAt: string;
+  receivedBy: number | null;
+};
+
+/** The expense a refund belongs to, as the refund form needs it. */
+export type RefundParent = {
+  id: number;
+  description: string | null;
+  currency: string;
+  spentAt: string;
+  /** Its split, which a 'ratio' refund is shared back by. */
+  splits: Array<{ userId: number; amount: number }>;
+  /** Who paid it, largest share first: a new refund lands with the first by default. */
+  payers: Array<{ userId: number; amount: number }>;
+};
+
+export type RefundDetail = {
+  id: number;
+  expenseId: number;
+  expense: RefundParent;
+  createdBy: number | null;
+  createdAt: string | null;
+  createdVia: string | null;
+  lastActivity: { actorId: number | null; at: string; via: string | null } | null;
+  amount: number;
+  currency: string;
+  fxRate: number | null;
+  fxQuote: string | null;
+  refundedAt: string;
+  description: string | null;
+  note: string | null;
+  receivedBy: number | null;
+  split: "ratio" | "custom";
+  shares: Array<{ userId: number; amount: number }>;
+  receiptFileIds: string[];
+  receiptUrls: Record<string, string>;
 };
 
 export type SettlementDetail = {

@@ -154,6 +154,7 @@ export function GroupActivityPage({
           showRecordLabel={!recordId}
           groupByDay={!recordId}
           linkRows={!recordId}
+          currentRecordId={recordId ? Number(recordId) : undefined}
         />
       )}
 

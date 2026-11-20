@@ -14,6 +14,7 @@ test.describe("MCP server", () => {
     expect(names).toEqual(
       [
         "add_expense",
+        "add_refund",
         "add_settlement",
         "attach_receipt",
         "delete_record",
@@ -198,6 +199,61 @@ test.describe("MCP server", () => {
       recordId: ok.structuredContent!.recordId,
     });
     expect(rec.structuredContent!.record.type).toBe("settlement");
+  });
+
+  test("a refund is added on an expense, then changed with update_record", async ({
+    request,
+    seeded,
+    dbPool,
+  }) => {
+    const { token } = await mkToken(dbPool, seeded.userId, { groupIds: [seeded.groupId] });
+
+    // The seeded expense (300, paid by the user, split 150/150): 30 back, by default to its
+    // payer and in its proportions.
+    const preview = await call(request, token, "add_refund", {
+      groupId: seeded.groupId,
+      expenseId: seeded.expenseId,
+      amount: 30,
+      dryRun: true,
+    });
+    expect(preview.structuredContent).toMatchObject({
+      status: "dry_run",
+      preview: { receivedBy: { memberId: seeded.userId }, split: "ratio" },
+    });
+
+    const created = await call(request, token, "add_refund", {
+      groupId: seeded.groupId,
+      expenseId: seeded.expenseId,
+      amount: 30,
+    });
+    expect(created.structuredContent).toMatchObject({ status: "created" });
+    const refundId = created.structuredContent!.recordId as number;
+
+    const read = await call(request, token, "get_record", {
+      groupId: seeded.groupId,
+      recordId: refundId,
+    });
+    const rec = read.structuredContent!.record;
+    expect(rec).toMatchObject({
+      type: "refund",
+      refundOfRecordId: seeded.expenseId,
+      refundSplit: "ratio",
+    });
+
+    // All of it to the partner instead.
+    const updated = await call(request, token, "update_record", {
+      groupId: seeded.groupId,
+      recordId: refundId,
+      expectedUpdatedAt: rec.updatedAt,
+      receivedBy: "me",
+      refundSplit: "custom",
+      shares: [{ member: seeded.partnerName, amount: 30 }],
+    });
+    expect(updated.structuredContent).toMatchObject({ status: "updated" });
+    expect(updated.structuredContent!.record).toMatchObject({
+      refundSplit: "custom",
+      payers: [{ memberId: seeded.partnerId, amount: 30 }],
+    });
   });
 
   test("tokens can be created, listed and revoked through the account API", async ({

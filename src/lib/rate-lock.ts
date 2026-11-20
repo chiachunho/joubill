@@ -65,7 +65,8 @@ export async function planRateLock(
       .where(
         and(
           eq(expenses.groupId, groupId),
-          eq(expenses.type, "expense"),
+          // Refunds are converted like the expenses they came back on.
+          inArray(expenses.type, ["expense", "refund"]),
           eq(expenses.currency, currency),
           noApplicablePin(expenses, quote),
         ),

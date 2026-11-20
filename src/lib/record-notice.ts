@@ -30,16 +30,36 @@ export type NoticePerson = {
 
 export type NoticeLeg = { user: NoticePerson; amount: number };
 
+/** The kinds of record a group's ledger holds; all are `expenses` rows. */
+export type RecordKind = "expense" | "settlement" | "refund";
+
+/** How each kind is named to a person. */
+export const RECORD_KIND_LABEL: Record<RecordKind, string> = {
+  expense: "支出",
+  settlement: "還款",
+  refund: "退稅",
+};
+
+/** Reads `expenses.type` (or a stored snapshot's) as a kind; anything unknown is an expense. */
+export function recordKind(type: string | null | undefined): RecordKind {
+  return type === "settlement" || type === "refund" ? type : "expense";
+}
+
 export type NoticeRecord = {
-  type: "expense" | "settlement";
+  type: RecordKind;
   amount: number;
   currency: string;
   description?: string | null;
   /** 備註. Optional because audit snapshots written before the field existed lack it. */
   note?: string | null;
-  /** Who paid. A settlement has exactly one: the sender. */
+  /** A refund: the expense it came back on. Kept in audit snapshots so the expense's own
+   *  history can find its refunds' rows, even after a refund is deleted. */
+  refundOf?: number | null;
+  /** Who paid. A settlement has exactly one: the sender. A refund: the people it is
+   *  shared back to. */
   payers: NoticeLeg[];
-  /** Who owes. A settlement has exactly one: the receiver. */
+  /** Who owes. A settlement has exactly one: the receiver. A refund has exactly one: the
+   *  person it was paid out to. */
   splits: NoticeLeg[];
 };
 
@@ -80,6 +100,30 @@ export function formatSettlementNotice(
   return lines.join("\n");
 }
 
+/**
+ * The group notice for a refund:
+ *
+ *   <b>藥妝 退稅</b>　小明 收到 <b>1,000 JPY</b>
+ *   ・小明 333.33
+ *   ・小華 333.34
+ *
+ * The lines are what each person gets back. Never an emoji, by decision (issue #178).
+ */
+export function formatRefundNotice(
+  record: NoticeRecord,
+  mcp?: { creator: Profile | null; via: string } | null,
+): string {
+  const to = record.splits[0]?.user;
+  const desc = record.description ? `<b>${escapeHtml(record.description)}</b>　` : "";
+  const who = to ? `${nameOf(to)} 收到 ` : "";
+  const lines = [`${desc}${who}<b>${money(record)}</b>`];
+  for (const p of record.payers) lines.push(`・${nameOf(p.user)} ${fmtGrouped(p.amount)}`);
+  const note = formatNoteLine(record.note);
+  if (note) lines.push(note);
+  if (mcp) lines.push(formatMcpLine(mcp.creator, mcp.via));
+  return lines.join("\n");
+}
+
 /** What was deleted, struck through: `晚餐　600 TWD` or `還款 A → B　300 TWD`. */
 function whatWasDeleted(record: NoticeRecord): string {
   if (record.type === "settlement") {
@@ -87,6 +131,10 @@ function whatWasDeleted(record: NoticeRecord): string {
     const to = record.splits[0]?.user;
     const who = from && to ? ` ${escapeHtml(labelUser(from))} → ${escapeHtml(labelUser(to))}` : "";
     return `還款${who}　${money(record)}`;
+  }
+  if (record.type === "refund") {
+    const what = record.description ? escapeHtml(record.description) : "退稅";
+    return `${what}　${money(record)}`;
   }
   return record.description ? `${escapeHtml(record.description)}　${money(record)}` : money(record);
 }

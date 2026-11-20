@@ -9,11 +9,13 @@ import { HttpError } from "@/lib/auth/errors";
 import { carryOverPayers, carryOverSplit, sameInstantIso } from "@/lib/mcp-edit";
 import { parseMcpAmount } from "@/lib/mcp-amount";
 import { buildExpenseInput, type McpPayer } from "@/lib/mcp-split";
-import { deleteRecord, updateExpense, updateSettlement } from "@/lib/records";
+import { deleteRecord, updateExpense, updateRefund, updateSettlement } from "@/lib/records";
+import { ratioShares } from "@/lib/refund";
 import {
   daySchema,
   idSchema,
   NOTE_MAX,
+  refundInputSchema,
   settlementInputSchema,
   SUPPORTED_CURRENCIES,
 } from "@/lib/zod";
@@ -68,7 +70,7 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
     {
       title: "Update record",
       description:
-        "Change an existing expense or settlement. Only the fields you send change; everything else is kept (an unchanged split follows a new amount). Read the record with get_record first and send its updatedAt as expectedUpdatedAt: if someone changed the record since, nothing is written and you get conflict with the current record, so ask the user before retrying. Call with dryRun: true first and confirm with the user. Expense fields: amount ('1,200', '150+200'), currency, description, note, spentAt (YYYY-MM-DD in the group's time zone), paidBy or payers, split. Settlement fields: amount, currency, spentAt, note, from, to. People are memberId (preferred) or an exact name; a miss or tie writes nothing and returns the candidates. If the amount changes on a record with several payers or a per-person split, send payers / split too.",
+        "Change an existing expense, settlement or refund. Only the fields you send change; everything else is kept (an unchanged split follows a new amount). Read the record with get_record first and send its updatedAt as expectedUpdatedAt: if someone changed the record since, nothing is written and you get conflict with the current record, so ask the user before retrying. Call with dryRun: true first and confirm with the user. Expense fields: amount ('1,200', '150+200'), currency, description, note, spentAt (YYYY-MM-DD in the group's time zone), paidBy or payers, split. Settlement fields: amount, currency, spentAt, note, from, to. Refund fields: amount, currency, spentAt (the day it arrived), description, note, receivedBy, refundSplit, shares (a custom refund keeps its people and rescales when only the amount changes). People are memberId (preferred) or an exact name; a miss or tie writes nothing and returns the candidates. If the amount changes on a record with several payers or a per-person split, send payers / split too.",
       inputSchema: {
         groupId: idSchema,
         recordId: idSchema,
@@ -100,6 +102,18 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
         split: splitSchema.optional().describe("Expense only: who owes what."),
         from: memberRef.optional().describe("Settlement only: who paid."),
         to: memberRef.optional().describe("Settlement only: who received."),
+        receivedBy: memberRef.optional().describe("Refund only: who the money landed with."),
+        refundSplit: z
+          .enum(["ratio", "custom"])
+          .optional()
+          .describe(
+            "Refund only: 'ratio' shares it back in its expense's split proportions; 'custom' uses shares.",
+          ),
+        shares: z
+          .array(z.object({ member: memberRef, amount: z.number().nonnegative() }))
+          .max(50)
+          .optional()
+          .describe("Refund only, with refundSplit 'custom': what each person gets back."),
         dryRun: z.boolean().optional().describe("Preview only: nothing is written."),
       },
       annotations: EDIT,
@@ -150,7 +164,85 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
         const label = (id: number) => labels.get(id) ?? "?";
         const actor = mcpActor(auth);
 
-        if (cur.type === "settlement") {
+        if (cur.type === "refund") {
+          // A refund (issue #178): its payers are the people it is shared back to, its one
+          // split is who received it.
+          if (
+            args.paidBy !== undefined ||
+            args.payers ||
+            args.split ||
+            args.from !== undefined ||
+            args.to !== undefined
+          ) {
+            throw new ToolError(
+              "bad_request",
+              "this record is a refund: use receivedBy, refundSplit and shares instead of paidBy, payers, split, from or to",
+            );
+          }
+          if (args.shares && args.refundSplit === "ratio") {
+            throw new ToolError("bad_request", "shares go with refundSplit 'custom'");
+          }
+          const receivedBy =
+            args.receivedBy !== undefined ? find(args.receivedBy).id : cur.splits[0]?.memberId;
+          if (receivedBy == null) throw new ToolError("bad_request", "send receivedBy");
+          const storedSplit = "refundSplit" in cur ? cur.refundSplit : "ratio";
+          const split = args.refundSplit ?? (args.shares ? "custom" : storedSplit);
+          // Custom amounts as sent. Otherwise the stored amounts: kept as they are, or rescaled
+          // to a new amount the way an unchanged expense split follows a new total (and, when
+          // switching from 'ratio', starting from what the ratio gives now).
+          const stored = cur.payers.map((x) => ({ userId: x.memberId, amount: x.amount }));
+          let shares: { userId: number; amount: number }[] | undefined;
+          if (split === "custom") {
+            if (args.shares) {
+              shares = args.shares.map((x) => ({ userId: find(x.member).id, amount: x.amount }));
+            } else if (storedSplit === "custom" && !amountChanged) {
+              shares = stored;
+            } else {
+              shares = ratioShares(amount, stored);
+            }
+          }
+          const description =
+            args.description !== undefined ? args.description || null : cur.description;
+          const input = refundInputSchema.safeParse({
+            amount,
+            currency,
+            fxRate,
+            description,
+            note,
+            receivedBy,
+            refundedAt: spentAt,
+            split,
+            ...(shares && { shares }),
+          });
+          if (!input.success) throw new ToolError("bad_request", input.error.issues[0].message);
+          const after = {
+            amount,
+            currency,
+            description: description ?? "(the expense's description followed by 退稅)",
+            note,
+            spentAt,
+            receivedBy: { memberId: receivedBy, label: label(receivedBy) },
+            refundSplit: split,
+            ...(shares && {
+              sharesBack: shares
+                .filter((x) => x.amount > 0)
+                .map((x) => ({ memberId: x.userId, label: label(x.userId), amount: x.amount })),
+            }),
+          };
+          if (args.dryRun)
+            return ok("dry run: nothing written", { status: "dry_run", before: cur, after });
+          try {
+            await updateRefund(
+              args.groupId,
+              args.recordId,
+              input.data,
+              { actor },
+              { expectedUpdatedAt: expected },
+            );
+          } catch (err) {
+            await asConflict(err, args.groupId, args.recordId, labels);
+          }
+        } else if (cur.type === "settlement") {
           if (
             args.paidBy !== undefined ||
             args.payers ||
@@ -203,6 +295,16 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
             throw new ToolError(
               "bad_request",
               "this record is an expense: use paidBy / payers instead of from / to",
+            );
+          }
+          if (
+            args.receivedBy !== undefined ||
+            args.refundSplit !== undefined ||
+            args.shares !== undefined
+          ) {
+            throw new ToolError(
+              "bad_request",
+              "receivedBy, refundSplit and shares are for refunds; to record one use add_refund",
             );
           }
           if (args.payers && args.paidBy !== undefined) {
@@ -287,7 +389,7 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
     {
       title: "Delete record",
       description:
-        "Permanently delete an expense or settlement. This cannot be undone and the group chat shows who deleted it. Only do it when the user clearly asked: call with dryRun: true first, show the user the record that would go and wait for their explicit confirmation. Use get_record or list_records to find the recordId.",
+        "Permanently delete an expense, settlement or refund. Deleting an expense also deletes its refunds (the dry run lists them as alsoDeletesRefunds). This cannot be undone and the group chat shows who deleted it. Only do it when the user clearly asked: call with dryRun: true first, show the user the record that would go and wait for their explicit confirmation. Use get_record or list_records to find the recordId.",
       inputSchema: {
         groupId: idSchema,
         recordId: idSchema,
@@ -301,13 +403,22 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
           countAs: args.dryRun ? "read" : "write",
         });
         const record = await loadOne(args.groupId, args.recordId, labels);
+        // An expense's refunds go with it (issue #178): say so before anything is deleted.
+        const alsoDeletes =
+          "refundRecordIds" in record && record.refundRecordIds?.length
+            ? { alsoDeletesRefunds: record.refundRecordIds }
+            : {};
         if (args.dryRun) {
-          return ok("dry run: nothing deleted", { status: "dry_run", wouldDelete: record });
+          return ok("dry run: nothing deleted", {
+            status: "dry_run",
+            wouldDelete: record,
+            ...alsoDeletes,
+          });
         }
         await deleteRecord(
           args.groupId,
           args.recordId,
-          record.type === "settlement" ? "settlement" : "expense",
+          record.type === "settlement" || record.type === "refund" ? record.type : "expense",
           auth.user,
           { actor: mcpActor(auth) },
         );

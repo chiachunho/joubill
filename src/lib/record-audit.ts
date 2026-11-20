@@ -1,7 +1,12 @@
 import { isDay, snapshotDay } from "@/lib/day";
 import { labelUser } from "@/lib/label";
 import { fmtGrouped } from "@/lib/money";
-import { type NoticeLeg, type NoticeRecord } from "@/lib/record-notice";
+import {
+  RECORD_KIND_LABEL,
+  recordKind,
+  type NoticeLeg,
+  type NoticeRecord,
+} from "@/lib/record-notice";
 
 /**
  * What the audit log stores and how a change is described.
@@ -42,7 +47,15 @@ export type AuditSource = "bot" | "app" | "mcp";
  * Names are captured as they were at the time. That is the point of a log: it
  * says what the record looked like then, not what it would look like now.
  */
+/**
+ * Why a record changed when nobody edited it directly: a refund recomputed because its
+ * expense's split changed, or deleted along with its expense.
+ */
+export type RecordCause = "parent_updated" | "parent_deleted";
+
 export type RecordSnapshot = NoticeRecord & {
+  /** Set on the side of an audit row that a cascade wrote; absent for a direct change. */
+  cause?: RecordCause;
   /** `YYYY-MM-DD`. Rows logged before the date column hold an ISO instant instead; read
    *  either with `snapshotDay`. */
   spentAt: string;
@@ -295,7 +308,8 @@ export function diffRecords(before: RecordSnapshot, after: RecordSnapshot): Chan
     const detail = membershipDetail(before.payers, after.payers);
     out.push({
       key: "payers",
-      label: "付款人",
+      // A refund's payers are the people it is shared back to.
+      label: after.type === "refund" ? "分回" : "付款人",
       before: detail ? legNames(before.payers).join("、") : legAmounts(before.payers),
       after: detail ? legNames(after.payers).join("、") : legAmounts(after.payers),
       ...(detail ? { detail } : {}),
@@ -306,7 +320,8 @@ export function diffRecords(before: RecordSnapshot, after: RecordSnapshot): Chan
     const detail = membershipDetail(before.splits, after.splits);
     out.push({
       key: "splits",
-      label: "分帳",
+      // A refund's sole split is the person it was paid out to.
+      label: after.type === "refund" ? "收款人" : "分帳",
       before: detail ? `${before.splits.length} 人` : legAmounts(before.splits),
       after: detail ? `${after.splits.length} 人` : legAmounts(after.splits),
       ...(detail ? { detail } : {}),
@@ -372,7 +387,7 @@ export type HeadingInput = {
  * so the heading spends itself naming the fields that moved instead.
  */
 export function changeHeading(entry: HeadingInput, withRecordName: boolean): string {
-  const kind = entry.recordType === "settlement" ? "還款" : "支出";
+  const kind = RECORD_KIND_LABEL[recordKind(entry.recordType)];
   const named = entry.recordLabel?.trim() || kind;
 
   switch (entry.action) {
@@ -445,6 +460,11 @@ export function summariseRecord(snapshot: RecordSnapshot): string {
     const to = snapshot.splits[0];
     if (!from || !to) return money;
     return `${money} · ${labelUser(from.user)} → ${labelUser(to.user)}`;
+  }
+  if (snapshot.type === "refund") {
+    const to = snapshot.splits[0];
+    const cause = snapshot.cause === "parent_deleted" ? " · 隨支出一起刪除" : "";
+    return to ? `${money} · ${labelUser(to.user)} 收到${cause}` : `${money}${cause}`;
   }
   return `${money} · ${snapshot.splits.length} 人分帳`;
 }

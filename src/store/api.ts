@@ -35,6 +35,8 @@ import type {
   IdentitiesResponse,
   RatesResponse,
   SettingsResponse,
+  RefundDetail,
+  RefundParent,
   SettlementDetail,
   StatsResponse,
 } from "@/lib/api-types";
@@ -74,6 +76,7 @@ const tagTypes = [
   "Expenses",
   "Expense",
   "Settlement",
+  "Refund",
   "Balance",
   "Stats",
   "Activity",
@@ -131,6 +134,7 @@ function derivedFromRatesTags(groupId: GroupId): Tag[] {
     ...ledgerTags(groupId),
     tag("Expense", g(groupId)),
     tag("Settlement", g(groupId)),
+    tag("Refund", g(groupId)),
     tag("Rates", g(groupId)),
     tag("EffectiveRate", g(groupId)),
   ];
@@ -269,6 +273,23 @@ const baseApi = createApi({
         tag("Settlement", `${groupId}:${settlementId}`),
       ],
     }),
+    getRefund: build.query<RefundDetail, { groupId: GroupId; refundId: number }>({
+      query: ({ groupId, refundId }) => ({ url: `/api/groups/${groupId}/refunds/${refundId}` }),
+      providesTags: (_r, _e, { groupId, refundId }) => [
+        tag("Refund", g(groupId)),
+        tag("Refund", `${groupId}:${refundId}`),
+      ],
+    }),
+    /** The expense a new refund is recorded on (its split, for a 'ratio' refund). */
+    getRefundParent: build.query<RefundParent, { groupId: GroupId; expenseId: number }>({
+      query: ({ groupId, expenseId }) => ({
+        url: `/api/groups/${groupId}/expenses/${expenseId}/refunds`,
+      }),
+      providesTags: (_r, _e, { groupId, expenseId }) => [
+        tag("Expense", g(groupId)),
+        tag("Expense", `${groupId}:${expenseId}`),
+      ],
+    }),
     getStats: build.query<
       StatsResponse,
       {
@@ -383,6 +404,8 @@ const baseApi = createApi({
       invalidatesTags: (_r, _e, { groupId, expenseId }) => [
         ...ledgerTags(groupId),
         tag("Expense", `${groupId}:${expenseId}`),
+        // Its 'ratio' refunds are recomputed from the new split.
+        tag("Refund", g(groupId)),
       ],
     }),
     deleteExpense: build.mutation<{ ok: boolean }, { groupId: GroupId; expenseId: number }>({
@@ -393,6 +416,50 @@ const baseApi = createApi({
       // Not the record's own detail tag: its page is still mounted while the form navigates
       // away, and refetching a record that no longer exists would flash a 404 on the way out.
       invalidatesTags: (_r, _e, { groupId }) => ledgerTags(groupId),
+    }),
+    // A refund changes its expense's page too (the refund list under 參與者).
+    createRefund: build.mutation<
+      { id: number },
+      { groupId: GroupId; expenseId: number; body: unknown }
+    >({
+      query: ({ groupId, expenseId, body }) => ({
+        url: `/api/groups/${groupId}/expenses/${expenseId}/refunds`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_r, _e, { groupId, expenseId }) => [
+        ...ledgerTags(groupId),
+        tag("Expense", `${groupId}:${expenseId}`),
+      ],
+    }),
+    updateRefund: build.mutation<
+      { ok: boolean },
+      { groupId: GroupId; refundId: number; expenseId: number; body: unknown }
+    >({
+      query: ({ groupId, refundId, body }) => ({
+        url: `/api/groups/${groupId}/refunds/${refundId}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: (_r, _e, { groupId, refundId, expenseId }) => [
+        ...ledgerTags(groupId),
+        tag("Refund", `${groupId}:${refundId}`),
+        tag("Expense", `${groupId}:${expenseId}`),
+      ],
+    }),
+    deleteRefund: build.mutation<
+      { ok: boolean },
+      { groupId: GroupId; refundId: number; expenseId: number }
+    >({
+      query: ({ groupId, refundId }) => ({
+        url: `/api/groups/${groupId}/refunds/${refundId}`,
+        method: "DELETE",
+      }),
+      // Not the refund's own detail tag, for the same reason as deleteExpense.
+      invalidatesTags: (_r, _e, { groupId, expenseId }) => [
+        ...ledgerTags(groupId),
+        tag("Expense", `${groupId}:${expenseId}`),
+      ],
     }),
     createSettlement: build.mutation<{ id: number }, { groupId: GroupId; body: unknown }>({
       query: ({ groupId, body }) => ({
@@ -888,6 +955,11 @@ export const {
   useGetBalanceQuery,
   useGetExpenseQuery,
   useGetSettlementQuery,
+  useGetRefundQuery,
+  useGetRefundParentQuery,
+  useCreateRefundMutation,
+  useUpdateRefundMutation,
+  useDeleteRefundMutation,
   useGetStatsQuery,
   useGetRatesQuery,
   useGetEffectiveRateQuery,

@@ -70,6 +70,7 @@ const SEGMENT_VALUES: Record<string, string> = {
   id: "7",
   expenseId: "11",
   settlementId: "12",
+  refundId: "13",
   userId: "2",
 };
 

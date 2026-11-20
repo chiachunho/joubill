@@ -233,3 +233,32 @@ describe("ActivityList", () => {
     expect(container.textContent).toMatch(/今天[\s\S]*新增了 晚餐[\s\S]*昨天[\s\S]*新增了 午餐/);
   });
 });
+
+describe("ActivityList: an expense's own history", () => {
+  const history = { ...props, linkRows: false, currentRecordId: 7 };
+
+  it("marks its refunds' rows and links them to the refund's history, back to here", () => {
+    render(
+      <ActivityList
+        {...history}
+        entries={[
+          entry({ id: 2, action: "created", recordId: 9, recordType: "refund", summary: "x" }),
+          entry({ id: 1, action: "created", summary: "y" }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/新增了退稅/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "退稅" })).toBeInTheDocument();
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(1);
+    const href = links[0].getAttribute("href")!;
+    expect(href).toContain("?record=9");
+    expect(decodeURIComponent(href)).toContain("from=/mini/groups/1/activity?record=7");
+  });
+
+  it("does not link the record's own rows", () => {
+    render(<ActivityList {...history} entries={[entry({ action: "created", summary: "y" })]} />);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+});

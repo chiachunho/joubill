@@ -172,7 +172,16 @@ function toEntry(row: Row): ActivityEntry {
   }
 
   if (action === "updated" && before && after) {
-    entry.changes = diffRecords(before, after);
+    const changes = diffRecords(before, after);
+    // A refund recomputed because its expense's split moved says so on its split row.
+    entry.changes =
+      after.cause === "parent_updated"
+        ? changes.map((c) =>
+            c.key === "splits" || c.key === "payers"
+              ? { ...c, detail: c.detail ? `${c.detail} · 隨支出的分攤重算` : "隨支出的分攤重算" }
+              : c,
+          )
+        : changes;
     return entry;
   }
 
@@ -226,6 +235,15 @@ export async function loadRecordHistory(
           and(
             inArray(recordAuditLog.action, ["member_claimed", "account_merged"]),
             sql`${recordAuditLog.after}->'recordIds' @> ${JSON.stringify(recordId)}::jsonb`,
+          ),
+          // An expense's refunds (issue #178): their snapshots name it as `refundOf`, which
+          // still finds a refund that has since been deleted.
+          and(
+            eq(recordAuditLog.recordType, "refund"),
+            or(
+              sql`${recordAuditLog.after} @> ${JSON.stringify({ refundOf: recordId })}::jsonb`,
+              sql`${recordAuditLog.before} @> ${JSON.stringify({ refundOf: recordId })}::jsonb`,
+            ),
           ),
           and(
             eq(recordAuditLog.action, "rate_locked"),

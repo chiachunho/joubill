@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
+import { RECORD_KIND_LABEL, recordKind, type RecordKind } from "@/lib/record-notice";
 
 import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses, groups, users } from "@/db/schema";
@@ -56,7 +57,7 @@ function fixed(value: number): number {
 export function exportRecordsToCsv(records: readonly ExportRecord[], quote: string): string {
   const rows: CsvCell[][] = records.map((r) => [
     r.spentAt,
-    r.type === "settlement" ? "還款" : "支出",
+    RECORD_KIND_LABEL[recordKind(r.type)],
     r.description ?? "",
     r.amount,
     r.currency,
@@ -75,7 +76,7 @@ export function exportRecordsToCsv(records: readonly ExportRecord[], quote: stri
 /** One record as both exports read it: ids (beancount) and names (CSV) are both on hand. */
 export type LoadedRecord = {
   id: number;
-  type: "expense" | "settlement";
+  type: RecordKind;
   /** `YYYY-MM-DD`. */
   spentAt: string;
   createdAt: Date;
@@ -176,7 +177,7 @@ export async function loadGroupRecords(
 
   const records: LoadedRecord[] = rows.map((r, i) => ({
     id: r.id,
-    type: r.type === "settlement" ? "settlement" : "expense",
+    type: recordKind(r.type),
     spentAt: r.spentAt,
     createdAt: r.createdAt,
     description: r.description,
