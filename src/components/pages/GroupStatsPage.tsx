@@ -112,7 +112,12 @@ export function GroupStatsPage({
         type: "time",
         axisLine: { lineStyle: { color: border } },
         axisTick: { show: false },
-        axisLabel: { color: muted, fontSize: 11 },
+        // A bare day-of-month ("17") between month labels reads as a count, not a date.
+        axisLabel: {
+          color: muted,
+          fontSize: 11,
+          formatter: { year: "{yyyy}", month: "{M}月", day: "{M}/{d}" },
+        },
       },
       yAxis: {
         type: "value",
@@ -140,6 +145,9 @@ export function GroupStatsPage({
         {
           type: "line",
           data,
+          // The balance holds until the next record changes it: a slope between two
+          // points would show a gradual change that never happened.
+          step: "end",
           symbol: "circle",
           symbolSize: 6,
           lineStyle: { width: 2 },

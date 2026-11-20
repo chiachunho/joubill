@@ -235,6 +235,40 @@ describe("computeNetTrend", () => {
     expect(computeNetTrend(legs, "2026-05-01")).toEqual([{ date: "2026-05-01", net: 120 }]);
   });
 
+  it("keeps one point per day, at the day's closing balance", () => {
+    // An expense the viewer paid 10,000 for, with a 3,300 share: paid leg, then share leg.
+    const legs = [
+      { date: "2026-06-01", amount: 10_000 },
+      { date: "2026-06-01", amount: -3_300 },
+      { date: "2026-06-02", amount: -200 },
+    ];
+    expect(computeNetTrend(legs, null)).toEqual([
+      { date: "2026-06-01", net: 6_700 },
+      { date: "2026-06-02", net: 6_500 },
+    ]);
+  });
+
+  it("carries the last balance to the end of the window", () => {
+    const legs = [{ date: "2026-06-01", amount: 100 }];
+    expect(computeNetTrend(legs, "2026-05-20", "2026-11-20")).toEqual([
+      { date: "2026-05-20", net: 0 },
+      { date: "2026-06-01", net: 100 },
+      { date: "2026-11-20", net: 100 },
+    ]);
+  });
+
+  it("adds no end point when the last record is on `to`", () => {
+    const legs = [{ date: "2026-11-20", amount: 100 }];
+    expect(computeNetTrend(legs, "2026-05-20", "2026-11-20")).toEqual([
+      { date: "2026-05-20", net: 0 },
+      { date: "2026-11-20", net: 100 },
+    ]);
+  });
+
+  it("stays empty with no records and no window start", () => {
+    expect(computeNetTrend([], null, "2026-11-20")).toEqual([]);
+  });
+
   it("rounds to cents", () => {
     const legs = [
       { date: "2026-01-01", amount: 10.005 },

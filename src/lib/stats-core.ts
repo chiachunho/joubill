@@ -120,15 +120,23 @@ export type NetTrendPoint = { date: string; net: number };
 
 /**
  * Cumulative running net balance over time — the same quantity Balance shows
- * as a single current number, plotted as a series. Legs before `from` are
- * folded into a synthetic anchor point at `from` (rather than dropped or
- * reset to 0) so:
- *   - the rightmost point always matches the user's true current balance,
- *   - a window with no activity still renders a flat, correctly-valued line
- *     instead of an empty chart.
+ * as a single current number, plotted as a series. Rules:
+ *   - **One point per day, at that day's closing balance.** One expense is two
+ *     legs (paid +, share −), so a point per leg drew a spike to a balance the
+ *     person never had (their payment before their own share of it).
+ *   - Legs before `from` are folded into an anchor point at `from` (rather than
+ *     dropped or reset to 0), so a window with no activity still renders a flat,
+ *     correctly-valued line instead of an empty chart.
+ *   - With `to`, the series ends with a point at `to` carrying the last balance,
+ *     so the line reaches the end of the window instead of stopping at the last
+ *     record. The rightmost point is always the current balance.
  * `from: null` returns the whole history with no anchor point.
  */
-export function computeNetTrend(legs: NetLeg[], from: string | null): NetTrendPoint[] {
+export function computeNetTrend(
+  legs: NetLeg[],
+  from: string | null,
+  to: string | null = null,
+): NetTrendPoint[] {
   const sorted = [...legs].sort((a, b) => a.date.localeCompare(b.date));
   const points: NetTrendPoint[] = [];
   let running = 0;
@@ -141,7 +149,9 @@ export function computeNetTrend(legs: NetLeg[], from: string | null): NetTrendPo
       carried = rounded;
       continue;
     }
-    points.push({ date: leg.date, net: rounded });
+    const last = points.at(-1);
+    if (last?.date === leg.date) last.net = rounded;
+    else points.push({ date: leg.date, net: rounded });
   }
 
   if (from) {
@@ -150,6 +160,9 @@ export function computeNetTrend(legs: NetLeg[], from: string | null): NetTrendPo
       points.unshift({ date: from, net: carried });
     }
   }
+
+  const last = points.at(-1);
+  if (to && last && last.date < to) points.push({ date: to, net: last.net });
 
   return points;
 }

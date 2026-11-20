@@ -354,7 +354,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
     ...netPaidRows.map((r, i) => ({ date: r.spentAt, amount: n(r.amount) * netPaidRates[i] })),
     ...netSplitRows.map((r, i) => ({ date: r.spentAt, amount: -n(r.amount) * netSplitRates[i] })),
   ];
-  const netTrend = computeNetTrend(netLegs, effectiveFrom);
+  const netTrend = computeNetTrend(netLegs, effectiveFrom, resolvedTo);
 
   return NextResponse.json({
     currency: group.defaultCurrency,
