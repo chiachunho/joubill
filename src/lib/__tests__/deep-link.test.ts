@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { generateInviteCode } from "@/lib/invite";
 
-import { expenseLink, groupLink, joinLink, parseStartParam, settlementLink } from "@/lib/deep-link";
+import {
+  expenseLink,
+  groupLink,
+  joinLink,
+  parseStartParam,
+  refundLink,
+  settlementLink,
+} from "@/lib/deep-link";
 
 const BOT = "joubill_bot";
 /** Group chat ids are negative — the most common way a naive pattern breaks. */
@@ -46,6 +53,15 @@ describe("round trip", () => {
       kind: "group",
       telegramChatId: CHAT,
       record: { kind: "settlement", id: 7 },
+    });
+  });
+
+  it("parses back what refundLink builds", () => {
+    expect(startParamOf(refundLink(BOT, CHAT, 9))).toBe(`group_${CHAT}_rfd_9`);
+    expect(parseStartParam(startParamOf(refundLink(BOT, CHAT, 9)))).toEqual({
+      kind: "group",
+      telegramChatId: CHAT,
+      record: { kind: "refund", id: 9 },
     });
   });
 

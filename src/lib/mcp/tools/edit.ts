@@ -150,6 +150,13 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
         const label = (id: number) => labels.get(id) ?? "?";
         const actor = mcpActor(auth);
 
+        if (cur.type === "refund") {
+          throw new ToolError(
+            "bad_request",
+            "this record is a refund: change it in the app, or delete it and add it again with add_refund",
+          );
+        }
+
         if (cur.type === "settlement") {
           if (
             args.paidBy !== undefined ||
@@ -287,7 +294,7 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
     {
       title: "Delete record",
       description:
-        "Permanently delete an expense or settlement. This cannot be undone and the group chat shows who deleted it. Only do it when the user clearly asked: call with dryRun: true first, show the user the record that would go and wait for their explicit confirmation. Use get_record or list_records to find the recordId.",
+        "Permanently delete an expense, settlement or refund. Deleting an expense also deletes its refunds (the dry run lists them as alsoDeletesRefunds). This cannot be undone and the group chat shows who deleted it. Only do it when the user clearly asked: call with dryRun: true first, show the user the record that would go and wait for their explicit confirmation. Use get_record or list_records to find the recordId.",
       inputSchema: {
         groupId: idSchema,
         recordId: idSchema,
@@ -301,13 +308,22 @@ export function registerEditTools(server: McpServer, auth: McpAuth) {
           countAs: args.dryRun ? "read" : "write",
         });
         const record = await loadOne(args.groupId, args.recordId, labels);
+        // An expense's refunds go with it (issue #178): say so before anything is deleted.
+        const alsoDeletes =
+          "refundRecordIds" in record && record.refundRecordIds?.length
+            ? { alsoDeletesRefunds: record.refundRecordIds }
+            : {};
         if (args.dryRun) {
-          return ok("dry run: nothing deleted", { status: "dry_run", wouldDelete: record });
+          return ok("dry run: nothing deleted", {
+            status: "dry_run",
+            wouldDelete: record,
+            ...alsoDeletes,
+          });
         }
         await deleteRecord(
           args.groupId,
           args.recordId,
-          record.type === "settlement" ? "settlement" : "expense",
+          record.type === "settlement" || record.type === "refund" ? record.type : "expense",
           auth.user,
           { actor: mcpActor(auth) },
         );

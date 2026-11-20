@@ -356,6 +356,7 @@ async function cardKeyboard(
     items.push(() => kb.text(button("currency"), `exp:cur:${id}`));
     items.push(() => kb.text(button("amount"), `exp:amt:${id}`));
     items.push(() => kb.url(button("appEdit"), expenseLink(origin.botUsername, origin.chatId, id)));
+    items.push(() => kb.text(button("refund"), `exp:rfd:${id}`));
     // Three to a row; ← 收起 joins the last row when there is room, else gets its own.
     if (items.length % 3 !== 0) {
       items.push(() => kb.text(button("collapse"), `exp:done:${id}`));

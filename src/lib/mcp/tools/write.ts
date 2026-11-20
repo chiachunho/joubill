@@ -10,11 +10,13 @@ import { describeUnresolved, resolveMember } from "@/lib/mcp-names";
 import { buildExpenseInput, type McpPayer, type McpSplit } from "@/lib/mcp-split";
 import type { McpAuth } from "@/lib/auth/mcp";
 import { todayIn } from "@/lib/day";
-import { createExpense, createSettlement } from "@/lib/records";
+import { createExpense, createRefund, createSettlement, loadRefundParent } from "@/lib/records";
+import { defaultRefundDescription, ratioShares } from "@/lib/refund";
 import {
   daySchema,
   idSchema,
   NOTE_MAX,
+  refundInputSchema,
   settlementInputSchema,
   SUPPORTED_CURRENCIES,
   type SupportedCurrency,
@@ -402,6 +404,115 @@ export function registerWriteTools(server: McpServer, auth: McpAuth) {
             status: "created",
             recordId: id,
             settlement: { fromMemberId: fromId, toMemberId: toId, amount: parsed.amount, currency },
+          });
+        } catch (err) {
+          await reservation?.release().catch(() => {});
+          throw err;
+        }
+      }),
+  );
+
+  server.registerTool(
+    "add_refund",
+    {
+      title: "Add refund",
+      description:
+        "Record money that came back on an existing expense, for example a tax refund (退稅) at the airport or a partial refund from a shop. Use this instead of add_expense with swapped payers: the refund stays linked to its expense. By default it is shared back in the expense's split proportions (split: 'ratio'), recomputed if that split changes later; with split: 'custom' give shares that sum to the amount. amount and currency are what actually arrived (any currency; default the expense's). receivedBy is who the money landed with (default the user). Call with dryRun: true first and confirm with the user.",
+      inputSchema: {
+        groupId: idSchema,
+        expenseId: idSchema.describe("The expense it came back on (list_records / get_record)."),
+        amount: z.union([z.number().positive().max(10_000_000), z.string().min(1).max(60)]),
+        currency: z.enum(SUPPORTED_CURRENCIES).optional(),
+        receivedBy: memberRef.optional().describe("Who received the money; default me."),
+        split: z.enum(["ratio", "custom"]).optional().describe("Default 'ratio'."),
+        shares: z
+          .array(z.object({ member: memberRef, amount: z.number().nonnegative() }))
+          .max(50)
+          .optional()
+          .describe("With split 'custom': what each person gets back; must sum to amount."),
+        refundedAt: daySchema
+          .optional()
+          .describe("YYYY-MM-DD the money arrived, default today in the group's time zone."),
+        description: z
+          .string()
+          .trim()
+          .max(500)
+          .optional()
+          .describe("Default: the expense's description followed by 退稅."),
+        note: z.string().trim().max(NOTE_MAX).optional().describe("備註, optional."),
+        idempotencyKey: keySchema,
+        dryRun: z.boolean().optional().describe("Preview only: nothing is written."),
+      },
+      annotations: WRITE,
+    },
+    (args) =>
+      guarded(async () => {
+        const { group, members, labels } = await openGroup(auth, args.groupId, "write", {
+          countAs: args.dryRun ? "read" : "write",
+        });
+        const parent = await loadRefundParent(args.groupId, args.expenseId);
+        if (!parent) {
+          throw new ToolError(
+            "not_found",
+            `expense ${args.expenseId} is not an expense in this group (a settlement or a refund cannot take a refund)`,
+          );
+        }
+        const find = makeResolver(members, auth.user.id);
+        const parsed = parseMcpAmount(args.amount);
+        if (!parsed.ok) throw new ToolError("bad_request", parsed.message);
+        const currency = resolveCurrency(args.currency, parsed.currency, parent.currency);
+        const receivedBy = args.receivedBy !== undefined ? find(args.receivedBy).id : auth.user.id;
+        const split = args.split ?? "ratio";
+        const shares =
+          split === "custom"
+            ? (args.shares ?? []).map((s) => ({ userId: find(s.member).id, amount: s.amount }))
+            : ratioShares(parsed.amount, parent.splits);
+        const label = (id: number) => labels.get(id) ?? "?";
+
+        const input = refundInputSchema.safeParse({
+          amount: parsed.amount,
+          currency,
+          receivedBy,
+          split,
+          ...(split === "custom" && { shares }),
+          refundedAt: args.refundedAt,
+          description: args.description || null,
+          note: args.note || null,
+        });
+        if (!input.success) throw new ToolError("bad_request", input.error.issues[0].message);
+
+        if (args.dryRun) {
+          return ok("dry run: nothing written", {
+            status: "dry_run",
+            preview: {
+              expense: { recordId: parent.id, description: parent.description },
+              amount: parsed.amount,
+              currency,
+              receivedBy: { memberId: receivedBy, label: label(receivedBy) },
+              split,
+              sharesBack: shares
+                .filter((s) => s.amount > 0)
+                .map((s) => ({ memberId: s.userId, label: label(s.userId), amount: s.amount })),
+              refundedAt: args.refundedAt ?? todayIn(group.timezone),
+              description: args.description || defaultRefundDescription(parent.description),
+              note: args.note || null,
+            },
+          });
+        }
+
+        const held = await reserve(auth, args.idempotencyKey);
+        if (held.early) return held.early;
+        const reservation = held.reservation;
+        try {
+          const { id } = await createRefund(args.groupId, parent.id, input.data, {
+            actor: mcpActor(auth),
+          });
+          await reservation?.bind(id).catch((err) => console.error("[mcp] bindKey failed", err));
+          return ok(`created refund ${id} on expense ${parent.id}`, {
+            status: "created",
+            recordId: id,
+            expenseId: parent.id,
+            refund: { receivedByMemberId: receivedBy, amount: parsed.amount, currency, split },
           });
         } catch (err) {
           await reservation?.release().catch(() => {});

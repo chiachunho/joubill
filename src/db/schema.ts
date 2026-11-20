@@ -107,9 +107,19 @@ export const expenses = pgTable(
       .notNull()
       .references(() => groups.id, { onDelete: "cascade" }),
     /** 'expense' = a real group cost; 'settlement' = a repayment transfer modelled
-     *  as a single-payer (from) / single-debtor (to) expense. The two share the
-     *  same balance/FX machinery; only listing and stats filter on this. */
+     *  as a single-payer (from) / single-debtor (to) expense; 'refund' = money that came
+     *  back on an expense (a tax refund), modelled with the people it is shared back to as
+     *  payers and the person who received it as the sole debtor. All three share the same
+     *  balance/FX machinery; only listing and stats filter on this. */
     type: varchar("type", { length: 16 }).notNull().default("expense"),
+    /** For a refund: the expense it came back on (`type='expense'`, same group). NULL for
+     *  every other kind. No cascade, deliberately: a parent's refunds are deleted one by one
+     *  through `deleteRefundsOf` so each leaves an audit row and a tombstone, and a path that
+     *  forgets that fails on this key instead of erasing them silently. */
+    refundOfExpenseId: integer("refund_of_expense_id").references((): AnyPgColumn => expenses.id),
+    /** For a refund: 'ratio' = shared back in the parent's split proportions, recomputed
+     *  whenever the parent's split changes; 'custom' = the amounts were typed per person. */
+    refundSplit: varchar("refund_split", { length: 8 }),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull(),
     description: text("description"),
@@ -148,6 +158,7 @@ export const expenses = pgTable(
     // page seeks to the cursor instead of sorting the group's rows.
     index("expenses_group_list_date_idx").on(t.groupId, t.spentAt.desc(), t.id.desc()),
     index("expenses_group_spent_date_idx").on(t.groupId, t.spentAt),
+    index("expenses_refund_of_idx").on(t.refundOfExpenseId),
     // @deprecated with spent_at: the previous release still orders by it. Dropped with it.
     index("expenses_group_spent_idx").on(t.groupId, t.spentAtLegacy),
     index("expenses_group_list_idx").on(t.groupId, t.spentAtLegacy.desc(), t.id.desc()),
@@ -426,7 +437,7 @@ export const recordAuditLog = pgTable(
       .references(() => groups.id, { onDelete: "cascade" }),
     /** The `expenses.id` this is about; NULL for group-level events. No FK — see above. */
     recordId: integer("record_id"),
-    /** 'expense' | 'settlement' | 'group' */
+    /** 'expense' | 'settlement' | 'refund' | 'group' */
     recordType: varchar("record_type", { length: 16 }).notNull(),
     /** 'created' | 'updated' | 'deleted' | 'rate_locked' | 'member_joined' | 'invite_reset' | 'chat_linked' | 'chat_unlinked' | 'timezone_changed' | 'notice_thread_changed' | 'member_claimed' | 'account_merged' */
     action: varchar("action", { length: 24 }).notNull(),

@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { expenses } from "@/db/schema";
 import { deleterOf } from "@/lib/notify";
 import { logDeleted } from "@/lib/record-mutation";
+import { deleteRefundsOf } from "@/lib/records/refund";
 import { formatDeletedNotice } from "@/lib/record-notice";
 
 import { actorOf } from "../actor";
@@ -49,6 +50,9 @@ deleteExpenseCallback.callbackQuery(/^del_exp:(\d+)$/, async (ctx) => {
   // hands back the snapshot it took before the row (and its payers/splits,
   // cascade-deleted by FK) disappeared.
   const inGroup = ctx.dbGroup !== undefined;
+  // An expense's refunds go first, each with its own audit row and tombstone; the
+  // foreign key refuses the expense's delete otherwise.
+  await deleteRefundsOf(recordId, user, { actor: actorOf(ctx), api: ctx.api });
   const notice = await logDeleted(
     inGroup ? null : ctx.api,
     recordId,

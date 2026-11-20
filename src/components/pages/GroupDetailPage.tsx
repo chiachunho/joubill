@@ -19,6 +19,7 @@ import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DeleteRequestBanner } from "@/components/mini/DeleteRequestBanner";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
+import { RefundIcon } from "@/components/mini/RefundIcon";
 import { SoloGroupCard } from "@/components/mini/SoloGroupCard";
 import { TimezonePrompt } from "@/components/mini/TimezonePrompt";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -28,6 +29,7 @@ import {
   EXPENSE_ONLY_MINE_KEY,
   EXPENSE_VIEW_MODE_KEY,
   expenseUserBalance,
+  isRefund,
   isRelatedToUser,
   isSettlement,
   settlementParties,
@@ -462,6 +464,76 @@ export function GroupDetailPage({
                 <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
                   {exps.map((e) => {
                     const day = Number(e.spentAt.slice(8, 10));
+
+                    // A refund renders with the person it was paid out to and links to
+                    // the refund form (issue #178).
+                    if (isRefund(e)) {
+                      const to = e.splits[0];
+                      const rbal = expenseUserBalance(e, selfUserId);
+                      const toLabel = to
+                        ? labelUser({ ...to, userId: to.debtorId }, selfUserId)
+                        : "?";
+                      return (
+                        <Link
+                          key={e.id}
+                          href={`${platform.basePath}/groups/${id}/refunds/${e.id}`}
+                          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
+                        >
+                          <Avatar
+                            src={getPhoto(to?.debtorId ?? 0)}
+                            name={to ? labelUser({ ...to, userId: to.debtorId }) : "?"}
+                            userId={to?.debtorId ?? 0}
+                            size="sm"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="flex items-center gap-1 text-sm font-medium">
+                              <span className="truncate">{e.description || "退稅"}</span>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex shrink-0 items-center rounded-lg bg-muted p-1 text-muted-foreground">
+                                    <RefundIcon className="size-3" aria-label="退稅" role="img" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>退稅</TooltipContent>
+                              </Tooltip>
+                              {e.hasNote && <NoteMark />}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {viewMode === "balance" && rbal.paid > 0
+                                ? `你分回 ${fmt(rbal.paid)}`
+                                : `${toLabel} 收到`}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            {viewMode === "balance" ? (
+                              <p
+                                className={`num text-sm font-semibold ${
+                                  rbal.net > 0
+                                    ? "text-emerald-500"
+                                    : rbal.net < 0
+                                      ? "text-rose-500"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {rbal.net > 0 ? "+" : ""}
+                                {fmt(rbal.net)}{" "}
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  {e.currency}
+                                </span>
+                              </p>
+                            ) : (
+                              <p className="num text-sm font-semibold">
+                                {fmt(e.amount)}{" "}
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  {e.currency}
+                                </span>
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">{day} 日</p>
+                          </div>
+                        </Link>
+                      );
+                    }
 
                     // Repayments render as a from → to row and link to the
                     // settlement form instead of the expense form.

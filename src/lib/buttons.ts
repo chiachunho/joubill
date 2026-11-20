@@ -27,6 +27,8 @@ export const BTN = {
   currency: "幣別",
   amount: "± 金額",
   appEdit: "App 編輯",
+  /** Records money that came back on this expense (issue #178). */
+  refund: "⊕ 退稅",
   /** Closes the panel. Not "完成": every tap is already saved, nothing waits for this. */
   collapse: "← 收起",
   back: "← 返回",

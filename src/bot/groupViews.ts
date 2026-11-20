@@ -125,7 +125,10 @@ export async function listView(group: Group, target: ViewTarget): Promise<GroupV
   if (rows.length === 0) return { text: "還沒有紀錄，試試 <code>/add 50 飲料</code>" };
 
   const ids = rows.map((r) => r.id);
-  const settlementIds = rows.filter((r) => r.type === "settlement").map((r) => r.id);
+  // A repayment's receiver, and the person a refund was paid out to, is its one split row.
+  const settlementIds = rows
+    .filter((r) => r.type === "settlement" || r.type === "refund")
+    .map((r) => r.id);
   const nameCols = {
     displayName: users.displayName,
     firstName: users.firstName,
@@ -169,6 +172,11 @@ export async function listView(group: Group, target: ViewTarget): Promise<GroupV
     if (r.type === "settlement") {
       const to = (receivers.get(r.id) ?? ["?"]).join("、");
       return `${date}　💸 ${who} → ${to} ${amount}`;
+    }
+    if (r.type === "refund") {
+      const to = (receivers.get(r.id) ?? ["?"]).join("、");
+      const label = r.description ? escapeHtml(r.description) : "退稅";
+      return `${date}　${label} ${amount} · ${to} 收到`;
     }
     const desc = r.description ? `<b>${escapeHtml(r.description)}</b> ` : "";
     return `${date}　${desc}${amount} · ${who}`;

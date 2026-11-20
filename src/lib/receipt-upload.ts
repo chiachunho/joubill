@@ -2,8 +2,7 @@ import { serverEnv } from "@/lib/env";
 
 /** Telegram's `sendPhoto` limit. */
 export const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
-/** Photos per expense (`expense_receipts`). */
-export const MAX_RECEIPTS = 5;
+export { MAX_RECEIPTS } from "@/lib/receipt-limits";
 
 export class ReceiptUploadError extends Error {
   constructor(message: string) {

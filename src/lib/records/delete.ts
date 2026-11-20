@@ -5,6 +5,7 @@ import { expenses, type User } from "@/db/schema";
 import { NotFoundError } from "@/lib/auth/errors";
 import { logDeleted } from "@/lib/record-mutation";
 
+import { deleteRefundsOf } from "./refund";
 import { apiOf, type RecordContext } from "./types";
 
 /**
@@ -16,7 +17,7 @@ import { apiOf, type RecordContext } from "./types";
 export async function deleteRecord(
   groupId: number,
   recordId: number,
-  type: "expense" | "settlement",
+  type: "expense" | "settlement" | "refund",
   deleter: User,
   ctx: RecordContext,
 ): Promise<void> {
@@ -25,6 +26,9 @@ export async function deleteRecord(
     .from(expenses)
     .where(and(eq(expenses.id, recordId), eq(expenses.groupId, groupId), eq(expenses.type, type)));
   if (!row) throw new NotFoundError(type === "expense" ? "expense not found" : "not found");
+
+  // An expense's refunds go first, each with its own audit row and tombstone.
+  if (type === "expense") await deleteRefundsOf(recordId, deleter, ctx);
 
   await logDeleted(apiOf(ctx), recordId, ctx.actor, deleter, async (tx) => {
     // expense_payers, expense_splits and expense_receipts cascade via FK.

@@ -98,6 +98,7 @@ describe("/api/mcp", () => {
     expect([...tools.keys()].sort()).toEqual(
       [
         "add_expense",
+        "add_refund",
         "add_settlement",
         "attach_receipt",
         "get_balance",

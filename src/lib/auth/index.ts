@@ -21,6 +21,8 @@ export type Auth = {
   expenseFromParam?: number;
   /** Internal settlement ID from start_param "group_<chatId>_stl_<settlementId>". */
   settlementFromParam?: number;
+  /** Internal refund ID from start_param "group_<chatId>_rfd_<refundId>". */
+  refundFromParam?: number;
   /** Normalised invite code from a `join_<code>` start param. */
   inviteFromParam?: string;
 };
@@ -88,6 +90,7 @@ export async function getAuth(req: Request): Promise<Auth> {
     let groupFromParam: Group | undefined;
     let expenseFromParam: number | undefined;
     let settlementFromParam: number | undefined;
+    let refundFromParam: number | undefined;
     // The payload shape lives in src/lib/deep-link.ts, next to the builders the
     // bot uses — a parser that drifts from them fails silently.
     const startParam = parseStartParam(verified.startParam);
@@ -103,6 +106,7 @@ export async function getAuth(req: Request): Promise<Auth> {
       if (g) {
         groupFromParam = g;
         if (startParam.record?.kind === "expense") expenseFromParam = startParam.record.id;
+        else if (startParam.record?.kind === "refund") refundFromParam = startParam.record.id;
         else if (startParam.record) settlementFromParam = startParam.record.id;
         // Auto-join when the user opens the Mini App via a group link.
         // We only call getChatMember (slow) when the row is genuinely absent —
@@ -129,7 +133,14 @@ export async function getAuth(req: Request): Promise<Auth> {
         }
       }
     }
-    return { user, groupFromParam, expenseFromParam, settlementFromParam, inviteFromParam };
+    return {
+      user,
+      groupFromParam,
+      expenseFromParam,
+      settlementFromParam,
+      refundFromParam,
+      inviteFromParam,
+    };
   }
 
   // Path 2: web session cookie

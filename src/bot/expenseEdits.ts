@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { expensePayers, expenseSplits, expenses } from "@/db/schema";
 import { n, splitEqual } from "@/lib/money";
 import { logUpdated, type Actor } from "@/lib/record-mutation";
+import { syncRefundsOf } from "@/lib/records/refund";
 
 import { loadSplitState, splitRowsFor, type SplitEntry } from "./expenseCard";
 
@@ -40,6 +41,8 @@ export async function writeSplits(
     await tx.insert(expenseSplits).values(rows);
     await tx.update(expenses).set({ updatedAt: new Date() }).where(eq(expenses.id, expenseId));
   });
+  // A refund shared back in this expense's proportions follows the new split.
+  await syncRefundsOf(expenseId, { actor });
 }
 
 /**
@@ -134,6 +137,7 @@ export async function setExpenseAmount(expenseId: number, total: number, actor: 
     await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, expenseId));
     if (splitRows.length > 0) await tx.insert(expenseSplits).values(splitRows);
   });
+  await syncRefundsOf(expenseId, { actor });
 }
 
 /**

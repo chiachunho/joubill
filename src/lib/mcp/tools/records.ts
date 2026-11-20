@@ -20,7 +20,7 @@ type Labels = Map<number, string>;
 /** Records with their payers and splits, shaped for an agent. */
 export async function loadMcpRecords(groupId: number, ids: number[], labels: Labels) {
   if (ids.length === 0) return [];
-  const [rows, payers, splits] = await Promise.all([
+  const [rows, payers, splits, refunds] = await Promise.all([
     db
       .select({
         id: expenses.id,
@@ -30,6 +30,8 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
         description: expenses.description,
         note: expenses.note,
         spentAt: expenses.spentAt,
+        refundOf: expenses.refundOfExpenseId,
+        refundSplit: expenses.refundSplit,
         createdBy: expenses.createdBy,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
@@ -48,6 +50,12 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
       .from(expenseSplits)
       .where(inArray(expenseSplits.expenseId, ids))
       .orderBy(asc(expenseSplits.id)),
+    // Refunds recorded on any of these expenses (issue #178).
+    db
+      .select({ id: expenses.id, parent: expenses.refundOfExpenseId })
+      .from(expenses)
+      .where(and(eq(expenses.type, "refund"), inArray(expenses.refundOfExpenseId, ids)))
+      .orderBy(asc(expenses.id)),
   ]);
   const label = (id: number) => labels.get(id) ?? "?";
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -62,6 +70,16 @@ export async function loadMcpRecords(groupId: number, ids: number[], labels: Lab
       description: r.description,
       note: r.note,
       spentAt: r.spentAt,
+      // A refund: the expense it came back on, and how it is shared back. Its payers are the
+      // people it is shared back to (what each gets back); its one split is who received it.
+      ...(r.type === "refund" && {
+        refundOfRecordId: r.refundOf,
+        refundSplit: r.refundSplit === "custom" ? "custom" : "ratio",
+      }),
+      // An expense: the refunds recorded on it.
+      ...(r.type === "expense" && {
+        refundRecordIds: refunds.filter((x) => x.parent === r.id).map((x) => x.id),
+      }),
       createdByMemberId: r.createdBy,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
@@ -88,7 +106,7 @@ export function registerRecordTools(server: McpServer, auth: McpAuth) {
     {
       title: "List records",
       description:
-        "Use to search or review history: expenses and settlements, newest first (by date, then entry order). Pass the previous nextCursor to get the next page (null = no more). Filters: from/to (YYYY-MM-DD in the group's time zone, inclusive), keyword in the description or note, mineOnly (only records the user paid or owes in).",
+        "Use to search or review history: expenses, settlements and refunds (type 'refund': money that came back on an expense, e.g. a tax refund), newest first (by date, then entry order). Pass the previous nextCursor to get the next page (null = no more). Filters: from/to (YYYY-MM-DD in the group's time zone, inclusive), keyword in the description or note, mineOnly (only records the user paid or owes in).",
       inputSchema: {
         groupId: idSchema,
         cursor: z.string().max(64).optional(),
@@ -179,7 +197,7 @@ export function registerRecordTools(server: McpServer, auth: McpAuth) {
     {
       title: "Get record",
       description:
-        "One expense or settlement with its payers and splits. Use before changing or deleting a record, to show the user what it is. Its updatedAt is what update_record needs as expectedUpdatedAt. For an expense it also returns uploadUrl (and telegramUrl when present): give it to the user to add receipt photos you can't send whole.",
+        "One expense, settlement or refund with its payers and splits. A refund's payers are the people it is shared back to and its one split is who received it; refundOfRecordId is its expense. An expense lists refundRecordIds. Use before changing or deleting a record, to show the user what it is. Its updatedAt is what update_record needs as expectedUpdatedAt. For an expense it also returns uploadUrl (and telegramUrl when present): give it to the user to add receipt photos you can't send whole.",
       inputSchema: { groupId: idSchema, recordId: idSchema },
       annotations: READ,
     },

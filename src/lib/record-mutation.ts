@@ -19,6 +19,7 @@ import {
   type AuditSource,
   type GroupEventPayload,
   type RateLockPayload,
+  type RecordCause,
   type RecordSnapshot,
 } from "@/lib/record-audit";
 import { connectionName } from "@/lib/record-via";
@@ -158,6 +159,7 @@ export async function logUpdated<T>(
   recordId: number,
   actor: Actor,
   mutate: (tx: Tx) => Promise<T>,
+  opts: { cause?: RecordCause } = {},
 ): Promise<T> {
   // Both snapshots and the write share one transaction. Read outside it and two
   // people saving the same record at once can each pick up the other's values
@@ -191,7 +193,7 @@ export async function logUpdated<T>(
       action: "updated",
       actor,
       before: before.record,
-      after: after.record,
+      after: opts.cause ? { ...after.record, cause: opts.cause } : after.record,
     });
     queueRecordPush({
       action: "updated",
@@ -221,6 +223,7 @@ export async function logDeleted(
   actor: Actor,
   deleter: Parameters<typeof deleterOf>[0],
   del: (tx: Tx) => Promise<void>,
+  opts: { cause?: RecordCause } = {},
 ): Promise<LoadedNotice | null> {
   // Snapshot and delete in one transaction: the record is gone afterwards, so
   // a concurrent edit landing between the two would be recorded as what was
@@ -238,7 +241,7 @@ export async function logDeleted(
       recordType: before.record.type,
       action: "deleted",
       actor,
-      before: before.record,
+      before: opts.cause ? { ...before.record, cause: opts.cause } : before.record,
       after: null,
     });
     queueRecordPush({

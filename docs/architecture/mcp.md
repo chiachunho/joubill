@@ -83,7 +83,7 @@ longer one is a new token. A revoked connection answers 404. The client side is 
 ## Tools
 
 Read: `list_groups`, `get_group`, `get_balance`, `list_records`, `get_record`. Write:
-`add_expense`, `add_settlement`, `update_record`, `delete_record`, `attach_receipt`. One prompt, `split_receipt` (拆收據).
+`add_expense`, `add_settlement`, `add_refund`, `update_record`, `delete_record`, `attach_receipt`. One prompt, `split_receipt` (拆收據).
 
 - **Agent-facing text** (issue #151): the server `instructions` live in `src/lib/mcp/instructions.ts`,
   every tool has a description saying when to use it and its defaults, and every write tool takes

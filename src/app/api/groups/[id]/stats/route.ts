@@ -257,13 +257,49 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
         ),
     ]);
 
+  // Refunds (issue #178) give back part of what was spent: a refund lowers the group's
+  // total by its amount and the selected member's share by what they got back (their
+  // payer leg). Same window as the expense rows. The ranking stays who fronted money.
+  const neg = <T extends { amount: string }>(r: T): T => ({ ...r, amount: String(-n(r.amount)) });
+  const refundWindow = and(
+    eq(expenses.groupId, groupId),
+    eq(expenses.type, "refund"),
+    gte(expenses.spentAt, monthlyQueryStart),
+    lte(expenses.spentAt, resolvedTo),
+  );
+  const [refundRows, memberRefundRows] = await Promise.all([
+    db
+      .select({
+        amount: expenses.amount,
+        currency: expenses.currency,
+        spentAt: expenses.spentAt,
+        fxRate: expenses.fxRate,
+        fxQuote: expenses.fxQuote,
+      })
+      .from(expenses)
+      .where(refundWindow),
+    db
+      .select({
+        amount: expensePayers.amount,
+        currency: expenses.currency,
+        spentAt: expenses.spentAt,
+        fxRate: expenses.fxRate,
+        fxQuote: expenses.fxQuote,
+      })
+      .from(expensePayers)
+      .innerJoin(expenses, eq(expenses.id, expensePayers.expenseId))
+      .where(and(refundWindow, eq(expensePayers.payerId, selectedUserId))),
+  ]);
+  const spendRows = [...expenseRows, ...refundRows.map(neg)];
+  const shareRows = [...memberSplitRows, ...memberRefundRows.map(neg)];
+
   // Resolve every row's FX rate up front, in parallel (deduped by cachedRate)
   // — then aggregate synchronously below so no two rows racing on the same
   // accumulator can interleave between a read and its write.
   const [expenseRates, memberSplitRates, payerRates, netPaidRates, netSplitRates] =
     await Promise.all([
-      Promise.all(expenseRows.map((r) => cachedRate(r, r.spentAt))),
-      Promise.all(memberSplitRows.map((r) => cachedRate(r, r.spentAt))),
+      Promise.all(spendRows.map((r) => cachedRate(r, r.spentAt))),
+      Promise.all(shareRows.map((r) => cachedRate(r, r.spentAt))),
       Promise.all(payerRowsInRange.map((r) => cachedRate(r, r.spentAt))),
       Promise.all(netPaidRows.map((r) => cachedRate(r, r.spentAt))),
       Promise.all(netSplitRows.map((r) => cachedRate(r, r.spentAt))),
@@ -272,13 +308,13 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   // Monthly group total + the selected member's monthly share, zero-filled.
   const monthly = monthKeys.map((month) => ({ month, groupTotal: 0, memberShare: 0 }));
   const monthIndex = new Map(monthly.map((m, idx) => [m.month, idx]));
-  expenseRows.forEach((r, i) => {
+  spendRows.forEach((r, i) => {
     const idx = monthIndex.get(r.spentAt.slice(0, 7));
     if (idx !== undefined)
       monthly[idx].groupTotal =
         Math.round((monthly[idx].groupTotal + n(r.amount) * expenseRates[i]) * 100) / 100;
   });
-  memberSplitRows.forEach((r, i) => {
+  shareRows.forEach((r, i) => {
     const idx = monthIndex.get(r.spentAt.slice(0, 7));
     if (idx !== undefined)
       monthly[idx].memberShare =

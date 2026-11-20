@@ -60,7 +60,9 @@ export function recordPushUrl(
   return openedFromPush(
     type === "settlement"
       ? `/app/groups/${groupId}/settlements/${recordId}`
-      : expenseEditPath("/app", groupId, recordId),
+      : type === "refund"
+        ? `/app/groups/${groupId}/refunds/${recordId}`
+        : expenseEditPath("/app", groupId, recordId),
   );
 }
 
@@ -80,6 +82,10 @@ function what(record: NoticeRecord): string {
 
 /** ，你分 3,000 JPY / ，記你付了 … — the recipient's own part, when they have one. */
 function yourPart(record: NoticeRecord, recipientId: number): string {
+  if (record.type === "refund") {
+    const back = legOf(record.payers, recipientId);
+    return back ? `，你分回 ${money(back.amount, record.currency)}` : "";
+  }
   const split = legOf(record.splits, recipientId);
   if (split) return `，你分 ${money(split.amount, record.currency)}`;
   const paid = legOf(record.payers, recipientId);
@@ -131,7 +137,7 @@ function updatedBody(
   after: RecordSnapshot,
   actorName: string,
 ): string {
-  const kind = after.type === "settlement" ? "還款" : "";
+  const kind = after.type === "settlement" ? "還款" : after.type === "refund" ? "退稅" : "";
   const name = after.description ? `「${after.description}」` : kind || "一筆紀錄";
   const changes = diffRecords(before, after);
   const first = changes[0];

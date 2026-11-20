@@ -31,6 +31,7 @@ function deepLinkTarget(
     activeGroupId?: number | null;
     activeExpenseId?: number | null;
     activeSettlementId?: number | null;
+    activeRefundId?: number | null;
   },
   basePath: string,
 ): string | null {
@@ -39,6 +40,7 @@ function deepLinkTarget(
   if (data.activeExpenseId)
     return expenseEditPath(basePath, data.activeGroupId, data.activeExpenseId);
   if (data.activeSettlementId) return `${group}/settlements/${data.activeSettlementId}`;
+  if (data.activeRefundId) return `${group}/refunds/${data.activeRefundId}`;
   return group;
 }
 

@@ -172,7 +172,16 @@ function toEntry(row: Row): ActivityEntry {
   }
 
   if (action === "updated" && before && after) {
-    entry.changes = diffRecords(before, after);
+    const changes = diffRecords(before, after);
+    // A refund recomputed because its expense's split moved says so on its split row.
+    entry.changes =
+      after.cause === "parent_updated"
+        ? changes.map((c) =>
+            c.key === "splits" || c.key === "payers"
+              ? { ...c, detail: c.detail ? `${c.detail} · 隨支出的分攤重算` : "隨支出的分攤重算" }
+              : c,
+          )
+        : changes;
     return entry;
   }
 

@@ -269,7 +269,7 @@ expensePanel.callbackQuery(/^exp:curs:(\d+):([A-Z]{3})$/, async (ctx) => {
 
 /* ── 金額 / 其他幣別 (ForceReply) ──────────────────────────────────── */
 
-expensePanel.callbackQuery(/^exp:(amt|curo):(\d+)$/, async (ctx) => {
+expensePanel.callbackQuery(/^exp:(amt|curo|rfd):(\d+)$/, async (ctx) => {
   const [, kind, id] = ctx.match;
   const expenseId = Number(id);
   if (!(await guard(ctx, expenseId))) return;
@@ -283,7 +283,7 @@ expensePanel.callbackQuery(/^exp:(amt|curo):(\d+)$/, async (ctx) => {
   await promptForExpenseField(
     ctx,
     expenseId,
-    kind === "amt" ? "amount" : "currency",
+    kind === "amt" ? "amount" : kind === "rfd" ? "refund" : "currency",
     panelMessageId,
   );
   await ctx.answerCallbackQuery();

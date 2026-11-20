@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { expenseReceipts, expenses } from "@/db/schema";
 import { BadRequestError, NotFoundError } from "@/lib/auth/errors";
@@ -15,7 +15,11 @@ export async function countReceipts(groupId: number, recordId: number): Promise<
     .select({ id: expenses.id, legacy: expenses.receiptFileId })
     .from(expenses)
     .where(
-      and(eq(expenses.id, recordId), eq(expenses.groupId, groupId), eq(expenses.type, "expense")),
+      and(
+        eq(expenses.id, recordId),
+        eq(expenses.groupId, groupId),
+        inArray(expenses.type, ["expense", "refund"]),
+      ),
     );
   if (!row) throw new NotFoundError("expense not found");
   const rows = await db
@@ -44,7 +48,11 @@ export async function addReceipts(
       .select({ id: expenses.id, legacy: expenses.receiptFileId })
       .from(expenses)
       .where(
-        and(eq(expenses.id, recordId), eq(expenses.groupId, groupId), eq(expenses.type, "expense")),
+        and(
+          eq(expenses.id, recordId),
+          eq(expenses.groupId, groupId),
+          inArray(expenses.type, ["expense", "refund"]),
+        ),
       );
     if (!row) throw new NotFoundError("expense not found");
 

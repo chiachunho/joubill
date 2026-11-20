@@ -27,7 +27,8 @@ import {
   type ParsedAdd,
 } from "@/lib/parseAdd";
 import { logCreated } from "@/lib/record-mutation";
-import { SUPPORTED_CURRENCIES } from "@/lib/zod";
+import { refundInputSchema, SUPPORTED_CURRENCIES } from "@/lib/zod";
+import { createRefund } from "@/lib/records/refund";
 
 import { loadGroupMembers, originOf, renderCard, splitRowsFor, type DbUser } from "../expenseCard";
 import { setExpenseAmount, setExpenseCurrency } from "../expenseEdits";
@@ -102,13 +103,15 @@ async function replyAddError(ctx: BotContext, message: string) {
 export async function promptForExpenseField(
   ctx: BotContext,
   expenseId: number,
-  field: "amount" | "currency",
+  field: "amount" | "currency" | "refund",
   panelMessageId: number,
 ) {
   const text =
     field === "amount"
       ? "新金額？👇 回覆這則"
-      : `幣別代碼？👇 回覆這則\n可用：${SUPPORTED_CURRENCIES.join(" ")}`;
+      : field === "refund"
+        ? "退了多少？可加幣別，例如 1000 或 205 TWD\n👇 回覆這則"
+        : `幣別代碼？👇 回覆這則\n可用：${SUPPORTED_CURRENCIES.join(" ")}`;
   await prompt(ctx, text, { expenseId, field, panelMessageId });
 }
 
@@ -475,7 +478,32 @@ async function applyFieldReply(
     return;
   }
 
-  if (field === "amount") {
+  if (field === "refund") {
+    // "1000" or "205 TWD": what actually arrived, in the expense's currency unless named.
+    // Shared back in the expense's proportions; whoever pressed ⊕ 退稅 received it.
+    const m = raw.match(/^(.*?)\s*([A-Za-z]{3})$/);
+    const code = m && isSupportedCurrency(m[2].toUpperCase()) ? m[2].toUpperCase() : null;
+    const value = evalAmountExpr(code ? m![1] : raw);
+    if (value === null || value <= 0 || !ctx.dbUser) {
+      await retryField(ctx, `看不懂「${raw}」，沒有記退稅`, expenseId, field, panelMessageId);
+      return;
+    }
+    const input = refundInputSchema.safeParse({
+      amount: value,
+      currency: code ?? target.currency,
+      receivedBy: ctx.dbUser.id,
+      split: "ratio",
+    });
+    if (!input.success) {
+      await retryField(ctx, `看不懂「${raw}」，沒有記退稅`, expenseId, field, panelMessageId);
+      return;
+    }
+    // The refund's own notice goes to the group like a record made in the app.
+    await createRefund(target.groupId, expenseId, input.data, {
+      actor: actorOf(ctx),
+      api: ctx.api,
+    });
+  } else if (field === "amount") {
     const value = evalAmountExpr(raw);
     if (value === null || value <= 0) {
       await retryField(ctx, `看不懂「${raw}」，金額沒改`, expenseId, field, panelMessageId);

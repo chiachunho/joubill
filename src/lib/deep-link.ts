@@ -34,6 +34,11 @@ export function settlementLink(botUsername: string, chatId: number, settlementId
   return miniAppUrl(botUsername, `group_${chatId}_stl_${settlementId}`);
 }
 
+/** `group_<chatId>_rfd_<id>` — opens a refund's edit form. */
+export function refundLink(botUsername: string, chatId: number, refundId: number): string {
+  return miniAppUrl(botUsername, `group_${chatId}_rfd_${refundId}`);
+}
+
 /** `join_<code>` — opens the invite preview, where the person confirms joining. */
 export function joinLink(botUsername: string, code: string): string {
   return miniAppUrl(botUsername, `join_${code}`);
@@ -55,11 +60,12 @@ export type StartParam =
       /** Telegram chat id — negative for groups, so the pattern allows a leading `-`. */
       telegramChatId: number;
       /** Set when the link pointed at one record. */
-      record?: { kind: "expense" | "settlement"; id: number };
+      record?: { kind: "expense" | "settlement" | "refund"; id: number };
     }
   | { kind: "join"; code: string };
 
-const WITH_RECORD = /^group_(-?\d+)_(exp|stl)_(\d+)$/;
+const WITH_RECORD = /^group_(-?\d+)_(exp|stl|rfd)_(\d+)$/;
+const RECORD_KINDS = { exp: "expense", stl: "settlement", rfd: "refund" } as const;
 const GROUP_ONLY = /^group_(-?\d+)$/;
 const JOIN = /^join_([A-Za-z0-9]+)$/;
 
@@ -81,7 +87,7 @@ export function parseStartParam(raw: string | null | undefined): StartParam | nu
       kind: "group",
       telegramChatId,
       record: {
-        kind: withRecord[2] === "exp" ? "expense" : "settlement",
+        kind: RECORD_KINDS[withRecord[2] as keyof typeof RECORD_KINDS],
         id: Number(withRecord[3]),
       },
     };

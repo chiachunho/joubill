@@ -8,7 +8,7 @@ import { withAuth } from "@/lib/auth/route";
 import { n } from "@/lib/money";
 import { loadCreatedVia } from "@/lib/record-via";
 import { loadLastActivity } from "@/lib/record-history";
-import { deleteRecord, updateExpense } from "@/lib/records";
+import { deleteRecord, loadRefundSummaries, updateExpense } from "@/lib/records";
 import { resolveReceiptFileIds } from "@/lib/receipts";
 import { receiptPhotoUrl } from "@/lib/tg-photo-sign";
 import { expenseInputSchema } from "@/lib/zod";
@@ -70,9 +70,10 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
     expense.receiptFileId,
   );
 
-  const [lastActivity, createdVia] = await Promise.all([
+  const [lastActivity, createdVia, refunds] = await Promise.all([
     loadLastActivity(ids.eid),
     loadCreatedVia([ids.eid]),
+    loadRefundSummaries(ids.eid),
   ]);
 
   return NextResponse.json({
@@ -110,6 +111,8 @@ export const GET = withAuth(async (req: Request, ctx: Params) => {
       shareType: s.shareType,
       splitValue: s.splitValue != null ? n(s.splitValue) : null,
     })),
+    // Money that came back on this expense (issue #178), shown under 參與者.
+    refunds,
   });
 });
 

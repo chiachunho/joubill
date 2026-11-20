@@ -51,6 +51,16 @@ export function isSettlement(e: { type?: string }): boolean {
   return e.type === "settlement";
 }
 
+/**
+ * Whether a record from the expenses list is a refund (issue #178): money that came back
+ * on an expense, stored with the people it is shared back to as payers and the person who
+ * received it as the sole split. The list shows it with the recipient and links it to the
+ * refund form.
+ */
+export function isRefund(e: { type?: string }): boolean {
+  return e.type === "refund";
+}
+
 /** A from/to party for a settlement row, shaped for `labelUser` / `Avatar`. */
 export type SettlementParty = {
   userId: number;
