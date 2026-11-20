@@ -26,13 +26,20 @@ export const GET = withAuth(async (req: Request) => {
     .where(eq(groupMembers.userId, auth.user.id));
 
   const balances: MyBalancesResponse["balances"] = {};
-  await Promise.all(
+  // One group failing (a rate lookup that throws) leaves only that group's row without a
+  // balance, rather than failing the whole response and blanking every group's.
+  const results = await Promise.allSettled(
     rows.map(async (g) => {
       const all = await computeGroupBalances(g.id, g.defaultCurrency);
       const amount = all.find((b) => b.userId === auth.user.id)?.amount ?? 0;
       balances[g.id] = { amount, currency: g.defaultCurrency };
     }),
   );
+  results.forEach((r, i) => {
+    if (r.status === "rejected") {
+      console.error(`balance for group ${rows[i].id} failed`, r.reason);
+    }
+  });
 
   return NextResponse.json({ balances } satisfies MyBalancesResponse);
 });

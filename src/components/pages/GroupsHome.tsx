@@ -137,7 +137,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
       ) : (
         <>
           <div className="mx-4 mb-2 flex items-center justify-between gap-3 pl-1">
-            <p className="text-xs text-muted-foreground">{groups.length} 個群組</p>
+            <p className="sect">{groups.length} 個群組</p>
             <div
               role="group"
               aria-label="排序方式"
@@ -149,7 +149,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
                   type="button"
                   aria-pressed={sort === o.value}
                   onClick={() => setStoredSort(o.value)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                     sort === o.value
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
@@ -220,16 +220,13 @@ function GroupBalance({
   if (standing === "settled") {
     return <span className="shrink-0 text-xs text-muted-foreground">{STANDING_LABEL.settled}</span>;
   }
-  const tone =
-    standing === "receive"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : "text-rose-600 dark:text-rose-400";
+  const tone = standing === "receive" ? "text-emerald-500" : "text-rose-500";
   return (
     <div className={`flex shrink-0 flex-col items-end ${tone}`}>
-      <span className="text-[11px] leading-tight">{STANDING_LABEL[standing]}</span>
+      <span className="text-xs leading-tight">{STANDING_LABEL[standing]}</span>
       <span className="num text-sm font-semibold leading-tight">
         {fmtGrouped(Math.abs(balance.amount))}{" "}
-        <span className="text-[11px] font-normal">{balance.currency}</span>
+        <span className="text-xs font-normal">{balance.currency}</span>
       </span>
     </div>
   );
