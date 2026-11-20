@@ -210,6 +210,8 @@ test.describe("Refunds", () => {
     await authedPage.getByRole("button", { name: "儲存", exact: true }).click();
     await expect(authedPage).toHaveURL(new RegExp(`${form}$`));
     await expect(authedPage.getByText(/已退稅 30 TWD/)).toBeVisible();
+    // The expense itself was never edited, but its history is reachable for the refund.
+    await expect(authedPage.getByRole("link", { name: /變更紀錄（含 1 筆退稅）/ })).toBeVisible();
 
     // The group list shows it as its own row, marked as a refund.
     await authedPage.goto(`/app/groups/${seeded.groupId}`);

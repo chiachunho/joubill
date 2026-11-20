@@ -1282,6 +1282,22 @@ export function ExpenseForm(props: Props) {
                   <ChevronRight className="size-3.5 shrink-0" />
                 </Link>
               )}
+              {/* Never edited, but its refunds have history of their own (issue #178): the
+                  same grey link, so that history is still one tap away. */}
+              {!lastEdit && !!initial?.refunds?.length && (
+                <Link
+                  href={recordHistoryHref({
+                    appBase,
+                    groupId,
+                    recordId: initial.id,
+                    from: pathname,
+                  })}
+                  className="-mx-2 flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary"
+                >
+                  <span>變更紀錄（含 {initial.refunds.length} 筆退稅）</span>
+                  <ChevronRight className="size-3.5 shrink-0" />
+                </Link>
+              )}
             </div>
           )}
           <div className="flex gap-2 pt-1">
