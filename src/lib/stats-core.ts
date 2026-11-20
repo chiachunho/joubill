@@ -1,4 +1,4 @@
-import { isDay } from "./day";
+import { addDays, isDay } from "./day";
 
 /** Preset windows for the stats page; "custom" requires explicit from/to. */
 export type StatsRangeKey = "3m" | "6m" | "1y" | "all" | "custom";
@@ -127,6 +127,10 @@ export type NetTrendPoint = { date: string; net: number };
  *   - Legs before `from` are folded into an anchor point at `from` (rather than
  *     dropped or reset to 0), so a window with no activity still renders a flat,
  *     correctly-valued line instead of an empty chart.
+ *   - When nothing came before `from`, the anchor (0) moves up to the day before
+ *     the first record. Padding the window with zeros squeezed a group whose
+ *     records span a week into a sliver at the right edge, and made every range
+ *     that holds the same records look identical.
  *   - With `to`, the series ends with a point at `to` carrying the last balance,
  *     so the line reaches the end of the window instead of stopping at the last
  *     record. The rightmost point is always the current balance.
@@ -141,12 +145,14 @@ export function computeNetTrend(
   const points: NetTrendPoint[] = [];
   let running = 0;
   let carried = 0;
+  let hasEarlier = false;
 
   for (const leg of sorted) {
     running += leg.amount;
     const rounded = Math.round(running * 100) / 100;
     if (from && leg.date < from) {
       carried = rounded;
+      hasEarlier = true;
       continue;
     }
     const last = points.at(-1);
@@ -156,8 +162,12 @@ export function computeNetTrend(
 
   if (from) {
     const first = points[0];
-    if (!first || first.date !== from) {
-      points.unshift({ date: from, net: carried });
+    if (!first) {
+      points.push({ date: from, net: carried });
+    } else if (first.date !== from) {
+      const dayBefore = addDays(first.date, -1);
+      const anchor = hasEarlier || dayBefore < from ? from : dayBefore;
+      points.unshift({ date: anchor, net: carried });
     }
   }
 

@@ -251,7 +251,7 @@ describe("computeNetTrend", () => {
   it("carries the last balance to the end of the window", () => {
     const legs = [{ date: "2026-06-01", amount: 100 }];
     expect(computeNetTrend(legs, "2026-05-20", "2026-11-20")).toEqual([
-      { date: "2026-05-20", net: 0 },
+      { date: "2026-05-31", net: 0 },
       { date: "2026-06-01", net: 100 },
       { date: "2026-11-20", net: 100 },
     ]);
@@ -260,9 +260,39 @@ describe("computeNetTrend", () => {
   it("adds no end point when the last record is on `to`", () => {
     const legs = [{ date: "2026-11-20", amount: 100 }];
     expect(computeNetTrend(legs, "2026-05-20", "2026-11-20")).toEqual([
-      { date: "2026-05-20", net: 0 },
+      { date: "2026-11-19", net: 0 },
       { date: "2026-11-20", net: 100 },
     ]);
+  });
+
+  it("starts the day before the first record when nothing came before the window", () => {
+    // A trip's records span a week: padding six months of zeros in front squeezed them
+    // into the right edge, and 3 months / 6 months / 1 year all looked the same.
+    const legs = [
+      { date: "2026-11-14", amount: -3_000 },
+      { date: "2026-11-19", amount: 9_000 },
+    ];
+    const expected = [
+      { date: "2026-11-13", net: 0 },
+      { date: "2026-11-14", net: -3_000 },
+      { date: "2026-11-19", net: 6_000 },
+      { date: "2026-11-20", net: 6_000 },
+    ];
+    expect(computeNetTrend(legs, "2026-05-20", "2026-11-20")).toEqual(expected);
+    expect(computeNetTrend(legs, "2025-11-20", "2026-11-20")).toEqual(expected);
+  });
+
+  it("keeps the anchor at `from` when the first record is the window's second day", () => {
+    const legs = [{ date: "2026-05-21", amount: 50 }];
+    expect(computeNetTrend(legs, "2026-05-20", null)[0]).toEqual({ date: "2026-05-20", net: 0 });
+  });
+
+  it("keeps the anchor at `from` when records came before the window", () => {
+    const legs = [
+      { date: "2026-01-01", amount: 100 },
+      { date: "2026-11-14", amount: 20 },
+    ];
+    expect(computeNetTrend(legs, "2026-05-20", null)[0]).toEqual({ date: "2026-05-20", net: 100 });
   });
 
   it("stays empty with no records and no window start", () => {
