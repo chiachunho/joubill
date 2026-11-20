@@ -500,11 +500,19 @@ async function applyFieldReply(
       await retryField(ctx, `看不懂「${raw}」，沒有記退稅`, expenseId, field, panelMessageId);
       return;
     }
-    // The refund's own notice goes to the group like a record made in the app.
-    await createRefund(target.groupId, expenseId, input.data, {
-      actor: actorOf(ctx),
-      api: ctx.api,
-    });
+    // The refund's own notice goes to the group like a record made in the app. A refusal
+    // (nobody left to share it back to, a person no longer in the group) must be answered,
+    // or the reply just vanishes.
+    try {
+      await createRefund(target.groupId, expenseId, input.data, {
+        actor: actorOf(ctx),
+        api: ctx.api,
+      });
+    } catch (err) {
+      console.error("[bot] recording a refund failed:", expenseId, err);
+      await ctx.reply("沒有記到退稅，請到 App 記這筆退稅。");
+      return;
+    }
   } else if (field === "amount") {
     const value = evalAmountExpr(raw);
     if (value === null || value <= 0) {

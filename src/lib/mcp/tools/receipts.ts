@@ -41,7 +41,9 @@ export function registerReceiptTools(server: McpServer, auth: McpAuth) {
           countAs: args.dryRun ? "read" : "write",
         });
 
-        const have = await countReceipts(args.groupId, args.recordId);
+        const { count: have, type } = await countReceipts(args.groupId, args.recordId);
+        // uploadUrl / telegramUrl open the expense form, which a refund doesn't have.
+        const links = async () => (type === "expense" ? receiptLinks(group, args.recordId) : {});
         const room = MAX_RECEIPTS - have;
         if (args.images.length > room) {
           throw new ToolError(
@@ -64,8 +66,8 @@ export function registerReceiptTools(server: McpServer, auth: McpAuth) {
               receiptCount: have,
               wouldAttach: loaded.length,
               remainingAfter: room - loaded.length,
-              ...(await receiptLinks(group, args.recordId)),
-              ...withWarnings(warnings, true),
+              ...(await links()),
+              ...withWarnings(warnings, type === "expense"),
             },
           );
         }
@@ -83,8 +85,8 @@ export function registerReceiptTools(server: McpServer, auth: McpAuth) {
             attached: fileIds.length,
             receiptCount,
             remaining: MAX_RECEIPTS - receiptCount,
-            ...(await receiptLinks(group, args.recordId)),
-            ...withWarnings(warnings, true),
+            ...(await links()),
+            ...withWarnings(warnings, type === "expense"),
           },
         );
       }),

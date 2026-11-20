@@ -27,7 +27,12 @@ import {
 } from "@/lib/refund";
 import type { RefundInput, RefundSplit } from "@/lib/zod";
 
-import { assertUnchangedSince, assertUsersInGroup, replacePayersAndSplits } from "./shared";
+import {
+  assertUnchangedSince,
+  assertUsersInGroup,
+  keepsDormantPin,
+  replacePayersAndSplits,
+} from "./shared";
 import { apiOf, type RecordContext, type UpdateOptions } from "./types";
 
 /**
@@ -101,6 +106,13 @@ function sharesFor(
   const shares =
     split === "custom" ? customShares(custom ?? []) : ratioShares(amount, parent.splits);
   if (shares.length === 0) throw new BadRequestError("nobody to share the refund back to");
+  // The payer legs must sum to the amount to the cent, or the refund's two sides disagree and
+  // every balance in the group drifts. The schema's ±0.005 check runs before rounding, so three
+  // shares of 33.333 pass it and round to 99.99 here.
+  const cents = shares.reduce((s, x) => s + Math.round(x.amount * 100), 0);
+  if (cents !== Math.round(amount * 100)) {
+    throw new BadRequestError("shares sum must equal amount");
+  }
   return shares;
 }
 
@@ -240,7 +252,28 @@ export async function updateRefund(
   if (!parent) throw new NotFoundError("expense not found");
   const shares = sharesFor(input.split, input.amount, parent, input.shares);
   await assertUsersInGroup(groupId, [input.receivedBy, ...shares.map((s) => s.userId)]);
-  const fx = await refundFx(groupId, input, parent);
+  // A dormant pin (stamped for an earlier default currency) is kept when the rate is left
+  // blank, as on any record, so it revives if the default reverts.
+  const [[existing], [group]] = await Promise.all([
+    db
+      .select({ currency: expenses.currency, fxQuote: expenses.fxQuote })
+      .from(expenses)
+      .where(eq(expenses.id, refundId)),
+    db
+      .select({ defaultCurrency: groups.defaultCurrency })
+      .from(groups)
+      .where(eq(groups.id, groupId)),
+  ]);
+  const keepPin =
+    !!existing &&
+    !!group &&
+    keepsDormantPin({
+      inputFxRate: input.fxRate,
+      inputCurrency: input.currency,
+      existing,
+      defaultCurrency: group.defaultCurrency,
+    });
+  const fx = keepPin ? null : await refundFx(groupId, input, parent);
 
   await logUpdated(apiOf(ctx), refundId, ctx.actor, async (tx) => {
     await assertUnchangedSince(tx, refundId, opts.expectedUpdatedAt);
@@ -249,8 +282,7 @@ export async function updateRefund(
       .set({
         amount: input.amount.toFixed(2),
         currency: input.currency,
-        fxRate: fx.fxRate,
-        fxQuote: fx.fxQuote,
+        ...(fx && { fxRate: fx.fxRate, fxQuote: fx.fxQuote }),
         refundSplit: input.split,
         ...(input.description !== undefined && {
           description: input.description?.trim() || defaultRefundDescription(parent.description),

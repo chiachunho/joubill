@@ -9,10 +9,16 @@ import { MAX_RECEIPTS } from "@/lib/receipt-upload";
 import { apiOf, type RecordContext } from "./types";
 import { db } from "@/db";
 
-/** How many receipts an expense has now, legacy single-file column included. */
-export async function countReceipts(groupId: number, recordId: number): Promise<number> {
+/**
+ * How many receipts an expense (or a refund) has now, legacy single-file column included, and
+ * which kind it is: only an expense has an edit form at the expense path.
+ */
+export async function countReceipts(
+  groupId: number,
+  recordId: number,
+): Promise<{ count: number; type: "expense" | "refund" }> {
   const [row] = await db
-    .select({ id: expenses.id, legacy: expenses.receiptFileId })
+    .select({ id: expenses.id, legacy: expenses.receiptFileId, type: expenses.type })
     .from(expenses)
     .where(
       and(
@@ -26,10 +32,13 @@ export async function countReceipts(groupId: number, recordId: number): Promise<
     .select({ fileId: expenseReceipts.fileId })
     .from(expenseReceipts)
     .where(eq(expenseReceipts.expenseId, recordId));
-  return resolveReceiptFileIds(
-    rows.map((r) => r.fileId),
-    row.legacy,
-  ).length;
+  return {
+    count: resolveReceiptFileIds(
+      rows.map((r) => r.fileId),
+      row.legacy,
+    ).length,
+    type: row.type === "refund" ? "refund" : "expense",
+  };
 }
 
 /**
