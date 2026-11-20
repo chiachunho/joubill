@@ -57,11 +57,12 @@ function renderHome(
     "/api/me/groups/photos": { photos: {} },
     "/api/me/groups/balances": balances instanceof Failure ? balances : { balances },
   });
-  return render(
+  const view = render(
     <StoreWrapper request={request}>
       <GroupsHome platform={platform} />
     </StoreWrapper>,
   );
+  return Object.assign(view, { request });
 }
 
 describe("GroupsHome", () => {
@@ -199,5 +200,36 @@ describe("GroupsHome", () => {
     // 北 (5 strokes) before 週 (12).
     await waitFor(() => expect(titles()[0]).toContain("北海道"));
     expect(screen.getByRole("button", { name: "名稱" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  const askedForBalances = (request: { mock: { calls: unknown[][] } }) =>
+    request.mock.calls.some(([path]) => path === "/api/me/groups/balances");
+
+  it("does not ask for balances when a Telegram deep link leaves the page", async () => {
+    const { request } = renderHome(miniPlatform, {
+      groups: [GROUP],
+      activeGroupId: 7,
+      activeExpenseId: 12,
+    });
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith("/mini/groups/7/expenses/12/edit"),
+    );
+    // Let anything queued by the redirect's render settle before checking.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(askedForBalances(request)).toBe(false);
+  });
+
+  it("does not ask for balances when a join link leaves the page", async () => {
+    const { request } = renderHome(miniPlatform, { activeInviteCode: "NOBALANCE0" });
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/mini/join/NOBALANCE0"));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(askedForBalances(request)).toBe(false);
+  });
+
+  it("asks for balances in the Mini App once it knows it is staying", async () => {
+    renderHome(miniPlatform, { groups: [GROUP] }, undefined, {
+      7: { amount: 1250, currency: "TWD" },
+    });
+    expect(await screen.findByText("應收")).toBeInTheDocument();
   });
 });

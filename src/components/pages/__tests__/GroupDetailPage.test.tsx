@@ -64,6 +64,7 @@ function fakePlatform(basePath: "/mini" | "/app"): Platform {
     loginPath: null,
     HelpAction: () => null,
     canDownloadExport: false,
+    deepLinks: false,
     linkIdentity: null,
     openInBrowser: null,
     inviteHint: () => `hint for ${basePath}`,

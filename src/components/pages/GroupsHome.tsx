@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, KeyRound, Plus, Users } from "lucide-react";
@@ -58,8 +58,24 @@ export function GroupsHome({ platform }: { platform: Platform }) {
   const router = useRouter();
   const { data, error } = useGetMeQuery();
   const { data: photosData } = useGetGroupPhotosQuery();
+
+  // A deep link (Mini App only) leaves this page at once, so nothing on it is ever seen.
+  // Known only once `data` is in, which is why the Mini App asks for balances after the list
+  // rather than alongside it; the web, which never redirects, asks for both at once.
+  // What this mount itself redirected to. The module-level sets are updated in the effect, so a
+  // re-render before the navigation lands would otherwise read as "already handled" and start
+  // the request after all.
+  const [sentFromHere] = useState(() => new Set<string>());
+  const pending = (key: string | null | undefined, handled: Set<string>) =>
+    !!key && (!handled.has(key) || sentFromHere.has(key));
+  const invitePending = pending(data?.activeInviteCode, handledInvites);
+  const target = data ? deepLinkTarget(data, platform.basePath) : null;
+  const deepLinkPending = pending(target, handledDeepLinks);
+  const redirecting = deepLinkPending || invitePending;
   // Fills in after the list: each group's balance converts every record in it.
-  const { data: balancesData, isError: balancesFailed } = useGetMyBalancesQuery();
+  const { data: balancesData, isError: balancesFailed } = useGetMyBalancesQuery(undefined, {
+    skip: platform.deepLinks && (!data || redirecting),
+  });
   const [storedSort, setStoredSort] = useLocalPref(GROUP_SORT_KEY);
   const sort = parseGroupSort(storedSort);
 
@@ -73,14 +89,16 @@ export function GroupsHome({ platform }: { platform: Platform }) {
       !handledInvites.has(data.activeInviteCode)
     ) {
       handledInvites.add(data.activeInviteCode);
+      sentFromHere.add(data.activeInviteCode);
       router.replace(`${platform.basePath}/join/${data.activeInviteCode}`);
       return;
     }
     const target = data && deepLinkTarget(data, platform.basePath);
     if (!target || handledDeepLinks.has(target)) return;
     handledDeepLinks.add(target);
+    sentFromHere.add(target);
     router.replace(target);
-  }, [data, router, platform.basePath]);
+  }, [data, router, platform.basePath, sentFromHere]);
 
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
 
@@ -96,10 +114,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
   if (!data) return <GroupsListSkeleton />;
 
   // Blank only while a redirect is about to happen; once the invite was handled the list shows.
-  const invitePending = !!data.activeInviteCode && !handledInvites.has(data.activeInviteCode);
-  const target = deepLinkTarget(data, platform.basePath);
-  const deepLinkPending = !!target && !handledDeepLinks.has(target);
-  if (deepLinkPending || invitePending) return null;
+  if (redirecting) return null;
 
   const groups = sortGroups(data.groups, sort);
 

@@ -38,6 +38,7 @@ function fakePlatform(): Platform {
     loginPath: null,
     HelpAction: () => null,
     canDownloadExport: false,
+    deepLinks: false,
     linkIdentity: null,
     openInBrowser: null,
     inviteHint: () => "",
