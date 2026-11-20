@@ -14,6 +14,11 @@ describe("resolveStatsRange", () => {
   const today = "2026-08-15";
 
   it("resolves preset windows back from today", () => {
+    expect(resolveStatsRange("1m", today)).toEqual({
+      from: "2026-07-15",
+      to: today,
+      monthsBack: 1,
+    });
     expect(resolveStatsRange("3m", today)).toEqual({
       from: "2026-05-15",
       to: today,

@@ -27,6 +27,7 @@ export type StatsRangeValue = {
  *  pages for their "· 6 個月" badges, so a rename can't drift between the
  *  dropdown text and the chart headers. */
 export const RANGE_LABELS: Record<StatsRangeKey, string> = {
+  "1m": "1 個月",
   "3m": "3 個月",
   "6m": "6 個月",
   "1y": "1 年",
@@ -34,7 +35,7 @@ export const RANGE_LABELS: Record<StatsRangeKey, string> = {
   custom: "自訂區間",
 };
 
-const PRESET_KEYS: Array<Exclude<StatsRangeKey, "custom">> = ["3m", "6m", "1y", "all"];
+const PRESET_KEYS: Array<Exclude<StatsRangeKey, "custom">> = ["1m", "3m", "6m", "1y", "all"];
 
 type Props = {
   value: StatsRangeValue;

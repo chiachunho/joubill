@@ -31,7 +31,7 @@ type Params = { params: Promise<{ id: string }> };
 const MAX_MONTHS = 24;
 
 const querySchema = z.object({
-  range: z.enum(["3m", "6m", "1y", "all", "custom"]).default("6m"),
+  range: z.enum(["1m", "3m", "6m", "1y", "all", "custom"]).default("6m"),
   // Bare "YYYY-MM-DD" days, inclusive: a record's date has no time and no zone,
   // so a day the viewer picked needs no translation (`customRangeToQuery`).
   from: z.string().refine(isDay).optional(),
@@ -127,7 +127,7 @@ export const GET = withAuth(async (req: Request, { params }: Params) => {
   }
 
   // Monthly chart / ranking share one window, built differently per range:
-  //   - presets (3m/6m/1y): the last `monthsBack` *calendar* months ending
+  //   - presets (1m/3m/6m/1y): the last `monthsBack` *calendar* months ending
   //     at `to`'s month — always exactly N, matching the help doc's "選 6
   //     個月會看到 6 根長條". This is deliberately NOT the same window as
   //     the net trend's exact day-count `effectiveFrom`: a bar chart reads

@@ -1,7 +1,7 @@
 import { addDays, isDay } from "./day";
 
 /** Preset windows for the stats page; "custom" requires explicit from/to. */
-export type StatsRangeKey = "3m" | "6m" | "1y" | "all" | "custom";
+export type StatsRangeKey = "1m" | "3m" | "6m" | "1y" | "all" | "custom";
 
 /** All bounds are calendar days (`YYYY-MM-DD`), the same type a record's date is. */
 export type ResolvedRange = {
@@ -10,7 +10,7 @@ export type ResolvedRange = {
   from: string | null;
   /** Inclusive upper bound. */
   to: string;
-  /** Set only for "3m"/"6m"/"1y" — the net-trend anchor (`from`) is an exact
+  /** Set only for "1m"/"3m"/"6m"/"1y" — the net-trend anchor (`from`) is an exact
    *  day-count window, but the monthly chart / ranking want "the last N
    *  calendar months" (matching the help doc's "選 6 個月會看到 6 根長條"),
    *  which is a different, month-aligned span. The caller uses this to build
@@ -48,7 +48,7 @@ export function resolveStatsRange(
   }
   if (range === "all") return { from: null, to: today };
 
-  const monthsBack = range === "3m" ? 3 : range === "6m" ? 6 : 12;
+  const monthsBack = range === "1m" ? 1 : range === "3m" ? 3 : range === "6m" ? 6 : 12;
   return { from: monthsAgo(today, monthsBack), to: today, monthsBack };
 }
 
