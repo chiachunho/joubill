@@ -5,7 +5,7 @@ import { expenses, type User } from "@/db/schema";
 import { NotFoundError } from "@/lib/auth/errors";
 import { logDeleted } from "@/lib/record-mutation";
 
-import { deleteRefundsOf } from "./refund";
+import { assertNoRefundsLeft, deleteRefundsOf } from "./refund";
 import { apiOf, type RecordContext } from "./types";
 
 /**
@@ -31,6 +31,8 @@ export async function deleteRecord(
   if (type === "expense") await deleteRefundsOf(recordId, deleter, ctx);
 
   await logDeleted(apiOf(ctx), recordId, ctx.actor, deleter, async (tx) => {
+    // A refund recorded since deleteRefundsOf ran: refuse (409) rather than fail on the key.
+    if (type === "expense") await assertNoRefundsLeft(tx, recordId);
     // expense_payers, expense_splits and expense_receipts cascade via FK.
     await tx.delete(expenses).where(and(eq(expenses.id, recordId), eq(expenses.groupId, groupId)));
   });

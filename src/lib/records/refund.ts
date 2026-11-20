@@ -1,22 +1,9 @@
 import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import {
-  expensePayers,
-  expenseReceipts,
-  expenseSplits,
-  expenses,
-  groups,
-  type User,
-} from "@/db/schema";
-import { BadRequestError, NotFoundError } from "@/lib/auth/errors";
-import {
-  fxColumnsFor,
-  groupTimeZone,
-  loadGroupRateContext,
-  resolveRate,
-  spentAtForNow,
-} from "@/lib/fx";
+import { expensePayers, expenseReceipts, expenseSplits, expenses, type User } from "@/db/schema";
+import { BadRequestError, ConflictError, NotFoundError } from "@/lib/auth/errors";
+import { groupTimeZone, resolveRecordFx, spentAtForNow } from "@/lib/fx";
 import { n } from "@/lib/money";
 import { logCreated, logDeleted, logUpdated, type Tx } from "@/lib/record-mutation";
 import {
@@ -30,8 +17,8 @@ import type { RefundInput, RefundSplit } from "@/lib/zod";
 import {
   assertUnchangedSince,
   assertUsersInGroup,
-  keepsDormantPin,
   replacePayersAndSplits,
+  resolveUpdateFx,
 } from "./shared";
 import { apiOf, type RecordContext, type UpdateOptions } from "./types";
 
@@ -131,35 +118,35 @@ function legs(id: number, amount: number, receivedBy: number, shares: RefundShar
   };
 }
 
+/** Locks an expense's row for the rest of the transaction; 404 when it is gone. */
+async function lockParent(tx: Tx, groupId: number, expenseId: number): Promise<void> {
+  const [row] = await tx
+    .select({ id: expenses.id })
+    .from(expenses)
+    .where(
+      and(eq(expenses.id, expenseId), eq(expenses.groupId, groupId), eq(expenses.type, "expense")),
+    )
+    .for("update");
+  if (!row) throw new NotFoundError("expense not found");
+}
+
 /**
- * The fx columns a refund stores. A typed rate wins. Otherwise a refund in the parent's
- * currency is pinned to the rate the parent is converted at, so it cancels exactly what
- * was paid; one in another currency is left to the usual rules (group rate, then market).
+ * Inside an expense's delete, after `deleteRefundsOf`: locks the expense and refuses (409)
+ * when a refund was recorded on it in the meantime, so the delete neither fails on the
+ * foreign key halfway nor takes a refund nobody saw with it.
  */
-async function refundFx(
-  groupId: number,
-  input: Pick<RefundInput, "currency" | "fxRate">,
-  parent: Parent,
-): Promise<{ fxRate: string | null; fxQuote: string | null }> {
-  const [group] = await db
-    .select({ defaultCurrency: groups.defaultCurrency })
-    .from(groups)
-    .where(eq(groups.id, groupId));
-  if (!group) throw new NotFoundError("group not found");
-  if (input.fxRate != null)
-    return fxColumnsFor(group.defaultCurrency, input.currency, input.fxRate);
-  if (input.currency !== parent.currency || input.currency === group.defaultCurrency) {
-    return { fxRate: null, fxQuote: null };
-  }
-  const rate = await resolveRate(
-    parent,
-    group.defaultCurrency,
-    parent.spentAt,
-    await loadGroupRateContext(groupId),
-  ).catch(() => null);
-  return rate != null
-    ? fxColumnsFor(group.defaultCurrency, input.currency, rate)
-    : { fxRate: null, fxQuote: null };
+export async function assertNoRefundsLeft(tx: Tx, expenseId: number): Promise<void> {
+  await tx
+    .select({ id: expenses.id })
+    .from(expenses)
+    .where(eq(expenses.id, expenseId))
+    .for("update");
+  const [left] = await tx
+    .select({ id: expenses.id })
+    .from(expenses)
+    .where(eq(expenses.refundOfExpenseId, expenseId))
+    .limit(1);
+  if (left) throw new ConflictError("a refund was just recorded on this expense; try again");
 }
 
 function assertAmount(amount: number): void {
@@ -179,13 +166,19 @@ export async function createRefund(
   const shares = sharesFor(input.split, input.amount, parent, input.shares);
   await assertUsersInGroup(groupId, [input.receivedBy, ...shares.map((s) => s.userId)]);
 
+  // A refund's rate follows the same rules as any record's: a typed rate is pinned, otherwise
+  // the group's custom rate or the market rate on the day it arrived. It is deliberately not
+  // tied to the expense's rate.
   const [fx, day] = await Promise.all([
-    refundFx(groupId, input, parent),
+    resolveRecordFx(groupId, input.currency, input.fxRate),
     input.refundedAt ?? groupTimeZone(groupId).then((z) => spentAtForNow(z)),
   ]);
   const description = input.description?.trim() || defaultRefundDescription(parent.description);
 
   const id = await db.transaction(async (tx) => {
+    // Lock the expense so a delete running at the same time either sees this refund or
+    // has already removed the expense (then this answers 404).
+    await lockParent(tx, groupId, parent.id);
     const [row] = await tx
       .insert(expenses)
       .values({
@@ -252,28 +245,13 @@ export async function updateRefund(
   if (!parent) throw new NotFoundError("expense not found");
   const shares = sharesFor(input.split, input.amount, parent, input.shares);
   await assertUsersInGroup(groupId, [input.receivedBy, ...shares.map((s) => s.userId)]);
-  // A dormant pin (stamped for an earlier default currency) is kept when the rate is left
-  // blank, as on any record, so it revives if the default reverts.
-  const [[existing], [group]] = await Promise.all([
-    db
-      .select({ currency: expenses.currency, fxQuote: expenses.fxQuote })
-      .from(expenses)
-      .where(eq(expenses.id, refundId)),
-    db
-      .select({ defaultCurrency: groups.defaultCurrency })
-      .from(groups)
-      .where(eq(groups.id, groupId)),
-  ]);
-  const keepPin =
-    !!existing &&
-    !!group &&
-    keepsDormantPin({
-      inputFxRate: input.fxRate,
-      inputCurrency: input.currency,
-      existing,
-      defaultCurrency: group.defaultCurrency,
-    });
-  const fx = keepPin ? null : await refundFx(groupId, input, parent);
+  // The same rules as any record's edit, a dormant pin included (`resolveUpdateFx`).
+  const [existing] = await db
+    .select({ currency: expenses.currency, fxQuote: expenses.fxQuote })
+    .from(expenses)
+    .where(eq(expenses.id, refundId));
+  if (!existing) throw new NotFoundError("refund not found");
+  const fx = await resolveUpdateFx(groupId, input, existing);
 
   await logUpdated(apiOf(ctx), refundId, ctx.actor, async (tx) => {
     await assertUnchangedSince(tx, refundId, opts.expectedUpdatedAt);

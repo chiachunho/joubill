@@ -100,11 +100,7 @@ export function RefundForm({
   const [currency, setCurrency] = useState(initial?.currency ?? parent.currency);
   // A pinned rate is shown only while it targets the group's current default currency.
   const [fxRate, setFxRate] = useState(
-    initial?.fxRate != null &&
-      initial.fxQuote === defaultCurrency &&
-      initial.currency !== parent.currency
-      ? String(initial.fxRate)
-      : "",
+    initial?.fxRate != null && initial.fxQuote === defaultCurrency ? String(initial.fxRate) : "",
   );
   const [date, setDate] = useState<Date>(initial ? dayToLocalDate(initial.refundedAt) : new Date());
   const [description, setDescription] = useState(
@@ -142,17 +138,15 @@ export function RefundForm({
   );
   const customBalanced = Math.abs(customSum - total) < 0.005;
 
-  // Same currency as the expense: the server uses the rate the expense was converted at.
-  const sameAsParent = currency === parent.currency;
+  // The same rate rules as any record: a typed rate, else the group's custom rate or the
+  // market rate on the refund's own day. Not tied to the expense's rate, by decision.
   const isForeign = currency !== defaultCurrency;
   const {
     data: effectiveRate,
     currentData: currentRate,
     isFetching,
   } = useGetEffectiveRateQuery(
-    isForeign && !sameAsParent
-      ? { groupId, base: currency, date: localDateToDay(date) }
-      : skipToken,
+    isForeign ? { groupId, base: currency, date: localDateToDay(date) } : skipToken,
   );
   const rateFetching = isFetching && currentRate === undefined;
 
@@ -328,25 +322,22 @@ export function RefundForm({
                 inputMode="decimal"
                 className="num"
                 placeholder={
-                  sameAsParent
-                    ? "沿用原支出的匯率"
-                    : effectiveRate?.rate != null && !rateFetching
-                      ? `${effectiveRate.rate}（${rateSourceLabel(effectiveRate)}）`
-                      : rateFetching
-                        ? ""
-                        : "無法取得匯率，請手動輸入"
+                  effectiveRate?.rate != null && !rateFetching
+                    ? `${effectiveRate.rate}（${rateSourceLabel(effectiveRate)}）`
+                    : rateFetching
+                      ? ""
+                      : "無法取得匯率，請手動輸入"
                 }
                 value={fxRate}
                 onChange={(e) => setFxRate(e.target.value)}
               />
-              {!sameAsParent && fxRate === "" && rateFetching && (
+              {fxRate === "" && rateFetching && (
                 <Skeleton className="pointer-events-none absolute left-3 top-1/2 h-4 w-20 -translate-y-1/2" />
               )}
             </div>
             {(() => {
-              const rate =
-                positive(fxRate) ?? (sameAsParent ? null : (effectiveRate?.rate ?? null));
-              if (fxRate === "" && !sameAsParent && rateFetching && total > 0)
+              const rate = positive(fxRate) ?? effectiveRate?.rate ?? null;
+              if (fxRate === "" && rateFetching && total > 0)
                 return <Skeleton className="h-4 w-48" />;
               return rate != null && total > 0 ? (
                 <p className="num text-xs text-muted-foreground">

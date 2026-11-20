@@ -184,6 +184,37 @@ test.describe("Refunds", () => {
     expect(cause.rows[0]?.cause).toBe("parent_deleted");
   });
 
+  test("a refund's rate follows the usual rules, not its expense's rate", async ({
+    authedPage,
+    seeded,
+  }) => {
+    const { request } = authedPage;
+    const expenseId = await addExpense(request, seeded.groupId, {
+      ...body(seeded.userId, seeded.partnerId, 10000),
+      currency: "JPY",
+      fxRate: 0.2,
+    });
+    const url = `/api/groups/${seeded.groupId}/expenses/${expenseId}/refunds`;
+    const read = async (id: number) =>
+      (await (await request.get(`/api/groups/${seeded.groupId}/refunds/${id}`)).json()) as {
+        fxRate: number | null;
+      };
+
+    // No rate typed: not pinned to the expense's 0.2; the group or market rate applies.
+    const auto = await request.post(url, {
+      data: { amount: 1000, currency: "JPY", receivedBy: seeded.userId },
+    });
+    expect(auto.status()).toBe(201);
+    expect((await read(((await auto.json()) as { id: number }).id)).fxRate).toBeNull();
+
+    // A typed rate is kept as typed, in the expense's currency too.
+    const typed = await request.post(url, {
+      data: { amount: 1000, currency: "JPY", fxRate: 0.21, receivedBy: seeded.userId },
+    });
+    expect(typed.status()).toBe(201);
+    expect((await read(((await typed.json()) as { id: number }).id)).fxRate).toBe(0.21);
+  });
+
   test("a refund cannot be recorded on a settlement or another group's expense", async ({
     authedPage,
     seeded,

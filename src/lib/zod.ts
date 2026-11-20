@@ -138,8 +138,8 @@ export type RefundSplit = (typeof REFUND_SPLITS)[number];
  * `receivedBy` is the person it landed with. With `split: "ratio"` (the default) it is
  * shared back in the parent expense's split proportions and `shares` is ignored; with
  * `"custom"` `shares` lists what each person gets back and must sum to `amount`.
- * `fxRate` absent with the parent's currency means "use the rate the parent was converted
- * at", so the refund cancels exactly the tax that was paid.
+ * `fxRate` follows the same rules as on any record (absent = the group's custom rate or the
+ * market rate on `refundedAt`); it is not tied to the expense's rate.
  */
 export const refundInputSchema = z
   .object({
