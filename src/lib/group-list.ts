@@ -57,6 +57,12 @@ export function updatedLabel(at: string, now: Date = new Date()): string {
   return d.getFullYear() === now.getFullYear() ? `${day} 更新` : `${d.getFullYear()}/${day} 更新`;
 }
 
+/**
+ * How many groups get a balance: the most recently updated ones. Each balance converts every
+ * record in its group, so the home page and the bot's private `/balance` stop here.
+ */
+export const MY_BALANCES_LIMIT = 10;
+
 export type Standing = "receive" | "pay" | "settled";
 
 /**

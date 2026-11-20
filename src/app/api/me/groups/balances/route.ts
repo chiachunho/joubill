@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { groupMembers, groups } from "@/db/schema";
 import type { MyBalancesResponse } from "@/lib/api-types";
 import { getAuth } from "@/lib/auth";
 import { withAuth } from "@/lib/auth/route";
+import { lastActivityAt } from "@/lib/group-activity";
+import { MY_BALANCES_LIMIT } from "@/lib/group-list";
 import { computeGroupBalances } from "@/lib/settlement";
 
 export const runtime = "nodejs";
@@ -14,7 +16,8 @@ export const dynamic = "force-dynamic";
 /**
  * The caller's own net balance in each of their groups, in that group's default currency (they
  * are never added up). Separate from `GET /api/me/groups` so the list shows at once and the
- * balances, which convert every record, fill in after it.
+ * balances, which convert every record, fill in after it. Only the `MY_BALANCES_LIMIT` most
+ * recently updated groups get one; the rest of the list shows none.
  */
 export const GET = withAuth(async (req: Request) => {
   const auth = await getAuth(req);
@@ -23,7 +26,9 @@ export const GET = withAuth(async (req: Request) => {
     .select({ id: groups.id, defaultCurrency: groups.defaultCurrency })
     .from(groups)
     .innerJoin(groupMembers, eq(groupMembers.groupId, groups.id))
-    .where(eq(groupMembers.userId, auth.user.id));
+    .where(eq(groupMembers.userId, auth.user.id))
+    .orderBy(desc(lastActivityAt), desc(groups.id))
+    .limit(MY_BALANCES_LIMIT);
 
   const balances: MyBalancesResponse["balances"] = {};
   // One group failing (a rate lookup that throws) leaves only that group's row without a

@@ -186,7 +186,7 @@ Telegram Mini App accessed via the bot's `web_app` button. All pages are client 
 The home page lists each group with its last update and the viewer's balance, sorted by 最近更新 (default) or 名稱, remembered per device (`GROUP_SORT_KEY` via `useLocalPref`). Rules:
 
 - `lastActivityAt` comes with `GET /api/me/groups`: the newest record write in `record_audit_log` (deletes count, anyone's change counts), else the newest `expenses.updated_at` for records older than the log, else the group's creation. Sorting is client-side (`sortGroups`, zh-Hant collation, ties by the other key then id).
-- Balances come from a separate `GET /api/me/groups/balances`, so the list never waits for every group's FX conversion. `getMyBalances` provides every group's `Balance` tag plus `Me`, and `ledgerTags` includes `Me`, so a record change refreshes both the order and the numbers.
+- Balances come from a separate `GET /api/me/groups/balances`, so the list never waits for every group's FX conversion. Only the `MY_BALANCES_LIMIT` (10) most recently updated groups get one (ordered by the shared `lastActivityAt` SQL in `src/lib/group-activity.ts`); the bot's private `/balance` stops at the same constant. `getMyBalances` provides every group's `Balance` tag plus `Me`, and `ledgerTags` includes `Me`, so a record change refreshes both the order and the numbers.
 - **The Mini App asks for balances only once it knows it is staying**: a `startapp` deep link redirects straight off the home page, so with `Platform.deepLinks` the query is skipped until `/api/me/groups` answers and no redirect is pending (the web, which never redirects, asks for both at once).
 - 應收 / 應付 / 已結清 is `standingOf` + `STANDING_LABEL`, shared with the bot's private `/balance` (`myBalancesView`).
 

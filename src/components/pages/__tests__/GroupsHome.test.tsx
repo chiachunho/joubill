@@ -232,4 +232,14 @@ describe("GroupsHome", () => {
     });
     expect(await screen.findByText("應收")).toBeInTheDocument();
   });
+
+  it("shows no balance for a group past the most recently updated ones", async () => {
+    const old = { ...GROUP, id: 30, title: "很久以前" };
+    renderHome(webPlatform, { groups: [GROUP, old] }, undefined, {
+      7: { amount: 1250, currency: "TWD" },
+    });
+    expect(await screen.findByText("應收")).toBeInTheDocument();
+    const row = screen.getByRole("link", { name: /很久以前/ });
+    expect(row).not.toHaveTextContent(/應收|應付|已結清/);
+  });
 });
