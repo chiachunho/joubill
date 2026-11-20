@@ -142,7 +142,7 @@ async function planGroupCorrections(
     .where(
       and(
         eq(recordAuditLog.groupId, groupId),
-        inArray(recordAuditLog.recordType, ["expense", "settlement"]),
+        inArray(recordAuditLog.recordType, ["expense", "settlement", "refund"]),
         inArray(recordAuditLog.action, ["updated", "deleted"]),
         isNotNull(recordAuditLog.recordId),
         sql`date_trunc('milliseconds', ${recordAuditLog.createdAt}) > ${mark.toISOString()}::timestamptz`,

@@ -12,7 +12,7 @@ import { groups } from "@/db/schema";
  */
 export const lastActivityAt = sql<string | Date>`coalesce(
   (select max(a.created_at) from record_audit_log a
-    where a.group_id = ${groups.id} and a.record_type in ('expense', 'settlement')),
+    where a.group_id = ${groups.id} and a.record_type in ('expense', 'settlement', 'refund')),
   (select max(e.updated_at) from expenses e where e.group_id = ${groups.id}),
   ${groups.createdAt}
 )`;
