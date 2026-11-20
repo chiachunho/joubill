@@ -19,7 +19,12 @@ import { formatMoney } from "@/lib/money";
 import { labelUser } from "@/lib/label";
 import { dayToLocalDate } from "@/lib/day";
 import { customRangeToQuery } from "@/lib/stats-core";
-import { netSignPieces } from "@/lib/stats-chart";
+import {
+  monthAxisLabels,
+  monthTooltipLabel,
+  netSignPieces,
+  netTrendMinInterval,
+} from "@/lib/stats-chart";
 import {
   useGetAvatarsQuery,
   useGetMeQuery,
@@ -110,12 +115,14 @@ export function GroupStatsPage({
       grid: { top: 16, right: 12, bottom: 26, left: 48 },
       xAxis: {
         type: "time",
+        minInterval: netTrendMinInterval(data[0][0], data[data.length - 1][0]),
         axisLine: { lineStyle: { color: border } },
         axisTick: { show: false },
         // A bare day-of-month ("17") between month labels reads as a count, not a date.
         axisLabel: {
           color: muted,
           fontSize: 11,
+          hideOverlap: true,
           formatter: { year: "{yyyy}", month: "{M}月", day: "{M}/{d}" },
         },
       },
@@ -177,7 +184,7 @@ export function GroupStatsPage({
       grid: { top: 20, right: 10, bottom: dense ? 44 : 30, left: 48 },
       xAxis: {
         type: "category",
-        data: stats.monthly.map((d) => `${d.month.slice(5)}/${d.month.slice(2, 4)}`),
+        data: monthAxisLabels(stats.monthly.map((d) => d.month)),
         axisLine: { lineStyle: { color: border } },
         axisTick: { show: false },
         axisLabel: { color: muted, fontSize: 11, rotate: dense ? 45 : 0 },
@@ -194,7 +201,8 @@ export function GroupStatsPage({
         textStyle: { color: fg, fontSize: 12 },
         formatter: (params) => {
           const arr = Array.isArray(params) ? params : [params];
-          const name = arr[0]?.name ?? "";
+          const month = stats.monthly[arr[0]?.dataIndex ?? -1]?.month;
+          const name = month ? monthTooltipLabel(month) : "";
           const lines = arr.map(
             (p) => `${p.marker} ${p.seriesName}: ${fmt(Number(p.value))} ${stats.currency}`,
           );
