@@ -19,6 +19,7 @@ import { formatMoney } from "@/lib/money";
 import { labelUser } from "@/lib/label";
 import { dayToLocalDate } from "@/lib/day";
 import { customRangeToQuery } from "@/lib/stats-core";
+import { netSignPieces } from "@/lib/stats-chart";
 import {
   useGetAvatarsQuery,
   useGetMeQuery,
@@ -29,8 +30,6 @@ import {
 // Tailwind's emerald-500 / rose-500 — the two design-system-sanctioned
 // financial-polarity colors (see docs/design-system.md). ECharts can't
 // consume Tailwind classes, so these mirror them as literal hex.
-const EMERALD = "#10b981";
-const ROSE = "#f43f5e";
 
 const FONT_FAMILY =
   'system-ui, -apple-system, "Segoe UI", "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
@@ -123,10 +122,7 @@ export function GroupStatsPage({
       visualMap: {
         show: false,
         dimension: 1,
-        pieces: [
-          { min: 0, color: EMERALD },
-          { max: 0, color: ROSE },
-        ],
+        pieces: netSignPieces(data.map(([, net]) => net)),
       },
       tooltip: {
         trigger: "axis",

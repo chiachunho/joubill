@@ -51,7 +51,12 @@ describe("fmt", () => {
 
 describe("formatMoney", () => {
   it("prefixes a + sign for positive amounts", () => {
-    expect(formatMoney(1234.5, "TWD")).toBe("+1234.50 TWD");
+    expect(formatMoney(1234.5, "TWD")).toBe("+1,234.50 TWD");
+  });
+
+  it("groups thousands, like every other amount in the app", () => {
+    expect(formatMoney(25942.31, "TWD")).toBe("+25,942.31 TWD");
+    expect(formatMoney(-1200, "TWD")).toBe("-1,200 TWD");
   });
 
   it("omits decimals for integer amounts", () => {
