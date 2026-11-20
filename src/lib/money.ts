@@ -26,10 +26,10 @@ export function fmtGrouped(amount: number): string {
   });
 }
 
-/** Format a signed monetary amount: "+300 TWD" or "-33.50 TWD". */
+/** Format a signed monetary amount: "+1,200 TWD" or "-33.50 TWD". */
 export function formatMoney(amount: number, currency: string): string {
   const sign = amount >= 0 ? "+" : "-";
-  return `${sign}${fmt(Math.abs(amount))} ${currency}`;
+  return `${sign}${fmtGrouped(Math.abs(amount))} ${currency}`;
 }
 
 /** Convert a Drizzle numeric column (returned as string) to a JS number. */
