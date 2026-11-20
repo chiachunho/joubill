@@ -1,17 +1,29 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, KeyRound, Plus, Users } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { describeError } from "@/lib/api-error";
+import {
+  GROUP_SORT_KEY,
+  GROUP_SORTS,
+  STANDING_LABEL,
+  parseGroupSort,
+  sortGroups,
+  standingOf,
+  updatedLabel,
+} from "@/lib/group-list";
+import { fmtGrouped } from "@/lib/money";
 import { expenseEditPath } from "@/lib/record-path";
-import { useGetGroupPhotosQuery, useGetMeQuery } from "@/store/api";
+import { useLocalPref } from "@/lib/use-local-pref";
+import { useGetGroupPhotosQuery, useGetMeQuery, useGetMyBalancesQuery } from "@/store/api";
 
 /**
  * Join links already acted on. The start param lives as long as the webview, so without this every
@@ -47,6 +59,26 @@ export function GroupsHome({ platform }: { platform: Platform }) {
   const { data, error } = useGetMeQuery();
   const { data: photosData } = useGetGroupPhotosQuery();
 
+  // A deep link (Mini App only) leaves this page at once, so nothing on it is ever seen.
+  // Known only once `data` is in, which is why the Mini App asks for balances after the list
+  // rather than alongside it; the web, which never redirects, asks for both at once.
+  // What this mount itself redirected to. The module-level sets are updated in the effect, so a
+  // re-render before the navigation lands would otherwise read as "already handled" and start
+  // the request after all.
+  const [sentFromHere] = useState(() => new Set<string>());
+  const pending = (key: string | null | undefined, handled: Set<string>) =>
+    !!key && (!handled.has(key) || sentFromHere.has(key));
+  const invitePending = pending(data?.activeInviteCode, handledInvites);
+  const target = data ? deepLinkTarget(data, platform.basePath) : null;
+  const deepLinkPending = pending(target, handledDeepLinks);
+  const redirecting = deepLinkPending || invitePending;
+  // Fills in after the list: each group's balance converts every record in it.
+  const { data: balancesData, isError: balancesFailed } = useGetMyBalancesQuery(undefined, {
+    skip: platform.deepLinks && (!data || redirecting),
+  });
+  const [storedSort, setStoredSort] = useLocalPref(GROUP_SORT_KEY);
+  const sort = parseGroupSort(storedSort);
+
   // A Telegram deep link (startapp) names a group, and maybe an expense or settlement in it.
   // Only the Mini App gets one: the endpoint leaves activeGroupId null on the web.
   useEffect(() => {
@@ -57,14 +89,16 @@ export function GroupsHome({ platform }: { platform: Platform }) {
       !handledInvites.has(data.activeInviteCode)
     ) {
       handledInvites.add(data.activeInviteCode);
+      sentFromHere.add(data.activeInviteCode);
       router.replace(`${platform.basePath}/join/${data.activeInviteCode}`);
       return;
     }
     const target = data && deepLinkTarget(data, platform.basePath);
     if (!target || handledDeepLinks.has(target)) return;
     handledDeepLinks.add(target);
+    sentFromHere.add(target);
     router.replace(target);
-  }, [data, router, platform.basePath]);
+  }, [data, router, platform.basePath, sentFromHere]);
 
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
 
@@ -80,12 +114,9 @@ export function GroupsHome({ platform }: { platform: Platform }) {
   if (!data) return <GroupsListSkeleton />;
 
   // Blank only while a redirect is about to happen; once the invite was handled the list shows.
-  const invitePending = !!data.activeInviteCode && !handledInvites.has(data.activeInviteCode);
-  const target = deepLinkTarget(data, platform.basePath);
-  const deepLinkPending = !!target && !handledDeepLinks.has(target);
-  if (deepLinkPending || invitePending) return null;
+  if (redirecting) return null;
 
-  const { groups } = data;
+  const groups = sortGroups(data.groups, sort);
 
   return (
     <div className="py-6">
@@ -119,33 +150,99 @@ export function GroupsHome({ platform }: { platform: Platform }) {
           </p>
         </div>
       ) : (
-        <div className="mx-4 divide-y divide-border/50 overflow-hidden rounded-2xl bg-secondary/50">
-          {groups.map((g) => (
-            <Link
-              key={g.id}
-              href={`${platform.basePath}/groups/${g.id}`}
-              className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40 active:bg-accent/60"
+        <>
+          <div className="mx-4 mb-2 flex items-center justify-between gap-3 pl-1">
+            <p className="sect">{groups.length} 個群組</p>
+            <div
+              role="group"
+              aria-label="排序方式"
+              className="flex gap-0.5 rounded-lg bg-secondary p-0.5"
             >
-              {photosData?.photos[g.id] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={photosData.photos[g.id]!}
-                  alt={g.title}
-                  className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+              {GROUP_SORTS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  aria-pressed={sort === o.value}
+                  onClick={() => setStoredSort(o.value)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    sort === o.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mx-4 divide-y divide-border/50 overflow-hidden rounded-2xl bg-secondary/50">
+            {groups.map((g) => (
+              <Link
+                key={g.id}
+                href={`${platform.basePath}/groups/${g.id}`}
+                className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40 active:bg-accent/60"
+              >
+                {photosData?.photos[g.id] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photosData.photos[g.id]!}
+                    alt={g.title}
+                    className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+                  />
+                ) : (
+                  // No photo (a web group has no chat, a Telegram group may not have set one).
+                  <Avatar name={g.title} userId={g.id} />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{g.title}</p>
+                  <p className="text-xs text-muted-foreground">{updatedLabel(g.lastActivityAt)}</p>
+                </div>
+                <GroupBalance
+                  balance={balancesData?.balances[g.id]}
+                  loading={!balancesData && !balancesFailed}
                 />
-              ) : (
-                // No photo (a web group has no chat, a Telegram group may not have set one).
-                <Avatar name={g.title} userId={g.id} />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{g.title}</p>
-                <p className="text-xs text-muted-foreground">{g.defaultCurrency}</p>
-              </div>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
-            </Link>
-          ))}
-        </div>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
+              </Link>
+            ))}
+          </div>
+        </>
       )}
+    </div>
+  );
+}
+
+/**
+ * The viewer's balance in one group, worded like the bot's private `/balance`: 應收 / 應付 over
+ * the amount in the group's currency, or 已結清. Nothing when it could not be loaded.
+ */
+function GroupBalance({
+  balance,
+  loading,
+}: {
+  balance: { amount: number; currency: string } | undefined;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex shrink-0 flex-col items-end gap-1.5" aria-hidden>
+        <Skeleton className="h-2.5 w-6" />
+        <Skeleton className="h-3.5 w-16" />
+      </div>
+    );
+  }
+  if (!balance) return null;
+  const standing = standingOf(balance.amount);
+  if (standing === "settled") {
+    return <span className="shrink-0 text-xs text-muted-foreground">{STANDING_LABEL.settled}</span>;
+  }
+  const tone = standing === "receive" ? "text-emerald-500" : "text-rose-500";
+  return (
+    <div className={`flex shrink-0 flex-col items-end ${tone}`}>
+      <span className="text-xs leading-tight">{STANDING_LABEL[standing]}</span>
+      <span className="num text-sm font-semibold leading-tight">
+        {fmtGrouped(Math.abs(balance.amount))}{" "}
+        <span className="text-xs font-normal">{balance.currency}</span>
+      </span>
     </div>
   );
 }

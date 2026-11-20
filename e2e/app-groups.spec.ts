@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-serverless";
 
 import * as schema from "../src/db/schema";
@@ -14,6 +15,44 @@ test.describe("Group list and group page", () => {
     await authedPage.goto("/app");
     await expect(authedPage.getByText(seeded.groupTitle, { exact: true }).first()).toBeVisible();
     await expect(authedPage.getByText(seeded.foreignGroupTitle, { exact: true })).toHaveCount(0);
+  });
+
+  test("group list shows the user's balance in each group", async ({ authedPage, seeded }) => {
+    // The seeded user paid 300 and owes 150 of it.
+    await authedPage.goto("/app");
+    const row = authedPage.getByRole("link", { name: new RegExp(seeded.groupTitle) });
+    await expect(row).toContainText("應收");
+    await expect(row).toContainText("150 TWD");
+  });
+
+  test("group list sorts by last update, or by name once switched", async ({
+    authedPage,
+    seeded,
+    dbPool,
+  }) => {
+    const db = drizzle(dbPool, { schema });
+    // Made after the seeded group's record, so it is the newest; "E2E zz…" sorts after it by name.
+    const title = `E2E zz ${Date.now()}`;
+    const [group] = await db.insert(schema.groups).values({ title }).returning();
+    try {
+      await db.insert(schema.groupMembers).values({ groupId: group.id, userId: seeded.userId });
+      await authedPage.goto("/app");
+      const rows = authedPage.getByRole("link", { name: /E2E (group|zz) / });
+      await expect(rows.first()).toContainText(title);
+
+      await authedPage.getByRole("button", { name: "名稱" }).click();
+      await expect(rows.first()).toContainText(seeded.groupTitle);
+
+      // The choice is remembered on this device.
+      await authedPage.reload();
+      await expect(rows.first()).toContainText(seeded.groupTitle);
+      await expect(authedPage.getByRole("button", { name: "名稱" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    } finally {
+      await db.delete(schema.groups).where(eq(schema.groups.id, group.id));
+    }
   });
 
   test("group page shows the group title", async ({ authedPage, seeded }) => {

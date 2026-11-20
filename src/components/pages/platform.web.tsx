@@ -129,6 +129,7 @@ export const webPlatform: Platform = {
   loginPath: WEB_LOGIN_PATH,
   HelpAction: WebHelpAction,
   canDownloadExport: true,
+  deepLinks: false,
   inviteHint: () => "對方也可以在「我的群組」按「輸入邀請碼」，貼上邀請碼。",
   linkIdentity,
   openInBrowser: null,
