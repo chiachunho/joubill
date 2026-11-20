@@ -22,4 +22,3 @@ The response has three sections, each answering a different question, and **two 
 ## Refunds (issue #178)
 
 A `type='refund'` record gives back part of what was spent. The monthly group total subtracts its amount, and the selected member's monthly share subtracts their payer leg on it (what they got back), in the same window as the expense rows. `byPayer` (誰付得最多) ignores refunds: it ranks who fronted money. The net trend already includes them, since it reads every record's legs.
-
