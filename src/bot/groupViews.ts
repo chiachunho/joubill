@@ -7,6 +7,7 @@ import { button } from "@/lib/buttons";
 import { telegramChatId } from "@/lib/chat";
 import { groupLink } from "@/lib/deep-link";
 import { clientEnv } from "@/lib/env";
+import { STANDING_LABEL, standingOf } from "@/lib/group-list";
 import { fmtGrouped } from "@/lib/money";
 import { displayName, type NameParts } from "@/lib/profile";
 import { computeGroupBalances, minimizeTransfers } from "@/lib/settlement";
@@ -204,9 +205,10 @@ export async function myBalancesView(
   const lines = shown.map((g, i) => {
     const amount = mine[i];
     const title = escapeHtml(g.title);
-    if (amount === 0) return `・${title} 已結清`;
+    const standing = standingOf(amount);
+    if (standing === "settled") return `・${title} ${STANDING_LABEL.settled}`;
     const money = `<b>${fmtGrouped(Math.abs(amount))} ${g.defaultCurrency}</b>`;
-    return `・${title} ${amount > 0 ? "應收" : "應付"} ${money}`;
+    return `・${title} ${STANDING_LABEL[standing]} ${money}`;
   });
 
   const kb = new InlineKeyboard();

@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GroupsHome } from "@/components/pages/GroupsHome";
@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   mockReplace.mockClear();
   vi.unstubAllGlobals();
 });
@@ -26,7 +27,12 @@ function stubLocation(path: string) {
   return location;
 }
 
-const GROUP = { id: 7, title: "週末旅行", defaultCurrency: "TWD" };
+const GROUP = {
+  id: 7,
+  title: "週末旅行",
+  defaultCurrency: "TWD",
+  lastActivityAt: "2026-11-01T00:00:00Z",
+};
 
 function renderHome(
   platform: Platform,
@@ -37,6 +43,7 @@ function renderHome(
     activeInviteCode?: string;
   } = {},
   failure?: Failure,
+  balances: Record<number, { amount: number; currency: string }> | Failure = {},
 ) {
   const request = fakeRequest({
     "/api/me/groups": failure ?? {
@@ -48,6 +55,7 @@ function renderHome(
       ...me,
     },
     "/api/me/groups/photos": { photos: {} },
+    "/api/me/groups/balances": balances instanceof Failure ? balances : { balances },
   });
   return render(
     <StoreWrapper request={request}>
@@ -151,5 +159,45 @@ describe("GroupsHome", () => {
     renderHome(webPlatform, {}, new Failure(401));
     await waitFor(() => expect(location.href).toBe("/login?next=%2Fapp"));
     expect(screen.queryByText("無法載入群組")).not.toBeInTheDocument();
+  });
+
+  it("shows the viewer's balance in each group, worded like the bot", async () => {
+    const other = { ...GROUP, id: 8, title: "露營", lastActivityAt: "2026-11-02T00:00:00Z" };
+    const third = { ...GROUP, id: 9, title: "北海道", defaultCurrency: "JPY" };
+    renderHome(webPlatform, { groups: [GROUP, other, third] }, undefined, {
+      7: { amount: 1250, currency: "TWD" },
+      8: { amount: 0, currency: "TWD" },
+      9: { amount: -18300, currency: "JPY" },
+    });
+    const row = (name: RegExp) => screen.findByRole("link", { name });
+    expect(within(await row(/週末旅行/)).getByText("應收")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("link", { name: /週末旅行/ })).getByText("1,250"),
+      ).toBeVisible(),
+    );
+    expect(within(await row(/露營/)).getByText("已結清")).toBeInTheDocument();
+    expect(within(await row(/北海道/)).getByText("應付")).toBeInTheDocument();
+    expect(within(await row(/北海道/)).getByText("18,300")).toBeInTheDocument();
+  });
+
+  it("still lists the groups when the balances fail to load", async () => {
+    renderHome(webPlatform, { groups: [GROUP] }, undefined, new Failure(500));
+    expect(await screen.findByRole("link", { name: /週末旅行/ })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("應收")).not.toBeInTheDocument());
+  });
+
+  it("lists the most recently changed group first, and by name once switched", async () => {
+    const older = { ...GROUP, id: 8, title: "北海道", lastActivityAt: "2026-01-01T00:00:00Z" };
+    renderHome(webPlatform, { groups: [older, GROUP] });
+    const titles = () =>
+      screen.getAllByRole("link", { name: /週末旅行|北海道/ }).map((a) => a.textContent ?? "");
+    await screen.findByRole("link", { name: /週末旅行/ });
+    expect(titles()[0]).toContain("週末旅行");
+
+    fireEvent.click(screen.getByRole("button", { name: "名稱" }));
+    // 北 (5 strokes) before 週 (12).
+    await waitFor(() => expect(titles()[0]).toContain("北海道"));
+    expect(screen.getByRole("button", { name: "名稱" })).toHaveAttribute("aria-pressed", "true");
   });
 });
