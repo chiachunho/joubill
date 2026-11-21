@@ -14,6 +14,11 @@ describe("resolveStatsRange", () => {
   const today = "2026-08-15";
 
   it("resolves preset windows back from today", () => {
+    expect(resolveStatsRange("1m", today)).toEqual({
+      from: "2026-07-15",
+      to: today,
+      monthsBack: 1,
+    });
     expect(resolveStatsRange("3m", today)).toEqual({
       from: "2026-05-15",
       to: today,
@@ -233,6 +238,70 @@ describe("computeNetTrend", () => {
       { date: "2026-05-01", amount: 20 },
     ];
     expect(computeNetTrend(legs, "2026-05-01")).toEqual([{ date: "2026-05-01", net: 120 }]);
+  });
+
+  it("keeps one point per day, at the day's closing balance", () => {
+    // An expense the viewer paid 10,000 for, with a 3,300 share: paid leg, then share leg.
+    const legs = [
+      { date: "2026-06-01", amount: 10_000 },
+      { date: "2026-06-01", amount: -3_300 },
+      { date: "2026-06-02", amount: -200 },
+    ];
+    expect(computeNetTrend(legs, null)).toEqual([
+      { date: "2026-06-01", net: 6_700 },
+      { date: "2026-06-02", net: 6_500 },
+    ]);
+  });
+
+  it("carries the last balance to the end of the window", () => {
+    const legs = [{ date: "2026-06-01", amount: 100 }];
+    expect(computeNetTrend(legs, "2026-05-20", "2026-11-20")).toEqual([
+      { date: "2026-05-31", net: 0 },
+      { date: "2026-06-01", net: 100 },
+      { date: "2026-11-20", net: 100 },
+    ]);
+  });
+
+  it("adds no end point when the last record is on `to`", () => {
+    const legs = [{ date: "2026-11-20", amount: 100 }];
+    expect(computeNetTrend(legs, "2026-05-20", "2026-11-20")).toEqual([
+      { date: "2026-11-19", net: 0 },
+      { date: "2026-11-20", net: 100 },
+    ]);
+  });
+
+  it("starts the day before the first record when nothing came before the window", () => {
+    // A trip's records span a week: padding six months of zeros in front squeezed them
+    // into the right edge, and 3 months / 6 months / 1 year all looked the same.
+    const legs = [
+      { date: "2026-11-14", amount: -3_000 },
+      { date: "2026-11-19", amount: 9_000 },
+    ];
+    const expected = [
+      { date: "2026-11-13", net: 0 },
+      { date: "2026-11-14", net: -3_000 },
+      { date: "2026-11-19", net: 6_000 },
+      { date: "2026-11-20", net: 6_000 },
+    ];
+    expect(computeNetTrend(legs, "2026-05-20", "2026-11-20")).toEqual(expected);
+    expect(computeNetTrend(legs, "2025-11-20", "2026-11-20")).toEqual(expected);
+  });
+
+  it("keeps the anchor at `from` when the first record is the window's second day", () => {
+    const legs = [{ date: "2026-05-21", amount: 50 }];
+    expect(computeNetTrend(legs, "2026-05-20", null)[0]).toEqual({ date: "2026-05-20", net: 0 });
+  });
+
+  it("keeps the anchor at `from` when records came before the window", () => {
+    const legs = [
+      { date: "2026-01-01", amount: 100 },
+      { date: "2026-11-14", amount: 20 },
+    ];
+    expect(computeNetTrend(legs, "2026-05-20", null)[0]).toEqual({ date: "2026-05-20", net: 100 });
+  });
+
+  it("stays empty with no records and no window start", () => {
+    expect(computeNetTrend([], null, "2026-11-20")).toEqual([]);
   });
 
   it("rounds to cents", () => {

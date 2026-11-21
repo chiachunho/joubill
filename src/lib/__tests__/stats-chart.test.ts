@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import * as echarts from "echarts";
 
-import { netSignPieces } from "../stats-chart";
+import {
+  monthAxisLabels,
+  monthTooltipLabel,
+  netSignPieces,
+  netTrendMinInterval,
+} from "../stats-chart";
 
 /** Render a net-trend line the way the stats page does and return the SVG. */
 function render(values: number[]): string {
@@ -45,5 +50,39 @@ describe("netSignPieces", () => {
     expect(positive.lte).toBeGreaterThan(10);
     expect(negative).toMatchObject({ lt: 0, color: "#f43f5e" });
     expect(negative.gte).toBeLessThan(-10);
+  });
+});
+
+describe("monthAxisLabels", () => {
+  it("names months within one year without the year", () => {
+    expect(monthAxisLabels(["2026-06", "2026-07", "2026-11"])).toEqual(["6月", "7月", "11月"]);
+  });
+
+  it("never reads like a day of the month", () => {
+    // `06/26` (June 2026) looked like June 26th.
+    for (const label of monthAxisLabels(["2026-06", "2026-07"])) expect(label).not.toMatch(/\//);
+  });
+
+  it("puts the year on the first bar and each January when the bars cross a year", () => {
+    expect(monthAxisLabels(["2025-11", "2025-12", "2026-01", "2026-02"])).toEqual([
+      "2025/11",
+      "12月",
+      "2026/1",
+      "2月",
+    ]);
+  });
+});
+
+describe("monthTooltipLabel", () => {
+  it("spells out the year and month", () => {
+    expect(monthTooltipLabel("2026-06")).toBe("2026年6月");
+  });
+});
+
+describe("netTrendMinInterval", () => {
+  const day = 86_400_000;
+  it("ticks monthly past two months and weekly below", () => {
+    expect(netTrendMinInterval(0, 92 * day)).toBe(28 * day);
+    expect(netTrendMinInterval(0, 31 * day)).toBe(7 * day);
   });
 });

@@ -1,7 +1,7 @@
-import { isDay } from "./day";
+import { addDays, isDay } from "./day";
 
 /** Preset windows for the stats page; "custom" requires explicit from/to. */
-export type StatsRangeKey = "3m" | "6m" | "1y" | "all" | "custom";
+export type StatsRangeKey = "1m" | "3m" | "6m" | "1y" | "all" | "custom";
 
 /** All bounds are calendar days (`YYYY-MM-DD`), the same type a record's date is. */
 export type ResolvedRange = {
@@ -10,7 +10,7 @@ export type ResolvedRange = {
   from: string | null;
   /** Inclusive upper bound. */
   to: string;
-  /** Set only for "3m"/"6m"/"1y" — the net-trend anchor (`from`) is an exact
+  /** Set only for "1m"/"3m"/"6m"/"1y" — the net-trend anchor (`from`) is an exact
    *  day-count window, but the monthly chart / ranking want "the last N
    *  calendar months" (matching the help doc's "選 6 個月會看到 6 根長條"),
    *  which is a different, month-aligned span. The caller uses this to build
@@ -48,7 +48,7 @@ export function resolveStatsRange(
   }
   if (range === "all") return { from: null, to: today };
 
-  const monthsBack = range === "3m" ? 3 : range === "6m" ? 6 : 12;
+  const monthsBack = range === "1m" ? 1 : range === "3m" ? 3 : range === "6m" ? 6 : 12;
   return { from: monthsAgo(today, monthsBack), to: today, monthsBack };
 }
 
@@ -120,36 +120,59 @@ export type NetTrendPoint = { date: string; net: number };
 
 /**
  * Cumulative running net balance over time — the same quantity Balance shows
- * as a single current number, plotted as a series. Legs before `from` are
- * folded into a synthetic anchor point at `from` (rather than dropped or
- * reset to 0) so:
- *   - the rightmost point always matches the user's true current balance,
- *   - a window with no activity still renders a flat, correctly-valued line
- *     instead of an empty chart.
+ * as a single current number, plotted as a series. Rules:
+ *   - **One point per day, at that day's closing balance.** One expense is two
+ *     legs (paid +, share −), so a point per leg drew a spike to a balance the
+ *     person never had (their payment before their own share of it).
+ *   - Legs before `from` are folded into an anchor point at `from` (rather than
+ *     dropped or reset to 0), so a window with no activity still renders a flat,
+ *     correctly-valued line instead of an empty chart.
+ *   - When nothing came before `from`, the anchor (0) moves up to the day before
+ *     the first record. Padding the window with zeros squeezed a group whose
+ *     records span a week into a sliver at the right edge, and made every range
+ *     that holds the same records look identical.
+ *   - With `to`, the series ends with a point at `to` carrying the last balance,
+ *     so the line reaches the end of the window instead of stopping at the last
+ *     record. The rightmost point is always the current balance.
  * `from: null` returns the whole history with no anchor point.
  */
-export function computeNetTrend(legs: NetLeg[], from: string | null): NetTrendPoint[] {
+export function computeNetTrend(
+  legs: NetLeg[],
+  from: string | null,
+  to: string | null = null,
+): NetTrendPoint[] {
   const sorted = [...legs].sort((a, b) => a.date.localeCompare(b.date));
   const points: NetTrendPoint[] = [];
   let running = 0;
   let carried = 0;
+  let hasEarlier = false;
 
   for (const leg of sorted) {
     running += leg.amount;
     const rounded = Math.round(running * 100) / 100;
     if (from && leg.date < from) {
       carried = rounded;
+      hasEarlier = true;
       continue;
     }
-    points.push({ date: leg.date, net: rounded });
+    const last = points.at(-1);
+    if (last?.date === leg.date) last.net = rounded;
+    else points.push({ date: leg.date, net: rounded });
   }
 
   if (from) {
     const first = points[0];
-    if (!first || first.date !== from) {
-      points.unshift({ date: from, net: carried });
+    if (!first) {
+      points.push({ date: from, net: carried });
+    } else if (first.date !== from) {
+      const dayBefore = addDays(first.date, -1);
+      const anchor = hasEarlier || dayBefore < from ? from : dayBefore;
+      points.unshift({ date: anchor, net: carried });
     }
   }
+
+  const last = points.at(-1);
+  if (to && last && last.date < to) points.push({ date: to, net: last.net });
 
   return points;
 }
