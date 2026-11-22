@@ -2,7 +2,8 @@
 
 > 中文版：[design-system.zh-TW.md](design-system.zh-TW.md)
 
-> Visual conventions for the Mini App (`/mini/**`). **Read this before touching any UI.**
+> Visual conventions for the Mini App (`/mini/**`) and the Web App (`/app/**`), which share
+> their page bodies (`src/components/pages/**`). **Read this before touching any UI.**
 > Goal: every page and component grows from the same set of tokens and patterns,
 > so the "every component has a slightly different corner radius" kind of drift never happens again.
 
@@ -95,11 +96,32 @@ Nested inner elements (e.g. options inside a segmented toggle) use `rounded-md`
 
 ## 3. Typography & numbers
 
-- Font: **Plus Jakarta Sans**, loaded in [`layout.tsx`](../src/app/layout.tsx) as `--font-sans`; `font-sans` applies it automatically. Don't import other fonts.
+- Font: **Chiron GoRound TC**, loaded in [`layout.tsx`](../src/app/layout.tsx) and set as `--font-sans` in `globals.css`; `font-sans` applies it automatically. Don't import other fonts.
 - **Financial numbers always get `.num`** (`globals.css`): enables `tabular-nums` + tighter tracking so amounts line up. Add it anywhere you show an amount, percentage, or balance.
 - **Section micro-labels always use `.sect`**: uppercase, widened-tracking micro-label above a grouped panel (e.g. `餘額 · TWD`, `紀錄 (12)`).
 - Page titles: `text-lg font-semibold` (not `text-xl font-bold` — that's the old style).
 - Body: `text-sm` by default; supporting info `text-xs text-muted-foreground`.
+
+### Type scale
+
+Use Tailwind's sizes, plus **one** size of our own below them. **Never `text-[Npx]`.**
+
+| class      | size             | used for                                                      |
+| ---------- | ---------------- | ------------------------------------------------------------- |
+| `text-lg`  | 18px             | page titles                                                   |
+| `text-sm`  | 14px             | body, row labels                                              |
+| `text-xs`  | 12px             | supporting info, dates, hints                                 |
+| `text-2xs` | 11px (0.6875rem) | pills, and text beside a `.sect` label (`.sect` is this size) |
+
+`text-2xs` is defined in `tailwind.config.ts` and registered with tailwind-merge in
+`src/lib/utils.ts` (otherwise `cn("text-2xs", "text-primary")` reads it as a colour and drops
+it). Nothing is smaller: Chinese text below 11px stops being readable.
+
+- **Pills** (唯讀, 已到期, 目前登入, 無帳號 …) are [`Pill`](../src/components/mini/Pill.tsx)
+  with a `tone` (`primary` / `muted` / `destructive`), never a hand-written span.
+- The one exception is the letters inside an avatar, whose size follows the circle
+  (`Avatar.tsx`'s `SIZE_CLASS`). A "+N" after a stack of avatars is `AvatarOverflow`, so it
+  matches the avatars beside it.
 
 ---
 
@@ -187,7 +209,9 @@ scroll to is the wrong place for something that needs their attention right now.
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Loading** | **No spinner.** Use page-shaped skeletons — [`skeletons.tsx`](../src/components/mini/skeletons.tsx) already exports one per page. New pages add a matching skeleton, reusing the `Skeleton` primitive and panel shapes inside. |
 | **Empty**   | Centered, `text-sm text-muted-foreground`, optionally a `size-14 rounded-2xl bg-secondary` icon tile.                                                                                                                          |
-| **Error**   | Centered message + a thin `text-xs text-muted-foreground/60` error detail.                                                                                                                                                     |
+| **Error**   | Centered message + a thin `text-xs text-muted-foreground/60` error detail ([`LoadError`](../src/components/mini/LoadError.tsx)). Not a `Card`.                                                                                 |
+
+A `Loader2` spinner is only for an action in progress, inside the button (or row) that started it; never for a page or a section waiting for data.
 
 ---
 
@@ -203,6 +227,7 @@ scroll to is the wrong place for something that needs their attention right now.
 - [ ] Radius is only `rounded-2xl` (container) / `rounded-lg` (control) / `rounded-full`? No `rounded-xl`, `rounded-[…]`?
 - [ ] All colors go through CSS variables? No hardcoded brand hex? Positive/negative amounts use emerald/rose?
 - [ ] Amounts have `.num`? Sections have a `.sect` micro-label?
+- [ ] Font sizes are Tailwind's or `text-2xs`? No `text-[…]`? Pills are `Pill`?
 - [ ] Loading is a skeleton, not a spinner? Empty / Error states both present?
 - [ ] Reused existing shadcn / `components/mini` components instead of re-rolling one?
 - [ ] A block heavy enough to need its own forms/lists moved to a nav row + sub-page, rather than expanding inline? A collapsed section only used for genuinely secondary content, never for something the user needs to act on right now?

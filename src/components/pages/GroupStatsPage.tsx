@@ -12,6 +12,7 @@ import {
 import { EChart } from "@/components/mini/EChart";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { StatsSkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import type { Platform } from "@/components/pages/platform";
 import { describeError } from "@/lib/api-error";
 import { fmt } from "@/lib/format";
@@ -289,12 +290,7 @@ export function GroupStatsPage({
   }, [stats, selfUserId, viewedUserId]);
 
   if (error) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
 
   if (!stats) return <StatsSkeleton />;
@@ -352,7 +348,7 @@ export function GroupStatsPage({
       <section className="px-4">
         <div className="mb-2.5 flex items-center gap-1.5">
           <p className="sect">近期支出</p>
-          <span className="text-[0.64rem] text-muted-foreground/80">· {rangeLabel}</span>
+          <span className="text-2xs text-muted-foreground/80">· {rangeLabel}</span>
         </div>
         <div className="overflow-hidden rounded-2xl bg-secondary/50 px-4 py-4">
           {stats.monthly.every((m) => m.groupTotal === 0) ? (
@@ -379,7 +375,7 @@ export function GroupStatsPage({
       <section className="px-4">
         <div className="mb-2.5 flex items-center gap-1.5 opacity-80">
           <p className="sect">誰付得最多</p>
-          <span className="text-[0.64rem] text-muted-foreground/80">· {rangeLabel}</span>
+          <span className="text-2xs text-muted-foreground/80">· {rangeLabel}</span>
         </div>
         <div className="overflow-hidden rounded-2xl bg-secondary/30 px-4 py-4">
           {stats.byPayer.length === 0 ? (

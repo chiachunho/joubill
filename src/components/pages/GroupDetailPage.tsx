@@ -15,7 +15,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { Avatar } from "@/components/mini/Avatar";
+import { Avatar, AvatarOverflow } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DeleteRequestBanner } from "@/components/mini/DeleteRequestBanner";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
@@ -24,6 +24,7 @@ import { SoloGroupCard } from "@/components/mini/SoloGroupCard";
 import { TimezonePrompt } from "@/components/mini/TimezonePrompt";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import type { Platform } from "@/components/pages/platform";
 import {
   EXPENSE_ONLY_MINE_KEY,
@@ -189,12 +190,7 @@ export function GroupDetailPage({
   // A failed later page keeps the loaded list and surfaces as the footer's retry button.
   const error = (!expensePages ? expensesError : undefined) ?? balanceError;
   if (error) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
 
   // Wait for `me` too: balance view and the "only mine" filter depend on selfUserId.
@@ -272,10 +268,8 @@ export function GroupDetailPage({
       )}
 
       {showSettled && (
-        <div className="mx-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-center">
-          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-            所有帳款已結清
-          </p>
+        <div className="mx-4 rounded-2xl bg-primary/10 px-4 py-3 text-center">
+          <p className="text-sm font-medium text-primary">所有帳款已結清</p>
           <div className="mt-2 flex justify-center gap-4">
             <Link
               href={`${platform.basePath}/groups/${id}/stats`}
@@ -647,9 +641,9 @@ export function GroupDetailPage({
                             </div>
                           ))}
                           {e.payers.length > 2 && (
-                            <span className="-ml-2 flex size-7 items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground ring-2 ring-background">
-                              +{e.payers.length - 2}
-                            </span>
+                            <div className="-ml-2">
+                              <AvatarOverflow count={e.payers.length - 2} size="sm" />
+                            </div>
                           )}
                           {e.payers.length === 0 && (
                             <Avatar src={null} name="?" userId={0} size="sm" />

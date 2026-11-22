@@ -8,6 +8,7 @@ import { IconTile } from "@/components/mini/IconTile";
 import { CustomRatesSection } from "@/components/mini/CustomRatesSection";
 import { SettingsSubpageSkeleton } from "@/components/mini/skeletons";
 import { TimeZoneSelect } from "@/components/mini/TimeZoneSelect";
+import { LoadError } from "@/components/mini/LoadError";
 import type { Platform } from "@/components/pages/platform";
 import {
   Select,
@@ -77,12 +78,7 @@ export function GroupRatesPage({
   }
 
   if (error) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
 
   if (!settings) {

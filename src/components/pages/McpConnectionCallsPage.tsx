@@ -5,7 +5,9 @@ import Link from "next/link";
 import { ChevronRight, History } from "lucide-react";
 
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Pill } from "@/components/mini/Pill";
+import { McpCallRowsSkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { recordHistoryHref } from "@/lib/activity-link";
@@ -23,13 +25,10 @@ import { cn } from "@/lib/utils";
 import { useAutoLoadMore } from "@/lib/use-auto-load-more";
 import { useGetMcpCallsInfiniteQuery, useGetMcpConnectionsQuery, useGetMeQuery } from "@/store/api";
 
-const TONE = {
-  ok: "bg-primary/10 text-primary",
-  info: "bg-amber-500/15 text-foreground",
-  bad: "bg-destructive/10 text-destructive",
-} as const;
+// A preview or a duplicate is neither success nor failure: it reads as the neutral muted tone.
+const TONE = { ok: "primary", info: "muted", bad: "destructive" } as const;
 
-const DOT = { ok: "bg-primary", info: "bg-amber-500", bad: "bg-destructive" } as const;
+const DOT = { ok: "bg-primary", info: "bg-muted-foreground/50", bad: "bg-destructive" } as const;
 
 function whenLabel(iso: string): string {
   const d = new Date(iso);
@@ -87,12 +86,7 @@ export function McpConnectionCallsPage({
   const titles = new Map((me?.groups ?? []).map((g) => [g.id, g.title]));
 
   if (error && !pages && !redirectToLogin) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
 
   return (
@@ -131,11 +125,7 @@ export function McpConnectionCallsPage({
       </div>
 
       {switching ? (
-        <div className="space-y-2 px-4" aria-busy="true" aria-label="載入中">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-lg" />
-          ))}
-        </div>
+        <McpCallRowsSkeleton />
       ) : calls.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
           <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
@@ -174,14 +164,9 @@ export function McpConnectionCallsPage({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="num text-xs font-semibold">{c.tool}</span>
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
-                          TONE[info.tone],
-                        )}
-                      >
+                      <Pill tone={TONE[info.tone]} strong>
                         {info.label}
-                      </span>
+                      </Pill>
                     </div>
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {c.groupId == null ? "沒有指定群組" : (groupTitle ?? "其他群組")}
