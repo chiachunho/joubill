@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { Panel, Section } from "@/components/mini/Panel";
 import { IconTile } from "@/components/mini/IconTile";
 import { RefundIcon } from "@/components/mini/RefundIcon";
 import { Avatar } from "@/components/mini/Avatar";
@@ -237,7 +238,7 @@ export function ActivityList({
   if (!groupByDay) {
     return (
       <section className="px-4">
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+        <Panel>
           {entries.map((e) => (
             <Row
               key={e.id}
@@ -252,7 +253,7 @@ export function ActivityList({
               currentRecordId={currentRecordId}
             />
           ))}
-        </div>
+        </Panel>
       </section>
     );
   }
@@ -267,9 +268,8 @@ export function ActivityList({
   return (
     <>
       {Array.from(byDay.entries()).map(([label, group]) => (
-        <section key={label} className="px-4">
-          <p className="sect mb-2.5">{label}</p>
-          <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+        <Section key={label} title={label}>
+          <Panel>
             {group.map((e) => (
               <Row
                 key={e.id}
@@ -284,8 +284,8 @@ export function ActivityList({
                 currentRecordId={currentRecordId}
               />
             ))}
-          </div>
-        </section>
+          </Panel>
+        </Section>
       ))}
     </>
   );

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Bell, BellOff, ChevronRight, Send } from "lucide-react";
 
+import { Panel, Section } from "@/components/mini/Panel";
 import { IconTile } from "@/components/mini/IconTile";
 import { Switch } from "@/components/ui/switch";
 import { NEVER } from "@/lib/onboarding-prompts";
@@ -67,12 +68,11 @@ export function NotificationSection({ env }: { env: PwaEnv }) {
   let disabled = busy;
   if (device.support === "unsupported") {
     return (
-      <section className="px-4">
-        <p className="sect mb-2.5">通知</p>
+      <Section title="通知">
         <div className="rounded-2xl bg-secondary/50 px-4 py-3 text-sm text-muted-foreground">
           這個瀏覽器不支援推播通知。可以改用 Chrome、Edge、Firefox，或在 iPhone 上把揪帳加到主畫面。
         </div>
-      </section>
+      </Section>
     );
   } else if (device.support === "needs-home-screen") {
     status = "需要先加到主畫面";
@@ -90,9 +90,8 @@ export function NotificationSection({ env }: { env: PwaEnv }) {
   }
 
   return (
-    <section className="px-4">
-      <p className="sect mb-2.5">通知</p>
-      <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+    <Section title="通知">
+      <Panel>
         <label className="flex items-center gap-3 px-4 py-3">
           <IconTile icon={denied ? BellOff : Bell} />
           <div className={disabled && !busy ? "min-w-0 flex-1 opacity-60" : "min-w-0 flex-1"}>
@@ -120,9 +119,9 @@ export function NotificationSection({ env }: { env: PwaEnv }) {
             <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
           </button>
         )}
-      </div>
+      </Panel>
       {error && <p className="mt-2 px-1 text-xs text-destructive">{error}</p>}
       {note && <p className="mt-2 px-1 text-xs text-muted-foreground">{note}</p>}
-    </section>
+    </Section>
   );
 }

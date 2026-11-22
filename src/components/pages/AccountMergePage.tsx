@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
 
+import { Panel, Section } from "@/components/mini/Panel";
 import { Avatar } from "@/components/mini/Avatar";
 import { Pill } from "@/components/mini/Pill";
 import { AccountMergeSkeleton } from "@/components/mini/skeletons";
@@ -61,8 +62,7 @@ function MergeOnWeb({ openInBrowser }: { openInBrowser: (path: string) => void }
           Telegram 裡完成授權。
         </p>
       </div>
-      <section className="px-4">
-        <p className="sect mb-2.5">步驟</p>
+      <Section title="步驟">
         <ol className="list-decimal space-y-2 rounded-2xl bg-secondary/50 py-3 pl-9 pr-4 text-sm">
           <li>在瀏覽器開啟網頁版，用 Telegram 登入。</li>
           <li>到「個人設定 → 登入方式」，連結另一個帳號用的登入方式。</li>
@@ -71,7 +71,7 @@ function MergeOnWeb({ openInBrowser }: { openInBrowser: (path: string) => void }
         <p className="mt-2 px-1 text-xs text-muted-foreground">
           合併後兩個帳號的群組和紀錄都在同一個帳號底下，無法還原。
         </p>
-      </section>
+      </Section>
       <div className="px-4">
         <Button className="w-full rounded-lg" onClick={() => openInBrowser("/app/settings")}>
           <ExternalLink className="size-4" />
@@ -190,8 +190,7 @@ function MergeConfirm({ platform }: { platform: Platform }) {
         </p>
       </div>
 
-      <section className="px-4">
-        <p className="sect mb-2.5">保留哪個帳號</p>
+      <Section title="保留哪個帳號">
         <fieldset className="flex flex-col gap-2">
           <legend className="sr-only">保留哪個帳號</legend>
           {/* Fixed order, so picking the other account doesn't make the rows jump. */}
@@ -209,11 +208,10 @@ function MergeConfirm({ platform }: { platform: Platform }) {
         <p className="mt-2 px-1 text-xs text-muted-foreground">
           保留的帳號沿用它的名稱與頭像；它缺的資料（例如 Telegram、Email）會從另一邊補上。
         </p>
-      </section>
+      </Section>
 
-      <section className="px-4">
-        <p className="sect mb-2.5">合併後</p>
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50 text-sm">
+      <Section title="合併後">
+        <Panel className="text-sm">
           <div className="flex justify-between gap-3 px-4 py-3">
             <span>群組</span>
             <span className="num font-medium">
@@ -229,14 +227,14 @@ function MergeConfirm({ platform }: { platform: Platform }) {
             <span>登入方式</span>
             <span className="font-medium">{providerList(providers)}</span>
           </div>
-        </div>
+        </Panel>
         {data.sharedGroups.length > 0 && (
           <p className="mt-2 px-1 text-xs text-muted-foreground">
             {data.sharedGroups.map((g) => `「${g.title}」`).join("")}
             兩個帳號都是成員，會併成一位成員；同一筆帳目上的付款與分攤會加總，餘額不變。
           </p>
         )}
-      </section>
+      </Section>
 
       <div className="px-4">
         <Button className="w-full rounded-lg" onClick={() => setConfirming(true)}>

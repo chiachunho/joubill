@@ -4,6 +4,7 @@ import { useState } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { IconTile } from "@/components/mini/IconTile";
 import { RateRowsSkeleton } from "@/components/mini/skeletons";
 import { ErrorNote } from "@/components/mini/ErrorNote";
@@ -160,7 +161,7 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
 
   return (
     <section className="px-4">
-      <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+      <Panel>
         {rates.map((row) => {
           const dormant = row.quote !== defaultCurrency;
           return (
@@ -251,7 +252,7 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
             設定後，此幣別的所有支出（含過去）都會以這個匯率換算。
           </p>
         </div>
-      </div>
+      </Panel>
       {errMsg && (
         <ErrorNote className="mt-2" onDismiss={() => setErrMsg(null)}>
           {errMsg}

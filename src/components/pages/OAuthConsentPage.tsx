@@ -9,6 +9,7 @@ import {
   scopeIsValid,
   type Scope,
 } from "@/components/mini/AppFormFields";
+import { Section } from "@/components/mini/Panel";
 import { OAuthConsentSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
 import type { Platform } from "@/components/pages/platform";
@@ -120,8 +121,7 @@ function Consent({ platform }: { platform: Platform }) {
         </p>
       </div>
 
-      <section className="px-4">
-        <p className="sect mb-2.5">它可以</p>
+      <Section title="它可以">
         <ul className="space-y-2 rounded-2xl bg-secondary/50 px-4 py-3 text-sm">
           <li className="flex gap-2.5">
             <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
@@ -143,7 +143,7 @@ function Consent({ platform }: { platform: Platform }) {
             <span>不能建立或刪除群組、邀請成員、合併帳號、修改匯率設定</span>
           </li>
         </ul>
-      </section>
+      </Section>
 
       <section className="space-y-4 px-4">
         {canWrite ? (

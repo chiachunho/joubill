@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, ExternalLink } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { BeancountSettingsSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,7 +114,7 @@ function Editor({ groupId, initial }: { groupId: string; initial: Config }) {
       </section>
 
       <section className="px-4">
-        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+        <Panel divided={false}>
           <div className="space-y-3 px-4 py-3">
             {FIELDS.map(({ key, label }) => {
               const id = `beancount-${key}`;
@@ -135,7 +136,7 @@ function Editor({ groupId, initial }: { groupId: string; initial: Config }) {
               );
             })}
           </div>
-        </div>
+        </Panel>
       </section>
 
       <section className="flex items-center gap-3 px-4">

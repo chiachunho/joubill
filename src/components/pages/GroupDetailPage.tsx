@@ -14,6 +14,7 @@ import {
   User,
 } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { Avatar, AvatarOverflow } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DeleteRequestBanner } from "@/components/mini/DeleteRequestBanner";
@@ -285,7 +286,7 @@ export function GroupDetailPage({
               統計
             </Link>
           </div>
-          <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          <Panel>
             {balance.balances.map((b) => (
               <div key={b.userId} className="flex items-center gap-3 px-4 py-3">
                 <Avatar src={getPhoto(b.userId)} name={labelUser(b)} userId={b.userId} size="sm" />
@@ -304,7 +305,7 @@ export function GroupDetailPage({
                 </span>
               </div>
             ))}
-          </div>
+          </Panel>
         </section>
       )}
 
@@ -436,7 +437,7 @@ export function GroupDetailPage({
             {Array.from(expensesByMonth.entries()).map(([month, exps]) => (
               <div key={month}>
                 <p className="mb-2 text-xs font-medium text-muted-foreground">{month}</p>
-                <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+                <Panel>
                   {exps.map((e) => {
                     const day = Number(e.spentAt.slice(8, 10));
 
@@ -676,7 +677,7 @@ export function GroupDetailPage({
                       </Link>
                     );
                   })}
-                </div>
+                </Panel>
               </div>
             ))}
           </div>

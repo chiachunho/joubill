@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { Avatar } from "@/components/mini/Avatar";
 import {
   Dialog,
@@ -72,11 +73,7 @@ export function AvatarSourceDialog({ open, onOpenChange, profile, name }: Props)
           <DialogTitle>頭像</DialogTitle>
           <DialogDescription>從已連結的登入方式挑一張。</DialogDescription>
         </DialogHeader>
-        <div
-          role="radiogroup"
-          aria-label="頭像來源"
-          className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50"
-        >
+        <Panel role="radiogroup" aria-label="頭像來源">
           {rows.map((row) => {
             const selected = row.key === profile.avatarSource;
             const busy = saving === (row.key ?? "auto");
@@ -110,7 +107,7 @@ export function AvatarSourceDialog({ open, onOpenChange, profile, name }: Props)
               </button>
             );
           })}
-        </div>
+        </Panel>
         {error && <p className="text-sm text-destructive">{error}</p>}
       </DialogContent>
     </Dialog>

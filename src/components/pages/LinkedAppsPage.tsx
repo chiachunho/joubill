@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Copy, Check, Eye, Pencil, Plus, Sparkles } from "lucide-react";
 
+import { Panel, Section } from "@/components/mini/Panel";
 import { CreateAppTokenDialog } from "@/components/mini/CreateAppTokenDialog";
 import { LinkedAppsSkeleton } from "@/components/mini/skeletons";
 import { Pill } from "@/components/mini/Pill";
@@ -69,8 +70,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
         </p>
       </div>
 
-      <section className="px-4">
-        <p className="sect mb-2.5">MCP 伺服器網址</p>
+      <Section title="MCP 伺服器網址">
         <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2">
           <input
             readOnly
@@ -94,10 +94,9 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
             ? "無法自動複製，請長按或選取上面的網址複製"
             : "在 Claude 或 ChatGPT「新增連接器」貼上這個網址。"}
         </p>
-      </section>
+      </Section>
 
-      <section className="px-4">
-        <p className="sect mb-2.5">已連結</p>
+      <Section title="已連結">
         {list.length === 0 ? (
           <div className="rounded-2xl bg-secondary/50 px-4 py-6 text-center">
             <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -109,7 +108,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          <Panel>
             {list.map((c) => {
               const expired = connectionStatus(c) === "expired";
               return (
@@ -140,7 +139,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
                 </Link>
               );
             })}
-          </div>
+          </Panel>
         )}
         <Button
           className="mt-3 w-full rounded-lg"
@@ -160,7 +159,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
           <span className="flex-1">設定範例與說明</span>
           <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
         </platform.HelpAction>
-      </section>
+      </Section>
 
       <CreateAppTokenDialog open={creating} onOpenChange={setCreating} groups={groups} />
     </div>

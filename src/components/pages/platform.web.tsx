@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { ChevronLeft, LogOut, UserCircle } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import type { Platform } from "@/components/pages/platform";
 import { DeviceSettings } from "@/components/pwa/DeviceSettings";
 import { GroupNotificationSetting } from "@/components/pwa/GroupNotificationSetting";
@@ -94,7 +95,7 @@ function WebAccountSection() {
 
   return (
     <section className="px-4">
-      <div className="overflow-hidden rounded-2xl bg-secondary/50">
+      <Panel divided={false}>
         <button
           onClick={handleLogout}
           disabled={loggingOut}
@@ -103,7 +104,7 @@ function WebAccountSection() {
           <LogOut className="size-4" />
           {loggingOut ? "登出中…" : "登出"}
         </button>
-      </div>
+      </Panel>
     </section>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, KeyRound, Link2, Merge, Unlink } from "lucide-react";
 
+import { Panel, Section } from "@/components/mini/Panel";
 import { ErrorNote } from "@/components/mini/ErrorNote";
 import { IconTile } from "@/components/mini/IconTile";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -117,8 +118,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
   }
 
   return (
-    <section className="px-4">
-      <p className="sect mb-2.5">登入方式</p>
+    <Section title="登入方式">
       {alert && (
         <ErrorNote ref={alertRef} className="mb-2.5" onDismiss={() => setAlert(null)}>
           <div className="space-y-2">
@@ -138,7 +138,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
           </div>
         </ErrorNote>
       )}
-      <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+      <Panel>
         {linked.map((provider) => {
           const verdict = canUnlink(provider, data.linked);
           return (
@@ -179,7 +179,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
             <span className="flex-1 text-sm">連結 {PROVIDER_LABEL[provider]}</span>
           </button>
         ))}
-      </div>
+      </Panel>
       <p className="mt-2 px-1 text-xs text-muted-foreground">
         {platform.linkIdentity
           ? "先把其他登入方式連結到這個帳號，之後用它登入才會看到原本的群組。如果那個登入方式已經屬於你的另一個帳號，會讓你選擇把兩個帳號合併。"
@@ -203,6 +203,6 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
         loading={unlinking}
         onConfirm={confirmUnlink}
       />
-    </section>
+    </Section>
   );
 }

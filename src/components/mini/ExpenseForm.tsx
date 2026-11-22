@@ -8,6 +8,7 @@ import { skipToken } from "@reduxjs/toolkit/query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronRight, Plus, X } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { MemberSelect } from "@/components/mini/MemberSelect";
@@ -810,7 +811,7 @@ export function ExpenseForm(props: Props) {
                 </div>
                 {multiPayerMode ? (
                   <>
-                    <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+                    <Panel>
                       {multiPayerEntries.map((entry) => {
                         const m = members.find((x) => x.id === entry.userId);
                         return (
@@ -845,7 +846,7 @@ export function ExpenseForm(props: Props) {
                           </div>
                         );
                       })}
-                    </div>
+                    </Panel>
                     {totalAmount > 0 && (
                       <div className="rounded-2xl bg-secondary/50 px-4 py-3">
                         <div
@@ -966,7 +967,7 @@ export function ExpenseForm(props: Props) {
             render={() => (
               <FormItem>
                 <FormLabel>參與者</FormLabel>
-                <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+                <Panel>
                   {fields.map((f, i) => {
                     const m = members.find((x) => x.id === f.userId);
                     const isIncluded = participants[i]?.included ?? false;
@@ -1100,7 +1101,7 @@ export function ExpenseForm(props: Props) {
                       </div>
                     );
                   })}
-                </div>
+                </Panel>
                 {/* Stats bar */}
                 <div className="rounded-2xl bg-secondary/50 px-4 py-3">
                   {shareType === "equal" ? (

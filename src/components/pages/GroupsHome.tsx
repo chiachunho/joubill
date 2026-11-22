@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, KeyRound, Plus, Users } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { Avatar } from "@/components/mini/Avatar";
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
@@ -160,7 +161,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
               onChange={setStoredSort}
             />
           </div>
-          <div className="mx-4 divide-y divide-border/50 overflow-hidden rounded-2xl bg-secondary/50">
+          <Panel className="mx-4">
             {groups.map((g) => (
               <Link
                 key={g.id}
@@ -180,7 +181,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
               </Link>
             ))}
-          </div>
+          </Panel>
         </>
       )}
     </div>

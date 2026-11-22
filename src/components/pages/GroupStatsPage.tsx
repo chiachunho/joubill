@@ -9,6 +9,7 @@ import {
   RANGE_LABELS,
   type StatsRangeValue,
 } from "@/components/mini/DateRangeSelect";
+import { Panel, Section } from "@/components/mini/Panel";
 import { EChart } from "@/components/mini/EChart";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { StatsSkeleton } from "@/components/mini/skeletons";
@@ -326,9 +327,8 @@ export function GroupStatsPage({
       </section>
 
       {/* Net trend — the primary chart */}
-      <section className="px-4">
-        <p className="sect mb-2.5">淨額歷史趨勢</p>
-        <div className="overflow-hidden rounded-2xl bg-secondary/50 px-4 py-4">
+      <Section title="淨額歷史趨勢">
+        <Panel divided={false} className="px-4 py-4">
           {stats.netTrend.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">尚無資料</p>
           ) : (
@@ -341,8 +341,8 @@ export function GroupStatsPage({
               {netTrendOption && <EChart option={netTrendOption} height={200} />}
             </>
           )}
-        </div>
-      </section>
+        </Panel>
+      </Section>
 
       {/* Monthly spend, with the viewed member's share overlaid */}
       <section className="px-4">
@@ -350,7 +350,7 @@ export function GroupStatsPage({
           <p className="sect">近期支出</p>
           <span className="text-2xs text-muted-foreground/80">· {rangeLabel}</span>
         </div>
-        <div className="overflow-hidden rounded-2xl bg-secondary/50 px-4 py-4">
+        <Panel divided={false} className="px-4 py-4">
           {stats.monthly.every((m) => m.groupTotal === 0) ? (
             <p className="py-4 text-center text-sm text-muted-foreground">這段期間沒有支出</p>
           ) : (
@@ -368,7 +368,7 @@ export function GroupStatsPage({
               {monthlyOption && <EChart option={monthlyOption} height={220} />}
             </>
           )}
-        </div>
+        </Panel>
       </section>
 
       {/* By payer — kept as a secondary block, now scoped to the same range */}
@@ -377,7 +377,7 @@ export function GroupStatsPage({
           <p className="sect">誰付得最多</p>
           <span className="text-2xs text-muted-foreground/80">· {rangeLabel}</span>
         </div>
-        <div className="overflow-hidden rounded-2xl bg-secondary/30 px-4 py-4">
+        <Panel divided={false} muted className="px-4 py-4">
           {stats.byPayer.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">這段期間沒有支出</p>
           ) : (
@@ -392,7 +392,7 @@ export function GroupStatsPage({
               )}
             </>
           )}
-        </div>
+        </Panel>
       </section>
     </div>
   );

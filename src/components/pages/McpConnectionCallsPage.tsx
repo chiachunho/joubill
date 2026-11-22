@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, History } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { Pill } from "@/components/mini/Pill";
 import { McpCallRowsSkeleton } from "@/components/mini/skeletons";
@@ -122,7 +123,7 @@ export function McpConnectionCallsPage({
           </p>
         </div>
       ) : (
-        <ul className="mx-4 divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+        <Panel as="ul" className="mx-4">
           {calls.map((c) => {
             const info = outcomeInfo(c.outcome);
             const open = openId === c.id;
@@ -188,7 +189,7 @@ export function McpConnectionCallsPage({
               </li>
             );
           })}
-        </ul>
+        </Panel>
       )}
 
       {!switching && (hasNextPage || error) && (

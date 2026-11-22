@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronRight, Sparkles } from "lucide-react";
 
+import { Panel, Section } from "@/components/mini/Panel";
 import { IconTile } from "@/components/mini/IconTile";
 import type { Platform } from "@/components/pages/platform";
 import { activeConnections } from "@/lib/app-ui";
@@ -17,9 +18,8 @@ export function LinkedAppsSection({ platform }: { platform: Platform }) {
   const active = data ? activeConnections(data.connections) : null;
 
   return (
-    <section className="px-4">
-      <p className="sect mb-2.5">連結的應用程式</p>
-      <div className="overflow-hidden rounded-2xl bg-secondary/50">
+    <Section title="連結的應用程式">
+      <Panel divided={false}>
         <Link
           href={`${platform.basePath}/settings/apps`}
           className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
@@ -36,7 +36,7 @@ export function LinkedAppsSection({ platform }: { platform: Platform }) {
           {active && <span className="num text-sm text-muted-foreground">{active.length}</span>}
           <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
         </Link>
-      </div>
-    </section>
+      </Panel>
+    </Section>
   );
 }

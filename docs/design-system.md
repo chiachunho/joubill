@@ -147,6 +147,8 @@ The iOS-style grouped panel is the standard container for lists / balances / par
 </section>
 ```
 
+In code this is [`Section`](../src/components/mini/Panel.tsx) + `Panel` (`<Section title="Balance · TWD"><Panel>…</Panel></Section>`); write the classes by hand only in a skeleton. `Panel muted` is the quieter `bg-secondary/30` for a secondary block, `divided={false}` for one block instead of rows.
+
 Key points: `rounded-2xl` + `bg-secondary/50` + `overflow-hidden` + `divide-y
 divide-border/40`. List rows are uniformly `flex items-center gap-3 px-4 py-3` —
 avatar left, text middle, amount right (`.num`).

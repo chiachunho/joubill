@@ -126,6 +126,8 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 
 要點:`rounded-2xl` + `bg-secondary/50` + `overflow-hidden` + `divide-y divide-border/40`。列表 row 統一 `flex items-center gap-3 px-4 py-3`,左頭像、中文字、右金額(`.num`)。
 
+程式裡用 [`Section`](../src/components/mini/Panel.tsx) + `Panel`(`<Section title="餘額 · TWD"><Panel>…</Panel></Section>`),只有 skeleton 才手寫這些 class。`Panel muted` 是較淡的 `bg-secondary/30`(次要區塊),`divided={false}` 用在單一內容而不是多列。
+
 ---
 
 ## 6. 導覽 Row 與可摺疊區塊

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronRight, X } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { useAuthMode } from "@/components/AuthProvider";
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -452,7 +453,7 @@ export function RefundForm({
 
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium leading-none">參與者</span>
-          <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          <Panel>
             {split === "ratio"
               ? parent.splits.map((p) => {
                   const share = ratio.find((r) => r.userId === p.userId);
@@ -516,7 +517,7 @@ export function RefundForm({
                     </div>
                   );
                 })}
-          </div>
+          </Panel>
           <div className="rounded-2xl bg-secondary/50 px-4 py-3">
             {split === "ratio" ? (
               <span className="num flex items-center gap-1.5 text-sm text-muted-foreground">

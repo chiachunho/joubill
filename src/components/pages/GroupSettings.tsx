@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import { Coins, Download, History, MoreHorizontal, Plus } from "lucide-react";
 
+import { Panel, Section } from "@/components/mini/Panel";
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DeleteGroupRow } from "@/components/mini/DeleteGroupRow";
@@ -202,9 +203,8 @@ export function GroupSettings({
       </div>
 
       {/* 成員 */}
-      <section className="px-4">
-        <p className="sect mb-2.5">一起分帳 ({activeMembers.length})</p>
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+      <Section title={<>一起分帳 ({activeMembers.length})</>}>
+        <Panel>
           {activeMembers.map(memberRow)}
           <button
             onClick={() => setAddOpen(true)}
@@ -213,16 +213,13 @@ export function GroupSettings({
             <Plus className="size-4" />
             新增成員
           </button>
-        </div>
-      </section>
+        </Panel>
+      </Section>
 
       {pausedMembers.length > 0 && (
-        <section className="px-4">
-          <p className="sect mb-2.5">暫停分帳 ({pausedMembers.length})</p>
-          <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/30">
-            {pausedMembers.map(memberRow)}
-          </div>
-        </section>
+        <Section title={<>暫停分帳 ({pausedMembers.length})</>}>
+          <Panel muted>{pausedMembers.map(memberRow)}</Panel>
+        </Section>
       )}
 
       {toggleError && (
@@ -242,7 +239,7 @@ export function GroupSettings({
           audit log (the group page header has no free slot, and the record forms' "最後由 X
           修改" line is the shortcut from a record). 刪除群組 stays last. */}
       <section className="px-4">
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+        <Panel>
           <NavRow href={`${platform.basePath}/groups/${id}/settings/telegram`} icon={TelegramGlyph}>
             Telegram 群組
           </NavRow>
@@ -265,7 +262,7 @@ export function GroupSettings({
             selfUserId={selfUserId}
             redirectPath={platform.basePath}
           />
-        </div>
+        </Panel>
       </section>
 
       <AddMemberDialog
