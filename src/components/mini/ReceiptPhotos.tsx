@@ -155,7 +155,7 @@ export function ReceiptPhotos({
               <button
                 type="button"
                 onClick={() => setFileIds((prev) => prev.filter((_, j) => j !== i))}
-                className="absolute right-1 top-1 rounded-md bg-black/50 p-1 text-white backdrop-blur-sm"
+                className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white backdrop-blur-sm"
                 aria-label="移除此收據"
               >
                 <X className="size-3" />

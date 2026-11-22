@@ -2,7 +2,7 @@
 
 import { use, useMemo } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadError } from "@/components/mini/LoadError";
 import { SettlementForm } from "@/components/mini/SettlementForm";
 import { FormSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
@@ -43,29 +43,13 @@ export function GroupSettlementEditPage({
   }, [avatars, selfId, selfPhotoUrl]);
 
   if (meError || msError || settlementError) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>無法載入</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          {describeError(meError ?? msError ?? settlementError)}
-        </CardContent>
-      </Card>
-    );
+    return <LoadError detail={describeError(meError ?? msError ?? settlementError)} />;
   }
   if (!me || !ms || !settlement) return <FormSkeleton variant="settlement" />;
 
   const group = me.groups.find((g) => g.id === groupId);
   if (!group) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>無法載入</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">你不屬於這個群組</CardContent>
-      </Card>
-    );
+    return <LoadError detail="你不屬於這個群組" />;
   }
 
   return (

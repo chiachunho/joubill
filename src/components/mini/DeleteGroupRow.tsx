@@ -6,6 +6,7 @@ import { Clock, Loader2, Trash2 } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { IconTile } from "@/components/mini/IconTile";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   useApproveDeleteRequestMutation,
   useCancelDeleteRequestMutation,
@@ -109,9 +110,9 @@ export function DeleteGroupRow({ groupId, membersCount, selfUserId, redirectPath
   return (
     <>
       {dangerZoneLoading ? (
-        <div className="flex items-center gap-3 px-4 py-3">
-          <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">載入中…</p>
+        <div className="flex items-center gap-3 px-4 py-3" aria-busy="true" aria-label="載入中">
+          <Skeleton className="size-7 shrink-0 rounded-full" />
+          <Skeleton className="h-3.5 w-20" />
         </div>
       ) : pendingRequest ? (
         pendingRequest.requestedBy === selfUserId ? (

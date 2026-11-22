@@ -3,7 +3,7 @@
 import { use, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadError } from "@/components/mini/LoadError";
 import { ExpenseForm } from "@/components/mini/ExpenseForm";
 import { FormSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
@@ -43,29 +43,13 @@ export function GroupExpenseEditPage({
   }, [avatars, selfId, selfPhotoUrl]);
 
   if (meError || msError || expError) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>無法載入</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          {describeError(meError ?? msError ?? expError)}
-        </CardContent>
-      </Card>
-    );
+    return <LoadError detail={describeError(meError ?? msError ?? expError)} />;
   }
   if (!me || !ms || !exp) return <FormSkeleton variant="expense" />;
 
   const group = me.groups.find((g) => g.id === groupId);
   if (!group) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>無法載入</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">你不屬於這個群組</CardContent>
-      </Card>
-    );
+    return <LoadError detail="你不屬於這個群組" />;
   }
 
   return (

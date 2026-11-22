@@ -1,8 +1,22 @@
+type AvatarSize = "xs" | "sm" | "md" | "lg";
+
 type Props = {
   src?: string | null;
   name: string;
   userId: number;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: AvatarSize;
+};
+
+/**
+ * Circle size and the size of the letters inside it. The letters follow the circle, so the
+ * two smallest are below the design system's type scale on purpose; this is the only
+ * place such sizes are allowed (docs/design-system.md §3).
+ */
+const SIZE_CLASS: Record<AvatarSize, string> = {
+  xs: "size-5 text-[9px]",
+  sm: "size-7 text-[10px]",
+  md: "size-9 text-xs",
+  lg: "size-12 text-sm",
 };
 
 const COLORS = [
@@ -25,14 +39,7 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
     .join("")
     .toUpperCase();
   const color = COLORS[userId % COLORS.length];
-  const sizeClass =
-    size === "xs"
-      ? "size-5 text-[9px]"
-      : size === "sm"
-        ? "size-7 text-[10px]"
-        : size === "lg"
-          ? "size-12 text-sm"
-          : "size-9 text-xs";
+  const sizeClass = SIZE_CLASS[size];
 
   if (src) {
     return (
@@ -53,6 +60,17 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
       className={`${sizeClass} ${color} inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white`}
     >
       {initials || "?"}
+    </span>
+  );
+}
+
+/** The "+N" circle after a stack of avatars, sized like the avatars it follows. */
+export function AvatarOverflow({ count, size = "md" }: { count: number; size?: AvatarSize }) {
+  return (
+    <span
+      className={`${SIZE_CLASS[size]} inline-flex shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground ring-2 ring-background`}
+    >
+      +{count}
     </span>
   );
 }

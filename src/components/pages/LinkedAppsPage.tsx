@@ -6,6 +6,7 @@ import { ChevronRight, Copy, Check, Eye, Pencil, Plus, Sparkles } from "lucide-r
 
 import { CreateAppTokenDialog } from "@/components/mini/CreateAppTokenDialog";
 import { LinkedAppsSkeleton } from "@/components/mini/skeletons";
+import { Pill } from "@/components/mini/Pill";
 import { Button } from "@/components/ui/button";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
@@ -131,19 +132,15 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-semibold">{c.name}</span>
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10.5px] font-semibold text-primary">
+                      <Pill tone="primary" strong>
                         {c.access === "read" ? (
                           <Eye className="size-3" aria-hidden />
                         ) : (
                           <Pencil className="size-3" aria-hidden />
                         )}
                         {ACCESS_LABEL[c.access]}
-                      </span>
-                      {expired && (
-                        <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10.5px] text-muted-foreground">
-                          已到期
-                        </span>
-                      )}
+                      </Pill>
+                      {expired && <Pill>已到期</Pill>}
                     </div>
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {scopeSummary(c, groups)} · {lastUsedLabel(c.lastUsedAt)}

@@ -2,7 +2,7 @@
 
 > English version: [design-system.md](design-system.md)
 
-> Mini App (`/mini/**`) 的視覺規範。**動手改 UI 前先讀這份。**
+> Mini App (`/mini/**`) 與 Web App (`/app/**`) 的視覺規範,兩者共用頁面主體(`src/components/pages/**`)。**動手改 UI 前先讀這份。**
 > 目標:任何頁面、任何元件都從同一套 token 與 pattern 長出來,避免「每個元件圓角不一樣」這種漂移再發生。
 
 核心原則:**永遠用 token,不要寫死數值。** 看到要用 `rounded-[9px]`、`#10b981`、`text-[13px]` 之前,先回來看這份有沒有對應的 token。
@@ -78,11 +78,27 @@
 
 ## 3. 字體與數字 Typography
 
-- 字體:**Plus Jakarta Sans**,在 [`layout.tsx`](../src/app/layout.tsx) 以 `--font-sans` 載入,`font-sans` 自動套用。不要再 import 其他字體。
+- 字體:**Chiron GoRound TC**,在 [`layout.tsx`](../src/app/layout.tsx) 載入、於 `globals.css` 設為 `--font-sans`,`font-sans` 自動套用。不要再 import 其他字體。
 - **財務數字一律加 `.num`**(`globals.css`):啟用 `tabular-nums` + 收緊字距,讓金額對齊。任何顯示金額、百分比、餘額的地方都要加。
 - **區塊小標一律用 `.sect`**:大寫、字距放寬的 micro-label,放在 grouped panel 上方(例:`Balance · TWD`、`Expenses (12)`)。
 - 頁面標題:`text-lg font-semibold`(不要 `text-xl font-bold`,那是舊樣式)。
 - 內文:預設 `text-sm`;輔助資訊 `text-xs text-muted-foreground`。
+
+### 字級
+
+用 Tailwind 的字級,外加**一個**更小的自訂字級。**不要用 `text-[Npx]`。**
+
+| class      | 大小          | 用途                                           |
+| ---------- | ------------- | ---------------------------------------------- |
+| `text-lg`  | 18px          | 頁面標題                                       |
+| `text-sm`  | 14px          | 內文、列標籤                                   |
+| `text-xs`  | 12px          | 輔助資訊、日期、提示                           |
+| `text-2xs` | 11px (0.6875) | pill、`.sect` 旁的補充字(`.sect` 就是這個大小) |
+
+`text-2xs` 定義在 `tailwind.config.ts`,並在 `src/lib/utils.ts` 註冊給 tailwind-merge(否則 `cn("text-2xs", "text-primary")` 會把它當顏色而丟掉)。沒有更小的字級:中文小於 11px 就難以閱讀。
+
+- **Pill**(唯讀、已到期、目前登入、無帳號…)一律用 [`Pill`](../src/components/mini/Pill.tsx) 並指定 `tone`(`primary` / `muted` / `destructive`),不要手寫 span。
+- 唯一例外是頭像裡的字,大小跟著圓圈走(`Avatar.tsx` 的 `SIZE_CLASS`)。一疊頭像後的「+N」用 `AvatarOverflow`,才會跟旁邊的頭像一致。
 
 ---
 
@@ -149,7 +165,9 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Loading** | **不要用 spinner**。用頁面形狀的 skeleton —— [`skeletons.tsx`](../src/components/mini/skeletons.tsx) 已有對應每頁的 export。新頁面要新增對應 skeleton,沿用裡面的 `Skeleton` primitive 與 panel 形狀。 |
 | **Empty**   | 置中、`text-sm text-muted-foreground`,視情況加一個 `size-14 rounded-2xl bg-secondary` 的 icon tile。                                                                                                  |
-| **Error**   | 置中文案 + 細的 `text-xs text-muted-foreground/60` 錯誤明細。                                                                                                                                         |
+| **Error**   | 置中文案 + 細的 `text-xs text-muted-foreground/60` 錯誤明細([`LoadError`](../src/components/mini/LoadError.tsx))。不要用 `Card`。                                                                     |
+
+`Loader2` spinner 只用在「進行中的動作」,放在觸發它的按鈕(或列)裡;頁面或區塊在等資料時不要用。
 
 ---
 
@@ -165,6 +183,7 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 - [ ] 圓角只用了 `rounded-2xl`(容器)/ `rounded-lg`(控制)/ `rounded-full`?沒有 `rounded-xl`、`rounded-[…]`?
 - [ ] 顏色都走 CSS 變數?沒有寫死品牌 hex?正負金額用 emerald/rose?
 - [ ] 金額有 `.num`?區塊有 `.sect` 小標?
+- [ ] 字級只用 Tailwind 的或 `text-2xs`?沒有 `text-[…]`?Pill 用 `Pill`?
 - [ ] Loading 是 skeleton 不是 spinner?Empty / Error 狀態都有?
 - [ ] 用了既有 shadcn / `components/mini` 元件,而不是重刻一個?
 - [ ] 內容重到有自己的表單/清單時,是不是搬去了「導覽 row + 獨立頁面」,而不是就地展開?可摺疊區塊是不是只用在真的次要的內容,而不是拿來收「使用者現在就要處理」的東西?

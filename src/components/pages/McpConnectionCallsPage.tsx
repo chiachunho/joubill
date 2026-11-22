@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronRight, History } from "lucide-react";
 
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
+import { Pill } from "@/components/mini/Pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
@@ -23,13 +24,10 @@ import { cn } from "@/lib/utils";
 import { useAutoLoadMore } from "@/lib/use-auto-load-more";
 import { useGetMcpCallsInfiniteQuery, useGetMcpConnectionsQuery, useGetMeQuery } from "@/store/api";
 
-const TONE = {
-  ok: "bg-primary/10 text-primary",
-  info: "bg-amber-500/15 text-foreground",
-  bad: "bg-destructive/10 text-destructive",
-} as const;
+// A preview or a duplicate is neither success nor failure: it reads as the neutral muted tone.
+const TONE = { ok: "primary", info: "muted", bad: "destructive" } as const;
 
-const DOT = { ok: "bg-primary", info: "bg-amber-500", bad: "bg-destructive" } as const;
+const DOT = { ok: "bg-primary", info: "bg-muted-foreground/50", bad: "bg-destructive" } as const;
 
 function whenLabel(iso: string): string {
   const d = new Date(iso);
@@ -174,14 +172,9 @@ export function McpConnectionCallsPage({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="num text-xs font-semibold">{c.tool}</span>
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
-                          TONE[info.tone],
-                        )}
-                      >
+                      <Pill tone={TONE[info.tone]} strong>
                         {info.label}
-                      </span>
+                      </Pill>
                     </div>
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {c.groupId == null ? "沒有指定群組" : (groupTitle ?? "其他群組")}

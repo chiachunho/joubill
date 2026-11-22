@@ -104,7 +104,7 @@
 
   /* Section label: small caps above a content panel */
   .sect {
-    font-size: 0.6875rem;
+    font-size: theme("fontSize.2xs[0]"); /* = text-2xs, the smallest size there is */
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;

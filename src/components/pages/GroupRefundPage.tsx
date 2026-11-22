@@ -2,7 +2,7 @@
 
 import { use, useMemo } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadError } from "@/components/mini/LoadError";
 import { RefundForm } from "@/components/mini/RefundForm";
 import { FormSkeleton } from "@/components/mini/skeletons";
 import type { Platform } from "@/components/pages/platform";
@@ -16,17 +16,6 @@ import {
   useGetRefundQuery,
 } from "@/store/api";
 import { skipToken } from "@reduxjs/toolkit/query";
-
-function LoadError({ detail }: { detail: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>無法載入</CardTitle>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">{detail}</CardContent>
-    </Card>
-  );
-}
 
 /**
  * The refund form's page body (issue #178), shared by `/mini` and `/app`: a new refund on

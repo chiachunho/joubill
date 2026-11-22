@@ -14,6 +14,11 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
       },
+      // The one step below text-xs (docs/design-system.md §3): pills and the text beside a
+      // .sect label. Also known to tailwind-merge in src/lib/utils.ts.
+      fontSize: {
+        "2xs": ["0.6875rem", { lineHeight: "1rem" }],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

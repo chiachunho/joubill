@@ -11,6 +11,7 @@ import { MergeMemberDialog } from "@/components/mini/MergeMemberDialog";
 import { NavRow } from "@/components/mini/NavRow";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
+import { Pill } from "@/components/mini/Pill";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Platform } from "@/components/pages/platform";
 import { TelegramGlyph } from "@/components/TelegramIcon";
@@ -159,11 +160,7 @@ export function GroupSettings({
         </div>
         <p className={`min-w-0 flex-1 truncate text-sm ${isPaused ? "text-muted-foreground" : ""}`}>
           {label}
-          {member.isPlaceholder && (
-            <span className="ml-1.5 rounded-lg bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              無帳號
-            </span>
-          )}
+          {member.isPlaceholder && <Pill className="ml-1.5">無帳號</Pill>}
         </p>
         {isPaused && (
           <button

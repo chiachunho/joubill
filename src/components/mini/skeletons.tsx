@@ -429,3 +429,27 @@ export function LinkedAppsSkeleton() {
     </div>
   );
 }
+
+/** 合併帳號: the title, the two account cards, then the 合併後 panel. */
+export function AccountMergeSkeleton() {
+  return (
+    <div className="space-y-6 py-4" aria-busy="true" aria-label="載入中">
+      <div className="space-y-2 px-4">
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-3.5 w-full" />
+      </div>
+
+      <section className="space-y-2 px-4">
+        <Skeleton className="mb-2.5 h-3 w-20" />
+        <Skeleton className="h-[66px] w-full rounded-2xl" />
+        <Skeleton className="mx-auto h-3 w-10" />
+        <Skeleton className="h-[66px] w-full rounded-2xl" />
+      </section>
+
+      <section className="px-4">
+        <Skeleton className="mb-2.5 h-3 w-16" />
+        <Panel rows={3} />
+      </section>
+    </div>
+  );
+}

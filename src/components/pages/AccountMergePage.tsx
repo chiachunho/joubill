@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, ArrowDown, ArrowUp, ExternalLink, Loader2 } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { Pill } from "@/components/mini/Pill";
+import { AccountMergeSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -106,11 +108,7 @@ function MergeConfirm({ platform }: { platform: Platform }) {
     );
   }
   if (!data) {
-    return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <AccountMergeSkeleton />;
   }
 
   async function leave() {
@@ -170,15 +168,11 @@ function MergeConfirm({ platform }: { platform: Platform }) {
         <span className="flex flex-wrap items-center gap-1.5 font-semibold">
           {a.name}
           {a.userId === data.suggestedKeepId && (
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-normal text-primary">
+            <Pill tone="primary" className="font-normal">
               建議
-            </span>
+            </Pill>
           )}
-          {a.isCurrent && (
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-normal text-muted-foreground">
-              目前登入
-            </span>
-          )}
+          {a.isCurrent && <Pill className="font-normal">目前登入</Pill>}
         </span>
         <span className="block text-xs text-muted-foreground">
           {providerList(a.providers)} · {a.groupCount} 個群組 ·{" "}
