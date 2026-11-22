@@ -159,7 +159,7 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 
 ### 分段切換
 
-「多選一」一律用 [`SegmentedControl`](../src/components/mini/SegmentedControl.tsx),不要手寫按鈕:`size="sm"` 給區塊標題旁的精簡切換(總額／淨額、最近更新／名稱),預設的 `md` 給整列寬的表單欄位或篩選(分帳方式、篩選動態、權限)。它是 `radiogroup`,測試用 `getByRole("radio", …)` 找選項。
+「多選一」一律用 [`SegmentedControl`](../src/components/mini/SegmentedControl.tsx),不要手寫按鈕:`size="sm"` 給區塊標題旁的精簡切換(總額／淨額、最近更新／名稱),預設的 `md` 給整列寬的表單欄位或篩選(分帳方式、篩選動態、權限)。`sm` 選中的那格是白底浮起;`md` 外框跟輸入框一樣,選中的那格填 `primary`。它是 `radiogroup`,測試用 `getByRole("radio", …)` 找選項。
 
 ---
 

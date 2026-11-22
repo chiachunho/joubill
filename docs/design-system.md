@@ -206,7 +206,7 @@ scroll to is the wrong place for something that needs their attention right now.
 A pick-one choice is always
 [`SegmentedControl`](../src/components/mini/SegmentedControl.tsx), never hand-written buttons:
 `size="sm"` for a compact view switch beside a section label (總額／淨額, 最近更新／名稱),
-the default `md` for a form field or filter across the page (分帳方式, 篩選動態, 權限). It is a
+the default `md` for a form field or filter across the page (分帳方式, 篩選動態, 權限). `sm` lifts the chosen segment onto the background; `md` is bordered like an input and fills the chosen segment with `primary`. It is a
 `radiogroup`, so tests find a segment with `getByRole("radio", …)`.
 
 ---

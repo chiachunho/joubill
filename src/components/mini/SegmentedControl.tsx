@@ -11,11 +11,14 @@ export type SegmentOption<T extends string> = {
 
 /**
  * A pick-one toggle (docs/design-system.md §6): a `rounded-lg` track with `rounded-md`
- * segments, the chosen one lifted onto the page background. Two sizes only:
+ * segments. Two sizes only:
  *
  * - `sm`: a compact view switch beside a section label (總額／淨額, 最近更新／名稱),
- *   as wide as its labels.
- * - `md`: a form field or a filter across the width of the page, equal segments.
+ *   as wide as its labels; the chosen segment is lifted onto the page background, since
+ *   it only changes how the page reads.
+ * - `md`: a form field or a filter across the width of the page, equal segments, bordered
+ *   like an input; the chosen segment is `primary`, the design system's selected state
+ *   (the expense form's 分帳方式 set this look, and the refund form follows it).
  *
  * Every toggle in the app is this component, so they can't drift in height, colour or
  * weight again.
@@ -41,8 +44,10 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={label}
       className={cn(
-        "gap-0.5 rounded-lg bg-secondary p-0.5",
-        size === "sm" ? "inline-flex" : "grid w-full auto-cols-fr grid-flow-col",
+        "gap-0.5 rounded-lg p-0.5",
+        size === "sm"
+          ? "inline-flex bg-secondary"
+          : "grid w-full auto-cols-fr grid-flow-col border border-input bg-secondary/40",
         className,
       )}
     >
@@ -60,7 +65,9 @@ export function SegmentedControl<T extends string>({
               "flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors",
               size === "sm" ? "px-3 py-1 text-xs" : "px-2 py-1.5 text-sm",
               selected
-                ? "bg-background text-foreground shadow-sm"
+                ? size === "sm"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
