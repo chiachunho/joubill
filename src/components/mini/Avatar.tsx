@@ -1,10 +1,20 @@
+"use client";
+
+import { useState, type ReactNode } from "react";
+
 type AvatarSize = "xs" | "sm" | "md" | "lg";
 
 type Props = {
   src?: string | null;
   name: string;
+  /** Picks the initials' colour. */
   userId: number;
   size?: AvatarSize;
+  /**
+   * Drawn instead of the initials when there is no picture, or it fails to load (a
+   * person's own avatar uses an icon). Sized and rounded by the caller.
+   */
+  fallback?: ReactNode;
 };
 
 /**
@@ -30,7 +40,13 @@ const COLORS = [
   "bg-pink-500",
 ];
 
-export function Avatar({ src, name, userId, size = "md" }: Props) {
+/**
+ * A person's or a group's round picture, falling back to coloured initials. Every avatar
+ * in the app is this component, so a photo that fails to load (an expired Telegram file,
+ * a revoked provider picture) shows the initials instead of a broken image or a gap.
+ */
+export function Avatar({ src, name, userId, size = "md", fallback }: Props) {
+  const [failed, setFailed] = useState<string | null>(null);
   const initials = name
     .split(" ")
     .map((w) => w[0])
@@ -41,7 +57,7 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
   const color = COLORS[userId % COLORS.length];
   const sizeClass = SIZE_CLASS[size];
 
-  if (src) {
+  if (src && failed !== src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -49,12 +65,11 @@ export function Avatar({ src, name, userId, size = "md" }: Props) {
         alt={name}
         referrerPolicy="no-referrer"
         className={`${sizeClass} shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10`}
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-        }}
+        onError={() => setFailed(src)}
       />
     );
   }
+  if (fallback) return <>{fallback}</>;
   return (
     <span
       className={`${sizeClass} ${color} inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white`}

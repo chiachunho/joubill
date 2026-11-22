@@ -167,17 +167,8 @@ export function GroupsHome({ platform }: { platform: Platform }) {
                 href={`${platform.basePath}/groups/${g.id}`}
                 className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40 active:bg-accent/60"
               >
-                {photosData?.photos[g.id] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={photosData.photos[g.id]!}
-                    alt={g.title}
-                    className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-                  />
-                ) : (
-                  // No photo (a web group has no chat, a Telegram group may not have set one).
-                  <Avatar name={g.title} userId={g.id} />
-                )}
+                {/* No photo: a web group has no chat, a Telegram group may not have set one. */}
+                <Avatar src={photosData?.photos[g.id]} name={g.title} userId={g.id} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{g.title}</p>
                   <p className="text-xs text-muted-foreground">{updatedLabel(g.lastActivityAt)}</p>

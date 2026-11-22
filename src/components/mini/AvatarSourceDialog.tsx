@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 
+import { Avatar } from "@/components/mini/Avatar";
 import {
   Dialog,
   DialogContent,
@@ -89,17 +90,12 @@ export function AvatarSourceDialog({ open, onOpenChange, profile, name }: Props)
                 onClick={() => void choose(row.key)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-60"
               >
-                {row.url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={row.url}
-                    alt={name}
-                    referrerPolicy="no-referrer"
-                    className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-                  />
-                ) : (
-                  <div className="size-9 shrink-0 rounded-full bg-primary/10" />
-                )}
+                <Avatar
+                  src={row.url}
+                  name={name}
+                  userId={0}
+                  fallback={<div className="size-9 shrink-0 rounded-full bg-primary/10" />}
+                />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm">{row.label}</span>
                   {row.hint && (

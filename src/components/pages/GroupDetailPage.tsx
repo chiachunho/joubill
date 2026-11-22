@@ -12,7 +12,6 @@ import {
   Plus,
   Settings,
   User,
-  Users,
 } from "lucide-react";
 
 import { Avatar, AvatarOverflow } from "@/components/mini/Avatar";
@@ -235,18 +234,8 @@ export function GroupDetailPage({
       <div className="relative flex items-center justify-center px-4">
         <platform.HeaderLeading />
         <div className="flex min-w-0 items-center gap-2.5">
-          {avatars?.groupPhoto ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatars.groupPhoto}
-              alt={groupTitle}
-              className="size-8 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-            />
-          ) : (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Users className="size-3.5 text-primary" />
-            </div>
-          )}
+          {/* The same picture, or initials, as the group's row in the group list. */}
+          <Avatar src={avatars?.groupPhoto} name={groupTitle} userId={Number(id)} size="sm" />
           <h1 className="truncate text-sm font-semibold">{groupTitle}</h1>
         </div>
         <Link
