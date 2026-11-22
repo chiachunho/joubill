@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES } from "@/lib/app-ui";
 import { apiErrorText } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
+import { useCopy } from "@/lib/use-copy";
 import { useCreateMcpConnectionMutation } from "@/store/api";
 import { SegmentedControl } from "@/components/mini/SegmentedControl";
 
@@ -52,8 +53,9 @@ export function CreateAppTokenDialog({
   const [days, setDays] = useState<number | null>(DEFAULT_EXPIRY_DAYS);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [manual, setManual] = useState(false);
+  const clip = useCopy();
+  const copied = clip.copied !== null;
+  const manual = clip.refused !== null;
 
   const canSubmit = name.trim().length > 0 && scopeIsValid(scope) && !isLoading;
 
@@ -64,8 +66,7 @@ export function CreateAppTokenDialog({
     setDays(DEFAULT_EXPIRY_DAYS);
     setError(null);
     setToken(null);
-    setCopied(false);
-    setManual(false);
+    clip.reset();
     reset();
     onOpenChange(false);
   }
@@ -86,15 +87,8 @@ export function CreateAppTokenDialog({
     }
   }
 
-  async function copy() {
-    if (!token) return;
-    try {
-      await navigator.clipboard.writeText(token);
-      setCopied(true);
-      setManual(false);
-    } catch {
-      setManual(true);
-    }
+  function copy() {
+    if (token) void clip.copy(token);
   }
 
   return (

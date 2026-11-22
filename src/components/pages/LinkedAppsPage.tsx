@@ -22,6 +22,7 @@ import {
 import { describeError } from "@/lib/api-error";
 import { MCP_HELP_PATH, MCP_PATH } from "@/lib/help-url";
 import { cn } from "@/lib/utils";
+import { useCopy } from "@/lib/use-copy";
 import { useGetMcpConnectionsQuery, useGetMeQuery } from "@/store/api";
 
 /**
@@ -37,8 +38,9 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
   const { data: me } = useGetMeQuery();
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
   const [creating, setCreating] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [manual, setManual] = useState(false);
+  const clip = useCopy();
+  const copied = clip.copied !== null;
+  const manual = clip.refused !== null;
 
   // The host the person actually opened, not the build-time `NEXT_PUBLIC_MINI_APP_URL`, which a
   // preview deployment may have set to another domain. A function because `window` does not
@@ -46,16 +48,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
   const mcpUrl = () => new URL(MCP_PATH, window.location.origin).toString();
   const groups = me?.groups ?? [];
 
-  async function copyUrl() {
-    try {
-      await navigator.clipboard.writeText(mcpUrl());
-      setCopied(true);
-      setManual(false);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setManual(true);
-    }
-  }
+  const copyUrl = () => void clip.copy(mcpUrl());
 
   if (error && !redirectToLogin) {
     return <LoadError detail={describeError(error)} />;

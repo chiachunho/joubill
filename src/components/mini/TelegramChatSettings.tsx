@@ -12,6 +12,7 @@ import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
 import type { GroupChatResponse } from "@/lib/api-types";
 import { formatInviteCode } from "@/lib/invite";
 import { NOTICE_THREAD_PURPOSE, topicName } from "@/lib/topic-text";
+import { useCopy } from "@/lib/use-copy";
 import {
   useGetInviteQuery,
   useResetInviteMutation,
@@ -24,19 +25,10 @@ import {
  * command is put in a selected field to copy by hand.
  */
 function CopyCommand({ command, label }: { command: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  const [manualCopy, setManualCopy] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(command);
-      setCopied(true);
-      setManualCopy(false);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setManualCopy(true);
-    }
-  }
+  const clip = useCopy();
+  const copied = clip.copied !== null;
+  const manualCopy = clip.refused !== null;
+  const copy = () => void clip.copy(command);
 
   return (
     <div className="space-y-2">
