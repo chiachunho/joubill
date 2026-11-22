@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentType, ReactNode } from "react";
+import { useRef, type ComponentType, type KeyboardEvent, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export type SegmentOption<T extends string> = {
@@ -39,6 +39,35 @@ export function SegmentedControl<T extends string>({
   size?: "sm" | "md";
   className?: string;
 }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Roving focus, as a radiogroup promises: one Tab stop (the checked segment), and the
+  // arrow keys move both focus and the choice.
+  const checkedIndex = Math.max(
+    0,
+    options.findIndex((o) => o.value === value),
+  );
+  function onKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = options.length - 1;
+    const next =
+      e.key === "ArrowRight" || e.key === "ArrowDown"
+        ? index === last
+          ? 0
+          : index + 1
+        : e.key === "ArrowLeft" || e.key === "ArrowUp"
+          ? index === 0
+            ? last
+            : index - 1
+          : e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? last
+              : null;
+    if (next === null) return;
+    e.preventDefault();
+    refs.current[next]?.focus();
+    if (options[next].value !== value) onChange(options[next].value);
+  }
+
   return (
     <div
       role="radiogroup"
@@ -51,7 +80,7 @@ export function SegmentedControl<T extends string>({
         className,
       )}
     >
-      {options.map((o) => {
+      {options.map((o, i) => {
         const selected = o.value === value;
         const Icon = o.icon;
         return (
@@ -60,9 +89,14 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
+            tabIndex={i === checkedIndex ? 0 : -1}
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
             onClick={() => onChange(o.value)}
+            onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              "flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors",
+              "flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40",
               size === "sm" ? "px-3 py-1 text-xs" : "px-2 py-1.5 text-sm",
               selected
                 ? size === "sm"
