@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
 import { recordHistoryHref } from "@/lib/activity-link";
 import { apiErrorStatus, deleteErrorMessage, saveErrorMessage } from "@/lib/api-error";
 import type { RefundDetail, RefundParent } from "@/lib/api-types";
@@ -273,9 +274,7 @@ export function RefundForm({
         {/* Amount + currency */}
         <div className="flex gap-2">
           <div className="flex flex-1 flex-col gap-2">
-            <label htmlFor="refund-amount" className="text-sm font-medium leading-none">
-              金額
-            </label>
+            <Label htmlFor="refund-amount">金額</Label>
             <Input
               id="refund-amount"
               type="number"
@@ -288,7 +287,7 @@ export function RefundForm({
             />
           </div>
           <div className="flex w-28 flex-col gap-2">
-            <span className="text-sm font-medium leading-none">幣別</span>
+            <Label as="span">幣別</Label>
             <Select
               value={currency}
               onValueChange={(c) => {
@@ -313,9 +312,9 @@ export function RefundForm({
         {/* Rate */}
         {isForeign && (
           <div className="flex flex-col gap-2">
-            <label htmlFor="refund-fx" className="text-sm font-medium leading-none">
+            <Label htmlFor="refund-fx">
               匯率（1 {currency} = ? {defaultCurrency}）
-            </label>
+            </Label>
             <div className="relative">
               <Input
                 id="refund-fx"
@@ -354,7 +353,7 @@ export function RefundForm({
 
         {/* Date */}
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium leading-none">日期</span>
+          <Label as="span">日期</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -380,9 +379,7 @@ export function RefundForm({
         {/* Description + note */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <label htmlFor="refund-desc" className="text-sm font-medium leading-none">
-              說明
-            </label>
+            <Label htmlFor="refund-desc">說明</Label>
             <NoteToggle
               open={noteToggle.open}
               hasText={note.trim() !== ""}
@@ -414,7 +411,7 @@ export function RefundForm({
 
         {/* Who received it */}
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium leading-none">收款人</span>
+          <Label as="span">收款人</Label>
           <MemberSelect
             value={receivedBy}
             onValueChange={setReceivedBy}
@@ -426,7 +423,7 @@ export function RefundForm({
 
         {/* How it is shared back */}
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium leading-none">分帳方式</span>
+          <Label as="span">分帳方式</Label>
           <SegmentedControl
             label="分帳方式"
             value={split}
@@ -452,7 +449,7 @@ export function RefundForm({
         </div>
 
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium leading-none">參與者</span>
+          <Label as="span">參與者</Label>
           <Panel>
             {split === "ratio"
               ? parent.splits.map((p) => {
