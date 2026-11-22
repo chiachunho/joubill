@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { JoinSkeleton } from "@/components/mini/skeletons";
+import { RadioCard } from "@/components/mini/RadioCard";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { Button } from "@/components/ui/button";
@@ -137,30 +138,24 @@ export function JoinPage({
               </p>
               <div className="mt-3 flex flex-col gap-2">
                 {data.placeholders.map((p) => (
-                  <label
+                  <RadioCard
                     key={p.id}
-                    className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5"
-                  >
-                    <input
-                      type="radio"
-                      name="claim"
-                      checked={claimId === p.id}
-                      onChange={() => setClaimId(p.id)}
-                      disabled={joining}
-                    />
-                    {p.name}
-                  </label>
-                ))}
-                <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                  <input
-                    type="radio"
                     name="claim"
-                    checked={!claimed}
-                    onChange={() => setClaimId(null)}
+                    checked={claimId === p.id}
+                    onChange={() => setClaimId(p.id)}
                     disabled={joining}
-                  />
+                  >
+                    {p.name}
+                  </RadioCard>
+                ))}
+                <RadioCard
+                  name="claim"
+                  checked={!claimed}
+                  onChange={() => setClaimId(null)}
+                  disabled={joining}
+                >
                   都不是，我是新成員
-                </label>
+                </RadioCard>
               </div>
             </fieldset>
           )}

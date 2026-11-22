@@ -9,6 +9,8 @@ import { Pill } from "@/components/mini/Pill";
 import { AccountMergeSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
 import { ErrorNote } from "@/components/mini/ErrorNote";
+import { RadioCard } from "@/components/mini/RadioCard";
+import { SelfSettlementsChoice } from "@/components/mini/SelfSettlementsChoice";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -150,16 +152,13 @@ function MergeConfirm({ platform }: { platform: Platform }) {
   }
 
   const accountCard = (a: AccountMergeSide) => (
-    <label
+    <RadioCard
       key={a.userId}
-      className="flex min-h-11 cursor-pointer items-center gap-3 rounded-2xl border-[1.5px] bg-card px-3.5 py-3 has-[:checked]:border-primary"
+      name="keep-account"
+      checked={keepId === a.userId}
+      onChange={() => setPicked(a.userId)}
+      className="py-3"
     >
-      <input
-        type="radio"
-        name="keep-account"
-        checked={keepId === a.userId}
-        onChange={() => setPicked(a.userId)}
-      />
       <Avatar src={a.photoUrl} name={a.name} userId={a.userId} size="md" />
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-1.5 font-semibold">
@@ -176,7 +175,7 @@ function MergeConfirm({ platform }: { platform: Platform }) {
           <span className="num">{a.recordCount}</span> 筆紀錄
         </span>
       </span>
-    </label>
+    </RadioCard>
   );
 
   return (
@@ -266,43 +265,12 @@ function MergeConfirm({ platform }: { platform: Platform }) {
           </DialogHeader>
 
           {data.selfSettlements > 0 && (
-            <fieldset className="flex flex-col gap-2 text-sm">
-              <legend className="mb-1 font-medium">
-                你們之間有 {data.selfSettlements} 筆還款，合併後會變成自己還自己
-              </legend>
-              <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                <input
-                  type="radio"
-                  name="self-settlements"
-                  className="mt-1"
-                  checked={selfChoice === "keep"}
-                  onChange={() => setSelfChoice("keep")}
-                  disabled={merging}
-                />
-                <span>
-                  保留這些還款
-                  <span className="block text-xs text-muted-foreground">
-                    之後不能再編輯，只能刪除。
-                  </span>
-                </span>
-              </label>
-              <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                <input
-                  type="radio"
-                  name="self-settlements"
-                  className="mt-1"
-                  checked={selfChoice === "delete"}
-                  onChange={() => setSelfChoice("delete")}
-                  disabled={merging}
-                />
-                <span>
-                  一併刪除這些還款
-                  <span className="block text-xs text-muted-foreground">
-                    不影響餘額，動態紀錄和群組訊息會留下刪除紀錄。
-                  </span>
-                </span>
-              </label>
-            </fieldset>
+            <SelfSettlementsChoice
+              legend={<>你們之間有 {data.selfSettlements} 筆還款，合併後會變成自己還自己</>}
+              value={selfChoice}
+              onChange={setSelfChoice}
+              disabled={merging}
+            />
           )}
 
           <ErrorNote>合併後無法還原，{absorb.name} 這個帳號會消失。</ErrorNote>
