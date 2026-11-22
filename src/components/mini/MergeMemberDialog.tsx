@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { Button } from "@/components/ui/button";
@@ -206,12 +205,13 @@ export function MergeMemberDialog({
             取消
           </Button>
           <Button
+            loading={isLoading}
             variant="destructive"
             className="flex-1 rounded-lg"
             onClick={confirm}
             disabled={isLoading || !targetMember || !preview || isFetching}
           >
-            {isLoading ? <Loader2 className="size-4 animate-spin" /> : "確認合併"}
+            確認合併
           </Button>
         </DialogFooter>
       </DialogContent>

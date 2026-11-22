@@ -219,7 +219,7 @@ the default `md` for a form field or filter across the page (分帳方式, 篩�
 | **Empty**   | Centered, `text-sm text-muted-foreground`, optionally a `size-14 rounded-2xl bg-secondary` icon tile.                                                                                                                          |
 | **Error**   | Centered message + a thin `text-xs text-muted-foreground/60` error detail ([`LoadError`](../src/components/mini/LoadError.tsx)). Not a `Card`.                                                                                 |
 
-A `Loader2` spinner is only for an action in progress, inside the button (or row) that started it; never for a page or a section waiting for data.
+A spinner is only for an action in progress, inside the button (or row) that started it; never for a page or a section waiting for data. On a `Button` that is its `loading` prop, which keeps the label's width; a hand-written `Loader2` is only for a control that is not a `Button`.
 
 ---
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -93,8 +92,13 @@ export function MemberNameDialog({
           >
             取消
           </Button>
-          <Button className="flex-1 rounded-lg" onClick={submit} disabled={loading || !name.trim()}>
-            {loading ? <Loader2 className="size-4 animate-spin" /> : confirmLabel}
+          <Button
+            loading={loading}
+            className="flex-1 rounded-lg"
+            onClick={submit}
+            disabled={loading || !name.trim()}
+          >
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

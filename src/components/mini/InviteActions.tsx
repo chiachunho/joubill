@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, KeyRound, Loader2, RefreshCw, Share2 } from "lucide-react";
+import { Check, Copy, KeyRound, RefreshCw, Share2 } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -102,8 +102,13 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: Invite
         </span>
         <p className="mt-2.5 text-sm font-semibold">這個群組還沒有邀請碼</p>
         <p className="mt-0.5 text-xs text-muted-foreground">產生後，拿到連結或邀請碼的人就能加入</p>
-        <Button className="mt-4 w-full rounded-lg" onClick={issue} disabled={resetting}>
-          {resetting ? <Loader2 className="size-4 animate-spin" /> : "產生邀請碼"}
+        <Button
+          loading={resetting}
+          className="mt-4 w-full rounded-lg"
+          onClick={issue}
+          disabled={resetting}
+        >
+          產生邀請碼
         </Button>
         {message && <p className="mt-2 text-xs text-destructive">{message}</p>}
       </div>

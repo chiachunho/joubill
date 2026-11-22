@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ExternalLink, Loader2 } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
 
 import { BeancountSettingsSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
@@ -139,8 +139,15 @@ function Editor({ groupId, initial }: { groupId: string; initial: Config }) {
       </section>
 
       <section className="flex items-center gap-3 px-4">
-        <Button type="button" size="sm" className="rounded-lg" disabled={!canSave} onClick={save}>
-          {saving ? <Loader2 className="size-3.5 animate-spin" /> : "儲存"}
+        <Button
+          loading={saving}
+          type="button"
+          size="sm"
+          className="rounded-lg"
+          disabled={!canSave}
+          onClick={save}
+        >
+          儲存
         </Button>
         {savedOnce && !dirty && (
           <span className="inline-flex items-center gap-1 text-sm font-medium text-primary">

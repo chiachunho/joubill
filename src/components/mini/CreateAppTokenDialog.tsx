@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Loader2 } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 
 import {
   AppAccessPicker,
@@ -172,8 +172,12 @@ export function CreateAppTokenDialog({
               >
                 取消
               </Button>
-              <Button className="flex-1 rounded-lg" onClick={submit} disabled={!canSubmit}>
-                {isLoading && <Loader2 className="size-4 animate-spin" />}
+              <Button
+                loading={isLoading}
+                className="flex-1 rounded-lg"
+                onClick={submit}
+                disabled={!canSubmit}
+              >
                 建立
               </Button>
             </DialogFooter>

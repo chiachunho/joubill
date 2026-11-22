@@ -171,7 +171,7 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 | **Empty**   | 置中、`text-sm text-muted-foreground`,視情況加一個 `size-14 rounded-2xl bg-secondary` 的 icon tile。                                                                                                  |
 | **Error**   | 置中文案 + 細的 `text-xs text-muted-foreground/60` 錯誤明細([`LoadError`](../src/components/mini/LoadError.tsx))。不要用 `Card`。                                                                     |
 
-`Loader2` spinner 只用在「進行中的動作」,放在觸發它的按鈕(或列)裡;頁面或區塊在等資料時不要用。
+spinner 只用在「進行中的動作」,放在觸發它的按鈕(或列)裡;頁面或區塊在等資料時不要用。`Button` 用它的 `loading` 屬性(按鈕寬度不變);只有不是 `Button` 的控制項才手寫 `Loader2`。
 
 ---
 

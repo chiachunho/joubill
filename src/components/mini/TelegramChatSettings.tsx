@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Hash, Link2Off, Loader2 } from "lucide-react";
+import { Check, Copy, Hash, Link2Off } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { IconTile } from "@/components/mini/IconTile";
@@ -101,8 +101,13 @@ function LinkCommand({ groupId }: { groupId: string }) {
     return (
       <div className="text-center">
         <p className="text-xs text-muted-foreground">這個群組還沒有邀請碼，產生後就能複製指令</p>
-        <Button className="mt-2 w-full rounded-lg" onClick={issue} disabled={issuing}>
-          {issuing ? <Loader2 className="size-4 animate-spin" /> : "產生邀請碼"}
+        <Button
+          loading={issuing}
+          className="mt-2 w-full rounded-lg"
+          onClick={issue}
+          disabled={issuing}
+        >
+          產生邀請碼
         </Button>
         {message && <p className="mt-2 text-xs text-destructive">{message}</p>}
       </div>

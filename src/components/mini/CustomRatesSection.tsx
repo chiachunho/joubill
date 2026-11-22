@@ -225,13 +225,14 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
             />
             <span className="text-sm text-muted-foreground">{defaultCurrency}</span>
             <Button
+              loading={saving}
               type="button"
               size="sm"
               className="h-8 rounded-lg"
               disabled={!canSave}
               onClick={requestSave}
             >
-              {saving ? <Loader2 className="size-3.5 animate-spin" /> : "儲存"}
+              儲存
             </Button>
           </div>
           {base && reference?.marketRate != null && (
@@ -273,27 +274,21 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
           {/* DialogFooter flips to flex-row at sm: — keep the stacked layout on all widths. */}
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:justify-start sm:space-x-0">
             <Button
+              loading={savingMode === "lock"}
               className="w-full rounded-lg"
               disabled={saving}
               onClick={() => void save("lock")}
             >
-              {savingMode === "lock" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                "只套用到之後的紀錄"
-              )}
+              只套用到之後的紀錄
             </Button>
             <Button
+              loading={savingMode === "all"}
               variant="secondary"
               className="w-full rounded-lg"
               disabled={saving}
               onClick={() => void save("all")}
             >
-              {savingMode === "all" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                "套用到全部（重算舊紀錄）"
-              )}
+              套用到全部（重算舊紀錄）
             </Button>
             <Button
               variant="outline"
@@ -340,30 +335,22 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:justify-start sm:space-x-0">
             {deleteCountsReady && deleteCurrency && deleteAffectedTotal > 0 && (
               <Button
+                loading={deleteMode === "lock"}
                 className="w-full rounded-lg"
                 disabled={deleting}
                 onClick={() => void remove("lock")}
               >
-                {deleteMode === "lock" ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  "刪除並鎖定舊紀錄"
-                )}
+                刪除並鎖定舊紀錄
               </Button>
             )}
             <Button
+              loading={deleteMode === "plain" || !deleteCountsReady}
               variant={deleteCurrency && deleteAffectedTotal > 0 ? "destructive" : "default"}
               className="w-full rounded-lg"
               disabled={deleting || !deleteCountsReady}
               onClick={() => void remove("plain")}
             >
-              {deleteMode === "plain" || !deleteCountsReady ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : deleteCurrency && deleteAffectedTotal > 0 ? (
-                "直接刪除（改用市場匯率）"
-              ) : (
-                "刪除"
-              )}
+              {deleteCurrency && deleteAffectedTotal > 0 ? "直接刪除（改用市場匯率）" : "刪除"}
             </Button>
             <Button
               variant="outline"

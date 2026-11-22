@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ExternalLink, Loader2, ShieldCheck, X } from "lucide-react";
+import { Check, ExternalLink, ShieldCheck, X } from "lucide-react";
 
 import {
   AppAccessPicker,
@@ -168,11 +168,11 @@ function Consent({ platform }: { platform: Platform }) {
           取消
         </Button>
         <Button
+          loading={submitting}
           className="rounded-lg"
           disabled={submitting || left || !scopeIsValid(scope)}
           onClick={() => answer(true)}
         >
-          {submitting && <Loader2 className="size-4 animate-spin" />}
           允許
         </Button>
       </div>

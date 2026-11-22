@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowDown, ArrowUp, ExternalLink, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { Pill } from "@/components/mini/Pill";
@@ -319,12 +319,12 @@ function MergeConfirm({ platform }: { platform: Platform }) {
               取消
             </Button>
             <Button
+              loading={merging}
               variant="destructive"
               className="flex-1 rounded-lg"
               onClick={confirm}
               disabled={merging}
             >
-              {merging && <Loader2 className="size-4 animate-spin" />}
               合併
             </Button>
           </DialogFooter>

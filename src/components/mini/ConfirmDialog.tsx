@@ -1,7 +1,5 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -54,12 +52,13 @@ export function ConfirmDialog({
             取消
           </Button>
           <Button
+            loading={loading}
             variant={variant}
             className="flex-1 rounded-lg"
             onClick={onConfirm}
             disabled={loading}
           >
-            {loading ? <Loader2 className="size-4 animate-spin" /> : confirmLabel}
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

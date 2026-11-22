@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 import {
   AppAccessPicker,
@@ -148,10 +148,8 @@ function ConnectionForm({
         <platform.BackLink href={back} />
         <h1 className="truncate text-lg font-semibold">{connection.name}</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          {connection.kind === "oauth" ? "OAuth 連線" : `個人存取權杖 ${connection.tokenPrefix}…`}
-          {" · "}
-          {lastUsedLabel(connection.lastUsedAt)}
-          {" · "}
+          {connection.kind === "oauth" ? "OAuth 連線" : `個人存取權杖 ${connection.tokenPrefix}…`}·
+          {lastUsedLabel(connection.lastUsedAt)}·
           {expired ? "已到期" : expiryLabel(connection.expiresAt)}
         </p>
       </div>
@@ -174,11 +172,11 @@ function ConnectionForm({
 
       <div className="space-y-2 px-4">
         <Button
+          loading={saving}
           className="w-full rounded-lg"
           disabled={!dirty || !scopeIsValid(scope) || saving}
           onClick={() => (widening ? setConfirm("widen") : save())}
         >
-          {saving && <Loader2 className="size-4 animate-spin" />}
           儲存變更
         </Button>
         <Button
