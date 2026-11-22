@@ -3,6 +3,8 @@
 import { use, useState } from "react";
 import { Download, ExternalLink, Send } from "lucide-react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
+import { Panel, Section } from "@/components/mini/Panel";
 import { ActionRow } from "@/components/mini/ActionRow";
 import { BeancountExportSection } from "@/components/mini/BeancountExportSection";
 import { BeancountSettingsSection } from "@/components/mini/BeancountSettingsSection";
@@ -66,17 +68,13 @@ export function GroupExportPage({
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={backHref} />
-        <h1 className="text-lg font-semibold">匯出</h1>
-      </div>
+      <PageHeader back={<platform.BackLink href={backHref} />} title="匯出" />
 
       {/* CSV — one file of every record. The Web App can save it directly; Telegram's webview
           can't take an authenticated download, so both apps can also have the bot post the file
           in the group chat (the same file /export sends). */}
-      <section className="px-4">
-        <p className="sect mb-2.5">CSV</p>
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+      <Section title="CSV">
+        <Panel>
           {platform.canDownloadExport && (
             <ActionRow
               icon={Download}
@@ -117,7 +115,7 @@ export function GroupExportPage({
               {exportPending === "send" ? "傳送中…" : "匯出 CSV 到群組"}
             </ActionRow>
           )}
-        </div>
+        </Panel>
         {exportMessage && (
           <p
             className={`mt-2 px-1 text-xs ${exportMessage.ok ? "text-muted-foreground" : "text-destructive"}`}
@@ -125,7 +123,7 @@ export function GroupExportPage({
             {exportMessage.text}
           </p>
         )}
-      </section>
+      </Section>
 
       {/* Beancount — a personal ledger export, so it stays apart from the group's CSV. */}
       <div className="space-y-3">

@@ -99,7 +99,8 @@ Nested inner elements (e.g. options inside a segmented toggle) use `rounded-md`
 - Font: **Chiron GoRound TC**, loaded in [`layout.tsx`](../src/app/layout.tsx) and set as `--font-sans` in `globals.css`; `font-sans` applies it automatically. Don't import other fonts.
 - **Financial numbers always get `.num`** (`globals.css`): enables `tabular-nums` + tighter tracking so amounts line up. Add it anywhere you show an amount, percentage, or balance.
 - **Section micro-labels always use `.sect`**: uppercase, widened-tracking micro-label above a grouped panel (e.g. `餘額 · TWD`, `紀錄 (12)`).
-- Page titles: `text-lg font-semibold` (not `text-xl font-bold` — that's the old style).
+- Page titles: `text-lg font-semibold` (not `text-xl font-bold` — that's the old style). A sub-page's back link, title and description are [`PageHeader`](../src/components/mini/PageHeader.tsx).
+- Form field labels are `Label` (`components/ui/label.tsx`; `as="span"` for a field with no single control), never its classes copied.
 - Body: `text-sm` by default; supporting info `text-xs text-muted-foreground`.
 
 ### Type scale
@@ -146,6 +147,8 @@ The iOS-style grouped panel is the standard container for lists / balances / par
   </div>
 </section>
 ```
+
+In code this is [`Section`](../src/components/mini/Panel.tsx) + `Panel` (`<Section title="Balance · TWD"><Panel>…</Panel></Section>`); write the classes by hand only in a skeleton. `Panel muted` is the quieter `bg-secondary/30` for a secondary block, `divided={false}` for one block instead of rows.
 
 Key points: `rounded-2xl` + `bg-secondary/50` + `overflow-hidden` + `divide-y
 divide-border/40`. List rows are uniformly `flex items-center gap-3 px-4 py-3` —
@@ -201,6 +204,14 @@ cancel, or someone else's to approve/reject — shows in that row directly, on a
 tinted background, with its buttons. Anything a user has to know to open or
 scroll to is the wrong place for something that needs their attention right now.
 
+### Segmented toggle
+
+A pick-one choice is always
+[`SegmentedControl`](../src/components/mini/SegmentedControl.tsx), never hand-written buttons:
+`size="sm"` for a compact view switch beside a section label (總額／淨額, 最近更新／名稱),
+the default `md` for a form field or filter across the page (分帳方式, 篩選動態, 權限). `sm` lifts the chosen segment onto the background; `md` is bordered like an input and fills the chosen segment with `primary`. It is a
+`radiogroup`, so tests find a segment with `getByRole("radio", …)`.
+
 ---
 
 ## 7. The three states (every data page needs them)
@@ -208,10 +219,12 @@ scroll to is the wrong place for something that needs their attention right now.
 | State       | Approach                                                                                                                                                                                                                       |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Loading** | **No spinner.** Use page-shaped skeletons — [`skeletons.tsx`](../src/components/mini/skeletons.tsx) already exports one per page. New pages add a matching skeleton, reusing the `Skeleton` primitive and panel shapes inside. |
-| **Empty**   | Centered, `text-sm text-muted-foreground`, optionally a `size-14 rounded-2xl bg-secondary` icon tile.                                                                                                                          |
+| **Empty**   | [`EmptyState`](../src/components/mini/EmptyState.tsx): a `size-14 rounded-2xl bg-secondary` icon tile, an optional title, `text-sm text-muted-foreground` text.                                                                |
 | **Error**   | Centered message + a thin `text-xs text-muted-foreground/60` error detail ([`LoadError`](../src/components/mini/LoadError.tsx)). Not a `Card`.                                                                                 |
 
-A `Loader2` spinner is only for an action in progress, inside the button (or row) that started it; never for a page or a section waiting for data.
+A failed action or a warning before a destructive step is an [`ErrorNote`](../src/components/mini/ErrorNote.tsx) (`onDismiss` adds its ✕); the 無法載入 page state is `LoadError`.
+
+A spinner is only for an action in progress, inside the button (or row) that started it; never for a page or a section waiting for data. On a `Button` that is its `loading` prop, which keeps the label's width; a hand-written `Loader2` is only for a control that is not a `Button`.
 
 ---
 
@@ -227,7 +240,7 @@ A `Loader2` spinner is only for an action in progress, inside the button (or row
 - [ ] Radius is only `rounded-2xl` (container) / `rounded-lg` (control) / `rounded-full`? No `rounded-xl`, `rounded-[…]`?
 - [ ] All colors go through CSS variables? No hardcoded brand hex? Positive/negative amounts use emerald/rose?
 - [ ] Amounts have `.num`? Sections have a `.sect` micro-label?
-- [ ] Font sizes are Tailwind's or `text-2xs`? No `text-[…]`? Pills are `Pill`?
+- [ ] Font sizes are Tailwind's or `text-2xs`? No `text-[…]`? Pills are `Pill`? Toggles are `SegmentedControl`?
 - [ ] Loading is a skeleton, not a spinner? Empty / Error states both present?
-- [ ] Reused existing shadcn / `components/mini` components instead of re-rolling one?
+- [ ] Reused existing shadcn / `components/mini` components instead of re-rolling one? (`Section`/`Panel`, `PageHeader`, `SegmentedControl`, `RadioCard`, `Pill`, `ErrorNote`, `LoadError`, `EmptyState`, `Avatar`, `Button loading`, `useCopy`)
 - [ ] A block heavy enough to need its own forms/lists moved to a nav row + sub-page, rather than expanding inline? A collapsed section only used for genuinely secondary content, never for something the user needs to act on right now?

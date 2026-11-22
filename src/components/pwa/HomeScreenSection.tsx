@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Smartphone } from "lucide-react";
 
+import { Section } from "@/components/mini/Panel";
 import { IconTile } from "@/components/mini/IconTile";
 import { AddToHomeScreenDialog } from "@/components/pwa/AddToHomeScreenDialog";
 import { Button } from "@/components/ui/button";
@@ -20,8 +21,7 @@ export function HomeScreenSection({ env }: { env: PwaEnv }) {
   if (offer === "installed" || offer === "none") return null;
 
   return (
-    <section className="px-4">
-      <p className="sect mb-2.5">主畫面捷徑</p>
+    <Section title="主畫面捷徑">
       <div className="flex items-center gap-3 rounded-2xl bg-secondary/50 px-4 py-3">
         <IconTile icon={Smartphone} />
         <div className="min-w-0 flex-1">
@@ -41,6 +41,6 @@ export function HomeScreenSection({ env }: { env: PwaEnv }) {
         </p>
       )}
       <AddToHomeScreenDialog open={stepsOpen} onOpenChange={setStepsOpen} />
-    </section>
+    </Section>
   );
 }

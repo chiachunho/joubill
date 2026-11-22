@@ -4,10 +4,13 @@ import { use, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { History } from "lucide-react";
 
+import { EmptyState } from "@/components/mini/EmptyState";
+import { PageHeader } from "@/components/mini/PageHeader";
 import { ActivityList } from "@/components/mini/ActivityList";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { ActivitySkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Platform } from "@/components/pages/platform";
 import { parseHistoryFrom } from "@/lib/activity-link";
@@ -16,7 +19,6 @@ import {
   ACTIVITY_SOURCES,
   type ActivitySource,
 } from "@/lib/activity-source";
-import { cn } from "@/lib/utils";
 import { useAutoLoadMore } from "@/lib/use-auto-load-more";
 import { useGetActivityInfiniteQuery, useGetAvatarsQuery, useGetMeQuery } from "@/store/api";
 
@@ -90,34 +92,19 @@ export function GroupActivityPage({
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={backHref} />
-        <h1 className="text-lg font-semibold">{recordId ? "變更紀錄" : "動態紀錄"}</h1>
-      </div>
+      <PageHeader
+        back={<platform.BackLink href={backHref} />}
+        title={recordId ? "變更紀錄" : "動態紀錄"}
+      />
 
       {!recordId && (
         <div className="px-4">
-          <div
-            role="radiogroup"
-            aria-label="篩選動態"
-            className="grid grid-cols-3 gap-1 rounded-lg bg-secondary/60 p-1"
-          >
-            {ACTIVITY_SOURCES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                role="radio"
-                aria-checked={source === s}
-                onClick={() => setSource(s)}
-                className={cn(
-                  "rounded-md py-1.5 text-sm transition-colors",
-                  source === s ? "bg-background font-semibold shadow-sm" : "text-muted-foreground",
-                )}
-              >
-                {ACTIVITY_SOURCE_LABEL[s]}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="篩選動態"
+            value={source}
+            options={ACTIVITY_SOURCES.map((s) => ({ value: s, label: ACTIVITY_SOURCE_LABEL[s] }))}
+            onChange={setSource}
+          />
         </div>
       )}
 
@@ -128,18 +115,13 @@ export function GroupActivityPage({
           ))}
         </div>
       ) : entries.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
-            <History className="size-6" />
-          </span>
-          <p className="max-w-[24ch] text-sm text-muted-foreground">
-            {recordId
-              ? "這筆紀錄還沒有被改動過"
-              : source === "all"
-                ? "這個群組還沒有任何改動紀錄"
-                : "沒有符合的動態"}
-          </p>
-        </div>
+        <EmptyState icon={History}>
+          {recordId
+            ? "這筆紀錄還沒有被改動過"
+            : source === "all"
+              ? "這個群組還沒有任何改動紀錄"
+              : "沒有符合的動態"}
+        </EmptyState>
       ) : (
         <ActivityList
           entries={entries}

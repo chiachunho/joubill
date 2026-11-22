@@ -4,8 +4,10 @@ import { useState } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { IconTile } from "@/components/mini/IconTile";
 import { RateRowsSkeleton } from "@/components/mini/skeletons";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -159,7 +161,7 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
 
   return (
     <section className="px-4">
-      <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+      <Panel>
         {rates.map((row) => {
           const dormant = row.quote !== defaultCurrency;
           return (
@@ -225,13 +227,14 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
             />
             <span className="text-sm text-muted-foreground">{defaultCurrency}</span>
             <Button
+              loading={saving}
               type="button"
               size="sm"
               className="h-8 rounded-lg"
               disabled={!canSave}
               onClick={requestSave}
             >
-              {saving ? <Loader2 className="size-3.5 animate-spin" /> : "儲存"}
+              儲存
             </Button>
           </div>
           {base && reference?.marketRate != null && (
@@ -249,14 +252,11 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
             設定後，此幣別的所有支出（含過去）都會以這個匯率換算。
           </p>
         </div>
-      </div>
+      </Panel>
       {errMsg && (
-        <div className="mt-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+        <ErrorNote className="mt-2" onDismiss={() => setErrMsg(null)}>
           {errMsg}
-          <button onClick={() => setErrMsg(null)} className="ml-2 text-xs underline opacity-70">
-            關閉
-          </button>
-        </div>
+        </ErrorNote>
       )}
 
       <Dialog open={confirmOpen} onOpenChange={saving ? undefined : setConfirmOpen}>
@@ -273,27 +273,21 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
           {/* DialogFooter flips to flex-row at sm: — keep the stacked layout on all widths. */}
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:justify-start sm:space-x-0">
             <Button
+              loading={savingMode === "lock"}
               className="w-full rounded-lg"
               disabled={saving}
               onClick={() => void save("lock")}
             >
-              {savingMode === "lock" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                "只套用到之後的紀錄"
-              )}
+              只套用到之後的紀錄
             </Button>
             <Button
+              loading={savingMode === "all"}
               variant="secondary"
               className="w-full rounded-lg"
               disabled={saving}
               onClick={() => void save("all")}
             >
-              {savingMode === "all" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                "套用到全部（重算舊紀錄）"
-              )}
+              套用到全部（重算舊紀錄）
             </Button>
             <Button
               variant="outline"
@@ -340,30 +334,22 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:justify-start sm:space-x-0">
             {deleteCountsReady && deleteCurrency && deleteAffectedTotal > 0 && (
               <Button
+                loading={deleteMode === "lock"}
                 className="w-full rounded-lg"
                 disabled={deleting}
                 onClick={() => void remove("lock")}
               >
-                {deleteMode === "lock" ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  "刪除並鎖定舊紀錄"
-                )}
+                刪除並鎖定舊紀錄
               </Button>
             )}
             <Button
+              loading={deleteMode === "plain" || !deleteCountsReady}
               variant={deleteCurrency && deleteAffectedTotal > 0 ? "destructive" : "default"}
               className="w-full rounded-lg"
               disabled={deleting || !deleteCountsReady}
               onClick={() => void remove("plain")}
             >
-              {deleteMode === "plain" || !deleteCountsReady ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : deleteCurrency && deleteAffectedTotal > 0 ? (
-                "直接刪除（改用市場匯率）"
-              ) : (
-                "刪除"
-              )}
+              {deleteCurrency && deleteAffectedTotal > 0 ? "直接刪除（改用市場匯率）" : "刪除"}
             </Button>
             <Button
               variant="outline"

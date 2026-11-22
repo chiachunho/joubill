@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Hash, Link2Off, Loader2 } from "lucide-react";
+import { Check, Copy, Hash, Link2Off } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { IconTile } from "@/components/mini/IconTile";
 import { TelegramGlyph } from "@/components/TelegramIcon";
@@ -12,6 +13,7 @@ import { apiErrorStatus, apiErrorText, describeError } from "@/lib/api-error";
 import type { GroupChatResponse } from "@/lib/api-types";
 import { formatInviteCode } from "@/lib/invite";
 import { NOTICE_THREAD_PURPOSE, topicName } from "@/lib/topic-text";
+import { useCopy } from "@/lib/use-copy";
 import {
   useGetInviteQuery,
   useResetInviteMutation,
@@ -24,19 +26,10 @@ import {
  * command is put in a selected field to copy by hand.
  */
 function CopyCommand({ command, label }: { command: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  const [manualCopy, setManualCopy] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(command);
-      setCopied(true);
-      setManualCopy(false);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setManualCopy(true);
-    }
-  }
+  const clip = useCopy();
+  const copied = clip.copied !== null;
+  const manualCopy = clip.refused !== null;
+  const copy = () => void clip.copy(command);
 
   return (
     <div className="space-y-2">
@@ -109,8 +102,13 @@ function LinkCommand({ groupId }: { groupId: string }) {
     return (
       <div className="text-center">
         <p className="text-xs text-muted-foreground">這個群組還沒有邀請碼，產生後就能複製指令</p>
-        <Button className="mt-2 w-full rounded-lg" onClick={issue} disabled={issuing}>
-          {issuing ? <Loader2 className="size-4 animate-spin" /> : "產生邀請碼"}
+        <Button
+          loading={issuing}
+          className="mt-2 w-full rounded-lg"
+          onClick={issue}
+          disabled={issuing}
+        >
+          產生邀請碼
         </Button>
         {message && <p className="mt-2 text-xs text-destructive">{message}</p>}
       </div>
@@ -182,7 +180,7 @@ export function TelegramChatSettings({
     return (
       <>
         <section className="px-4">
-          <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <Panel divided={false}>
             <div className="flex items-center gap-3 px-4 py-3">
               <IconTile icon={Link2Off} tone="muted" />
               <div className="min-w-0 flex-1">
@@ -190,7 +188,7 @@ export function TelegramChatSettings({
                 <p className="text-xs text-muted-foreground">這個群組目前只在 App 裡使用</p>
               </div>
             </div>
-          </div>
+          </Panel>
         </section>
         <section className="space-y-2.5 px-4">
           <p className="sect">如何綁定</p>
@@ -213,7 +211,7 @@ export function TelegramChatSettings({
   return (
     <>
       <section className="space-y-2 px-4">
-        <div className="overflow-hidden rounded-2xl bg-secondary/50">
+        <Panel divided={false}>
           <div className="flex items-center gap-3 px-4 py-3">
             <IconTile icon={TelegramGlyph} />
             <div className="min-w-0 flex-1">
@@ -230,7 +228,7 @@ export function TelegramChatSettings({
               解除綁定
             </button>
           </div>
-        </div>
+        </Panel>
         <p className="px-1 text-xs leading-relaxed text-muted-foreground">
           每筆紀錄都會在聊天室出現卡片，在 App 修改或刪除時會同步更新。
           {chat.isForum === false &&
@@ -242,7 +240,7 @@ export function TelegramChatSettings({
       {showTopic && (
         <section className="space-y-2 px-4">
           <p className="sect">記帳通知發送位置</p>
-          <div className="overflow-hidden rounded-2xl bg-secondary/50">
+          <Panel divided={false}>
             <div className="flex items-center gap-3 px-4 py-3">
               <IconTile icon={Hash} tone={thread ? "primary" : "muted"} />
               <p className="min-w-0 flex-1 break-words text-sm">
@@ -257,7 +255,7 @@ export function TelegramChatSettings({
                 </button>
               )}
             </div>
-          </div>
+          </Panel>
           <p className="px-1 text-xs leading-relaxed text-muted-foreground">
             {thread ? "目前發到這個主題。" : "目前發在群組預設的 General。"}
             {NOTICE_THREAD_PURPOSE}

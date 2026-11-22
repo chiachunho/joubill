@@ -81,7 +81,8 @@
 - 字體:**Chiron GoRound TC**,在 [`layout.tsx`](../src/app/layout.tsx) 載入、於 `globals.css` 設為 `--font-sans`,`font-sans` 自動套用。不要再 import 其他字體。
 - **財務數字一律加 `.num`**(`globals.css`):啟用 `tabular-nums` + 收緊字距,讓金額對齊。任何顯示金額、百分比、餘額的地方都要加。
 - **區塊小標一律用 `.sect`**:大寫、字距放寬的 micro-label,放在 grouped panel 上方(例:`Balance · TWD`、`Expenses (12)`)。
-- 頁面標題:`text-lg font-semibold`(不要 `text-xl font-bold`,那是舊樣式)。
+- 頁面標題:`text-lg font-semibold`(不要 `text-xl font-bold`,那是舊樣式)。子頁面的返回、標題、說明用 [`PageHeader`](../src/components/mini/PageHeader.tsx)。
+- 表單欄位標題用 `Label`(`components/ui/label.tsx`;沒有單一控制項的欄位用 `as="span"`),不要複製它的 class。
 - 內文:預設 `text-sm`;輔助資訊 `text-xs text-muted-foreground`。
 
 ### 字級
@@ -126,6 +127,8 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 
 要點:`rounded-2xl` + `bg-secondary/50` + `overflow-hidden` + `divide-y divide-border/40`。列表 row 統一 `flex items-center gap-3 px-4 py-3`,左頭像、中文字、右金額(`.num`)。
 
+程式裡用 [`Section`](../src/components/mini/Panel.tsx) + `Panel`(`<Section title="餘額 · TWD"><Panel>…</Panel></Section>`),只有 skeleton 才手寫這些 class。`Panel muted` 是較淡的 `bg-secondary/30`(次要區塊),`divided={false}` 用在單一內容而不是多列。
+
 ---
 
 ## 6. 導覽 Row 與可摺疊區塊
@@ -157,6 +160,10 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 
 **絕對不要把「需要處理的狀態」藏起來。** `DeleteGroupRow` 是群組設定卡片的最後一列,閒置時只是一列紅字的「刪除群組」;只要有待處理的刪除申請——不管是自己可以取消的,還是別人送來要你同意/拒絕的——就直接在這一列顯示(淡紅底與按鈕)。使用者得先知道要點開或捲到才看得到的東西,不適合放需要立刻處理的內容。
 
+### 分段切換
+
+「多選一」一律用 [`SegmentedControl`](../src/components/mini/SegmentedControl.tsx),不要手寫按鈕:`size="sm"` 給區塊標題旁的精簡切換(總額／淨額、最近更新／名稱),預設的 `md` 給整列寬的表單欄位或篩選(分帳方式、篩選動態、權限)。`sm` 選中的那格是白底浮起;`md` 外框跟輸入框一樣,選中的那格填 `primary`。它是 `radiogroup`,測試用 `getByRole("radio", …)` 找選項。
+
 ---
 
 ## 7. 三種狀態 States(每個資料頁都要有)
@@ -164,10 +171,12 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 | 狀態        | 做法                                                                                                                                                                                                  |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Loading** | **不要用 spinner**。用頁面形狀的 skeleton —— [`skeletons.tsx`](../src/components/mini/skeletons.tsx) 已有對應每頁的 export。新頁面要新增對應 skeleton,沿用裡面的 `Skeleton` primitive 與 panel 形狀。 |
-| **Empty**   | 置中、`text-sm text-muted-foreground`,視情況加一個 `size-14 rounded-2xl bg-secondary` 的 icon tile。                                                                                                  |
+| **Empty**   | [`EmptyState`](../src/components/mini/EmptyState.tsx):`size-14 rounded-2xl bg-secondary` 的 icon tile、可選的標題、`text-sm text-muted-foreground` 文字。                                             |
 | **Error**   | 置中文案 + 細的 `text-xs text-muted-foreground/60` 錯誤明細([`LoadError`](../src/components/mini/LoadError.tsx))。不要用 `Card`。                                                                     |
 
-`Loader2` spinner 只用在「進行中的動作」,放在觸發它的按鈕(或列)裡;頁面或區塊在等資料時不要用。
+動作失敗、或破壞性操作前的警告,用 [`ErrorNote`](../src/components/mini/ErrorNote.tsx)(`onDismiss` 會加上 ✕);整頁「無法載入」用 `LoadError`。
+
+spinner 只用在「進行中的動作」,放在觸發它的按鈕(或列)裡;頁面或區塊在等資料時不要用。`Button` 用它的 `loading` 屬性(按鈕寬度不變);只有不是 `Button` 的控制項才手寫 `Loader2`。
 
 ---
 
@@ -183,7 +192,7 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 - [ ] 圓角只用了 `rounded-2xl`(容器)/ `rounded-lg`(控制)/ `rounded-full`?沒有 `rounded-xl`、`rounded-[…]`?
 - [ ] 顏色都走 CSS 變數?沒有寫死品牌 hex?正負金額用 emerald/rose?
 - [ ] 金額有 `.num`?區塊有 `.sect` 小標?
-- [ ] 字級只用 Tailwind 的或 `text-2xs`?沒有 `text-[…]`?Pill 用 `Pill`?
+- [ ] 字級只用 Tailwind 的或 `text-2xs`?沒有 `text-[…]`?Pill 用 `Pill`?分段切換用 `SegmentedControl`?
 - [ ] Loading 是 skeleton 不是 spinner?Empty / Error 狀態都有?
-- [ ] 用了既有 shadcn / `components/mini` 元件,而不是重刻一個?
+- [ ] 用了既有 shadcn / `components/mini` 元件,而不是重刻一個?(`Section`/`Panel`、`PageHeader`、`SegmentedControl`、`RadioCard`、`Pill`、`ErrorNote`、`LoadError`、`EmptyState`、`Avatar`、`Button loading`、`useCopy`)
 - [ ] 內容重到有自己的表單/清單時,是不是搬去了「導覽 row + 獨立頁面」,而不是就地展開?可摺疊區塊是不是只用在真的次要的內容,而不是拿來收「使用者現在就要處理」的東西?

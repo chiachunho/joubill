@@ -2,12 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowDown, ArrowUp, ExternalLink, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
 
+import { Panel, Section } from "@/components/mini/Panel";
 import { Avatar } from "@/components/mini/Avatar";
 import { Pill } from "@/components/mini/Pill";
 import { AccountMergeSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
+import { ErrorNote } from "@/components/mini/ErrorNote";
+import { RadioCard } from "@/components/mini/RadioCard";
+import { SelfSettlementsChoice } from "@/components/mini/SelfSettlementsChoice";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -58,8 +62,7 @@ function MergeOnWeb({ openInBrowser }: { openInBrowser: (path: string) => void }
           Telegram 裡完成授權。
         </p>
       </div>
-      <section className="px-4">
-        <p className="sect mb-2.5">步驟</p>
+      <Section title="步驟">
         <ol className="list-decimal space-y-2 rounded-2xl bg-secondary/50 py-3 pl-9 pr-4 text-sm">
           <li>在瀏覽器開啟網頁版，用 Telegram 登入。</li>
           <li>到「個人設定 → 登入方式」，連結另一個帳號用的登入方式。</li>
@@ -68,7 +71,7 @@ function MergeOnWeb({ openInBrowser }: { openInBrowser: (path: string) => void }
         <p className="mt-2 px-1 text-xs text-muted-foreground">
           合併後兩個帳號的群組和紀錄都在同一個帳號底下，無法還原。
         </p>
-      </section>
+      </Section>
       <div className="px-4">
         <Button className="w-full rounded-lg" onClick={() => openInBrowser("/app/settings")}>
           <ExternalLink className="size-4" />
@@ -149,16 +152,13 @@ function MergeConfirm({ platform }: { platform: Platform }) {
   }
 
   const accountCard = (a: AccountMergeSide) => (
-    <label
+    <RadioCard
       key={a.userId}
-      className="flex min-h-11 cursor-pointer items-center gap-3 rounded-2xl border-[1.5px] bg-card px-3.5 py-3 has-[:checked]:border-primary"
+      name="keep-account"
+      checked={keepId === a.userId}
+      onChange={() => setPicked(a.userId)}
+      className="py-3"
     >
-      <input
-        type="radio"
-        name="keep-account"
-        checked={keepId === a.userId}
-        onChange={() => setPicked(a.userId)}
-      />
       <Avatar src={a.photoUrl} name={a.name} userId={a.userId} size="md" />
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-1.5 font-semibold">
@@ -175,7 +175,7 @@ function MergeConfirm({ platform }: { platform: Platform }) {
           <span className="num">{a.recordCount}</span> 筆紀錄
         </span>
       </span>
-    </label>
+    </RadioCard>
   );
 
   return (
@@ -190,8 +190,7 @@ function MergeConfirm({ platform }: { platform: Platform }) {
         </p>
       </div>
 
-      <section className="px-4">
-        <p className="sect mb-2.5">保留哪個帳號</p>
+      <Section title="保留哪個帳號">
         <fieldset className="flex flex-col gap-2">
           <legend className="sr-only">保留哪個帳號</legend>
           {/* Fixed order, so picking the other account doesn't make the rows jump. */}
@@ -209,11 +208,10 @@ function MergeConfirm({ platform }: { platform: Platform }) {
         <p className="mt-2 px-1 text-xs text-muted-foreground">
           保留的帳號沿用它的名稱與頭像；它缺的資料（例如 Telegram、Email）會從另一邊補上。
         </p>
-      </section>
+      </Section>
 
-      <section className="px-4">
-        <p className="sect mb-2.5">合併後</p>
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50 text-sm">
+      <Section title="合併後">
+        <Panel className="text-sm">
           <div className="flex justify-between gap-3 px-4 py-3">
             <span>群組</span>
             <span className="num font-medium">
@@ -229,14 +227,14 @@ function MergeConfirm({ platform }: { platform: Platform }) {
             <span>登入方式</span>
             <span className="font-medium">{providerList(providers)}</span>
           </div>
-        </div>
+        </Panel>
         {data.sharedGroups.length > 0 && (
           <p className="mt-2 px-1 text-xs text-muted-foreground">
             {data.sharedGroups.map((g) => `「${g.title}」`).join("")}
             兩個帳號都是成員，會併成一位成員；同一筆帳目上的付款與分攤會加總，餘額不變。
           </p>
         )}
-      </section>
+      </Section>
 
       <div className="px-4">
         <Button className="w-full rounded-lg" onClick={() => setConfirming(true)}>
@@ -265,48 +263,15 @@ function MergeConfirm({ platform }: { platform: Platform }) {
           </DialogHeader>
 
           {data.selfSettlements > 0 && (
-            <fieldset className="flex flex-col gap-2 text-sm">
-              <legend className="mb-1 font-medium">
-                你們之間有 {data.selfSettlements} 筆還款，合併後會變成自己還自己
-              </legend>
-              <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                <input
-                  type="radio"
-                  name="self-settlements"
-                  className="mt-1"
-                  checked={selfChoice === "keep"}
-                  onChange={() => setSelfChoice("keep")}
-                  disabled={merging}
-                />
-                <span>
-                  保留這些還款
-                  <span className="block text-xs text-muted-foreground">
-                    之後不能再編輯，只能刪除。
-                  </span>
-                </span>
-              </label>
-              <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                <input
-                  type="radio"
-                  name="self-settlements"
-                  className="mt-1"
-                  checked={selfChoice === "delete"}
-                  onChange={() => setSelfChoice("delete")}
-                  disabled={merging}
-                />
-                <span>
-                  一併刪除這些還款
-                  <span className="block text-xs text-muted-foreground">
-                    不影響餘額，動態紀錄和群組訊息會留下刪除紀錄。
-                  </span>
-                </span>
-              </label>
-            </fieldset>
+            <SelfSettlementsChoice
+              legend={<>你們之間有 {data.selfSettlements} 筆還款，合併後會變成自己還自己</>}
+              value={selfChoice}
+              onChange={setSelfChoice}
+              disabled={merging}
+            />
           )}
 
-          <p className="rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
-            合併後無法還原，{absorb.name} 這個帳號會消失。
-          </p>
+          <ErrorNote live={false}>合併後無法還原，{absorb.name} 這個帳號會消失。</ErrorNote>
           {failure && <p className="text-sm text-destructive">{failure}</p>}
 
           <DialogFooter className="flex-row gap-2">
@@ -319,12 +284,12 @@ function MergeConfirm({ platform }: { platform: Platform }) {
               取消
             </Button>
             <Button
+              loading={merging}
               variant="destructive"
               className="flex-1 rounded-lg"
               onClick={confirm}
               disabled={merging}
             >
-              {merging && <Loader2 className="size-4 animate-spin" />}
               合併
             </Button>
           </DialogFooter>

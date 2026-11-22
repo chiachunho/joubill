@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { PageHeader } from "@/components/mini/PageHeader";
 import type { Platform } from "@/components/pages/platform";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,10 +28,7 @@ export function JoinByCodePage({ platform }: { platform: Platform }) {
 
   return (
     <form onSubmit={submit} className="space-y-5 px-4 py-4">
-      <div>
-        <platform.BackLink href={platform.basePath} />
-        <h1 className="text-lg font-semibold">輸入邀請碼</h1>
-      </div>
+      <PageHeader back={<platform.BackLink href={platform.basePath} />} title="輸入邀請碼" flush />
 
       <label className="block space-y-2">
         <span className="sect">邀請碼或連結</span>

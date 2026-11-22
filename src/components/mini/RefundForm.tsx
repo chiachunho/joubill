@@ -6,12 +6,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronRight, X } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { useAuthMode } from "@/components/AuthProvider";
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { NoteBox, NoteToggle, useNoteToggle } from "@/components/mini/NoteField";
 import { ReceiptPhotos, useReceiptPhotos } from "@/components/mini/ReceiptPhotos";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
 import { recordHistoryHref } from "@/lib/activity-link";
 import { apiErrorStatus, deleteErrorMessage, saveErrorMessage } from "@/lib/api-error";
 import type { RefundDetail, RefundParent } from "@/lib/api-types";
@@ -270,9 +274,7 @@ export function RefundForm({
         {/* Amount + currency */}
         <div className="flex gap-2">
           <div className="flex flex-1 flex-col gap-2">
-            <label htmlFor="refund-amount" className="text-sm font-medium leading-none">
-              金額
-            </label>
+            <Label htmlFor="refund-amount">金額</Label>
             <Input
               id="refund-amount"
               type="number"
@@ -285,7 +287,7 @@ export function RefundForm({
             />
           </div>
           <div className="flex w-28 flex-col gap-2">
-            <span className="text-sm font-medium leading-none">幣別</span>
+            <Label as="span">幣別</Label>
             <Select
               value={currency}
               onValueChange={(c) => {
@@ -310,9 +312,9 @@ export function RefundForm({
         {/* Rate */}
         {isForeign && (
           <div className="flex flex-col gap-2">
-            <label htmlFor="refund-fx" className="text-sm font-medium leading-none">
+            <Label htmlFor="refund-fx">
               匯率（1 {currency} = ? {defaultCurrency}）
-            </label>
+            </Label>
             <div className="relative">
               <Input
                 id="refund-fx"
@@ -351,7 +353,7 @@ export function RefundForm({
 
         {/* Date */}
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium leading-none">日期</span>
+          <Label as="span">日期</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -377,9 +379,7 @@ export function RefundForm({
         {/* Description + note */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <label htmlFor="refund-desc" className="text-sm font-medium leading-none">
-              說明
-            </label>
+            <Label htmlFor="refund-desc">說明</Label>
             <NoteToggle
               open={noteToggle.open}
               hasText={note.trim() !== ""}
@@ -411,7 +411,7 @@ export function RefundForm({
 
         {/* Who received it */}
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium leading-none">收款人</span>
+          <Label as="span">收款人</Label>
           <MemberSelect
             value={receivedBy}
             onValueChange={setReceivedBy}
@@ -423,53 +423,34 @@ export function RefundForm({
 
         {/* How it is shared back */}
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium leading-none">分帳方式</span>
-          <div
-            role="radiogroup"
-            aria-label="分帳方式"
-            className="inline-flex w-full rounded-lg border border-input bg-secondary/40 p-0.5"
-          >
-            {(
-              [
-                ["ratio", "照原分攤比例"],
-                ["custom", "自訂退稅金額"],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={split === value}
-                onClick={() => {
-                  if (value === "custom" && split === "ratio") {
-                    // Start the custom amounts from what the ratio gives now.
-                    setCustom((prev) =>
-                      Object.fromEntries(
-                        Object.entries(prev).map(([id, c]) => {
-                          const r = ratio.find((x) => x.userId === Number(id));
-                          return [id, { included: !!r, value: r ? r.amount.toFixed(2) : c.value }];
-                        }),
-                      ),
-                    );
-                  }
-                  setSplit(value);
-                }}
-                className={cn(
-                  "flex-1 rounded-md py-1.5 text-sm transition-colors",
-                  split === value
-                    ? "bg-background font-medium text-foreground shadow-sm"
-                    : "text-muted-foreground",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Label as="span">分帳方式</Label>
+          <SegmentedControl
+            label="分帳方式"
+            value={split}
+            options={[
+              { value: "ratio", label: "照原分攤比例" },
+              { value: "custom", label: "自訂退稅金額" },
+            ]}
+            onChange={(value) => {
+              if (value === "custom" && split === "ratio") {
+                // Start the custom amounts from what the ratio gives now.
+                setCustom((prev) =>
+                  Object.fromEntries(
+                    Object.entries(prev).map(([id, c]) => {
+                      const r = ratio.find((x) => x.userId === Number(id));
+                      return [id, { included: !!r, value: r ? r.amount.toFixed(2) : c.value }];
+                    }),
+                  ),
+                );
+              }
+              setSplit(value);
+            }}
+          />
         </div>
 
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium leading-none">參與者</span>
-          <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          <Label as="span">參與者</Label>
+          <Panel>
             {split === "ratio"
               ? parent.splits.map((p) => {
                   const share = ratio.find((r) => r.userId === p.userId);
@@ -533,7 +514,7 @@ export function RefundForm({
                     </div>
                   );
                 })}
-          </div>
+          </Panel>
           <div className="rounded-2xl bg-secondary/50 px-4 py-3">
             {split === "ratio" ? (
               <span className="num flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -564,11 +545,7 @@ export function RefundForm({
           </div>
         </div>
 
-        {error && (
-          <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-            {error}
-          </p>
-        )}
+        {error && <ErrorNote>{error}</ErrorNote>}
 
         {isEdit && recordedBy && (
           <div className="space-y-1">
@@ -616,11 +593,7 @@ export function RefundForm({
             </Button>
           )}
         </div>
-        {deleteError && (
-          <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-            {deleteError}
-          </p>
-        )}
+        {deleteError && <ErrorNote>{deleteError}</ErrorNote>}
       </form>
 
       <ConfirmDialog

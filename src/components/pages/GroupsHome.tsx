@@ -5,9 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, KeyRound, Plus, Users } from "lucide-react";
 
+import { EmptyState } from "@/components/mini/EmptyState";
+import { Panel } from "@/components/mini/Panel";
 import { Avatar } from "@/components/mini/Avatar";
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
@@ -138,59 +141,30 @@ export function GroupsHome({ platform }: { platform: Platform }) {
       </div>
 
       {groups.length === 0 ? (
-        <div className="px-4 py-20 text-center">
-          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-secondary">
-            <Users className="size-6 text-muted-foreground" />
-          </div>
-          <p className="font-semibold">還沒有任何群組</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            在這裡建立群組，或輸入邀請碼加入；也可以把機器人加進 Telegram 群組，輸入 /start
-          </p>
-        </div>
+        <EmptyState icon={Users} title="還沒有任何群組">
+          在這裡建立群組，或輸入邀請碼加入；也可以把機器人加進 Telegram 群組，輸入 /start
+        </EmptyState>
       ) : (
         <>
           <div className="mx-4 mb-2 flex items-center justify-between gap-3 pl-1">
             <p className="sect">{groups.length} 個群組</p>
-            <div
-              role="group"
-              aria-label="排序方式"
-              className="flex gap-0.5 rounded-lg bg-secondary p-0.5"
-            >
-              {GROUP_SORTS.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  aria-pressed={sort === o.value}
-                  onClick={() => setStoredSort(o.value)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    sort === o.value
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              size="sm"
+              label="排序方式"
+              value={sort}
+              options={GROUP_SORTS}
+              onChange={setStoredSort}
+            />
           </div>
-          <div className="mx-4 divide-y divide-border/50 overflow-hidden rounded-2xl bg-secondary/50">
+          <Panel className="mx-4">
             {groups.map((g) => (
               <Link
                 key={g.id}
                 href={`${platform.basePath}/groups/${g.id}`}
                 className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40 active:bg-accent/60"
               >
-                {photosData?.photos[g.id] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={photosData.photos[g.id]!}
-                    alt={g.title}
-                    className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-                  />
-                ) : (
-                  // No photo (a web group has no chat, a Telegram group may not have set one).
-                  <Avatar name={g.title} userId={g.id} />
-                )}
+                {/* No photo: a web group has no chat, a Telegram group may not have set one. */}
+                <Avatar src={photosData?.photos[g.id]} name={g.title} userId={g.id} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{g.title}</p>
                   <p className="text-xs text-muted-foreground">{updatedLabel(g.lastActivityAt)}</p>
@@ -202,7 +176,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
               </Link>
             ))}
-          </div>
+          </Panel>
         </>
       )}
     </div>

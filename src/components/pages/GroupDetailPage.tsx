@@ -12,9 +12,9 @@ import {
   Plus,
   Settings,
   User,
-  Users,
 } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
 import { Avatar, AvatarOverflow } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { DeleteRequestBanner } from "@/components/mini/DeleteRequestBanner";
@@ -25,6 +25,8 @@ import { TimezonePrompt } from "@/components/mini/TimezonePrompt";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import type { Platform } from "@/components/pages/platform";
 import {
   EXPENSE_ONLY_MINE_KEY,
@@ -234,18 +236,8 @@ export function GroupDetailPage({
       <div className="relative flex items-center justify-center px-4">
         <platform.HeaderLeading />
         <div className="flex min-w-0 items-center gap-2.5">
-          {avatars?.groupPhoto ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatars.groupPhoto}
-              alt={groupTitle}
-              className="size-8 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-            />
-          ) : (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Users className="size-3.5 text-primary" />
-            </div>
-          )}
+          {/* The same picture, or initials, as the group's row in the group list. */}
+          <Avatar src={avatars?.groupPhoto} name={groupTitle} userId={Number(id)} size="sm" />
           <h1 className="truncate text-sm font-semibold">{groupTitle}</h1>
         </div>
         <Link
@@ -294,7 +286,7 @@ export function GroupDetailPage({
               統計
             </Link>
           </div>
-          <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          <Panel>
             {balance.balances.map((b) => (
               <div key={b.userId} className="flex items-center gap-3 px-4 py-3">
                 <Avatar src={getPhoto(b.userId)} name={labelUser(b)} userId={b.userId} size="sm" />
@@ -313,7 +305,7 @@ export function GroupDetailPage({
                 </span>
               </div>
             ))}
-          </div>
+          </Panel>
         </section>
       )}
 
@@ -403,26 +395,16 @@ export function GroupDetailPage({
 
         {/* View controls: total/balance segmented toggle + "only mine" filter */}
         <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="inline-flex rounded-lg bg-secondary/50 p-0.5">
-            {(
-              [
-                ["total", "總額"],
-                ["balance", "淨額"],
-              ] as const
-            ).map(([mode, label]) => (
-              <button
-                key={mode}
-                onClick={() => setStoredViewMode(mode)}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                  viewMode === mode
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            size="sm"
+            label="金額顯示"
+            value={viewMode}
+            options={[
+              { value: "total", label: "總額" },
+              { value: "balance", label: "淨額" },
+            ]}
+            onChange={setStoredViewMode}
+          />
           {selfUserId !== undefined && (
             <button
               onClick={toggleOnlyMine}
@@ -455,7 +437,7 @@ export function GroupDetailPage({
             {Array.from(expensesByMonth.entries()).map(([month, exps]) => (
               <div key={month}>
                 <p className="mb-2 text-xs font-medium text-muted-foreground">{month}</p>
-                <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+                <Panel>
                   {exps.map((e) => {
                     const day = Number(e.spentAt.slice(8, 10));
 
@@ -695,7 +677,7 @@ export function GroupDetailPage({
                       </Link>
                     );
                   })}
-                </div>
+                </Panel>
               </div>
             ))}
           </div>
@@ -714,15 +696,9 @@ export function GroupDetailPage({
       </section>
 
       {settleError && (
-        <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+        <ErrorNote className="mx-4" onDismiss={() => setSettleError(null)}>
           {settleError}
-          <button
-            onClick={() => setSettleError(null)}
-            className="ml-2 text-xs underline opacity-70"
-          >
-            關閉
-          </button>
-        </div>
+        </ErrorNote>
       )}
 
       <ConfirmDialog

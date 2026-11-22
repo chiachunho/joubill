@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { ErrorNote } from "@/components/mini/ErrorNote";
+import { RadioCard } from "@/components/mini/RadioCard";
+import { SelfSettlementsChoice } from "@/components/mini/SelfSettlementsChoice";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -104,21 +106,17 @@ export function MergeMemberDialog({
         <fieldset className="flex flex-col gap-2">
           <legend className="sr-only">合併到哪位成員</legend>
           {candidates.map((m) => (
-            <label
+            <RadioCard
               key={m.id}
-              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+              name="merge-target"
+              checked={target === m.id}
+              onChange={() => setPicked(m.id)}
+              disabled={isLoading}
             >
-              <input
-                type="radio"
-                name="merge-target"
-                checked={target === m.id}
-                onChange={() => setPicked(m.id)}
-                disabled={isLoading}
-              />
               <Avatar src={photos?.[m.id] ?? null} name={name(m)} userId={m.id} size="sm" />
               {name(m)}
               {m.id === selfUserId && <span className="text-muted-foreground">（你）</span>}
-            </label>
+            </RadioCard>
           ))}
         </fieldset>
 
@@ -151,49 +149,20 @@ export function MergeMemberDialog({
         )}
 
         {preview && preview.selfSettlements > 0 && (
-          <fieldset className="flex flex-col gap-2 text-sm">
-            <legend className="mb-1 font-medium">
-              有 {preview.selfSettlements} 筆還款是他和 {targetMember ? name(targetMember) : "對方"}{" "}
-              之間的，合併後會變成自己還自己
-            </legend>
-            <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-              <input
-                type="radio"
-                name="self-settlements"
-                className="mt-1"
-                checked={selfChoice === "keep"}
-                onChange={() => setSelfChoice("keep")}
-                disabled={isLoading}
-              />
-              <span>
-                保留這些還款
-                <span className="block text-xs text-muted-foreground">
-                  之後不能再編輯，只能刪除。
-                </span>
-              </span>
-            </label>
-            <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-              <input
-                type="radio"
-                name="self-settlements"
-                className="mt-1"
-                checked={selfChoice === "delete"}
-                onChange={() => setSelfChoice("delete")}
-                disabled={isLoading}
-              />
-              <span>
-                一併刪除這些還款
-                <span className="block text-xs text-muted-foreground">
-                  不影響餘額，動態紀錄和群組訊息會留下刪除紀錄。
-                </span>
-              </span>
-            </label>
-          </fieldset>
+          <SelfSettlementsChoice
+            legend={
+              <>
+                有 {preview.selfSettlements} 筆還款是他和{" "}
+                {targetMember ? name(targetMember) : "對方"} 之間的，合併後會變成自己還自己
+              </>
+            }
+            value={selfChoice}
+            onChange={setSelfChoice}
+            disabled={isLoading}
+          />
         )}
 
-        <p className="rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
-          合併後無法還原，也不需要其他成員同意。
-        </p>
+        <ErrorNote live={false}>合併後無法還原，也不需要其他成員同意。</ErrorNote>
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <DialogFooter className="flex-row gap-2">
@@ -206,12 +175,13 @@ export function MergeMemberDialog({
             取消
           </Button>
           <Button
+            loading={isLoading}
             variant="destructive"
             className="flex-1 rounded-lg"
             onClick={confirm}
             disabled={isLoading || !targetMember || !preview || isFetching}
           >
-            {isLoading ? <Loader2 className="size-4 animate-spin" /> : "確認合併"}
+            確認合併
           </Button>
         </DialogFooter>
       </DialogContent>

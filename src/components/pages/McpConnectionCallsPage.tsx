@@ -4,10 +4,14 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, History } from "lucide-react";
 
+import { EmptyState } from "@/components/mini/EmptyState";
+import { PageHeader } from "@/components/mini/PageHeader";
+import { Panel } from "@/components/mini/Panel";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { Pill } from "@/components/mini/Pill";
 import { McpCallRowsSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { recordHistoryHref } from "@/lib/activity-link";
@@ -91,52 +95,34 @@ export function McpConnectionCallsPage({
 
   return (
     <div className="space-y-5 py-4">
-      <div className="px-4">
-        <platform.BackLink href={back} />
-        <h1 className="text-lg font-semibold">使用紀錄</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {connection ? `「${connection.name}」` : "這個連線"}最近 {CALL_LOG_DAYS}{" "}
-          天的工具呼叫與結果。只記錄工具名稱、群組、結果和對應的紀錄，不保存說明文字或收據圖片。
-        </p>
-      </div>
+      <PageHeader
+        back={<platform.BackLink href={back} />}
+        title="使用紀錄"
+        description={
+          <>
+            {connection ? `「${connection.name}」` : "這個連線"}最近 {CALL_LOG_DAYS}{" "}
+            天的工具呼叫與結果。只記錄工具名稱、群組、結果和對應的紀錄，不保存說明文字或收據圖片。
+          </>
+        }
+      />
 
       <div className="px-4">
-        <div
-          role="radiogroup"
-          aria-label="篩選使用紀錄"
-          className="grid grid-cols-3 gap-1 rounded-lg bg-secondary/60 p-1"
-        >
-          {CALL_FILTERS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              role="radio"
-              aria-checked={filter === f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "rounded-md py-1.5 text-sm transition-colors",
-                filter === f ? "bg-background font-semibold shadow-sm" : "text-muted-foreground",
-              )}
-            >
-              {CALL_FILTER_LABEL[f]}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="篩選使用紀錄"
+          value={filter}
+          options={CALL_FILTERS.map((f) => ({ value: f, label: CALL_FILTER_LABEL[f] }))}
+          onChange={setFilter}
+        />
       </div>
 
       {switching ? (
         <McpCallRowsSkeleton />
       ) : calls.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
-            <History className="size-6" />
-          </span>
-          <p className="max-w-[24ch] text-sm text-muted-foreground">
-            {filter === "all" ? "還沒有使用紀錄" : "沒有符合的紀錄"}
-          </p>
-        </div>
+        <EmptyState icon={History}>
+          {filter === "all" ? "還沒有使用紀錄" : "沒有符合的紀錄"}
+        </EmptyState>
       ) : (
-        <ul className="mx-4 divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+        <Panel as="ul" className="mx-4">
           {calls.map((c) => {
             const info = outcomeInfo(c.outcome);
             const open = openId === c.id;
@@ -202,7 +188,7 @@ export function McpConnectionCallsPage({
               </li>
             );
           })}
-        </ul>
+        </Panel>
       )}
 
       {!switching && (hasNextPage || error) && (

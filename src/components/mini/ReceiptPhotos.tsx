@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, ImagePlus, Loader2, X } from "lucide-react";
 import { useAuthMode } from "@/components/AuthProvider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
 import { MAX_RECEIPTS } from "@/lib/receipt-limits";
 import { tmaRawFetch } from "@/lib/tma-fetch";
 import { webRawFetch } from "@/lib/web-fetch";
@@ -117,7 +118,7 @@ export function ReceiptPhotos({
 
   return (
     <div ref={sectionRef} className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium leading-none">收據照片</span>
+      <Label as="span">收據照片</Label>
       <input
         ref={fileInputRef}
         type="file"

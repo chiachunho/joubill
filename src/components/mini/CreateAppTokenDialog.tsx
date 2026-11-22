@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Loader2 } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 
 import {
   AppAccessPicker,
@@ -22,7 +22,9 @@ import { Input } from "@/components/ui/input";
 import { DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES } from "@/lib/app-ui";
 import { apiErrorText } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
+import { useCopy } from "@/lib/use-copy";
 import { useCreateMcpConnectionMutation } from "@/store/api";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 
 type Groups = { id: number; title: string; defaultCurrency: string }[];
 
@@ -51,8 +53,9 @@ export function CreateAppTokenDialog({
   const [days, setDays] = useState<number | null>(DEFAULT_EXPIRY_DAYS);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [manual, setManual] = useState(false);
+  const clip = useCopy();
+  const copied = clip.copied !== null;
+  const manual = clip.refused !== null;
 
   const canSubmit = name.trim().length > 0 && scopeIsValid(scope) && !isLoading;
 
@@ -63,8 +66,7 @@ export function CreateAppTokenDialog({
     setDays(DEFAULT_EXPIRY_DAYS);
     setError(null);
     setToken(null);
-    setCopied(false);
-    setManual(false);
+    clip.reset();
     reset();
     onOpenChange(false);
   }
@@ -85,15 +87,8 @@ export function CreateAppTokenDialog({
     }
   }
 
-  async function copy() {
-    if (!token) return;
-    try {
-      await navigator.clipboard.writeText(token);
-      setCopied(true);
-      setManual(false);
-    } catch {
-      setManual(true);
-    }
+  function copy() {
+    if (token) void clip.copy(token);
   }
 
   return (
@@ -159,29 +154,12 @@ export function CreateAppTokenDialog({
               <AppScopePicker groups={groups} value={scope} onChange={setScope} />
               <div>
                 <p className="mb-1.5 text-xs text-muted-foreground">到期</p>
-                <div
-                  role="radiogroup"
-                  aria-label="到期"
-                  className="grid grid-cols-3 gap-1 rounded-lg bg-secondary/60 p-1"
-                >
-                  {EXPIRY_CHOICES.map((c) => (
-                    <button
-                      key={c.label}
-                      type="button"
-                      role="radio"
-                      aria-checked={days === c.days}
-                      onClick={() => setDays(c.days)}
-                      className={cn(
-                        "rounded-md py-1.5 text-sm transition-colors",
-                        days === c.days
-                          ? "bg-background font-semibold shadow-sm"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl
+                  label="到期"
+                  value={String(days)}
+                  options={EXPIRY_CHOICES.map((c) => ({ value: String(c.days), label: c.label }))}
+                  onChange={(v) => setDays(EXPIRY_CHOICES.find((c) => String(c.days) === v)!.days)}
+                />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
@@ -194,8 +172,12 @@ export function CreateAppTokenDialog({
               >
                 取消
               </Button>
-              <Button className="flex-1 rounded-lg" onClick={submit} disabled={!canSubmit}>
-                {isLoading && <Loader2 className="size-4 animate-spin" />}
+              <Button
+                loading={isLoading}
+                className="flex-1 rounded-lg"
+                onClick={submit}
+                disabled={!canSubmit}
+              >
                 建立
               </Button>
             </DialogFooter>

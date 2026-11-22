@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 
+import { Panel } from "@/components/mini/Panel";
+import { Avatar } from "@/components/mini/Avatar";
 import {
   Dialog,
   DialogContent,
@@ -71,11 +73,7 @@ export function AvatarSourceDialog({ open, onOpenChange, profile, name }: Props)
           <DialogTitle>頭像</DialogTitle>
           <DialogDescription>從已連結的登入方式挑一張。</DialogDescription>
         </DialogHeader>
-        <div
-          role="radiogroup"
-          aria-label="頭像來源"
-          className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50"
-        >
+        <Panel role="radiogroup" aria-label="頭像來源">
           {rows.map((row) => {
             const selected = row.key === profile.avatarSource;
             const busy = saving === (row.key ?? "auto");
@@ -89,17 +87,12 @@ export function AvatarSourceDialog({ open, onOpenChange, profile, name }: Props)
                 onClick={() => void choose(row.key)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50 disabled:opacity-60"
               >
-                {row.url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={row.url}
-                    alt={name}
-                    referrerPolicy="no-referrer"
-                    className="size-9 shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-                  />
-                ) : (
-                  <div className="size-9 shrink-0 rounded-full bg-primary/10" />
-                )}
+                <Avatar
+                  src={row.url}
+                  name={name}
+                  userId={0}
+                  fallback={<div className="size-9 shrink-0 rounded-full bg-primary/10" />}
+                />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm">{row.label}</span>
                   {row.hint && (
@@ -114,7 +107,7 @@ export function AvatarSourceDialog({ open, onOpenChange, profile, name }: Props)
               </button>
             );
           })}
-        </div>
+        </Panel>
         {error && <p className="text-sm text-destructive">{error}</p>}
       </DialogContent>
     </Dialog>

@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, KeyRound, Link2, Merge, Unlink, X } from "lucide-react";
+import { ChevronRight, KeyRound, Link2, Merge, Unlink } from "lucide-react";
 
+import { Panel, Section } from "@/components/mini/Panel";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import { IconTile } from "@/components/mini/IconTile";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import type { Platform } from "@/components/pages/platform";
@@ -116,15 +118,10 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
   }
 
   return (
-    <section className="px-4">
-      <p className="sect mb-2.5">登入方式</p>
+    <Section title="登入方式">
       {alert && (
-        <div
-          ref={alertRef}
-          role="alert"
-          className="mb-2.5 flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
-          <div className="flex-1 space-y-2">
+        <ErrorNote ref={alertRef} className="mb-2.5" onDismiss={() => setAlert(null)}>
+          <div className="space-y-2">
             <p>{alert.text}</p>
             {alert.retry && addable.includes(alert.retry) && !blocked(alert.retry) && (
               <button
@@ -139,16 +136,9 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
               </button>
             )}
           </div>
-          <button
-            onClick={() => setAlert(null)}
-            aria-label="關閉"
-            className="-mr-1 rounded-lg p-1 transition-colors hover:bg-destructive/10"
-          >
-            <X className="size-3.5" />
-          </button>
-        </div>
+        </ErrorNote>
       )}
-      <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+      <Panel>
         {linked.map((provider) => {
           const verdict = canUnlink(provider, data.linked);
           return (
@@ -189,7 +179,7 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
             <span className="flex-1 text-sm">連結 {PROVIDER_LABEL[provider]}</span>
           </button>
         ))}
-      </div>
+      </Panel>
       <p className="mt-2 px-1 text-xs text-muted-foreground">
         {platform.linkIdentity
           ? "先把其他登入方式連結到這個帳號，之後用它登入才會看到原本的群組。如果那個登入方式已經屬於你的另一個帳號，會讓你選擇把兩個帳號合併。"
@@ -213,6 +203,6 @@ export function LoginMethodsSection({ platform }: { platform: Platform }) {
         loading={unlinking}
         onConfirm={confirmUnlink}
       />
-    </section>
+    </Section>
   );
 }

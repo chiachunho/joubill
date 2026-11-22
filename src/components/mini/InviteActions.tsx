@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, KeyRound, Loader2, RefreshCw, Share2 } from "lucide-react";
+import { Check, Copy, KeyRound, RefreshCw, Share2 } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiErrorText, describeError } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { formatInviteCode, inviteLink } from "@/lib/invite";
+import { useCopy } from "@/lib/use-copy";
 import { useGetInviteQuery, useResetInviteMutation } from "@/store/api";
 import type { InviteHint } from "@/components/pages/platform";
 
@@ -34,11 +35,12 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: Invite
   const { data, error, isFetching, refetch } = useGetInviteQuery(groupId);
   const [resetInvite, { isLoading: resetting }] = useResetInviteMutation();
   const [confirmReset, setConfirmReset] = useState(false);
-  const [copied, setCopied] = useState<CopyKind | null>(null);
+  const clip = useCopy<CopyKind>();
+  const copied = clip.copied;
   const [message, setMessage] = useState<string | null>(null);
   // What the clipboard refused, shown as selectable text: the links themselves are not on
   // screen anywhere else, so "select it by hand" needs something to select.
-  const [manualCopy, setManualCopy] = useState<string | null>(null);
+  const manualCopy = clip.refused;
 
   const code = data?.code ?? null;
   const link = code ? inviteLink(window.location.origin, code) : null;
@@ -46,16 +48,8 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: Invite
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   async function copy(kind: CopyKind, text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(kind);
-      setMessage(null);
-      setManualCopy(null);
-      setTimeout(() => setCopied((c) => (c === kind ? null : c)), 2000);
-    } catch {
-      setManualCopy(text);
-      setMessage("無法自動複製，請長按或選取上面的文字複製");
-    }
+    setMessage(null);
+    await clip.copy(text, kind);
   }
 
   async function share(url: string) {
@@ -71,7 +65,7 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: Invite
     try {
       await resetInvite({ groupId }).unwrap();
       setMessage(null);
-      setManualCopy(null);
+      clip.reset();
     } catch (e) {
       setMessage(apiErrorText(e, code ? "重設失敗" : "產生失敗"));
     } finally {
@@ -108,8 +102,13 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: Invite
         </span>
         <p className="mt-2.5 text-sm font-semibold">這個群組還沒有邀請碼</p>
         <p className="mt-0.5 text-xs text-muted-foreground">產生後，拿到連結或邀請碼的人就能加入</p>
-        <Button className="mt-4 w-full rounded-lg" onClick={issue} disabled={resetting}>
-          {resetting ? <Loader2 className="size-4 animate-spin" /> : "產生邀請碼"}
+        <Button
+          loading={resetting}
+          className="mt-4 w-full rounded-lg"
+          onClick={issue}
+          disabled={resetting}
+        >
+          產生邀請碼
         </Button>
         {message && <p className="mt-2 text-xs text-destructive">{message}</p>}
       </div>
@@ -196,10 +195,13 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: Invite
       <p
         className={cn(
           "mt-3.5 px-0.5 text-xs",
-          message ? "text-destructive" : "text-muted-foreground",
+          message || manualCopy ? "text-destructive" : "text-muted-foreground",
         )}
       >
-        {message ?? hint({ telegramLink: miniLink !== null })}
+        {message ??
+          (manualCopy
+            ? "無法自動複製，請長按或選取上面的文字複製"
+            : hint({ telegramLink: miniLink !== null }))}
       </p>
 
       <button

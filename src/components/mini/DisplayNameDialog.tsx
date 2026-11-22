@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -117,11 +116,12 @@ export function DisplayNameDialog({ open, onOpenChange, current, providerName }:
             </Button>
           )}
           <Button
+            loading={isLoading}
             className="flex-1 rounded-lg"
             onClick={() => void save(name)}
             disabled={isLoading || !check.ok}
           >
-            {isLoading ? <Loader2 className="size-4 animate-spin" /> : "儲存"}
+            儲存
           </Button>
         </DialogFooter>
       </DialogContent>

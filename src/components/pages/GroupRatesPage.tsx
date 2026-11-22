@@ -3,6 +3,8 @@
 import { use, useState } from "react";
 import { Clock, Coins } from "lucide-react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
+import { Panel } from "@/components/mini/Panel";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { IconTile } from "@/components/mini/IconTile";
 import { CustomRatesSection } from "@/components/mini/CustomRatesSection";
@@ -87,13 +89,10 @@ export function GroupRatesPage({
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={backHref} />
-        <h1 className="text-lg font-semibold">貨幣與匯率</h1>
-      </div>
+      <PageHeader back={<platform.BackLink href={backHref} />} title="貨幣與匯率" />
 
       <section className="px-4">
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+        <Panel>
           <div className="flex items-center gap-3 px-4 py-3">
             <IconTile icon={Coins} />
             <span className="flex-1 text-sm">預設貨幣</span>
@@ -133,7 +132,7 @@ export function GroupRatesPage({
             </div>
             <p className="text-xs leading-relaxed text-muted-foreground">{TIMEZONE_PURPOSE}</p>
           </div>
-        </div>
+        </Panel>
       </section>
 
       <div>

@@ -5,6 +5,7 @@ import { useDispatch } from "react-redux";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { Check, Download, Send } from "lucide-react";
 
+import { Panel, Section } from "@/components/mini/Panel";
 import { DateRangePicker } from "@/components/mini/DateRangeSelect";
 import { ActionRow } from "@/components/mini/ActionRow";
 import { BeancountExportSkeleton } from "@/components/mini/skeletons";
@@ -167,13 +168,8 @@ export function BeancountExportSection({
 
   return (
     <>
-      <section className="px-4">
-        <p className="sect mb-2.5">匯出 Beancount</p>
-        <div
-          role="radiogroup"
-          aria-label="匯出範圍"
-          className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50"
-        >
+      <Section title="匯出 Beancount">
+        <Panel role="radiogroup" aria-label="匯出範圍">
           {options.map((o) => {
             const on = choice === o.key;
             const detail = [o.hint, countText(o.key)].filter(Boolean).join(" · ");
@@ -218,15 +214,15 @@ export function BeancountExportSection({
               </div>
             );
           })}
-        </div>
+        </Panel>
         <p className="mt-2 px-1 text-xs text-muted-foreground">
           上次匯出後的變動包含新增的紀錄，以及已匯出、之後被修改或刪除的紀錄。修正會寫成沖銷分錄，帶有
           joubill_correction 標記；每筆都帶 joubill_id，可以用來對照。
         </p>
-      </section>
+      </Section>
 
       <section className="px-4">
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+        <Panel>
           {platform.canDownloadExport && (
             <ActionRow icon={Download} onClick={download} disabled={!ready}>
               {pending === "download" ? "匯出中…" : "下載 .beancount"}
@@ -237,7 +233,7 @@ export function BeancountExportSection({
               {pending === "send" ? "傳送中…" : "傳到我的私訊"}
             </ActionRow>
           )}
-        </div>
+        </Panel>
         {message && (
           <p
             className={`mt-2 px-1 text-xs ${message.ok ? "text-muted-foreground" : "text-destructive"}`}

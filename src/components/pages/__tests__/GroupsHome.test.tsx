@@ -196,10 +196,10 @@ describe("GroupsHome", () => {
     await screen.findByRole("link", { name: /週末旅行/ });
     expect(titles()[0]).toContain("週末旅行");
 
-    fireEvent.click(screen.getByRole("button", { name: "名稱" }));
+    fireEvent.click(screen.getByRole("radio", { name: "名稱" }));
     // 北 (5 strokes) before 週 (12).
     await waitFor(() => expect(titles()[0]).toContain("北海道"));
-    expect(screen.getByRole("button", { name: "名稱" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("radio", { name: "名稱" })).toHaveAttribute("aria-checked", "true");
   });
 
   const askedForBalances = (request: { mock: { calls: unknown[][] } }) =>

@@ -4,6 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Copy, Check, Eye, Pencil, Plus, Sparkles } from "lucide-react";
 
+import { EmptyState } from "@/components/mini/EmptyState";
+import { PageHeader } from "@/components/mini/PageHeader";
+import { Panel, Section } from "@/components/mini/Panel";
 import { CreateAppTokenDialog } from "@/components/mini/CreateAppTokenDialog";
 import { LinkedAppsSkeleton } from "@/components/mini/skeletons";
 import { Pill } from "@/components/mini/Pill";
@@ -22,6 +25,7 @@ import {
 import { describeError } from "@/lib/api-error";
 import { MCP_HELP_PATH, MCP_PATH } from "@/lib/help-url";
 import { cn } from "@/lib/utils";
+import { useCopy } from "@/lib/use-copy";
 import { useGetMcpConnectionsQuery, useGetMeQuery } from "@/store/api";
 
 /**
@@ -37,8 +41,9 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
   const { data: me } = useGetMeQuery();
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
   const [creating, setCreating] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [manual, setManual] = useState(false);
+  const clip = useCopy();
+  const copied = clip.copied !== null;
+  const manual = clip.refused !== null;
 
   // The host the person actually opened, not the build-time `NEXT_PUBLIC_MINI_APP_URL`, which a
   // preview deployment may have set to another domain. A function because `window` does not
@@ -46,16 +51,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
   const mcpUrl = () => new URL(MCP_PATH, window.location.origin).toString();
   const groups = me?.groups ?? [];
 
-  async function copyUrl() {
-    try {
-      await navigator.clipboard.writeText(mcpUrl());
-      setCopied(true);
-      setManual(false);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setManual(true);
-    }
-  }
+  const copyUrl = () => void clip.copy(mcpUrl());
 
   if (error && !redirectToLogin) {
     return <LoadError detail={describeError(error)} />;
@@ -67,17 +63,14 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={back} />
-        <h1 className="text-lg font-semibold">連結的應用程式</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          MCP 是讓 Claude、ChatGPT、Cursor
-          或自動化流程連進揪帳的方式，連上後可以查帳、記帳。它們記的每一筆，群組都會看到是透過它記錄的。
-        </p>
-      </div>
+      <PageHeader
+        back={<platform.BackLink href={back} />}
+        title="連結的應用程式"
+        description="MCP 是讓 Claude、ChatGPT、Cursor
+          或自動化流程連進揪帳的方式，連上後可以查帳、記帳。它們記的每一筆，群組都會看到是透過它記錄的。"
+      />
 
-      <section className="px-4">
-        <p className="sect mb-2.5">MCP 伺服器網址</p>
+      <Section title="MCP 伺服器網址">
         <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2">
           <input
             readOnly
@@ -101,22 +94,15 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
             ? "無法自動複製，請長按或選取上面的網址複製"
             : "在 Claude 或 ChatGPT「新增連接器」貼上這個網址。"}
         </p>
-      </section>
+      </Section>
 
-      <section className="px-4">
-        <p className="sect mb-2.5">已連結</p>
+      <Section title="已連結">
         {list.length === 0 ? (
-          <div className="rounded-2xl bg-secondary/50 px-4 py-6 text-center">
-            <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Sparkles className="size-5" />
-            </span>
-            <p className="mt-2 text-sm font-semibold">還沒有連結的應用程式</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              建立個人存取權杖，或用上面的網址新增連接器
-            </p>
-          </div>
+          <EmptyState icon={Sparkles} title="還沒有連結的應用程式">
+            建立個人存取權杖，或用上面的網址新增連接器
+          </EmptyState>
         ) : (
-          <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+          <Panel>
             {list.map((c) => {
               const expired = connectionStatus(c) === "expired";
               return (
@@ -147,7 +133,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
                 </Link>
               );
             })}
-          </div>
+          </Panel>
         )}
         <Button
           className="mt-3 w-full rounded-lg"
@@ -167,7 +153,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
           <span className="flex-1">設定範例與說明</span>
           <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
         </platform.HelpAction>
-      </section>
+      </Section>
 
       <CreateAppTokenDialog open={creating} onOpenChange={setCreating} groups={groups} />
     </div>

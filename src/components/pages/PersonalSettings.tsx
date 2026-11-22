@@ -4,6 +4,9 @@ import { useState } from "react";
 import { BookOpen, ChevronRight, FileText, Pencil, ShieldCheck, User } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
+import { Panel, Section } from "@/components/mini/Panel";
+import { Avatar } from "@/components/mini/Avatar";
 import { IconTile } from "@/components/mini/IconTile";
 import { AvatarSourceDialog } from "@/components/mini/AvatarSourceDialog";
 import { DisplayNameDialog } from "@/components/mini/DisplayNameDialog";
@@ -41,26 +44,23 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
   const providerName = providerNameOf(profile) || displayName;
   // One picture to choose from is no choice: the avatar only becomes a button with two or more.
   const canChooseAvatar = profile.avatarOptions.length > 1;
-  const avatar = profile.photoUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+  const avatar = (
+    <Avatar
       src={profile.photoUrl}
-      alt={displayName}
-      referrerPolicy="no-referrer"
-      className="size-12 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+      name={displayName}
+      userId={0}
+      size="lg"
+      fallback={
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
+          <User className="size-5 text-primary" />
+        </div>
+      }
     />
-  ) : (
-    <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
-      <User className="size-5 text-primary" />
-    </div>
   );
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={platform.basePath} />
-        <h1 className="text-lg font-semibold">個人設定</h1>
-      </div>
+      <PageHeader back={<platform.BackLink href={platform.basePath} />} title="個人設定" />
 
       <section className="px-4">
         <div className="flex items-center gap-4 rounded-2xl bg-secondary/50 px-4 py-4">
@@ -104,9 +104,8 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
 
       <platform.DeviceSettings />
 
-      <section className="px-4">
-        <p className="sect mb-2.5">關於</p>
-        <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
+      <Section title="關於">
+        <Panel>
           {ABOUT_LINKS.map(({ path, label, Icon }) => (
             <platform.HelpAction
               key={path}
@@ -124,8 +123,8 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
               {process.env.NEXT_PUBLIC_APP_VERSION ?? "—"}
             </span>
           </div>
-        </div>
-      </section>
+        </Panel>
+      </Section>
 
       <platform.AccountSection />
 
