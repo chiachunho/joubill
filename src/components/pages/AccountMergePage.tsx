@@ -271,7 +271,7 @@ function MergeConfirm({ platform }: { platform: Platform }) {
             />
           )}
 
-          <ErrorNote>合併後無法還原，{absorb.name} 這個帳號會消失。</ErrorNote>
+          <ErrorNote live={false}>合併後無法還原，{absorb.name} 這個帳號會消失。</ErrorNote>
           {failure && <p className="text-sm text-destructive">{failure}</p>}
 
           <DialogFooter className="flex-row gap-2">

@@ -162,7 +162,7 @@ export function MergeMemberDialog({
           />
         )}
 
-        <ErrorNote>合併後無法還原，也不需要其他成員同意。</ErrorNote>
+        <ErrorNote live={false}>合併後無法還原，也不需要其他成員同意。</ErrorNote>
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <DialogFooter className="flex-row gap-2">

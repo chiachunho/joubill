@@ -56,7 +56,12 @@ function Button({
 }: ButtonProps) {
   if (asChild) {
     return (
-      <Slot className={cn(buttonVariants({ variant, size, className }))} {...props}>
+      <Slot
+        className={cn(buttonVariants({ variant, size, className }))}
+        {...props}
+        // Slot's props don't declare `disabled`; the child (a button) does.
+        {...({ disabled } as React.HTMLAttributes<HTMLElement>)}
+      >
         {children}
       </Slot>
     );
