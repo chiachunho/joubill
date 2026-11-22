@@ -157,6 +157,10 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 
 **絕對不要把「需要處理的狀態」藏起來。** `DeleteGroupRow` 是群組設定卡片的最後一列,閒置時只是一列紅字的「刪除群組」;只要有待處理的刪除申請——不管是自己可以取消的,還是別人送來要你同意/拒絕的——就直接在這一列顯示(淡紅底與按鈕)。使用者得先知道要點開或捲到才看得到的東西,不適合放需要立刻處理的內容。
 
+### 分段切換
+
+「多選一」一律用 [`SegmentedControl`](../src/components/mini/SegmentedControl.tsx),不要手寫按鈕:`size="sm"` 給區塊標題旁的精簡切換(總額／淨額、最近更新／名稱),預設的 `md` 給整列寬的表單欄位或篩選(分帳方式、篩選動態、權限)。它是 `radiogroup`,測試用 `getByRole("radio", …)` 找選項。
+
 ---
 
 ## 7. 三種狀態 States(每個資料頁都要有)
@@ -183,7 +187,7 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 - [ ] 圓角只用了 `rounded-2xl`(容器)/ `rounded-lg`(控制)/ `rounded-full`?沒有 `rounded-xl`、`rounded-[…]`?
 - [ ] 顏色都走 CSS 變數?沒有寫死品牌 hex?正負金額用 emerald/rose?
 - [ ] 金額有 `.num`?區塊有 `.sect` 小標?
-- [ ] 字級只用 Tailwind 的或 `text-2xs`?沒有 `text-[…]`?Pill 用 `Pill`?
+- [ ] 字級只用 Tailwind 的或 `text-2xs`?沒有 `text-[…]`?Pill 用 `Pill`?分段切換用 `SegmentedControl`?
 - [ ] Loading 是 skeleton 不是 spinner?Empty / Error 狀態都有?
 - [ ] 用了既有 shadcn / `components/mini` 元件,而不是重刻一個?
 - [ ] 內容重到有自己的表單/清單時,是不是搬去了「導覽 row + 獨立頁面」,而不是就地展開?可摺疊區塊是不是只用在真的次要的內容,而不是拿來收「使用者現在就要處理」的東西?

@@ -23,6 +23,7 @@ import { DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES } from "@/lib/app-ui";
 import { apiErrorText } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { useCreateMcpConnectionMutation } from "@/store/api";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 
 type Groups = { id: number; title: string; defaultCurrency: string }[];
 
@@ -159,29 +160,12 @@ export function CreateAppTokenDialog({
               <AppScopePicker groups={groups} value={scope} onChange={setScope} />
               <div>
                 <p className="mb-1.5 text-xs text-muted-foreground">到期</p>
-                <div
-                  role="radiogroup"
-                  aria-label="到期"
-                  className="grid grid-cols-3 gap-1 rounded-lg bg-secondary/60 p-1"
-                >
-                  {EXPIRY_CHOICES.map((c) => (
-                    <button
-                      key={c.label}
-                      type="button"
-                      role="radio"
-                      aria-checked={days === c.days}
-                      onClick={() => setDays(c.days)}
-                      className={cn(
-                        "rounded-md py-1.5 text-sm transition-colors",
-                        days === c.days
-                          ? "bg-background font-semibold shadow-sm"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl
+                  label="到期"
+                  value={String(days)}
+                  options={EXPIRY_CHOICES.map((c) => ({ value: String(c.days), label: c.label }))}
+                  onChange={(v) => setDays(EXPIRY_CHOICES.find((c) => String(c.days) === v)!.days)}
+                />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
             </div>

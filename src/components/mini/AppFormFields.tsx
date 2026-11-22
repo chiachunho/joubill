@@ -3,9 +3,9 @@
 import { Eye, Pencil } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ACCESS_HINT, ACCESS_LABEL } from "@/lib/app-ui";
-import { cn } from "@/lib/utils";
 import { useGetGroupPhotosQuery } from "@/store/api";
 
 /** 權限: 唯讀 or 可記帳. A two-way choice, so a segmented control rather than a select. */
@@ -19,32 +19,15 @@ export function AppAccessPicker({
   return (
     <div>
       <p className="mb-1.5 text-xs text-muted-foreground">權限</p>
-      <div
-        role="radiogroup"
-        aria-label="權限"
-        className="grid grid-cols-2 gap-1 rounded-lg bg-secondary/60 p-1"
-      >
-        {(["read", "write"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            role="radio"
-            aria-checked={value === v}
-            onClick={() => onChange(v)}
-            className={cn(
-              "flex items-center justify-center gap-1.5 rounded-md py-1.5 text-sm transition-colors",
-              value === v ? "bg-background font-semibold shadow-sm" : "text-muted-foreground",
-            )}
-          >
-            {v === "read" ? (
-              <Eye className="size-4" aria-hidden />
-            ) : (
-              <Pencil className="size-4" aria-hidden />
-            )}
-            {ACCESS_LABEL[v]}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        label="權限"
+        value={value}
+        options={[
+          { value: "read", label: ACCESS_LABEL.read, icon: Eye },
+          { value: "write", label: ACCESS_LABEL.write, icon: Pencil },
+        ]}
+        onChange={onChange}
+      />
       <p className="mt-1.5 px-0.5 text-xs text-muted-foreground">{ACCESS_HINT[value]}</p>
     </div>
   );

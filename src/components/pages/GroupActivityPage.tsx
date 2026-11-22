@@ -8,6 +8,7 @@ import { ActivityList } from "@/components/mini/ActivityList";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { ActivitySkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Platform } from "@/components/pages/platform";
 import { parseHistoryFrom } from "@/lib/activity-link";
@@ -16,7 +17,6 @@ import {
   ACTIVITY_SOURCES,
   type ActivitySource,
 } from "@/lib/activity-source";
-import { cn } from "@/lib/utils";
 import { useAutoLoadMore } from "@/lib/use-auto-load-more";
 import { useGetActivityInfiniteQuery, useGetAvatarsQuery, useGetMeQuery } from "@/store/api";
 
@@ -97,27 +97,12 @@ export function GroupActivityPage({
 
       {!recordId && (
         <div className="px-4">
-          <div
-            role="radiogroup"
-            aria-label="篩選動態"
-            className="grid grid-cols-3 gap-1 rounded-lg bg-secondary/60 p-1"
-          >
-            {ACTIVITY_SOURCES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                role="radio"
-                aria-checked={source === s}
-                onClick={() => setSource(s)}
-                className={cn(
-                  "rounded-md py-1.5 text-sm transition-colors",
-                  source === s ? "bg-background font-semibold shadow-sm" : "text-muted-foreground",
-                )}
-              >
-                {ACTIVITY_SOURCE_LABEL[s]}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="篩選動態"
+            value={source}
+            options={ACTIVITY_SOURCES.map((s) => ({ value: s, label: ACTIVITY_SOURCE_LABEL[s] }))}
+            onChange={setSource}
+          />
         </div>
       )}
 

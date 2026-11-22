@@ -8,6 +8,7 @@ import { ChevronRight, KeyRound, Plus, Users } from "lucide-react";
 import { Avatar } from "@/components/mini/Avatar";
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
@@ -151,27 +152,13 @@ export function GroupsHome({ platform }: { platform: Platform }) {
         <>
           <div className="mx-4 mb-2 flex items-center justify-between gap-3 pl-1">
             <p className="sect">{groups.length} 個群組</p>
-            <div
-              role="group"
-              aria-label="排序方式"
-              className="flex gap-0.5 rounded-lg bg-secondary p-0.5"
-            >
-              {GROUP_SORTS.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  aria-pressed={sort === o.value}
-                  onClick={() => setStoredSort(o.value)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    sort === o.value
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              size="sm"
+              label="排序方式"
+              value={sort}
+              options={GROUP_SORTS}
+              onChange={setStoredSort}
+            />
           </div>
           <div className="mx-4 divide-y divide-border/50 overflow-hidden rounded-2xl bg-secondary/50">
             {groups.map((g) => (

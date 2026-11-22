@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { NoteBox, NoteToggle, useNoteToggle } from "@/components/mini/NoteField";
 import { ReceiptPhotos, useReceiptPhotos } from "@/components/mini/ReceiptPhotos";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -424,47 +425,28 @@ export function RefundForm({
         {/* How it is shared back */}
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium leading-none">分帳方式</span>
-          <div
-            role="radiogroup"
-            aria-label="分帳方式"
-            className="inline-flex w-full rounded-lg border border-input bg-secondary/40 p-0.5"
-          >
-            {(
-              [
-                ["ratio", "照原分攤比例"],
-                ["custom", "自訂退稅金額"],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={split === value}
-                onClick={() => {
-                  if (value === "custom" && split === "ratio") {
-                    // Start the custom amounts from what the ratio gives now.
-                    setCustom((prev) =>
-                      Object.fromEntries(
-                        Object.entries(prev).map(([id, c]) => {
-                          const r = ratio.find((x) => x.userId === Number(id));
-                          return [id, { included: !!r, value: r ? r.amount.toFixed(2) : c.value }];
-                        }),
-                      ),
-                    );
-                  }
-                  setSplit(value);
-                }}
-                className={cn(
-                  "flex-1 rounded-md py-1.5 text-sm transition-colors",
-                  split === value
-                    ? "bg-background font-medium text-foreground shadow-sm"
-                    : "text-muted-foreground",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="分帳方式"
+            value={split}
+            options={[
+              { value: "ratio", label: "照原分攤比例" },
+              { value: "custom", label: "自訂退稅金額" },
+            ]}
+            onChange={(value) => {
+              if (value === "custom" && split === "ratio") {
+                // Start the custom amounts from what the ratio gives now.
+                setCustom((prev) =>
+                  Object.fromEntries(
+                    Object.entries(prev).map(([id, c]) => {
+                      const r = ratio.find((x) => x.userId === Number(id));
+                      return [id, { included: !!r, value: r ? r.amount.toFixed(2) : c.value }];
+                    }),
+                  ),
+                );
+              }
+              setSplit(value);
+            }}
+          />
         </div>
 
         <div className="flex flex-col gap-2">

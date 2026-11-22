@@ -201,6 +201,14 @@ cancel, or someone else's to approve/reject — shows in that row directly, on a
 tinted background, with its buttons. Anything a user has to know to open or
 scroll to is the wrong place for something that needs their attention right now.
 
+### Segmented toggle
+
+A pick-one choice is always
+[`SegmentedControl`](../src/components/mini/SegmentedControl.tsx), never hand-written buttons:
+`size="sm"` for a compact view switch beside a section label (總額／淨額, 最近更新／名稱),
+the default `md` for a form field or filter across the page (分帳方式, 篩選動態, 權限). It is a
+`radiogroup`, so tests find a segment with `getByRole("radio", …)`.
+
 ---
 
 ## 7. The three states (every data page needs them)
@@ -227,7 +235,7 @@ A `Loader2` spinner is only for an action in progress, inside the button (or row
 - [ ] Radius is only `rounded-2xl` (container) / `rounded-lg` (control) / `rounded-full`? No `rounded-xl`, `rounded-[…]`?
 - [ ] All colors go through CSS variables? No hardcoded brand hex? Positive/negative amounts use emerald/rose?
 - [ ] Amounts have `.num`? Sections have a `.sect` micro-label?
-- [ ] Font sizes are Tailwind's or `text-2xs`? No `text-[…]`? Pills are `Pill`?
+- [ ] Font sizes are Tailwind's or `text-2xs`? No `text-[…]`? Pills are `Pill`? Toggles are `SegmentedControl`?
 - [ ] Loading is a skeleton, not a spinner? Empty / Error states both present?
 - [ ] Reused existing shadcn / `components/mini` components instead of re-rolling one?
 - [ ] A block heavy enough to need its own forms/lists moved to a nav row + sub-page, rather than expanding inline? A collapsed section only used for genuinely secondary content, never for something the user needs to act on right now?

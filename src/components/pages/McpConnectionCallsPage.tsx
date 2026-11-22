@@ -8,6 +8,7 @@ import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { Pill } from "@/components/mini/Pill";
 import { McpCallRowsSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { recordHistoryHref } from "@/lib/activity-link";
@@ -101,27 +102,12 @@ export function McpConnectionCallsPage({
       </div>
 
       <div className="px-4">
-        <div
-          role="radiogroup"
-          aria-label="篩選使用紀錄"
-          className="grid grid-cols-3 gap-1 rounded-lg bg-secondary/60 p-1"
-        >
-          {CALL_FILTERS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              role="radio"
-              aria-checked={filter === f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "rounded-md py-1.5 text-sm transition-colors",
-                filter === f ? "bg-background font-semibold shadow-sm" : "text-muted-foreground",
-              )}
-            >
-              {CALL_FILTER_LABEL[f]}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="篩選使用紀錄"
+          value={filter}
+          options={CALL_FILTERS.map((f) => ({ value: f, label: CALL_FILTER_LABEL[f] }))}
+          onChange={setFilter}
+        />
       </div>
 
       {switching ? (

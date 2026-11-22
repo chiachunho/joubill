@@ -40,14 +40,14 @@ test.describe("Group list and group page", () => {
       const rows = authedPage.getByRole("link", { name: /E2E (group|zz) / });
       await expect(rows.first()).toContainText(title);
 
-      await authedPage.getByRole("button", { name: "名稱" }).click();
+      await authedPage.getByRole("radio", { name: "名稱" }).click();
       await expect(rows.first()).toContainText(seeded.groupTitle);
 
       // The choice is remembered on this device.
       await authedPage.reload();
       await expect(rows.first()).toContainText(seeded.groupTitle);
-      await expect(authedPage.getByRole("button", { name: "名稱" })).toHaveAttribute(
-        "aria-pressed",
+      await expect(authedPage.getByRole("radio", { name: "名稱" })).toHaveAttribute(
+        "aria-checked",
         "true",
       );
     } finally {

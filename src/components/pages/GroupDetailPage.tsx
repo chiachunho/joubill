@@ -25,6 +25,7 @@ import { TimezonePrompt } from "@/components/mini/TimezonePrompt";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 import type { Platform } from "@/components/pages/platform";
 import {
   EXPENSE_ONLY_MINE_KEY,
@@ -403,26 +404,16 @@ export function GroupDetailPage({
 
         {/* View controls: total/balance segmented toggle + "only mine" filter */}
         <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="inline-flex rounded-lg bg-secondary/50 p-0.5">
-            {(
-              [
-                ["total", "總額"],
-                ["balance", "淨額"],
-              ] as const
-            ).map(([mode, label]) => (
-              <button
-                key={mode}
-                onClick={() => setStoredViewMode(mode)}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                  viewMode === mode
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            size="sm"
+            label="金額顯示"
+            value={viewMode}
+            options={[
+              { value: "total", label: "總額" },
+              { value: "balance", label: "淨額" },
+            ]}
+            onChange={setStoredViewMode}
+          />
           {selfUserId !== undefined && (
             <button
               onClick={toggleOnlyMine}

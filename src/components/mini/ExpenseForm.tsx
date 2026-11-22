@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { NoteBox, NoteToggle, useNoteToggle } from "@/components/mini/NoteField";
+import { SegmentedControl } from "@/components/mini/SegmentedControl";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -55,6 +56,16 @@ import {
   useGetEffectiveRateQuery,
   useUpdateExpenseMutation,
 } from "@/store/api";
+
+type SplitMode = ExpenseFormValues["shareType"];
+
+const SPLIT_MODES: { value: SplitMode; label: string }[] = [
+  { value: "equal", label: "均分" },
+  { value: "exact", label: "指定" },
+  { value: "percent", label: "比例" },
+  { value: "shares", label: "份數" },
+  { value: "adjustment", label: "調整" },
+];
 
 type Member = {
   id: number;
@@ -901,70 +912,48 @@ export function ExpenseForm(props: Props) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>分帳方式</FormLabel>
-                <div className="inline-flex w-full rounded-lg border border-input bg-secondary/40 p-0.5">
-                  {(["equal", "exact", "percent", "shares", "adjustment"] as const).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => {
-                        // Save current values before switching away.
-                        savedValuesByType.current[field.value as ExpenseFormValues["shareType"]] =
-                          participants.map((p) => p.value);
-                        lockedParticipants.current = new Set();
+                <SegmentedControl
+                  label="分帳方式"
+                  value={field.value as SplitMode}
+                  options={SPLIT_MODES}
+                  onChange={(m) => {
+                    // Save current values before switching away.
+                    savedValuesByType.current[field.value as ExpenseFormValues["shareType"]] =
+                      participants.map((p) => p.value);
+                    lockedParticipants.current = new Set();
 
-                        field.onChange(m);
+                    field.onChange(m);
 
-                        // If we have saved values for the target type, restore them.
-                        const saved = savedValuesByType.current[m];
-                        if (saved) {
-                          replace(fields.map((f, i) => ({ ...f, value: saved[i] ?? "" })));
-                          return;
-                        }
+                    // If we have saved values for the target type, restore them.
+                    const saved = savedValuesByType.current[m];
+                    if (saved) {
+                      replace(fields.map((f, i) => ({ ...f, value: saved[i] ?? "" })));
+                      return;
+                    }
 
-                        // Otherwise use new-record defaults.
-                        if (m === "exact" || m === "percent") {
-                          // Pre-fill with equal-split values so users only need to adjust differences.
-                          const total = m === "percent" ? 100 : totalAmount;
-                          const includedCount = included.length;
-                          if (includedCount > 0 && total > 0) {
-                            const equalAmounts = splitEqual(total, includedCount);
-                            let idx = 0;
-                            replace(
-                              fields.map((f, i) => ({
-                                ...f,
-                                value: participants[i]?.included
-                                  ? equalAmounts[idx++].toFixed(2)
-                                  : "",
-                              })),
-                            );
-                          } else {
-                            replace(fields.map((f) => ({ ...f, value: "" })));
-                          }
-                        } else {
-                          const defaultValue = m === "shares" ? "1" : m === "adjustment" ? "0" : "";
-                          replace(fields.map((f) => ({ ...f, value: defaultValue })));
-                        }
-                      }}
-                      aria-pressed={field.value === m}
-                      className={cn(
-                        "flex-1 rounded-md px-2 py-1.5 text-sm font-medium transition-all",
-                        field.value === m
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {
-                        {
-                          equal: "均分",
-                          exact: "指定",
-                          percent: "比例",
-                          shares: "份數",
-                          adjustment: "調整",
-                        }[m]
+                    // Otherwise use new-record defaults.
+                    if (m === "exact" || m === "percent") {
+                      // Pre-fill with equal-split values so users only need to adjust differences.
+                      const total = m === "percent" ? 100 : totalAmount;
+                      const includedCount = included.length;
+                      if (includedCount > 0 && total > 0) {
+                        const equalAmounts = splitEqual(total, includedCount);
+                        let idx = 0;
+                        replace(
+                          fields.map((f, i) => ({
+                            ...f,
+                            value: participants[i]?.included ? equalAmounts[idx++].toFixed(2) : "",
+                          })),
+                        );
+                      } else {
+                        replace(fields.map((f) => ({ ...f, value: "" })));
                       }
-                    </button>
-                  ))}
-                </div>
+                    } else {
+                      const defaultValue = m === "shares" ? "1" : m === "adjustment" ? "0" : "";
+                      replace(fields.map((f) => ({ ...f, value: defaultValue })));
+                    }
+                  }}
+                />
               </FormItem>
             )}
           />
