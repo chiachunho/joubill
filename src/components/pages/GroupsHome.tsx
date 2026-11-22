@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, KeyRound, Plus, Users } from "lucide-react";
 
+import { EmptyState } from "@/components/mini/EmptyState";
 import { Panel } from "@/components/mini/Panel";
 import { Avatar } from "@/components/mini/Avatar";
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
@@ -140,15 +141,9 @@ export function GroupsHome({ platform }: { platform: Platform }) {
       </div>
 
       {groups.length === 0 ? (
-        <div className="px-4 py-20 text-center">
-          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-secondary">
-            <Users className="size-6 text-muted-foreground" />
-          </div>
-          <p className="font-semibold">還沒有任何群組</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            在這裡建立群組，或輸入邀請碼加入；也可以把機器人加進 Telegram 群組，輸入 /start
-          </p>
-        </div>
+        <EmptyState icon={Users} title="還沒有任何群組">
+          在這裡建立群組，或輸入邀請碼加入；也可以把機器人加進 Telegram 群組，輸入 /start
+        </EmptyState>
       ) : (
         <>
           <div className="mx-4 mb-2 flex items-center justify-between gap-3 pl-1">

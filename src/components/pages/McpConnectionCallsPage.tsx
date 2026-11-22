@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, History } from "lucide-react";
 
+import { EmptyState } from "@/components/mini/EmptyState";
 import { PageHeader } from "@/components/mini/PageHeader";
 import { Panel } from "@/components/mini/Panel";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
@@ -117,14 +118,9 @@ export function McpConnectionCallsPage({
       {switching ? (
         <McpCallRowsSkeleton />
       ) : calls.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
-            <History className="size-6" />
-          </span>
-          <p className="max-w-[24ch] text-sm text-muted-foreground">
-            {filter === "all" ? "還沒有使用紀錄" : "沒有符合的紀錄"}
-          </p>
-        </div>
+        <EmptyState icon={History}>
+          {filter === "all" ? "還沒有使用紀錄" : "沒有符合的紀錄"}
+        </EmptyState>
       ) : (
         <Panel as="ul" className="mx-4">
           {calls.map((c) => {

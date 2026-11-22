@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { History } from "lucide-react";
 
+import { EmptyState } from "@/components/mini/EmptyState";
 import { PageHeader } from "@/components/mini/PageHeader";
 import { ActivityList } from "@/components/mini/ActivityList";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
@@ -114,18 +115,13 @@ export function GroupActivityPage({
           ))}
         </div>
       ) : entries.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
-            <History className="size-6" />
-          </span>
-          <p className="max-w-[24ch] text-sm text-muted-foreground">
-            {recordId
-              ? "這筆紀錄還沒有被改動過"
-              : source === "all"
-                ? "這個群組還沒有任何改動紀錄"
-                : "沒有符合的動態"}
-          </p>
-        </div>
+        <EmptyState icon={History}>
+          {recordId
+            ? "這筆紀錄還沒有被改動過"
+            : source === "all"
+              ? "這個群組還沒有任何改動紀錄"
+              : "沒有符合的動態"}
+        </EmptyState>
       ) : (
         <ActivityList
           entries={entries}

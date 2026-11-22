@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Copy, Check, Eye, Pencil, Plus, Sparkles } from "lucide-react";
 
+import { EmptyState } from "@/components/mini/EmptyState";
 import { PageHeader } from "@/components/mini/PageHeader";
 import { Panel, Section } from "@/components/mini/Panel";
 import { CreateAppTokenDialog } from "@/components/mini/CreateAppTokenDialog";
@@ -97,15 +98,9 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
 
       <Section title="已連結">
         {list.length === 0 ? (
-          <div className="rounded-2xl bg-secondary/50 px-4 py-6 text-center">
-            <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Sparkles className="size-5" />
-            </span>
-            <p className="mt-2 text-sm font-semibold">還沒有連結的應用程式</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              建立個人存取權杖，或用上面的網址新增連接器
-            </p>
-          </div>
+          <EmptyState icon={Sparkles} title="還沒有連結的應用程式">
+            建立個人存取權杖，或用上面的網址新增連接器
+          </EmptyState>
         ) : (
           <Panel>
             {list.map((c) => {

@@ -99,7 +99,8 @@ Nested inner elements (e.g. options inside a segmented toggle) use `rounded-md`
 - Font: **Chiron GoRound TC**, loaded in [`layout.tsx`](../src/app/layout.tsx) and set as `--font-sans` in `globals.css`; `font-sans` applies it automatically. Don't import other fonts.
 - **Financial numbers always get `.num`** (`globals.css`): enables `tabular-nums` + tighter tracking so amounts line up. Add it anywhere you show an amount, percentage, or balance.
 - **Section micro-labels always use `.sect`**: uppercase, widened-tracking micro-label above a grouped panel (e.g. `餘額 · TWD`, `紀錄 (12)`).
-- Page titles: `text-lg font-semibold` (not `text-xl font-bold` — that's the old style).
+- Page titles: `text-lg font-semibold` (not `text-xl font-bold` — that's the old style). A sub-page's back link, title and description are [`PageHeader`](../src/components/mini/PageHeader.tsx).
+- Form field labels are `Label` (`components/ui/label.tsx`; `as="span"` for a field with no single control), never its classes copied.
 - Body: `text-sm` by default; supporting info `text-xs text-muted-foreground`.
 
 ### Type scale
@@ -218,7 +219,7 @@ the default `md` for a form field or filter across the page (分帳方式, 篩�
 | State       | Approach                                                                                                                                                                                                                       |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Loading** | **No spinner.** Use page-shaped skeletons — [`skeletons.tsx`](../src/components/mini/skeletons.tsx) already exports one per page. New pages add a matching skeleton, reusing the `Skeleton` primitive and panel shapes inside. |
-| **Empty**   | Centered, `text-sm text-muted-foreground`, optionally a `size-14 rounded-2xl bg-secondary` icon tile.                                                                                                                          |
+| **Empty**   | [`EmptyState`](../src/components/mini/EmptyState.tsx): a `size-14 rounded-2xl bg-secondary` icon tile, an optional title, `text-sm text-muted-foreground` text.                                                                |
 | **Error**   | Centered message + a thin `text-xs text-muted-foreground/60` error detail ([`LoadError`](../src/components/mini/LoadError.tsx)). Not a `Card`.                                                                                 |
 
 A failed action or a warning before a destructive step is an [`ErrorNote`](../src/components/mini/ErrorNote.tsx) (`onDismiss` adds its ✕); the 無法載入 page state is `LoadError`.
@@ -241,5 +242,5 @@ A spinner is only for an action in progress, inside the button (or row) that sta
 - [ ] Amounts have `.num`? Sections have a `.sect` micro-label?
 - [ ] Font sizes are Tailwind's or `text-2xs`? No `text-[…]`? Pills are `Pill`? Toggles are `SegmentedControl`?
 - [ ] Loading is a skeleton, not a spinner? Empty / Error states both present?
-- [ ] Reused existing shadcn / `components/mini` components instead of re-rolling one?
+- [ ] Reused existing shadcn / `components/mini` components instead of re-rolling one? (`Section`/`Panel`, `PageHeader`, `SegmentedControl`, `RadioCard`, `Pill`, `ErrorNote`, `LoadError`, `EmptyState`, `Avatar`, `Button loading`, `useCopy`)
 - [ ] A block heavy enough to need its own forms/lists moved to a nav row + sub-page, rather than expanding inline? A collapsed section only used for genuinely secondary content, never for something the user needs to act on right now?
