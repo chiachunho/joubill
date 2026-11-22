@@ -25,6 +25,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
 import { SegmentedControl } from "@/components/mini/SegmentedControl";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import type { Platform } from "@/components/pages/platform";
 import {
   EXPENSE_ONLY_MINE_KEY,
@@ -694,15 +695,9 @@ export function GroupDetailPage({
       </section>
 
       {settleError && (
-        <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+        <ErrorNote className="mx-4" onDismiss={() => setSettleError(null)}>
           {settleError}
-          <button
-            onClick={() => setSettleError(null)}
-            className="ml-2 text-xs underline opacity-70"
-          >
-            關閉
-          </button>
-        </div>
+        </ErrorNote>
       )}
 
       <ConfirmDialog

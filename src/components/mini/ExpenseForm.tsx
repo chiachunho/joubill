@@ -28,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { NoteBox, NoteToggle, useNoteToggle } from "@/components/mini/NoteField";
 import { SegmentedControl } from "@/components/mini/SegmentedControl";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -1241,9 +1242,7 @@ export function ExpenseForm(props: Props) {
           )}
 
           {form.formState.errors.root && (
-            <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-              {form.formState.errors.root.message}
-            </p>
+            <ErrorNote>{form.formState.errors.root.message}</ErrorNote>
           )}
 
           {/* Actions */}
@@ -1309,11 +1308,7 @@ export function ExpenseForm(props: Props) {
               </Button>
             )}
           </div>
-          {deleteError && (
-            <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-              {deleteError}
-            </p>
-          )}
+          {deleteError && <ErrorNote>{deleteError}</ErrorNote>}
         </form>
 
         <ConfirmDialog

@@ -6,6 +6,7 @@ import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
 
 import { IconTile } from "@/components/mini/IconTile";
 import { RateRowsSkeleton } from "@/components/mini/skeletons";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -252,12 +253,9 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
         </div>
       </div>
       {errMsg && (
-        <div className="mt-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+        <ErrorNote className="mt-2" onDismiss={() => setErrMsg(null)}>
           {errMsg}
-          <button onClick={() => setErrMsg(null)} className="ml-2 text-xs underline opacity-70">
-            關閉
-          </button>
-        </div>
+        </ErrorNote>
       )}
 
       <Dialog open={confirmOpen} onOpenChange={saving ? undefined : setConfirmOpen}>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Avatar } from "@/components/mini/Avatar";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -190,9 +191,7 @@ export function MergeMemberDialog({
           </fieldset>
         )}
 
-        <p className="rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
-          合併後無法還原，也不需要其他成員同意。
-        </p>
+        <ErrorNote>合併後無法還原，也不需要其他成員同意。</ErrorNote>
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <DialogFooter className="flex-row gap-2">

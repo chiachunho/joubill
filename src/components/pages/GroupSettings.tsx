@@ -13,6 +13,7 @@ import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import { Pill } from "@/components/mini/Pill";
 import { LoadError } from "@/components/mini/LoadError";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Platform } from "@/components/pages/platform";
 import { TelegramGlyph } from "@/components/TelegramIcon";
@@ -225,27 +226,15 @@ export function GroupSettings({
       )}
 
       {toggleError && (
-        <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+        <ErrorNote className="mx-4" onDismiss={() => setToggleError(null)}>
           {toggleError}
-          <button
-            onClick={() => setToggleError(null)}
-            className="ml-2 text-xs underline opacity-70"
-          >
-            關閉
-          </button>
-        </div>
+        </ErrorNote>
       )}
 
       {deleteError && (
-        <div className="mx-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+        <ErrorNote className="mx-4" onDismiss={() => setDeleteError(null)}>
           {deleteError}
-          <button
-            onClick={() => setDeleteError(null)}
-            className="ml-2 text-xs underline opacity-70"
-          >
-            關閉
-          </button>
-        </div>
+        </ErrorNote>
       )}
 
       {/* One card for every single entry: no section titles. Telegram 群組, 貨幣與匯率 and 匯出 each hand a

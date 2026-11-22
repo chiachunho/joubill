@@ -13,6 +13,7 @@ import { MemberSelect } from "@/components/mini/MemberSelect";
 import { NoteBox, NoteToggle, useNoteToggle } from "@/components/mini/NoteField";
 import { ReceiptPhotos, useReceiptPhotos } from "@/components/mini/ReceiptPhotos";
 import { SegmentedControl } from "@/components/mini/SegmentedControl";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -546,11 +547,7 @@ export function RefundForm({
           </div>
         </div>
 
-        {error && (
-          <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-            {error}
-          </p>
-        )}
+        {error && <ErrorNote>{error}</ErrorNote>}
 
         {isEdit && recordedBy && (
           <div className="space-y-1">
@@ -598,11 +595,7 @@ export function RefundForm({
             </Button>
           )}
         </div>
-        {deleteError && (
-          <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-            {deleteError}
-          </p>
-        )}
+        {deleteError && <ErrorNote>{deleteError}</ErrorNote>}
       </form>
 
       <ConfirmDialog

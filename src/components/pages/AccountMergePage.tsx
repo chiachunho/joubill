@@ -8,6 +8,7 @@ import { Avatar } from "@/components/mini/Avatar";
 import { Pill } from "@/components/mini/Pill";
 import { AccountMergeSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -304,9 +305,7 @@ function MergeConfirm({ platform }: { platform: Platform }) {
             </fieldset>
           )}
 
-          <p className="rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
-            合併後無法還原，{absorb.name} 這個帳號會消失。
-          </p>
+          <ErrorNote>合併後無法還原，{absorb.name} 這個帳號會消失。</ErrorNote>
           {failure && <p className="text-sm text-destructive">{failure}</p>}
 
           <DialogFooter className="flex-row gap-2">

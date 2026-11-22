@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { NoteBox, NoteToggle, useNoteToggle } from "@/components/mini/NoteField";
+import { ErrorNote } from "@/components/mini/ErrorNote";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -455,11 +456,7 @@ export function SettlementForm({
           )}
         />
 
-        {form.formState.errors.root && (
-          <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-            {form.formState.errors.root.message}
-          </p>
-        )}
+        {form.formState.errors.root && <ErrorNote>{form.formState.errors.root.message}</ErrorNote>}
 
         {/* Actions */}
         {isEdit && recordedBy && (
@@ -512,11 +509,7 @@ export function SettlementForm({
             </Button>
           )}
         </div>
-        {deleteError && (
-          <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-            {deleteError}
-          </p>
-        )}
+        {deleteError && <ErrorNote>{deleteError}</ErrorNote>}
       </form>
 
       <ConfirmDialog
