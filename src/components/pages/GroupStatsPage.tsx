@@ -9,6 +9,7 @@ import {
   RANGE_LABELS,
   type StatsRangeValue,
 } from "@/components/mini/DateRangeSelect";
+import { PageHeader } from "@/components/mini/PageHeader";
 import { Panel, Section } from "@/components/mini/Panel";
 import { EChart } from "@/components/mini/EChart";
 import { MemberSelect } from "@/components/mini/MemberSelect";
@@ -301,11 +302,11 @@ export function GroupStatsPage({
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={backHref} />
-        <h1 className="text-lg font-semibold">統計</h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">{stats.currency}</p>
-      </div>
+      <PageHeader
+        back={<platform.BackLink href={backHref} />}
+        title="統計"
+        description={stats.currency}
+      />
 
       {/* View-as + range controls */}
       <section className="px-4">

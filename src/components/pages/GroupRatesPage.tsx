@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import { Clock, Coins } from "lucide-react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
 import { Panel } from "@/components/mini/Panel";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { IconTile } from "@/components/mini/IconTile";
@@ -88,10 +89,7 @@ export function GroupRatesPage({
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={backHref} />
-        <h1 className="text-lg font-semibold">貨幣與匯率</h1>
-      </div>
+      <PageHeader back={<platform.BackLink href={backHref} />} title="貨幣與匯率" />
 
       <section className="px-4">
         <Panel>

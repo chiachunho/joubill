@@ -2,6 +2,7 @@
 
 import { use } from "react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
 import { SettingsSubpageSkeleton } from "@/components/mini/skeletons";
 import { TelegramChatSettings } from "@/components/mini/TelegramChatSettings";
 import { LoadError } from "@/components/mini/LoadError";
@@ -35,10 +36,7 @@ export function GroupTelegramPage({
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={backHref} />
-        <h1 className="text-lg font-semibold">Telegram 群組</h1>
-      </div>
+      <PageHeader back={<platform.BackLink href={backHref} />} title="Telegram 群組" />
       <TelegramChatSettings groupId={id} chat={chat} onUnlinkConflict={() => refetch()} />
     </div>
   );

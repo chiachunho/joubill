@@ -11,6 +11,7 @@ import {
   scopeIsValid,
   type Scope,
 } from "@/components/mini/AppFormFields";
+import { PageHeader } from "@/components/mini/PageHeader";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { LinkedAppsSkeleton } from "@/components/mini/skeletons";
 import { LoadError } from "@/components/mini/LoadError";
@@ -144,15 +145,17 @@ function ConnectionForm({
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={back} />
-        <h1 className="truncate text-lg font-semibold">{connection.name}</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {connection.kind === "oauth" ? "OAuth 連線" : `個人存取權杖 ${connection.tokenPrefix}…`}·
-          {lastUsedLabel(connection.lastUsedAt)}·
-          {expired ? "已到期" : expiryLabel(connection.expiresAt)}
-        </p>
-      </div>
+      <PageHeader
+        back={<platform.BackLink href={back} />}
+        title={connection.name}
+        description={
+          <>
+            {connection.kind === "oauth" ? "OAuth 連線" : `個人存取權杖 ${connection.tokenPrefix}…`}
+            ·{lastUsedLabel(connection.lastUsedAt)}·
+            {expired ? "已到期" : expiryLabel(connection.expiresAt)}
+          </>
+        }
+      />
 
       <div className="space-y-4 px-4">
         <Link

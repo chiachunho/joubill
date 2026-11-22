@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BookOpen, ChevronRight, FileText, Pencil, ShieldCheck, User } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
 import { Panel, Section } from "@/components/mini/Panel";
 import { Avatar } from "@/components/mini/Avatar";
 import { IconTile } from "@/components/mini/IconTile";
@@ -59,10 +60,7 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={platform.basePath} />
-        <h1 className="text-lg font-semibold">個人設定</h1>
-      </div>
+      <PageHeader back={<platform.BackLink href={platform.basePath} />} title="個人設定" />
 
       <section className="px-4">
         <div className="flex items-center gap-4 rounded-2xl bg-secondary/50 px-4 py-4">

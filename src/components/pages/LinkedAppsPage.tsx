@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Copy, Check, Eye, Pencil, Plus, Sparkles } from "lucide-react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
 import { Panel, Section } from "@/components/mini/Panel";
 import { CreateAppTokenDialog } from "@/components/mini/CreateAppTokenDialog";
 import { LinkedAppsSkeleton } from "@/components/mini/skeletons";
@@ -61,14 +62,12 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={back} />
-        <h1 className="text-lg font-semibold">連結的應用程式</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          MCP 是讓 Claude、ChatGPT、Cursor
-          或自動化流程連進揪帳的方式，連上後可以查帳、記帳。它們記的每一筆，群組都會看到是透過它記錄的。
-        </p>
-      </div>
+      <PageHeader
+        back={<platform.BackLink href={back} />}
+        title="連結的應用程式"
+        description="MCP 是讓 Claude、ChatGPT、Cursor
+          或自動化流程連進揪帳的方式，連上後可以查帳、記帳。它們記的每一筆，群組都會看到是透過它記錄的。"
+      />
 
       <Section title="MCP 伺服器網址">
         <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2">

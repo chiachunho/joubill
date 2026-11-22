@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import { Coins, Download, History, MoreHorizontal, Plus } from "lucide-react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
 import { Panel, Section } from "@/components/mini/Panel";
 import { Avatar } from "@/components/mini/Avatar";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
@@ -197,10 +198,7 @@ export function GroupSettings({
   return (
     <div className="space-y-6 py-4">
       {/* Header */}
-      <div className="px-4">
-        <platform.BackLink href={backHref} />
-        <h1 className="text-lg font-semibold">群組設定</h1>
-      </div>
+      <PageHeader back={<platform.BackLink href={backHref} />} title="群組設定" />
 
       {/* 成員 */}
       <Section title={<>一起分帳 ({activeMembers.length})</>}>

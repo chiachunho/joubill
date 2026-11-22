@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
+import { PageHeader } from "@/components/mini/PageHeader";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { TimeZoneSelect } from "@/components/mini/TimeZoneSelect";
@@ -68,10 +69,7 @@ export function GroupCreatePage({ platform }: { platform: Platform }) {
 
   return (
     <form onSubmit={submit} className="space-y-5 px-4 py-4">
-      <div>
-        <platform.BackLink href={platform.basePath} />
-        <h1 className="text-lg font-semibold">建立群組</h1>
-      </div>
+      <PageHeader back={<platform.BackLink href={platform.basePath} />} title="建立群組" flush />
 
       <label className="block space-y-2">
         <span className="sect">群組名稱</span>

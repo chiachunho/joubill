@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { History } from "lucide-react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
 import { ActivityList } from "@/components/mini/ActivityList";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { ActivitySkeleton } from "@/components/mini/skeletons";
@@ -90,10 +91,10 @@ export function GroupActivityPage({
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={backHref} />
-        <h1 className="text-lg font-semibold">{recordId ? "變更紀錄" : "動態紀錄"}</h1>
-      </div>
+      <PageHeader
+        back={<platform.BackLink href={backHref} />}
+        title={recordId ? "變更紀錄" : "動態紀錄"}
+      />
 
       {!recordId && (
         <div className="px-4">

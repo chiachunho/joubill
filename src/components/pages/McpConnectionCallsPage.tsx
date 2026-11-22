@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, History } from "lucide-react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
 import { Panel } from "@/components/mini/Panel";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { Pill } from "@/components/mini/Pill";
@@ -93,14 +94,16 @@ export function McpConnectionCallsPage({
 
   return (
     <div className="space-y-5 py-4">
-      <div className="px-4">
-        <platform.BackLink href={back} />
-        <h1 className="text-lg font-semibold">使用紀錄</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {connection ? `「${connection.name}」` : "這個連線"}最近 {CALL_LOG_DAYS}{" "}
-          天的工具呼叫與結果。只記錄工具名稱、群組、結果和對應的紀錄，不保存說明文字或收據圖片。
-        </p>
-      </div>
+      <PageHeader
+        back={<platform.BackLink href={back} />}
+        title="使用紀錄"
+        description={
+          <>
+            {connection ? `「${connection.name}」` : "這個連線"}最近 {CALL_LOG_DAYS}{" "}
+            天的工具呼叫與結果。只記錄工具名稱、群組、結果和對應的紀錄，不保存說明文字或收據圖片。
+          </>
+        }
+      />
 
       <div className="px-4">
         <SegmentedControl

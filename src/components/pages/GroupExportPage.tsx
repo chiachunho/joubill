@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import { Download, ExternalLink, Send } from "lucide-react";
 
+import { PageHeader } from "@/components/mini/PageHeader";
 import { Panel, Section } from "@/components/mini/Panel";
 import { ActionRow } from "@/components/mini/ActionRow";
 import { BeancountExportSection } from "@/components/mini/BeancountExportSection";
@@ -67,10 +68,7 @@ export function GroupExportPage({
 
   return (
     <div className="space-y-6 py-4">
-      <div className="px-4">
-        <platform.BackLink href={backHref} />
-        <h1 className="text-lg font-semibold">匯出</h1>
-      </div>
+      <PageHeader back={<platform.BackLink href={backHref} />} title="匯出" />
 
       {/* CSV — one file of every record. The Web App can save it directly; Telegram's webview
           can't take an authenticated download, so both apps can also have the bot post the file
