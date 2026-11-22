@@ -7,6 +7,7 @@ import { History } from "lucide-react";
 import { ActivityList } from "@/components/mini/ActivityList";
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { ActivitySkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Platform } from "@/components/pages/platform";
 import { parseHistoryFrom } from "@/lib/activity-link";
@@ -82,12 +83,7 @@ export function GroupActivityPage({
 
   // A failed later page keeps the loaded feed; the footer offers the retry.
   if (error && !pages) {
-    return (
-      <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
-        <p className="text-sm text-muted-foreground">讀不到動態紀錄</p>
-        <p className="text-xs text-muted-foreground/60">請稍後再試</p>
-      </div>
-    );
+    return <LoadError title="讀不到動態紀錄" detail="請稍後再試" />;
   }
 
   if (!pages) return <ActivitySkeleton />;

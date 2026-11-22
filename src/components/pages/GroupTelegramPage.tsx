@@ -4,6 +4,7 @@ import { use } from "react";
 
 import { SettingsSubpageSkeleton } from "@/components/mini/skeletons";
 import { TelegramChatSettings } from "@/components/mini/TelegramChatSettings";
+import { LoadError } from "@/components/mini/LoadError";
 import type { Platform } from "@/components/pages/platform";
 import { describeError } from "@/lib/api-error";
 import { useGetGroupChatQuery } from "@/store/api";
@@ -27,12 +28,7 @@ export function GroupTelegramPage({
   const { data: chat, error, refetch } = useGetGroupChatQuery(id);
 
   if (error && !chat) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
 
   if (!chat) return <SettingsSubpageSkeleton />;

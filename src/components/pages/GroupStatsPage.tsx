@@ -12,6 +12,7 @@ import {
 import { EChart } from "@/components/mini/EChart";
 import { MemberSelect } from "@/components/mini/MemberSelect";
 import { StatsSkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import type { Platform } from "@/components/pages/platform";
 import { describeError } from "@/lib/api-error";
 import { fmt } from "@/lib/format";
@@ -289,12 +290,7 @@ export function GroupStatsPage({
   }, [stats, selfUserId, viewedUserId]);
 
   if (error) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
 
   if (!stats) return <StatsSkeleton />;

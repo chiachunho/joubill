@@ -13,6 +13,7 @@ import {
 } from "@/components/mini/AppFormFields";
 import { ConfirmDialog } from "@/components/mini/ConfirmDialog";
 import { LinkedAppsSkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import { Button } from "@/components/ui/button";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
@@ -53,12 +54,7 @@ export function McpConnectionPage({
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
 
   if (error && !redirectToLogin) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
   if (!data || !me || leaving) return <LinkedAppsSkeleton />;
 

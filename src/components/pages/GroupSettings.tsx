@@ -12,6 +12,7 @@ import { NavRow } from "@/components/mini/NavRow";
 import { MemberNameDialog } from "@/components/mini/MemberNameDialog";
 import { GroupSettingsSkeleton } from "@/components/mini/skeletons";
 import { Pill } from "@/components/mini/Pill";
+import { LoadError } from "@/components/mini/LoadError";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Platform } from "@/components/pages/platform";
 import { TelegramGlyph } from "@/components/TelegramIcon";
@@ -114,12 +115,7 @@ export function GroupSettings({
 
   const error = membersError;
   if (error) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
 
   if (!membersData) {

@@ -6,7 +6,8 @@ import { ChevronRight, History } from "lucide-react";
 
 import { LoadMoreFooter } from "@/components/mini/LoadMoreFooter";
 import { Pill } from "@/components/mini/Pill";
-import { Skeleton } from "@/components/ui/skeleton";
+import { McpCallRowsSkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { recordHistoryHref } from "@/lib/activity-link";
@@ -85,12 +86,7 @@ export function McpConnectionCallsPage({
   const titles = new Map((me?.groups ?? []).map((g) => [g.id, g.title]));
 
   if (error && !pages && !redirectToLogin) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
 
   return (
@@ -129,11 +125,7 @@ export function McpConnectionCallsPage({
       </div>
 
       {switching ? (
-        <div className="space-y-2 px-4" aria-busy="true" aria-label="載入中">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-lg" />
-          ))}
-        </div>
+        <McpCallRowsSkeleton />
       ) : calls.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
           <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">

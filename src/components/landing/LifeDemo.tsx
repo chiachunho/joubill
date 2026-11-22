@@ -191,7 +191,7 @@ function Bubble({
       )}
     >
       {children}
-      <span className="mt-0.5 block text-right text-[11px] text-muted-foreground">{time}</span>
+      <span className="mt-0.5 block text-right text-2xs text-muted-foreground">{time}</span>
     </div>
   );
 }

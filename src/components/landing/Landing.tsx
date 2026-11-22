@@ -43,7 +43,7 @@ const WEB_APP_PATH = "/app";
 export function Landing({ addToGroupHref, stars }: LandingProps) {
   const external = addToGroupHref.startsWith("http");
   return (
-    <div className="text-[17px] leading-relaxed">
+    <div className="text-base leading-relaxed md:text-lg">
       <div className="mx-auto max-w-6xl px-6">
         <nav className="flex items-center justify-between gap-4 py-5" aria-label="主選單">
           <Link href="/" className="flex items-center gap-2.5 text-xl font-bold">

@@ -9,10 +9,10 @@ import {
   scopeIsValid,
   type Scope,
 } from "@/components/mini/AppFormFields";
+import { OAuthConsentSkeleton } from "@/components/mini/skeletons";
 import { Button } from "@/components/ui/button";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useDecideOauthConsentMutation, useGetOauthConsentQuery } from "@/store/api";
 import { OAUTH_CONSENT_PATH } from "@/lib/help-url";
 
@@ -106,7 +106,7 @@ function Consent({ platform }: { platform: Platform }) {
       </div>
     );
   }
-  if (!info || redirectingToLogin) return <ConsentSkeleton />;
+  if (!info || redirectingToLogin) return <OAuthConsentSkeleton />;
 
   const canWrite = info.requestedAccess === "write";
   return (
@@ -179,23 +179,6 @@ function Consent({ platform }: { platform: Platform }) {
       <p className="px-4 text-center text-xs text-muted-foreground">
         之後可以在 個人設定 → 連結的應用程式 隨時撤銷。
       </p>
-    </div>
-  );
-}
-
-function ConsentSkeleton() {
-  return (
-    <div className="space-y-6 py-4" aria-busy="true" aria-label="載入中">
-      <div className="space-y-2 px-4">
-        <Skeleton className="mx-auto h-5 w-2/3" />
-        <Skeleton className="mx-auto h-3 w-3/4" />
-      </div>
-      <div className="px-4">
-        <Skeleton className="h-28 rounded-2xl" />
-      </div>
-      <div className="px-4">
-        <Skeleton className="h-32 rounded-lg" />
-      </div>
     </div>
   );
 }

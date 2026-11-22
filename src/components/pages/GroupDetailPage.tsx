@@ -24,6 +24,7 @@ import { SoloGroupCard } from "@/components/mini/SoloGroupCard";
 import { TimezonePrompt } from "@/components/mini/TimezonePrompt";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GroupPageSkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import type { Platform } from "@/components/pages/platform";
 import {
   EXPENSE_ONLY_MINE_KEY,
@@ -189,12 +190,7 @@ export function GroupDetailPage({
   // A failed later page keeps the loaded list and surfaces as the footer's retry button.
   const error = (!expensePages ? expensesError : undefined) ?? balanceError;
   if (error) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
 
   // Wait for `me` too: balance view and the "only mine" filter depend on selfUserId.

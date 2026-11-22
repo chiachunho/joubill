@@ -7,6 +7,7 @@ import { ChevronRight, KeyRound, Plus, Users } from "lucide-react";
 
 import { Avatar } from "@/components/mini/Avatar";
 import { GroupsListSkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
@@ -105,12 +106,7 @@ export function GroupsHome({ platform }: { platform: Platform }) {
   const redirectToLogin = useLoginRedirect(error, platform.loginPath);
 
   if (error && !redirectToLogin) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入群組</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError title="無法載入群組" detail={describeError(error)} />;
   }
 
   if (!data) return <GroupsListSkeleton />;

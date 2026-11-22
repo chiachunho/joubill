@@ -7,6 +7,7 @@ import { AlertCircle, ArrowDown, ArrowUp, ExternalLink, Loader2 } from "lucide-r
 import { Avatar } from "@/components/mini/Avatar";
 import { Pill } from "@/components/mini/Pill";
 import { AccountMergeSkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -100,12 +101,7 @@ function MergeConfirm({ platform }: { platform: Platform }) {
   }, [expired, router, SETTINGS]);
 
   if (error && !redirectingToLogin && !expired) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
   if (!data) {
     return <AccountMergeSkeleton />;

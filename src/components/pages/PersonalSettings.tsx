@@ -10,6 +10,7 @@ import { DisplayNameDialog } from "@/components/mini/DisplayNameDialog";
 import { LinkedAppsSection } from "@/components/pages/LinkedAppsSection";
 import { LoginMethodsSection } from "@/components/pages/LoginMethodsSection";
 import { PersonalSettingsSkeleton } from "@/components/mini/skeletons";
+import { LoadError } from "@/components/mini/LoadError";
 import type { Platform } from "@/components/pages/platform";
 import { useLoginRedirect } from "@/components/pages/use-login-redirect";
 import { describeError } from "@/lib/api-error";
@@ -31,12 +32,7 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
   const [editing, setEditing] = useState<"name" | "avatar" | null>(null);
 
   if (error && !redirectToLogin) {
-    return (
-      <div className="px-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">無法載入</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">{describeError(error)}</p>
-      </div>
-    );
+    return <LoadError detail={describeError(error)} />;
   }
 
   if (!profile) return <PersonalSettingsSkeleton />;

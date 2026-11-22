@@ -453,3 +453,48 @@ export function AccountMergeSkeleton() {
     </div>
   );
 }
+
+/** OAuth 授權: the centred title, the app card, then the permission choices. */
+export function OAuthConsentSkeleton() {
+  return (
+    <div className="space-y-6 py-4" aria-busy="true" aria-label="載入中">
+      <div className="space-y-2 px-4">
+        <Skeleton className="mx-auto h-5 w-2/3" />
+        <Skeleton className="mx-auto h-3 w-3/4" />
+      </div>
+      <div className="px-4">
+        <Skeleton className="h-28 rounded-2xl" />
+      </div>
+      <div className="px-4">
+        <Skeleton className="h-32 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
+/** 使用紀錄: the title and its note, the filter, then a few call rows. */
+export function McpCallsSkeleton() {
+  return (
+    <div className="space-y-5 py-4" aria-busy="true" aria-label="載入中">
+      <div className="space-y-2 px-4">
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-3 w-full" />
+      </div>
+      <div className="px-4">
+        <Skeleton className="h-10 rounded-lg" />
+      </div>
+      <McpCallRowsSkeleton />
+    </div>
+  );
+}
+
+/** The call rows alone, while a new filter loads under a header that stays. */
+export function McpCallRowsSkeleton() {
+  return (
+    <div className="space-y-2 px-4" aria-busy="true" aria-label="載入中">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+      ))}
+    </div>
+  );
+}
