@@ -106,12 +106,12 @@ Nested inner elements (e.g. options inside a segmented toggle) use `rounded-md`
 
 Use Tailwind's sizes, plus **one** size of our own below them. **Never `text-[Npx]`.**
 
-| class      | size          | used for                                                      |
-| ---------- | ------------- | ------------------------------------------------------------- |
-| `text-lg`  | 18px          | page titles                                                   |
-| `text-sm`  | 14px          | body, row labels                                              |
-| `text-xs`  | 12px          | supporting info, dates, hints                                 |
-| `text-2xs` | 11px (0.6875) | pills, and text beside a `.sect` label (`.sect` is this size) |
+| class      | size             | used for                                                      |
+| ---------- | ---------------- | ------------------------------------------------------------- |
+| `text-lg`  | 18px             | page titles                                                   |
+| `text-sm`  | 14px             | body, row labels                                              |
+| `text-xs`  | 12px             | supporting info, dates, hints                                 |
+| `text-2xs` | 11px (0.6875rem) | pills, and text beside a `.sect` label (`.sect` is this size) |
 
 `text-2xs` is defined in `tailwind.config.ts` and registered with tailwind-merge in
 `src/lib/utils.ts` (otherwise `cn("text-2xs", "text-primary")` reads it as a colour and drops

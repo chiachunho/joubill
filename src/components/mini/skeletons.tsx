@@ -483,15 +483,22 @@ export function McpCallsSkeleton() {
       <div className="px-4">
         <Skeleton className="h-10 rounded-lg" />
       </div>
-      <McpCallRowsSkeleton />
+      <McpCallRowsSkeleton busy={false} />
     </div>
   );
 }
 
-/** The call rows alone, while a new filter loads under a header that stays. */
-export function McpCallRowsSkeleton() {
+/**
+ * The call rows alone, while a new filter loads under a header that stays. `busy={false}`
+ * when nested in a skeleton that already announces itself, so it isn't announced twice.
+ */
+export function McpCallRowsSkeleton({ busy = true }: { busy?: boolean }) {
   return (
-    <div className="space-y-2 px-4" aria-busy="true" aria-label="載入中">
+    <div
+      className="space-y-2 px-4"
+      aria-busy={busy || undefined}
+      aria-label={busy ? "載入中" : undefined}
+    >
       {Array.from({ length: 5 }).map((_, i) => (
         <Skeleton key={i} className="h-12 w-full rounded-lg" />
       ))}

@@ -1,6 +1,7 @@
 /**
  * A page that could not load (docs/design-system.md §7): a centred message and a thin
- * line of detail. Every page body uses this rather than writing the shape again.
+ * line of detail. Page bodies use this rather than writing the shape again; the one
+ * exception is JoinPage, whose error offers a 重試 button.
  */
 export function LoadError({ detail, title = "無法載入" }: { detail: string; title?: string }) {
   return (
