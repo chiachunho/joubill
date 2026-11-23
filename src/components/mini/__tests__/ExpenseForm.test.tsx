@@ -445,6 +445,29 @@ describe("ExpenseForm: editing", () => {
     expect(await screen.findByPlaceholderText("無法取得匯率，請手動輸入")).toHaveValue(null);
   });
 
+  it("shows each person's share in the group's currency too, at the rate in use", async () => {
+    renderForm(
+      {
+        initial: initial({
+          amount: 100,
+          currency: "JPY",
+          payers: [{ payerId: 1, amount: 100 }],
+          splits: [
+            { debtorId: 1, amount: 50, shareType: "shares", splitValue: 1 },
+            { debtorId: 2, amount: 50, shareType: "shares", splitValue: 1 },
+          ],
+        }),
+      },
+      { [RATE_PATH]: { rate: 0.2, source: "group" } },
+    );
+    expect(await screen.findAllByText("50.00 JPY ≈ 10.00 TWD")).toHaveLength(2);
+  });
+
+  it("shows no conversion under each person when the record is in the group's currency", () => {
+    renderForm({}, {});
+    expect(screen.queryByText(/≈/)).not.toBeInTheDocument();
+  });
+
   it("keeps a rate pinned against the current default currency when saving", async () => {
     const w = writes({ ok: true });
     renderForm(
