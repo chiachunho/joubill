@@ -100,6 +100,7 @@ Nested inner elements (e.g. options inside a segmented toggle) use `rounded-md`
 - **Financial numbers always get `.num`** (`globals.css`): enables `tabular-nums` + tighter tracking so amounts line up. Add it anywhere you show an amount, percentage, or balance.
 - **Section micro-labels always use `.sect`**: uppercase, widened-tracking micro-label above a grouped panel (e.g. `餘額 · TWD`, `紀錄 (12)`).
 - Page titles: `text-lg font-semibold` (not `text-xl font-bold` — that's the old style). A sub-page's back link, title and description are [`PageHeader`](../src/components/mini/PageHeader.tsx).
+- A field's value (`Input`, `SelectTrigger`, a date-picker button) keeps the input size: `text-base` on a phone, `md:text-sm` from md up (16px stops iOS zooming into a focused field). Don't pass a `text-*` class to `SelectTrigger`; two selects side by side then read at different sizes.
 - Form field labels are `Label` (`components/ui/label.tsx`; `as="span"` for a field with no single control), never its classes copied.
 - Body: `text-sm` by default; supporting info `text-xs text-muted-foreground`.
 

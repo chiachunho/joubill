@@ -103,7 +103,7 @@ export function GroupRatesPage({
               }}
               disabled={currencyPending}
             >
-              <SelectTrigger className="h-8 w-24 rounded-lg border-0 bg-background/60 text-sm">
+              <SelectTrigger className="h-8 w-24 border-0 bg-background/60">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

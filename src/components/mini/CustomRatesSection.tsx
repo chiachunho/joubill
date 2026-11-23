@@ -203,7 +203,7 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">1</span>
             <Select value={base} onValueChange={setBase}>
-              <SelectTrigger className="h-8 w-24 rounded-lg border-0 bg-background/60 text-sm">
+              <SelectTrigger className="h-8 w-24 border-0 bg-background/60">
                 <SelectValue placeholder="幣別" />
               </SelectTrigger>
               <SelectContent>

@@ -82,6 +82,7 @@
 - **財務數字一律加 `.num`**(`globals.css`):啟用 `tabular-nums` + 收緊字距,讓金額對齊。任何顯示金額、百分比、餘額的地方都要加。
 - **區塊小標一律用 `.sect`**:大寫、字距放寬的 micro-label,放在 grouped panel 上方(例:`Balance · TWD`、`Expenses (12)`)。
 - 頁面標題:`text-lg font-semibold`(不要 `text-xl font-bold`,那是舊樣式)。子頁面的返回、標題、說明用 [`PageHeader`](../src/components/mini/PageHeader.tsx)。
+- 欄位的值(`Input`、`SelectTrigger`、選日期的按鈕)維持輸入框的字級:手機 `text-base`、md 以上 `md:text-sm`(16px 可避免 iOS 聚焦時自動放大)。不要給 `SelectTrigger` 加 `text-*`,否則並排的兩個選單字會不一樣大。
 - 表單欄位標題用 `Label`(`components/ui/label.tsx`;沒有單一控制項的欄位用 `as="span"`),不要複製它的 class。
 - 內文:預設 `text-sm`;輔助資訊 `text-xs text-muted-foreground`。
 

@@ -61,7 +61,7 @@ export function DateRangeSelect({ value, onChange }: Props) {
           }
         }}
       >
-        <SelectTrigger className="h-9 text-xs">
+        <SelectTrigger>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -111,7 +111,8 @@ export function DateRangePicker({
         <Button
           type="button"
           variant="outline"
-          className="h-9 w-full justify-start text-xs font-normal"
+          // Reads like the select above it: an input's size (text-base on a phone, sm from md up).
+          className="h-9 w-full justify-start text-base font-normal md:text-sm"
         >
           <CalendarIcon className="size-3.5" />
           {from && to ? `${from} ~ ${to}` : "選擇日期範圍"}
