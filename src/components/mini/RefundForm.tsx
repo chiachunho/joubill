@@ -153,6 +153,13 @@ export function RefundForm({
     isForeign ? { groupId, base: currency, date: localDateToDay(date) } : skipToken,
   );
   const rateFetching = isFetching && currentRate === undefined;
+  // The rate the refund will be converted at, for each person's ≈ line; null while a new
+  // date's rate loads, so no stale figure shows.
+  const rateInUse = !isForeign
+    ? null
+    : (positive(fxRate) ?? (rateFetching ? null : (effectiveRate?.rate ?? null)));
+  const converted = (value: number) =>
+    rateInUse != null ? `≈ ${(value * rateInUse).toFixed(2)} ${defaultCurrency}` : null;
 
   const [createRefund] = useCreateRefundMutation();
   const [updateRefund] = useUpdateRefundMutation();
@@ -468,9 +475,17 @@ export function RefundForm({
                           原分攤 {p.amount.toFixed(2)} {parent.currency}
                         </div>
                       </div>
-                      <span className="num text-sm font-semibold">
-                        {(share?.amount ?? 0).toFixed(2)}
-                      </span>
+                      <div className="shrink-0 text-right">
+                        <div className="num text-sm font-semibold">
+                          {(share?.amount ?? 0).toFixed(2)}{" "}
+                          <span className="font-normal text-muted-foreground">{currency}</span>
+                        </div>
+                        {converted(share?.amount ?? 0) && (
+                          <div className="num mt-0.5 text-xs text-muted-foreground">
+                            {converted(share?.amount ?? 0)}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })
@@ -491,8 +506,13 @@ export function RefundForm({
                         userId={m.id}
                         size="sm"
                       />
-                      <div className="min-w-0 flex-1 truncate text-sm leading-tight">
-                        {nameOf(m.id)}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm leading-tight">{nameOf(m.id)}</div>
+                        {c.included && Number(c.value) > 0 && converted(Number(c.value)) && (
+                          <div className="num mt-0.5 text-xs text-muted-foreground">
+                            {converted(Number(c.value))}
+                          </div>
+                        )}
                       </div>
                       {c.included && (
                         <Input
