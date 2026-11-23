@@ -159,11 +159,10 @@ export function RefundForm({
     isForeign ? { groupId, base: currency, date: localDateToDay(date) } : skipToken,
   );
   const rateFetching = isFetching && currentRate === undefined;
-  // The rate the refund will be converted at, for each person's ≈ line; null while a new
-  // date's rate loads, so no stale figure shows.
-  const rateInUse = !isForeign
-    ? null
-    : (positive(fxRate) ?? (rateFetching ? null : (effectiveRate?.rate ?? null)));
+  // The rate the refund will be converted at, for each person's ≈ line. Read from
+  // `currentRate`: `effectiveRate` keeps the previous date's or currency's rate while a new
+  // one loads or after it fails, and no stale figure may show.
+  const rateInUse = !isForeign ? null : (positive(fxRate) ?? currentRate?.rate ?? null);
   // The expense's split as a whole, so each 原分攤 can say what part of it it is.
   const parentTotal = parent.splits.reduce((sum, p) => sum + p.amount, 0);
   const converted = (value: number) =>
@@ -353,7 +352,7 @@ export function RefundForm({
               )}
             </div>
             {(() => {
-              const rate = positive(fxRate) ?? effectiveRate?.rate ?? null;
+              const rate = rateInUse;
               if (fxRate === "" && rateFetching && total > 0)
                 return <Skeleton className="h-4 w-48" />;
               return rate != null && total > 0 ? (
@@ -517,11 +516,13 @@ export function RefundForm({
                       />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm leading-tight">{nameOf(m.id)}</div>
-                        {c.included && Number(c.value) > 0 && converted(Number(c.value)) && (
-                          <div className="num mt-0.5 text-xs text-muted-foreground">
-                            {converted(Number(c.value))}
-                          </div>
-                        )}
+                        {c.included &&
+                          positive(c.value) != null &&
+                          converted(positive(c.value)!) && (
+                            <div className="num mt-0.5 text-xs text-muted-foreground">
+                              {converted(positive(c.value)!)}
+                            </div>
+                          )}
                       </div>
                       {c.included && (
                         <Input

@@ -434,15 +434,15 @@ export function ExpenseForm(props: Props) {
   // Only a load for a NEW date counts; a background refresh of the same date keeps the value.
   const rateFetching = isFetching && currentRate === undefined;
   // The rate the record will be converted at: the typed one, else the group or market rate.
-  // Null while a new date's rate loads, so no per-person ≈ shows a stale figure.
+  // Read from `currentRate`, never `effectiveRate`: that keeps the previous date's or
+  // currency's rate while a new one loads or after it fails, and a ≈ must not show it.
   const typedRate = parseFloat(fxRateInput);
+  const usingTypedRate = fxRateInput !== "" && Number.isFinite(typedRate) && typedRate > 0;
   const rateInUse = !isForeignCurrency
     ? null
-    : fxRateInput !== "" && Number.isFinite(typedRate) && typedRate > 0
+    : usingTypedRate
       ? typedRate
-      : rateFetching
-        ? null
-        : (effectiveRate?.rate ?? null);
+      : (currentRate?.rate ?? null);
   /** One person's amount in the record's currency, and ≈ in the group's when it differs. */
   const amountLine = (value: number) =>
     rateInUse != null
@@ -693,9 +693,6 @@ export function ExpenseForm(props: Props) {
               control={form.control}
               name="fxRate"
               render={({ field }) => {
-                const typed = parseFloat(field.value);
-                const usingCustom = field.value !== "" && Number.isFinite(typed) && typed > 0;
-                const rateInUse = usingCustom ? typed : (effectiveRate?.rate ?? null);
                 return (
                   <FormItem>
                     <FormLabel>
@@ -723,7 +720,7 @@ export function ExpenseForm(props: Props) {
                         <Skeleton className="pointer-events-none absolute left-3 top-1/2 h-4 w-20 -translate-y-1/2" />
                       )}
                     </div>
-                    {!usingCustom && rateFetching && totalAmount > 0 ? (
+                    {!usingTypedRate && rateFetching && totalAmount > 0 ? (
                       <Skeleton className="h-4 w-48" />
                     ) : rateInUse != null && totalAmount > 0 ? (
                       <p className="num text-xs text-muted-foreground">

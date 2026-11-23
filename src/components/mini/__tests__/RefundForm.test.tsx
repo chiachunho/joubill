@@ -20,7 +20,10 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 const MEMBERS = [
   { id: 1, displayName: null, firstName: "Alice", username: null },
@@ -41,7 +44,10 @@ const PARENT = {
 
 describe("RefundForm", () => {
   it("says each person's share back with its currency, and ≈ in the group's", async () => {
-    // A new refund is dated today, and the rate is asked for that day.
+    // A new refund is dated today, and the rate is asked for that day. The clock is pinned so
+    // the form's "today" can't roll past midnight after the path below is built.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 6, 15, 12));
     const today = localDateToDay(new Date());
     render(
       <AuthProvider mode="tma">
