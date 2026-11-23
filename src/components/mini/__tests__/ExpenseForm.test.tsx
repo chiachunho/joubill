@@ -296,6 +296,22 @@ describe("ExpenseForm: editing", () => {
     expect(screen.queryByRole("link", { name: /最後由/ })).not.toBeInTheDocument();
   });
 
+  it("shows what each person's percentage comes to, as it shows for shares", () => {
+    renderForm(
+      {
+        initial: initial({
+          splits: [
+            { debtorId: 1, amount: 210, shareType: "percent", splitValue: 70 },
+            { debtorId: 2, amount: 90, shareType: "percent", splitValue: 30 },
+          ],
+        }),
+      },
+      {},
+    );
+    expect(screen.getByText("210.00 TWD")).toBeInTheDocument();
+    expect(screen.getByText("90.00 TWD")).toBeInTheDocument();
+  });
+
   it("saves an untouched shares split as shares, with its weights", async () => {
     const w = writes({ ok: true });
     renderForm(

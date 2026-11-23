@@ -994,11 +994,14 @@ export function ExpenseForm(props: Props) {
                           <div className="text-sm leading-tight">
                             {m ? labels.get(m.id)! : `#${f.userId}`}
                           </div>
-                          {shareType === "shares" && isIncluded && computed && (
-                            <div className="num mt-0.5 text-xs text-muted-foreground">
-                              {computed.amount.toFixed(2)} {currency}
-                            </div>
-                          )}
+                          {/* What 份數 and 比例 come to, so a share or a percentage reads as money. */}
+                          {(shareType === "shares" || shareType === "percent") &&
+                            isIncluded &&
+                            computed && (
+                              <div className="num mt-0.5 text-xs text-muted-foreground">
+                                {computed.amount.toFixed(2)} {currency}
+                              </div>
+                            )}
                           {shareType === "adjustment" && isIncluded && adjBases.has(f.userId) && (
                             <div className="num mt-0.5 text-xs text-muted-foreground">
                               {(
