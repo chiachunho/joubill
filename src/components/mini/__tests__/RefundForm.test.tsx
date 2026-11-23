@@ -67,6 +67,10 @@ describe("RefundForm", () => {
     fireEvent.change(screen.getByLabelText("金額"), { target: { value: "100" } });
 
     expect(await screen.findAllByText("≈ 10.00 TWD")).toHaveLength(2);
+    // Each 原分攤 says what part of the expense it was, since that part is what is shared back.
+    expect(
+      screen.getAllByText((_, el) => el?.textContent === "原分攤 1500.00 JPY（50%）"),
+    ).toHaveLength(2);
     // 50.00 with its currency, not a bare number.
     expect(screen.getAllByText((_, el) => el?.textContent === "50.00 JPY")).toHaveLength(2);
   });

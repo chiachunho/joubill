@@ -69,6 +69,12 @@ type Props = {
   returnPath: string;
 };
 
+/** One share of a whole as a percentage: whole when it is one (50%), else one decimal (33.3%). */
+function sharePercent(part: number, whole: number): string {
+  const pct = Math.round((part / whole) * 1000) / 10;
+  return `${Number.isInteger(pct) ? pct : pct.toFixed(1)}%`;
+}
+
 /** A typed amount that is a positive number, or null. */
 function positive(v: string): number | null {
   const x = parseFloat(v);
@@ -158,6 +164,8 @@ export function RefundForm({
   const rateInUse = !isForeign
     ? null
     : (positive(fxRate) ?? (rateFetching ? null : (effectiveRate?.rate ?? null)));
+  // The expense's split as a whole, so each 原分攤 can say what part of it it is.
+  const parentTotal = parent.splits.reduce((sum, p) => sum + p.amount, 0);
   const converted = (value: number) =>
     rateInUse != null ? `≈ ${(value * rateInUse).toFixed(2)} ${defaultCurrency}` : null;
 
@@ -473,6 +481,7 @@ export function RefundForm({
                         <div className="truncate text-sm leading-tight">{nameOf(p.userId)}</div>
                         <div className="num mt-0.5 text-xs text-muted-foreground">
                           原分攤 {p.amount.toFixed(2)} {parent.currency}
+                          {parentTotal > 0 && `（${sharePercent(p.amount, parentTotal)}）`}
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
