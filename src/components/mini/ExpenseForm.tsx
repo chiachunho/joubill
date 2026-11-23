@@ -400,6 +400,7 @@ export function ExpenseForm(props: Props) {
   const shareType = useWatch({ control: form.control, name: "shareType" });
   const participants = useWatch({ control: form.control, name: "participants" });
   const payers = useWatch({ control: form.control, name: "payers" });
+  const fxRateInput = useWatch({ control: form.control, name: "fxRate" });
 
   // A rate typed for one currency is meaningless for another — clear the field
   // when the currency changes, restoring the saved pin when switching back to
@@ -432,6 +433,21 @@ export function ExpenseForm(props: Props) {
   );
   // Only a load for a NEW date counts; a background refresh of the same date keeps the value.
   const rateFetching = isFetching && currentRate === undefined;
+  // The rate the record will be converted at: the typed one, else the group or market rate.
+  // Read from `currentRate`, never `effectiveRate`: that keeps the previous date's or
+  // currency's rate while a new one loads or after it fails, and a ≈ must not show it.
+  const typedRate = parseFloat(fxRateInput);
+  const usingTypedRate = fxRateInput !== "" && Number.isFinite(typedRate) && typedRate > 0;
+  const rateInUse = !isForeignCurrency
+    ? null
+    : usingTypedRate
+      ? typedRate
+      : (currentRate?.rate ?? null);
+  /** One person's amount in the record's currency, and ≈ in the group's when it differs. */
+  const amountLine = (value: number) =>
+    rateInUse != null
+      ? `${value.toFixed(2)} ${currency} ≈ ${(value * rateInUse).toFixed(2)} ${props.defaultCurrency}`
+      : `${value.toFixed(2)} ${currency}`;
   const [createExpense] = useCreateExpenseMutation();
   const [updateExpense] = useUpdateExpenseMutation();
   const [deleteExpense] = useDeleteExpenseMutation();
@@ -677,9 +693,6 @@ export function ExpenseForm(props: Props) {
               control={form.control}
               name="fxRate"
               render={({ field }) => {
-                const typed = parseFloat(field.value);
-                const usingCustom = field.value !== "" && Number.isFinite(typed) && typed > 0;
-                const rateInUse = usingCustom ? typed : (effectiveRate?.rate ?? null);
                 return (
                   <FormItem>
                     <FormLabel>
@@ -707,7 +720,7 @@ export function ExpenseForm(props: Props) {
                         <Skeleton className="pointer-events-none absolute left-3 top-1/2 h-4 w-20 -translate-y-1/2" />
                       )}
                     </div>
-                    {!usingCustom && rateFetching && totalAmount > 0 ? (
+                    {!usingTypedRate && rateFetching && totalAmount > 0 ? (
                       <Skeleton className="h-4 w-48" />
                     ) : rateInUse != null && totalAmount > 0 ? (
                       <p className="num text-xs text-muted-foreground">
@@ -994,17 +1007,24 @@ export function ExpenseForm(props: Props) {
                           <div className="text-sm leading-tight">
                             {m ? labels.get(m.id)! : `#${f.userId}`}
                           </div>
-                          {shareType === "shares" && isIncluded && computed && (
+                          {/* What 份數 and 比例 come to, so a share or a percentage reads as money. */}
+                          {(shareType === "shares" || shareType === "percent") &&
+                            isIncluded &&
+                            computed && (
+                              <div className="num mt-0.5 text-xs text-muted-foreground">
+                                {amountLine(computed.amount)}
+                              </div>
+                            )}
+                          {shareType === "exact" && isIncluded && computed && rateInUse != null && (
                             <div className="num mt-0.5 text-xs text-muted-foreground">
-                              {computed.amount.toFixed(2)} {currency}
+                              ≈ {(computed.amount * rateInUse).toFixed(2)} {props.defaultCurrency}
                             </div>
                           )}
                           {shareType === "adjustment" && isIncluded && adjBases.has(f.userId) && (
                             <div className="num mt-0.5 text-xs text-muted-foreground">
-                              {(
-                                adjBases.get(f.userId)! + (parseFloat(participants[i]?.value) || 0)
-                              ).toFixed(2)}{" "}
-                              {currency}
+                              {amountLine(
+                                adjBases.get(f.userId)! + (parseFloat(participants[i]?.value) || 0),
+                              )}
                             </div>
                           )}
                         </div>
@@ -1107,8 +1127,7 @@ export function ExpenseForm(props: Props) {
                   {shareType === "equal" ? (
                     <div className="flex items-center justify-between">
                       <span className="num text-sm text-muted-foreground">
-                        每人 {(computedSplits[0]?.amount ?? 0).toFixed(2)} {currency} · 共{" "}
-                        {included.length} 人
+                        每人 {amountLine(computedSplits[0]?.amount ?? 0)} · 共 {included.length} 人
                       </span>
                       <button
                         type="button"

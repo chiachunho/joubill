@@ -69,6 +69,12 @@ type Props = {
   returnPath: string;
 };
 
+/** One share of a whole as a percentage: whole when it is one (50%), else one decimal (33.3%). */
+function sharePercent(part: number, whole: number): string {
+  const pct = Math.round((part / whole) * 1000) / 10;
+  return `${Number.isInteger(pct) ? pct : pct.toFixed(1)}%`;
+}
+
 /** A typed amount that is a positive number, or null. */
 function positive(v: string): number | null {
   const x = parseFloat(v);
@@ -153,6 +159,14 @@ export function RefundForm({
     isForeign ? { groupId, base: currency, date: localDateToDay(date) } : skipToken,
   );
   const rateFetching = isFetching && currentRate === undefined;
+  // The rate the refund will be converted at, for each person's ≈ line. Read from
+  // `currentRate`: `effectiveRate` keeps the previous date's or currency's rate while a new
+  // one loads or after it fails, and no stale figure may show.
+  const rateInUse = !isForeign ? null : (positive(fxRate) ?? currentRate?.rate ?? null);
+  // The expense's split as a whole, so each 原分攤 can say what part of it it is.
+  const parentTotal = parent.splits.reduce((sum, p) => sum + p.amount, 0);
+  const converted = (value: number) =>
+    rateInUse != null ? `≈ ${(value * rateInUse).toFixed(2)} ${defaultCurrency}` : null;
 
   const [createRefund] = useCreateRefundMutation();
   const [updateRefund] = useUpdateRefundMutation();
@@ -338,7 +352,7 @@ export function RefundForm({
               )}
             </div>
             {(() => {
-              const rate = positive(fxRate) ?? effectiveRate?.rate ?? null;
+              const rate = rateInUse;
               if (fxRate === "" && rateFetching && total > 0)
                 return <Skeleton className="h-4 w-48" />;
               return rate != null && total > 0 ? (
@@ -466,11 +480,20 @@ export function RefundForm({
                         <div className="truncate text-sm leading-tight">{nameOf(p.userId)}</div>
                         <div className="num mt-0.5 text-xs text-muted-foreground">
                           原分攤 {p.amount.toFixed(2)} {parent.currency}
+                          {parentTotal > 0 && `（${sharePercent(p.amount, parentTotal)}）`}
                         </div>
                       </div>
-                      <span className="num text-sm font-semibold">
-                        {(share?.amount ?? 0).toFixed(2)}
-                      </span>
+                      <div className="shrink-0 text-right">
+                        <div className="num text-sm font-semibold">
+                          {(share?.amount ?? 0).toFixed(2)}{" "}
+                          <span className="font-normal text-muted-foreground">{currency}</span>
+                        </div>
+                        {converted(share?.amount ?? 0) && (
+                          <div className="num mt-0.5 text-xs text-muted-foreground">
+                            {converted(share?.amount ?? 0)}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })
@@ -491,8 +514,15 @@ export function RefundForm({
                         userId={m.id}
                         size="sm"
                       />
-                      <div className="min-w-0 flex-1 truncate text-sm leading-tight">
-                        {nameOf(m.id)}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm leading-tight">{nameOf(m.id)}</div>
+                        {c.included &&
+                          positive(c.value) != null &&
+                          converted(positive(c.value)!) && (
+                            <div className="num mt-0.5 text-xs text-muted-foreground">
+                              {converted(positive(c.value)!)}
+                            </div>
+                          )}
                       </div>
                       {c.included && (
                         <Input

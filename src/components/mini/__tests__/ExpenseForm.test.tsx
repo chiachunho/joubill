@@ -296,6 +296,22 @@ describe("ExpenseForm: editing", () => {
     expect(screen.queryByRole("link", { name: /最後由/ })).not.toBeInTheDocument();
   });
 
+  it("shows what each person's percentage comes to, as it shows for shares", () => {
+    renderForm(
+      {
+        initial: initial({
+          splits: [
+            { debtorId: 1, amount: 210, shareType: "percent", splitValue: 70 },
+            { debtorId: 2, amount: 90, shareType: "percent", splitValue: 30 },
+          ],
+        }),
+      },
+      {},
+    );
+    expect(screen.getByText("210.00 TWD")).toBeInTheDocument();
+    expect(screen.getByText("90.00 TWD")).toBeInTheDocument();
+  });
+
   it("saves an untouched shares split as shares, with its weights", async () => {
     const w = writes({ ok: true });
     renderForm(
@@ -427,6 +443,29 @@ describe("ExpenseForm: editing", () => {
       { [RATE_PATH]: { rate: null, source: null, marketRate: null } },
     );
     expect(await screen.findByPlaceholderText("無法取得匯率，請手動輸入")).toHaveValue(null);
+  });
+
+  it("shows each person's share in the group's currency too, at the rate in use", async () => {
+    renderForm(
+      {
+        initial: initial({
+          amount: 100,
+          currency: "JPY",
+          payers: [{ payerId: 1, amount: 100 }],
+          splits: [
+            { debtorId: 1, amount: 50, shareType: "shares", splitValue: 1 },
+            { debtorId: 2, amount: 50, shareType: "shares", splitValue: 1 },
+          ],
+        }),
+      },
+      { [RATE_PATH]: { rate: 0.2, source: "group" } },
+    );
+    expect(await screen.findAllByText("50.00 JPY ≈ 10.00 TWD")).toHaveLength(2);
+  });
+
+  it("shows no conversion under each person when the record is in the group's currency", () => {
+    renderForm({}, {});
+    expect(screen.queryByText(/≈/)).not.toBeInTheDocument();
   });
 
   it("keeps a rate pinned against the current default currency when saving", async () => {
