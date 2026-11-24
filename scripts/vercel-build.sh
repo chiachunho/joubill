@@ -1,6 +1,8 @@
 #!/bin/sh
 # Build script for Vercel.
 #
+# Only `main` and `dev` build on Vercel (vercel.json); E2E branches are migrated by e2e.yml.
+#
 # Every preview deploy syncs the database schema: the Neon Vercel integration gives each
 # git branch its own database, and the E2E run reads that same database, so a branch that
 # adds a column fails every case until the column exists there. The Telegram side
