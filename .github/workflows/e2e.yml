@@ -1,6 +1,10 @@
 name: E2E (preview)
 
-# Runs after Vercel reports a successful Preview deployment for a commit.
+# Runs after Vercel reports a successful Preview deployment for a commit, but tests a copy
+# of the app started inside the job (`next start`), not the preview itself. Hitting the
+# preview put every page, chunk and API call of 180 cases on Vercel's CDN-request quota
+# (issue: free tier hit 100%). The preview is still built first, because that build applies
+# the schema to the branch's Neon database, which this run reads.
 # GitHub only fires deployment_status from the default branch's workflow file,
 # so this takes effect once it is merged into dev.
 on:
@@ -11,18 +15,59 @@ permissions:
   # Needed to post the results comment on the pull request.
   pull-requests: write
 
-# Each run finds the existing results comment and edits it. Two runs at once would
-# both find none and post two, so queue them instead of running in parallel.
-concurrency:
-  group: e2e-preview
-  cancel-in-progress: false
-
 jobs:
-  e2e:
-    name: Playwright (/app)
+  # Decides whether this deployment is worth a run. A cheap job on its own so that skipped
+  # deployments never take the e2e job's concurrency group (and cancel a run in progress).
+  gate:
+    name: Should E2E run
     if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+    steps:
+      - name: Skip work-in-progress branches and docs-only changes
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.deployment.sha }}
+          REF: ${{ github.event.deployment.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+            --jq '.[] | select(.state == "open") | .number' | head -n 1 || true)
+          if [ -z "$pr" ]; then
+            # No open pull request: nobody reads the result, and the comment has nowhere to
+            # go. The default branch is the exception (a merge deploys it with no PR).
+            if [ "$REF" = "$DEFAULT_BRANCH" ]; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "No open pull request for $REF at $SHA; skipping E2E."
+              echo "run=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+          # Only documentation changed: nothing a browser test could notice.
+          others=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr/files" --paginate --jq '.[].filename' \
+            | grep -Ev '^docs/|\.md$|^LICENSE$' || true)
+          if [ -z "$others" ]; then
+            echo "Pull request #$pr only changes documentation; skipping E2E."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  e2e:
+    name: Playwright (/app)
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # A newer push to the same branch makes this run's result stale, so stop it. Each pull
+    # request has its own results comment, so runs for different branches don't collide.
+    concurrency:
+      group: e2e-${{ github.event.deployment.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -96,14 +141,43 @@ jobs:
           fi
           echo "::add-mask::$uri"
           echo "E2E_DATABASE_URL=$uri" >> "$GITHUB_ENV"
+          echo "DATABASE_URL=$uri" >> "$GITHUB_ENV"
+      # The app under test. Values the tests never exercise are dummies; the Telegram bot
+      # token must equal E2E_TELEGRAM_BOT_TOKEN, since the suite signs Mini App initData with it.
+      - name: Build the app
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.E2E_TELEGRAM_BOT_TOKEN || 'dummy' }}
+          TELEGRAM_WEBHOOK_SECRET: dummy
+          TELEGRAM_MINI_APP_NAME: dummy
+          TELEGRAM_STORAGE_CHAT_ID: ${{ secrets.E2E_TELEGRAM_STORAGE_CHAT_ID || '0' }}
+          NEXT_PUBLIC_MINI_APP_URL: http://localhost:3000/mini
+          AUTH_SECRET: dummy-secret-for-e2e-only
+        run: pnpm build
+      - name: Start the app
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.E2E_TELEGRAM_BOT_TOKEN || 'dummy' }}
+          TELEGRAM_WEBHOOK_SECRET: dummy
+          TELEGRAM_MINI_APP_NAME: dummy
+          TELEGRAM_STORAGE_CHAT_ID: ${{ secrets.E2E_TELEGRAM_STORAGE_CHAT_ID || '0' }}
+          NEXT_PUBLIC_MINI_APP_URL: http://localhost:3000/mini
+          AUTH_SECRET: dummy-secret-for-e2e-only
+        run: |
+          nohup pnpm exec next start -p 3000 > "$RUNNER_TEMP/next-start.log" 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://localhost:3000/login; then exit 0; fi
+            sleep 2
+          done
+          echo "::error::The app did not start within two minutes"
+          cat "$RUNNER_TEMP/next-start.log"
+          exit 1
       # continue-on-error keeps the job running so the results comment is posted;
       # the last step fails the job when this step failed.
-      - name: Run E2E against the preview
+      - name: Run E2E against the local app
         id: e2e
         continue-on-error: true
         env:
-          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
-          # Signs Mini App initData (e2e/mini.ts). Must equal the preview's TELEGRAM_BOT_TOKEN;
+          E2E_BASE_URL: http://localhost:3000
+          # Signs Mini App initData (e2e/mini.ts). Must equal the app's TELEGRAM_BOT_TOKEN;
           # when the secret is unset the Mini App cases skip instead of failing.
           E2E_TELEGRAM_BOT_TOKEN: ${{ secrets.E2E_TELEGRAM_BOT_TOKEN }}
           CI: true
@@ -137,6 +211,9 @@ jobs:
           path: playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Show the app's log when E2E failed
+        if: steps.e2e.outcome == 'failure'
+        run: tail -n 100 "$RUNNER_TEMP/next-start.log" || true
       - name: Fail the job when E2E failed
         if: steps.e2e.outcome == 'failure'
         run: exit 1

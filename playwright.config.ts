@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// E2E runs against an already-deployed site (a Vercel preview in CI, or a local
+// E2E runs against an already-running site (the workflow starts `next start` in CI; a local
 // `pnpm dev` when E2E_BASE_URL is unset). The suite never starts its own server.
 export default defineConfig({
   testDir: "./e2e",
