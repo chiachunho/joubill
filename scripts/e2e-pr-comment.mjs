@@ -105,7 +105,7 @@ function renderResults({ byFile, failures }, sha, previewUrl, runUrl) {
   );
   const lines = [
     MARKER,
-    "## 🧪 E2E results (preview)",
+    "## 🧪 E2E results",
     "",
     totalsLine(byFile),
     "",
@@ -133,7 +133,7 @@ function renderResults({ byFile, failures }, sha, previewUrl, runUrl) {
 function renderIncomplete(reason, sha, previewUrl, runUrl) {
   return [
     MARKER,
-    "## 🧪 E2E results (preview)",
+    "## 🧪 E2E results",
     "",
     `**⚠️ The E2E run did not produce results.** ${reason}`,
     "",
@@ -146,7 +146,7 @@ function renderIncomplete(reason, sha, previewUrl, runUrl) {
 
 function incompleteReason() {
   if (env.NEON_OUTCOME === "failure") {
-    return "The Neon database lookup failed, so the tests did not run.";
+    return "The Neon database branch could not be created, so the tests did not run.";
   }
   return "The test runner exited before writing its report.";
 }
