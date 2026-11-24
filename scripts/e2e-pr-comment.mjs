@@ -1,7 +1,7 @@
-// Posts the E2E summary to the pull request for the deployed commit, as one
+// Posts the E2E summary to the pull request for the tested commit, as one
 // comment that is updated in place on every run. Runs in CI after the E2E step.
 //
-// Inputs (environment): GITHUB_TOKEN, GITHUB_REPOSITORY, SHA, PREVIEW_URL, RUN_URL,
+// Inputs (environment): GITHUB_TOKEN, GITHUB_REPOSITORY, SHA, RUN_URL, optional PREVIEW_URL,
 // E2E_OUTCOME, NEON_OUTCOME. Set DRY_RUN=1 to print the comment instead of posting.
 
 import { existsSync, readFileSync } from "node:fs";
@@ -167,7 +167,7 @@ async function gh(token, method, path, body) {
 }
 
 async function postOrUpdate(token, repo, sha, body) {
-  // A deployment only knows its commit, so find the open PR that contains it.
+  // The run only knows its commit, so find the open PR that contains it.
   const pulls = await gh(token, "GET", `/repos/${repo}/commits/${sha}/pulls`);
   const pull = pulls.find((p) => p.state === "open");
   if (!pull) {

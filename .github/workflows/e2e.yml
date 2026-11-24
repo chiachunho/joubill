@@ -29,7 +29,8 @@ permissions:
 # A newer push makes this run's result stale, so stop it. Each pull request has its own
 # results comment, so runs for different branches don't collide.
 concurrency:
-  group: e2e-${{ github.head_ref || github.ref }}
+  # The event name keeps a push to dev and a dev -> main pull request (same head_ref) apart.
+  group: e2e-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -183,14 +184,26 @@ jobs:
         if: steps.e2e.outcome == 'failure'
         run: tail -n 100 "$RUNNER_TEMP/next-start.log" || true
       - name: Delete the Neon branch
-        if: always() && env.NEON_BRANCH_ID != ''
+        if: always() && vars.NEON_PROJECT_ID != ''
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
         run: |
-          curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -X DELETE \
-            -H "Authorization: Bearer $NEON_API_KEY" \
-            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID" \
+          api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID"
+          auth="Authorization: Bearer $NEON_API_KEY"
+          # A cancelled run can stop after Neon created the branch but before its id was
+          # written to NEON_BRANCH_ID, so fall back to finding it by its name.
+          if [ -z "$NEON_BRANCH_ID" ]; then
+            NEON_BRANCH_ID=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" \
+              --get --data-urlencode "search=$NEON_BRANCH_NAME" "$api/branches" \
+              | jq -r --arg n "$NEON_BRANCH_NAME" '.branches[]? | select(.name == $n) | .id' | head -n 1) || true
+          fi
+          if [ -z "$NEON_BRANCH_ID" ]; then
+            echo "No Neon branch named $NEON_BRANCH_NAME to delete."
+            exit 0
+          fi
+          curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -X DELETE -H "$auth" \
+            "$api/branches/$NEON_BRANCH_ID" \
             > /dev/null || echo "::warning::Could not delete Neon branch $NEON_BRANCH_ID ($NEON_BRANCH_NAME)"
       - name: Fail the job when E2E failed
         if: steps.e2e.outcome == 'failure'

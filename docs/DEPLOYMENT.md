@@ -137,8 +137,8 @@ everyone would have to turn notifications on again.
 npx web-push generate-vapid-keys
 ```
 
-Set all three for **Production and Preview** (the E2E run reads `configured` from the API
-and checks the 503 path when they are missing). `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is baked at
+Set all three for **Production and Preview** (the E2E run starts its own app without them,
+so it checks the 503 path; push delivery itself is not covered by E2E). `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is baked at
 build time, so changing it needs a redeploy.
 
 Generate random strings with:

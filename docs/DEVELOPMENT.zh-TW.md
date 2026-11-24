@@ -16,7 +16,7 @@ Mini App（`/mini`）、瀏覽器網頁版（`/app`）、REST API（`/api`）和
 - **DB**：Neon Serverless Postgres + Drizzle ORM
 - **驗證**：Zod
 - **Web 登入**：Auth.js (NextAuth v5)：Telegram OAuth，可選 GitHub / Google / LINE
-- **測試**：Vitest、Playwright（對已部署的 preview 跑 E2E）
+- **測試**：Vitest、Playwright（CI 中對本機啟動的 app 跑 E2E）
 - **部署**：Vercel
 
 套件管理用 **pnpm**；Node 固定在 24.x（`.nvmrc`）。
@@ -90,7 +90,7 @@ pnpm test
 ```
 
 E2E 是對已部署的網站跑，不是本機伺服器（`pnpm e2e`，需要 `E2E_BASE_URL` 和
-`E2E_DATABASE_URL`）；CI 會在每個 Vercel preview 上跑。詳見
+`E2E_DATABASE_URL`）；CI 會在每個非草稿 PR 上，對本機 `next start` 與一次性的 Neon 分支跑。詳見
 [CLAUDE.md](../CLAUDE.md) 的 "Testing"。
 
 ## 貢獻

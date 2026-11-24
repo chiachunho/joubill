@@ -16,7 +16,7 @@ and [architecture/](architecture/). For production, see
 - **DB**: Neon Serverless Postgres + Drizzle ORM
 - **Validation**: Zod
 - **Web login**: Auth.js (NextAuth v5): Telegram OAuth, optional GitHub / Google / LINE
-- **Tests**: Vitest, Playwright (E2E against a deployed preview)
+- **Tests**: Vitest, Playwright (E2E against a local app in CI)
 - **Deploy**: Vercel
 
 The package manager is **pnpm**; Node is pinned to 24.x (`.nvmrc`).
@@ -91,7 +91,7 @@ pnpm test
 ```
 
 E2E runs against a deployed site, not a local server (`pnpm e2e` with
-`E2E_BASE_URL` and `E2E_DATABASE_URL`); CI runs it on every Vercel preview. See
+`E2E_BASE_URL` and `E2E_DATABASE_URL`); CI runs it on every non-draft pull request against a local `next start` and a throwaway Neon branch. See
 "Testing" in [CLAUDE.md](../CLAUDE.md).
 
 ## Contributing
