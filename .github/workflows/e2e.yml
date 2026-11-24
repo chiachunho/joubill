@@ -128,6 +128,9 @@ jobs:
           TELEGRAM_STORAGE_CHAT_ID: ${{ secrets.E2E_TELEGRAM_STORAGE_CHAT_ID || '0' }}
           NEXT_PUBLIC_MINI_APP_URL: http://localhost:3000/mini
           AUTH_SECRET: dummy-secret-for-e2e-only
+          # Vercel trusts its own host for Auth.js; a plain `next start` on localhost doesn't, and
+          # every /api/auth/* call answers 500 UntrustedHost, so signIn() never sends anything.
+          AUTH_TRUST_HOST: "true"
         run: |
           nohup pnpm exec next start -p 3000 > "$RUNNER_TEMP/next-start.log" 2>&1 &
           for _ in $(seq 1 60); do
