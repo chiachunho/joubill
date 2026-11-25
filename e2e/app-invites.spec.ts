@@ -207,8 +207,8 @@ test.describe("Creating groups and joining by invite", () => {
     } finally {
       await context.close();
       // Also the per-IP counters: every case in the run shares the runner's one address, so
-      // leaving this burst in that bucket could push other invite cases into 429. Each
-      // preview has its own database, so nothing real is in there.
+      // leaving this burst in that bucket could push other invite cases into 429. Each run
+      // has its own Neon branch, so this only touches that branch's rows.
       await db
         .delete(schema.rateLimitHits)
         .where(

@@ -1,33 +1,56 @@
-name: E2E (preview)
+name: E2E
 
-# Runs after Vercel reports a successful Preview deployment for a commit.
-# GitHub only fires deployment_status from the default branch's workflow file,
-# so this takes effect once it is merged into dev.
+# Runs the Playwright suite against a copy of the app started inside the job (`next start`),
+# on a Neon branch the job creates, migrates and deletes itself. Vercel builds no preview for
+# these branches (vercel.json), so the suite no longer costs a deployment or any CDN
+# requests: 180 cases against a preview used up the free tier's 1M requests.
 on:
-  deployment_status:
+  pull_request:
+    branches: [main, dev]
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Nothing a browser test could notice.
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - LICENSE
+  # A merge into dev has no pull request to run for.
+  push:
+    branches: [dev]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - LICENSE
 
 permissions:
   contents: read
   # Needed to post the results comment on the pull request.
   pull-requests: write
 
-# Each run finds the existing results comment and edits it. Two runs at once would
-# both find none and post two, so queue them instead of running in parallel.
+# A newer push makes this run's result stale, so stop it. Each pull request has its own
+# results comment, so runs for different branches don't collide.
 concurrency:
-  group: e2e-preview
-  cancel-in-progress: false
+  # The event name keeps a push to dev and a dev -> main pull request (same head_ref) apart.
+  group: e2e-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
     name: Playwright (/app)
-    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview'
+    # Drafts wait until they are ready for review; a fork's pull request has no secrets.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.draft == false &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    env:
+      SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      NEON_BRANCH_NAME: e2e/run-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.deployment.sha }}
-          # Full history so the remote branches that point at this commit are visible.
+          ref: ${{ env.SHA }}
+          # Full history so the default branch is visible to the results-comment step.
           fetch-depth: 0
           # Keep the GITHUB_TOKEN out of .git/config. The steps after this run the pull
           # request's own code (pnpm install, the tests), and this token can write to the PR.
@@ -40,51 +63,31 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      # The Neon Vercel integration gives each git branch its own database, and
-      # Vercel only exposes that URL as a sensitive value CI cannot read. So look
-      # the branch up through the Neon API instead, by the branch name the
-      # deployment was made from.
-      - name: Find this branch's Neon database
+      # A fresh branch of the project's default database for this run: no leftovers from an
+      # earlier run, and two runs never share rows. It is deleted in the last step.
+      - name: Create a Neon branch for this run
         id: neon
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
-          SHA: ${{ github.event.deployment.sha }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -z "$NEON_PROJECT_ID" ]; then
-            echo "::error::NEON_PROJECT_ID repo secret is empty"
+            echo "::error::NEON_PROJECT_ID repo variable is empty"
             exit 1
           fi
           api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID"
           auth="Authorization: Bearer $NEON_API_KEY"
-          # The head branch of the open PR for this commit is the most reliable answer:
-          # it does not change when someone pushes again while the job runs.
-          pr_branch=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
-            --jq '.[] | select(.state == "open") | .head.ref' 2>/dev/null | head -n 1 || true)
-          # Without a PR, use the remote branches that point at the commit. Feature
-          # branches come first. The default branch counts only when it points here,
-          # which is the case for a deploy of the default branch itself (it has no PR).
-          all=$(git branch -r --points-at "$SHA" | sed 's|^ *origin/||' | grep -v '^HEAD' || true)
-          feature=$(printf '%s\n' "$all" | grep -vx "$DEFAULT_BRANCH" || true)
-          default=$(printf '%s\n' "$all" | grep -x "$DEFAULT_BRANCH" || true)
-          if [ -n "$pr_branch" ]; then
-            candidates="$pr_branch"
-          else
-            candidates="$feature $default"
-          fi
-          for branch in $candidates; do
-            branch_id=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" "$api/branches" \
-              | jq -r --arg a "preview/$branch" --arg b "$branch" \
-                '.branches[] | select(.name == $a or .name == $b) | .id' | head -n 1)
-            [ -n "$branch_id" ] && break
-          done
+          created=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -X POST \
+            -H "$auth" -H "Content-Type: application/json" "$api/branches" \
+            -d "$(jq -n --arg name "$NEON_BRANCH_NAME" \
+              '{branch: {name: $name}, endpoints: [{type: "read_write"}]}')")
+          branch_id=$(jq -r '.branch.id // empty' <<<"$created")
           if [ -z "$branch_id" ]; then
-            echo "::error::No Neon branch matches a remote branch at $SHA"
+            echo "::error::Neon did not create the branch"
             exit 1
           fi
-          echo "Using Neon branch $branch_id for git branch $branch"
+          # Written before anything else can fail, so the cleanup step finds it.
+          echo "NEON_BRANCH_ID=$branch_id" >> "$GITHUB_ENV"
           # Keep curl's own exit status: piping it straight into jq would hide a failed
           # request and export an empty or "null" URL that only fails later in the tests.
           body=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" \
@@ -96,14 +99,56 @@ jobs:
           fi
           echo "::add-mask::$uri"
           echo "E2E_DATABASE_URL=$uri" >> "$GITHUB_ENV"
+          echo "DATABASE_URL=$uri" >> "$GITHUB_ENV"
+      # What the Vercel build used to do for a preview (scripts/vercel-build.sh). The first
+      # connection may wake the new endpoint, so retry it.
+      - name: Apply migrations and the schema
+        run: |
+          for attempt in 1 2 3; do
+            if pnpm db:migrate && pnpm db:push; then exit 0; fi
+            echo "Attempt $attempt failed; retrying in 10 s"
+            sleep 10
+          done
+          exit 1
+      # The app under test. Values the tests never exercise are dummies; the Telegram bot
+      # token must equal E2E_TELEGRAM_BOT_TOKEN, since the suite signs Mini App initData with it.
+      - name: Build the app
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.E2E_TELEGRAM_BOT_TOKEN || 'dummy' }}
+          TELEGRAM_WEBHOOK_SECRET: dummy
+          TELEGRAM_MINI_APP_NAME: dummy
+          TELEGRAM_STORAGE_CHAT_ID: ${{ secrets.E2E_TELEGRAM_STORAGE_CHAT_ID || '0' }}
+          NEXT_PUBLIC_MINI_APP_URL: http://localhost:3000/mini
+          AUTH_SECRET: dummy-secret-for-e2e-only
+        run: pnpm build
+      - name: Start the app
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.E2E_TELEGRAM_BOT_TOKEN || 'dummy' }}
+          TELEGRAM_WEBHOOK_SECRET: dummy
+          TELEGRAM_MINI_APP_NAME: dummy
+          TELEGRAM_STORAGE_CHAT_ID: ${{ secrets.E2E_TELEGRAM_STORAGE_CHAT_ID || '0' }}
+          NEXT_PUBLIC_MINI_APP_URL: http://localhost:3000/mini
+          AUTH_SECRET: dummy-secret-for-e2e-only
+          # Vercel trusts its own host for Auth.js; a plain `next start` on localhost doesn't, and
+          # every /api/auth/* call answers 500 UntrustedHost, so signIn() never sends anything.
+          AUTH_TRUST_HOST: "true"
+        run: |
+          nohup pnpm exec next start -p 3000 > "$RUNNER_TEMP/next-start.log" 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://localhost:3000/login; then exit 0; fi
+            sleep 2
+          done
+          echo "::error::The app did not start within two minutes"
+          cat "$RUNNER_TEMP/next-start.log"
+          exit 1
       # continue-on-error keeps the job running so the results comment is posted;
       # the last step fails the job when this step failed.
-      - name: Run E2E against the preview
+      - name: Run E2E against the local app
         id: e2e
         continue-on-error: true
         env:
-          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
-          # Signs Mini App initData (e2e/mini.ts). Must equal the preview's TELEGRAM_BOT_TOKEN;
+          E2E_BASE_URL: http://localhost:3000
+          # Signs Mini App initData (e2e/mini.ts). Must equal the app's TELEGRAM_BOT_TOKEN;
           # when the secret is unset the Mini App cases skip instead of failing.
           E2E_TELEGRAM_BOT_TOKEN: ${{ secrets.E2E_TELEGRAM_BOT_TOKEN }}
           CI: true
@@ -112,8 +157,6 @@ jobs:
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHA: ${{ github.event.deployment.sha }}
-          PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           E2E_OUTCOME: ${{ steps.e2e.outcome }}
           NEON_OUTCOME: ${{ steps.neon.outcome }}
@@ -137,6 +180,31 @@ jobs:
           path: playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Show the app's log when E2E failed
+        if: steps.e2e.outcome == 'failure'
+        run: tail -n 100 "$RUNNER_TEMP/next-start.log" || true
+      - name: Delete the Neon branch
+        if: always() && vars.NEON_PROJECT_ID != ''
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID"
+          auth="Authorization: Bearer $NEON_API_KEY"
+          # A cancelled run can stop after Neon created the branch but before its id was
+          # written to NEON_BRANCH_ID, so fall back to finding it by its name.
+          if [ -z "$NEON_BRANCH_ID" ]; then
+            NEON_BRANCH_ID=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -H "$auth" \
+              --get --data-urlencode "search=$NEON_BRANCH_NAME" "$api/branches" \
+              | jq -r --arg n "$NEON_BRANCH_NAME" '.branches[]? | select(.name == $n) | .id' | head -n 1) || true
+          fi
+          if [ -z "$NEON_BRANCH_ID" ]; then
+            echo "No Neon branch named $NEON_BRANCH_NAME to delete."
+            exit 0
+          fi
+          curl -fsS --retry 3 --retry-all-errors --retry-delay 3 -X DELETE -H "$auth" \
+            "$api/branches/$NEON_BRANCH_ID" \
+            > /dev/null || echo "::warning::Could not delete Neon branch $NEON_BRANCH_ID ($NEON_BRANCH_NAME)"
       - name: Fail the job when E2E failed
         if: steps.e2e.outcome == 'failure'
         run: exit 1

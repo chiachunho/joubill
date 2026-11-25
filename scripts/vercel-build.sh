@@ -1,11 +1,11 @@
 #!/bin/sh
 # Build script for Vercel.
 #
-# Every preview deploy syncs the database schema: the Neon Vercel integration gives each
-# git branch its own database, and the E2E run reads that same database, so a branch that
-# adds a column fails every case until the column exists there. The Telegram side
-# (command menu, webhook) is global to the one bot, so only production and the dev preview
-# touch it; any other preview would repoint the bot at itself.
+# Only `main` and `dev` build on Vercel (vercel.json); E2E branches are migrated by e2e.yml.
+#
+# Every Vercel deploy that builds (production and the dev preview) syncs the database schema.
+# The Telegram side (command menu, webhook) is global to the one bot, so only production and
+# the dev preview touch it; any other preview would repoint the bot at itself.
 
 set -e
 
