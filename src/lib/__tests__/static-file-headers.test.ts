@@ -1,10 +1,20 @@
 import { readdirSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 type HeaderRule = { source: string; headers: { key: string; value: string }[] };
 
 const publicDir = fileURLToPath(new URL("../../../public", import.meta.url));
+
+/** Every file under public/, as the URL path it is served at (a folder's files count, not the folder). */
+function publicFiles(dir = publicDir): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory()
+      ? publicFiles(join(dir, entry.name))
+      : ["/" + relative(publicDir, join(dir, entry.name)).split(sep).join("/")],
+  );
+}
 // A path held in a variable: the config is untyped JavaScript, so a literal import would not compile.
 const configPath = fileURLToPath(new URL("../../../next.config.mjs", import.meta.url));
 // Next's own matcher, the one `headers()` sources are compiled with (it ships no types).
@@ -29,12 +39,12 @@ async function cacheControlFor(path: string): Promise<string | undefined> {
 describe("Cache-Control of the files in public/", () => {
   // Vercel serves public/ with `max-age=0, must-revalidate`, which makes every page load ask for
   // every icon again. A new file there gets a decision: add it to next.config.mjs, or here.
-  const revalidated = new Set(["sw.js"]);
+  const revalidated = new Set(["/sw.js"]);
 
-  for (const file of readdirSync(publicDir)) {
+  for (const file of publicFiles()) {
     if (revalidated.has(file)) continue;
-    it(`/${file} may be cached for a day`, async () => {
-      expect(await cacheControlFor(`/${file}`)).toMatch(/max-age=86400/);
+    it(`${file} may be cached for a day`, async () => {
+      expect(await cacheControlFor(file)).toMatch(/max-age=86400/);
     });
   }
 
