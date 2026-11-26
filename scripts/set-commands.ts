@@ -22,6 +22,9 @@ async function setCommands(commands: { command: string; description: string }[],
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ commands, scope }),
+    // A connection that stalls instead of failing would hang the Vercel build; a timeout turns it
+    // into an error that scripts/retry.sh can retry.
+    signal: AbortSignal.timeout(20_000),
   });
   const json = (await res.json()) as { ok: boolean; description?: string };
   if (!json.ok) throw new Error(`setMyCommands failed: ${JSON.stringify(json)}`);
