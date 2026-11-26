@@ -47,6 +47,7 @@ import type { CreateConnectionInput, UpdateConnectionInput } from "@/lib/mcp-con
 import type { BeancountConfigInput } from "@/lib/zod";
 
 import { apiBaseQuery } from "./base-query";
+import { withSlowRefetch } from "./slow-refetch";
 
 /** A group id as it appears in a URL or a page param; the cache tags normalise it to a string. */
 export type GroupId = string | number;
@@ -941,7 +942,6 @@ export const {
   useGetAccountMergePreviewQuery,
   useMergeAccountsMutation,
   useCancelAccountMergeMutation,
-  useGetPushSubscriptionsQuery,
   useSavePushSubscriptionMutation,
   useDeletePushSubscriptionMutation,
   useSendTestPushMutation,
@@ -950,7 +950,6 @@ export const {
   useUpdateGroupNotificationsMutation,
   useGetMembersQuery,
   useGetSettingsQuery,
-  useGetAvatarsQuery,
   useGetExpensesInfiniteQuery,
   useGetBalanceQuery,
   useGetExpenseQuery,
@@ -994,3 +993,9 @@ export const {
   useApproveDeleteRequestMutation,
   useCancelDeleteRequestMutation,
 } = api;
+
+// Avatars and this device's push subscriptions barely change, and every edit that changes them
+// here (members, profile, sign-in methods, subscribing) already invalidates their tags, so they
+// need not be asked for again on every page change.
+export const useGetAvatarsQuery = withSlowRefetch(api.useGetAvatarsQuery);
+export const useGetPushSubscriptionsQuery = withSlowRefetch(api.useGetPushSubscriptionsQuery);

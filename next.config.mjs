@@ -40,6 +40,13 @@ const nextConfig = {
         headers: [{ key: "X-Frame-Options", value: "DENY" }],
       },
       {
+        // Files from public/ that change about never. Vercel serves them with
+        // `max-age=0, must-revalidate`, so every page load asked for each one again.
+        source:
+          "/:file(site\\.webmanifest|apple-touch-icon\\.png|logo\\.svg|favicon-\\d+x\\d+\\.png|android-chrome-\\d+x\\d+\\.png|icon-maskable-\\d+x\\d+\\.png)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400" }],
+      },
+      {
         source: "/sw.js",
         headers: [
           { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
