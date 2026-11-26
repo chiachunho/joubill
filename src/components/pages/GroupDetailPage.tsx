@@ -608,6 +608,9 @@ export function GroupDetailPage({
                       <Link
                         key={e.id}
                         href={`${platform.basePath}/groups/${id}/expenses/${e.id}/edit`}
+                        // Every row in view would otherwise prefetch its edit page: about six requests
+                        // per visit to this page, for pages hardly any of them will open.
+                        prefetch={false}
                         className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
                       >
                         {/* Stacked avatars for multiple payers */}
