@@ -13,9 +13,10 @@ function run(attempts, failures) {
   const counter = join(dir, "count");
   writeFileSync(counter, "0");
   // The command counts its own calls and fails until it has been called more than `failures` times.
-  const flaky = `n=$(( $(cat ${counter}) + 1 )); echo $n > ${counter}; [ $n -gt ${failures} ]`;
-  const result = spawnSync("sh", ["-c", `. ${RETRY_SH}; retry ${attempts} sh -c '${flaky}'`], {
-    env: { ...process.env, RETRY_DELAY_UNIT: "0" },
+  const flaky = `n=$(( $(cat "$COUNTER") + 1 )); echo $n > "$COUNTER"; [ $n -gt ${failures} ]`;
+  // The paths travel as environment variables, so a repository path with a space still works.
+  const result = spawnSync("sh", ["-c", `. "$RETRY_SH"; retry ${attempts} sh -c '${flaky}'`], {
+    env: { ...process.env, RETRY_DELAY_UNIT: "0", RETRY_SH, COUNTER: counter },
     encoding: "utf8",
   });
   return {
