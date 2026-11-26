@@ -30,11 +30,24 @@ if is_production || is_preview; then
 fi
 
 if is_production || is_dev_preview; then
+  # The build machine sometimes can't reach api.telegram.org (ETIMEDOUT / ENETUNREACH), which
+  # failed a whole production release once. Retry, and let the cosmetic step give way.
+  . "$(dirname "$0")/retry.sh"
+
   echo "[vercel-build] updating bot command menu..."
-  pnpm bot:set-commands
+  # The command menu is only a convenience: if Telegram stays unreachable, ship anyway; the
+  # next deploy sets it again.
+  if ! retry 3 pnpm bot:set-commands; then
+    echo "[vercel-build] WARNING: could not update the bot command menu; continuing" >&2
+  fi
 
   echo "[vercel-build] setting Telegram webhook..."
-  pnpm bot:set-webhook "$NEXT_PUBLIC_MINI_APP_URL"
+  # The webhook stays fatal: a release that can't repoint it (or apply a changed
+  # allowed_updates) shouldn't pass as shipped.
+  retry 3 pnpm bot:set-webhook "$NEXT_PUBLIC_MINI_APP_URL" || {
+    echo "[vercel-build] could not set the Telegram webhook; failing the build" >&2
+    exit 1
+  }
 fi
 
 exec next build
