@@ -7,7 +7,7 @@
 
 核心原則:**永遠用 token,不要寫死數值。** 看到要用 `rounded-[9px]`、`#10b981`、`text-[13px]` 之前,先回來看這份有沒有對應的 token。
 
-**以下規則有工具強制,不只是寫在文件裡。** token 定義在 [`globals.css`](../src/app/globals.css) 的 `@theme` 區塊(Tailwind v4,已經沒有 `tailwind.config.ts`),圓角與顏色兩個命名空間都先用 `initial` 清空:Tailwind 內建的預設值不存在,寫 `rounded-xl` 或 `bg-blue-500` 根本不會產生 CSS。ESLint 規則 `design/tokens`([`scripts/eslint-design-tokens.mjs`](../scripts/eslint-design-tokens.mjs))讀同一個 `@theme` 區塊,`pnpm lint` 會擋下不在裡面的圓角或顏色,以及 theme 看不到的任意值(`rounded-[…]`、`text-[13px]`、`bg-[#…]`)。刻意的例外要寫 `// eslint-disable-next-line design/tokens -- <原因>`。要新增 token,就加進 `@theme` 並寫明理由,兩邊的檢查會自動跟上。
+**以下規則有工具強制,不只是寫在文件裡。** token 定義在 [`globals.css`](../src/app/globals.css) 的 `@theme` 區塊(Tailwind v4,已經沒有 `tailwind.config.ts`),圓角與顏色兩個命名空間都先用 `initial` 清空:Tailwind 內建的預設值不存在,寫 `rounded-xl` 或 `bg-blue-500` 根本不會產生 CSS。ESLint 規則 `design/tokens`([`scripts/eslint-design-tokens.mjs`](../scripts/eslint-design-tokens.mjs))讀同一個 `@theme` 區塊,`pnpm lint` 會擋下不在裡面的圓角或顏色,以及 theme 看不到的任意值(`rounded-[…]`、`text-[13px]`、`bg-[#…]`)。凡是 class 清單的字串都會檢查:看位置(`className`、`cn`)或看長相(每個字都像 utility),所以 `Avatar.tsx` 的 `COLORS` 這類色盤陣列也涵蓋在內。刻意的例外要寫 `// eslint-disable-next-line design/tokens -- <原因>`。要新增 token,就加進 `@theme` 並寫明理由,兩邊的檢查會自動跟上。
 
 ---
 

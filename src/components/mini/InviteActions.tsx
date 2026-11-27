@@ -164,7 +164,7 @@ export function InviteActions({ groupId, hint }: { groupId: string; hint: Invite
         <div className="flex items-center gap-3 rounded-lg bg-secondary/50 px-3.5 py-3">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">邀請碼</p>
-            <p className="text-lg font-semibold num tracking-wider">{formatInviteCode(code)}</p>
+            <p className="text-lg font-semibold tracking-wider">{formatInviteCode(code)}</p>
           </div>
           <div className="ml-auto shrink-0">
             {copyButton("code", formatInviteCode(code), "複製邀請碼", ON_PANEL)}

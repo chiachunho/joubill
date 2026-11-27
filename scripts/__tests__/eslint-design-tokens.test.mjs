@@ -1,7 +1,13 @@
 import { Linter } from "eslint";
 import { describe, expect, it } from "vitest";
 
-import plugin, { checkClasses, loadTheme, themeKeys, utilityOf } from "../eslint-design-tokens.mjs";
+import plugin, {
+  checkClasses,
+  loadTheme,
+  looksLikeClassList,
+  themeKeys,
+  utilityOf,
+} from "../eslint-design-tokens.mjs";
 
 const CSS = `
 @import "tailwindcss";
@@ -87,6 +93,22 @@ describe("checkClasses", () => {
   });
 });
 
+describe("looksLikeClassList", () => {
+  it("recognises class lists by their words", () => {
+    expect(looksLikeClassList("bg-rose-400")).toBe(true);
+    expect(looksLikeClassList("flex items-center rounded-lg")).toBe(true);
+    expect(looksLikeClassList("md:hover:bg-primary/10 [&>svg]:size-4")).toBe(true);
+  });
+
+  it("leaves prose, Chinese and identifiers alone", () => {
+    expect(looksLikeClassList("rounded to the cent")).toBe(false);
+    expect(looksLikeClassList("round-trip tested against itself")).toBe(false);
+    expect(looksLikeClassList("已複製")).toBe(false);
+    expect(looksLikeClassList("Asia/Taipei")).toBe(false);
+    expect(looksLikeClassList("")).toBe(false);
+  });
+});
+
 describe("design/tokens rule", () => {
   const lint = (code) =>
     new Linter({ configType: "flat" }).verify(code, {
@@ -105,7 +127,21 @@ describe("design/tokens rule", () => {
     expect(messages.map((m) => m.line)).toEqual([2, 3, 4, 5]);
   });
 
+  it("checks a class list kept under any name, such as an avatar palette", () => {
+    const messages = lint(`
+      const COLORS = ["bg-rose-400", "bg-blue-500"];
+      const TONE = { warn: "text-rose-600 font-medium" };
+    `);
+    expect(messages.map((m) => m.line)).toEqual([2, 3]);
+  });
+
+  it("does not read module paths as classes", () => {
+    expect(
+      lint(`import x from "@/components/ui/rounded-xl"; export * from "./bg-blue-500";`),
+    ).toEqual([]);
+  });
+
   it("leaves strings that are not class lists alone", () => {
-    expect(lint(`const msg = "rounded to the cent"; label("rounded-xl");`)).toEqual([]);
+    expect(lint(`const msg = "rounded to the cent"; label("金額 rounded-xl");`)).toEqual([]);
   });
 });

@@ -18,8 +18,10 @@ Tailwind's own defaults are gone, so `rounded-xl` or `bg-blue-500` generate no C
 at all. The ESLint rule `design/tokens`
 ([`scripts/eslint-design-tokens.mjs`](../scripts/eslint-design-tokens.mjs)) reads the
 same `@theme` block and fails `pnpm lint` on a radius or colour outside it, and on the
-arbitrary values the theme can't see (`rounded-[…]`, `text-[13px]`, `bg-[#…]`). A
-deliberate exception carries `// eslint-disable-next-line design/tokens -- <why>`.
+arbitrary values the theme can't see (`rounded-[…]`, `text-[13px]`, `bg-[#…]`).
+It checks every string that is a class list, by where it sits (`className`, `cn`) or by
+what it looks like (every word a utility), so a palette array such as `Avatar.tsx`'s `COLORS`
+is covered as well. A deliberate exception carries `// eslint-disable-next-line design/tokens -- <why>`.
 To allow a new token, add it to `@theme` with a reason; both checks follow.
 
 ---

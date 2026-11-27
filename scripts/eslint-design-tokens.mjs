@@ -7,10 +7,11 @@
  * whatever the theme says. This rule reports both kinds, reading the allowed radii and colours
  * from that same `@theme` block, so the two lists cannot disagree.
  *
- * Only strings in a class context are checked: an attribute whose name mentions "class"
- * (`className`, react-day-picker's `classNames`), an argument of
- * `cn` / `cva` / `clsx` / `twMerge`, or a variable or property whose name mentions "class".
- * Anything else ("rounded to the cent") is prose.
+ * A string is checked when it sits in a class context (an attribute whose name mentions "class",
+ * such as `className` or react-day-picker's `classNames`; an argument of `cn` / `cva` / `clsx` /
+ * `twMerge`; a variable or property whose name mentions "class"), or when every word in it reads
+ * like a utility (`looksLikeClassList`). The second catches the lists kept under other names, such
+ * as the avatar palette `COLORS` or a `TONE` map, while prose ("rounded to the cent") stays out.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -96,6 +97,42 @@ export function checkClasses(text, theme) {
   return problems;
 }
 
+// Utilities that are a bare word. Any other word counts only with a `-`, `:` or `[` in it, which
+// prose almost never has in every word at once.
+const BARE_UTILITIES = new Set(
+  (
+    "flex grid block inline hidden contents relative absolute fixed sticky static truncate " +
+    "italic underline uppercase lowercase capitalize rounded shadow border grow shrink invisible " +
+    "visible isolate container ring outline antialiased transform transition group peer"
+  ).split(" "),
+);
+
+/** Whether every word of `text` reads like a Tailwind utility, i.e. it is a class list. */
+export function looksLikeClassList(text) {
+  const tokens = text.split(/\s+/).filter(Boolean);
+  return (
+    tokens.length > 0 &&
+    tokens.every(
+      (t) =>
+        /^!?-?[a-z@[]/.test(t) &&
+        (t.includes("-") || t.includes(":") || t.includes("[") || BARE_UTILITIES.has(t)),
+    )
+  );
+}
+
+/** Module paths are strings too, and `@/components/x` reads like a variant. */
+function isModuleSource(node) {
+  const p = node.parent;
+  return (
+    p &&
+    (p.type === "ImportDeclaration" ||
+      p.type === "ExportAllDeclaration" ||
+      p.type === "ExportNamedDeclaration" ||
+      p.type === "ImportExpression") &&
+    p.source === node
+  );
+}
+
 const CLASS_CALLS = new Set(["cn", "cva", "clsx", "twMerge"]);
 const CLASS_NAME = /class/i;
 
@@ -134,7 +171,8 @@ export const tokensRule = {
   create(context) {
     cachedTheme ??= loadTheme();
     const report = (node, text) => {
-      if (!inClassContext(node)) return;
+      if (isModuleSource(node)) return;
+      if (!inClassContext(node) && !looksLikeClassList(text)) return;
       for (const message of checkClasses(text, cachedTheme)) context.report({ node, message });
     };
     return {
