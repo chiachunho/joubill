@@ -28,6 +28,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
+        // eslint-disable-next-line design/tokens -- shadcn's weekday header, between text-xs and text-sm
         head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
         cell: "h-8 w-8 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",

@@ -278,7 +278,7 @@ export function RefundForm({
             <h1 className="text-lg font-semibold">{isEdit ? "編輯退稅" : "新增退稅"}</h1>
             <Link
               href={returnPath}
-              className="num block truncate text-xs text-muted-foreground hover:underline"
+              className="block truncate text-xs num text-muted-foreground hover:underline"
             >
               原支出：{parent.description || "支出"} · {parent.spentAt.slice(5).replace("-", "/")} ›
             </Link>
@@ -295,7 +295,7 @@ export function RefundForm({
               step="0.01"
               min="0.01"
               inputMode="decimal"
-              className="num text-base font-semibold"
+              className="text-base font-semibold num"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
@@ -348,7 +348,7 @@ export function RefundForm({
                 onChange={(e) => setFxRate(e.target.value)}
               />
               {fxRate === "" && rateFetching && (
-                <Skeleton className="pointer-events-none absolute left-3 top-1/2 h-4 w-20 -translate-y-1/2" />
+                <Skeleton className="pointer-events-none absolute top-1/2 left-3 h-4 w-20 -translate-y-1/2" />
               )}
             </div>
             {(() => {
@@ -356,7 +356,7 @@ export function RefundForm({
               if (fxRate === "" && rateFetching && total > 0)
                 return <Skeleton className="h-4 w-48" />;
               return rate != null && total > 0 ? (
-                <p className="num text-xs text-muted-foreground">
+                <p className="text-xs num text-muted-foreground">
                   ≈ {(total * rate).toFixed(2)} {defaultCurrency}
                 </p>
               ) : null;
@@ -478,18 +478,18 @@ export function RefundForm({
                       />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm leading-tight">{nameOf(p.userId)}</div>
-                        <div className="num mt-0.5 text-xs text-muted-foreground">
+                        <div className="mt-0.5 text-xs num text-muted-foreground">
                           原分攤 {p.amount.toFixed(2)} {parent.currency}
                           {parentTotal > 0 && `（${sharePercent(p.amount, parentTotal)}）`}
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
-                        <div className="num text-sm font-semibold">
+                        <div className="text-sm font-semibold num">
                           {(share?.amount ?? 0).toFixed(2)}{" "}
                           <span className="font-normal text-muted-foreground">{currency}</span>
                         </div>
                         {converted(share?.amount ?? 0) && (
-                          <div className="num mt-0.5 text-xs text-muted-foreground">
+                          <div className="mt-0.5 text-xs num text-muted-foreground">
                             {converted(share?.amount ?? 0)}
                           </div>
                         )}
@@ -519,7 +519,7 @@ export function RefundForm({
                         {c.included &&
                           positive(c.value) != null &&
                           converted(positive(c.value)!) && (
-                            <div className="num mt-0.5 text-xs text-muted-foreground">
+                            <div className="mt-0.5 text-xs num text-muted-foreground">
                               {converted(positive(c.value)!)}
                             </div>
                           )}
@@ -531,7 +531,7 @@ export function RefundForm({
                           min="0"
                           inputMode="decimal"
                           aria-label={`${nameOf(m.id)} 分回金額`}
-                          className="num w-24 shrink-0 text-right"
+                          className="w-24 shrink-0 text-right num"
                           value={c.value}
                           onChange={(e) =>
                             setCustom((prev) => ({
@@ -547,14 +547,14 @@ export function RefundForm({
           </Panel>
           <div className="rounded-2xl bg-secondary/50 px-4 py-3">
             {split === "ratio" ? (
-              <span className="num flex items-center gap-1.5 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-sm num text-muted-foreground">
                 依「{parent.description || "支出"}」的分攤 · 共 {ratio.length} 人
                 <Check className="size-3.5 shrink-0" />
               </span>
             ) : (
               <span
                 className={cn(
-                  "num flex items-center gap-1.5 text-sm",
+                  "flex items-center gap-1.5 text-sm num",
                   customBalanced ? "text-muted-foreground" : "text-rose-500",
                 )}
               >

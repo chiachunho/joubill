@@ -69,10 +69,10 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
               type="button"
               onClick={() => setEditing("avatar")}
               aria-label="更換頭像"
-              className="relative shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="relative shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
             >
               {avatar}
-              <span className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background">
+              <span className="absolute -right-0.5 -bottom-0.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background">
                 <Pencil className="size-2.5" />
               </span>
             </button>
@@ -119,7 +119,7 @@ export function PersonalSettings({ platform }: { platform: Platform }) {
           ))}
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm">版本</span>
-            <span className="num text-sm text-muted-foreground">
+            <span className="text-sm num text-muted-foreground">
               {process.env.NEXT_PUBLIC_APP_VERSION ?? "—"}
             </span>
           </div>

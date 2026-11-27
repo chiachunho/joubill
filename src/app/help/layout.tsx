@@ -14,7 +14,7 @@ function NavLinks({ onNav }: { onNav?: () => void }) {
     <nav className="flex flex-col gap-4">
       {groups.map((g) => (
         <div key={g.title} className="flex flex-col gap-0.5">
-          <p className="sect mb-1 px-3">{g.title}</p>
+          <p className="mb-1 px-3 sect">{g.title}</p>
           {g.pages.map((s) => {
             const href = `/help/${s.slug}`;
             const active = pathname === href;
@@ -46,7 +46,7 @@ export default function HelpLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="min-h-screen bg-background">
       {/* top bar */}
-      <header className="sticky top-0 z-30 border-b border-border/40 bg-background/80 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-border/40 bg-background/80 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
           <button
             className="rounded-lg p-1.5 text-foreground/60 hover:bg-secondary md:hidden"
@@ -76,7 +76,7 @@ export default function HelpLayout({ children }: { children: React.ReactNode }) 
       {open && (
         <div className="fixed inset-0 z-20 md:hidden" onClick={() => setOpen(false)}>
           <div
-            className="absolute left-0 top-14 max-h-[calc(100vh-3.5rem)] w-64 overflow-y-auto border-r border-border/40 bg-background p-4 shadow-lg"
+            className="absolute top-14 left-0 max-h-[calc(100vh-3.5rem)] w-64 overflow-y-auto border-r border-border/40 bg-background p-4 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <NavLinks onNav={() => setOpen(false)} />

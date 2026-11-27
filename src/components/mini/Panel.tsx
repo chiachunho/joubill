@@ -64,7 +64,7 @@ export function Section({
           {action}
         </div>
       ) : (
-        <p className="sect mb-2.5">{title}</p>
+        <p className="mb-2.5 sect">{title}</p>
       )}
       {children}
     </section>

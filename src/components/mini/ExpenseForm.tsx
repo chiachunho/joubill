@@ -654,7 +654,7 @@ export function ExpenseForm(props: Props) {
                       step="0.01"
                       min="0.01"
                       inputMode="decimal"
-                      className="num text-base font-semibold"
+                      className="text-base font-semibold num"
                       {...field}
                     />
                   </FormControl>
@@ -717,13 +717,13 @@ export function ExpenseForm(props: Props) {
                         />
                       </FormControl>
                       {field.value === "" && rateFetching && (
-                        <Skeleton className="pointer-events-none absolute left-3 top-1/2 h-4 w-20 -translate-y-1/2" />
+                        <Skeleton className="pointer-events-none absolute top-1/2 left-3 h-4 w-20 -translate-y-1/2" />
                       )}
                     </div>
                     {!usingTypedRate && rateFetching && totalAmount > 0 ? (
                       <Skeleton className="h-4 w-48" />
                     ) : rateInUse != null && totalAmount > 0 ? (
-                      <p className="num text-xs text-muted-foreground">
+                      <p className="text-xs num text-muted-foreground">
                         ≈ {(totalAmount * rateInUse).toFixed(2)} {props.defaultCurrency}
                       </p>
                     ) : null}
@@ -851,7 +851,7 @@ export function ExpenseForm(props: Props) {
                                 step="0.01"
                                 min="0"
                                 inputMode="decimal"
-                                className="num w-24 shrink-0 text-right"
+                                className="w-24 shrink-0 text-right num"
                                 value={entry.amount}
                                 {...makeMultiPayerAmountHandlers(entry.userId)}
                               />
@@ -864,7 +864,7 @@ export function ExpenseForm(props: Props) {
                       <div className="rounded-2xl bg-secondary/50 px-4 py-3">
                         <div
                           className={cn(
-                            "num flex items-center gap-1.5 text-sm",
+                            "flex items-center gap-1.5 text-sm num",
                             payersBalanced ? "text-muted-foreground" : "text-rose-500",
                           )}
                         >
@@ -1011,17 +1011,17 @@ export function ExpenseForm(props: Props) {
                           {(shareType === "shares" || shareType === "percent") &&
                             isIncluded &&
                             computed && (
-                              <div className="num mt-0.5 text-xs text-muted-foreground">
+                              <div className="mt-0.5 text-xs num text-muted-foreground">
                                 {amountLine(computed.amount)}
                               </div>
                             )}
                           {shareType === "exact" && isIncluded && computed && rateInUse != null && (
-                            <div className="num mt-0.5 text-xs text-muted-foreground">
+                            <div className="mt-0.5 text-xs num text-muted-foreground">
                               ≈ {(computed.amount * rateInUse).toFixed(2)} {props.defaultCurrency}
                             </div>
                           )}
                           {shareType === "adjustment" && isIncluded && adjBases.has(f.userId) && (
-                            <div className="num mt-0.5 text-xs text-muted-foreground">
+                            <div className="mt-0.5 text-xs num text-muted-foreground">
                               {amountLine(
                                 adjBases.get(f.userId)! + (parseFloat(participants[i]?.value) || 0),
                               )}
@@ -1040,12 +1040,12 @@ export function ExpenseForm(props: Props) {
                                     step="0.01"
                                     min="0"
                                     inputMode="decimal"
-                                    className="num w-24 pr-6 text-right"
+                                    className="w-24 pr-6 text-right num"
                                     disabled={!isIncluded}
                                     {...field}
                                     {...makeDistributeHandlers("percent", f.userId, field)}
                                   />
-                                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                                  <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">
                                     %
                                   </span>
                                 </div>
@@ -1056,7 +1056,7 @@ export function ExpenseForm(props: Props) {
                                     step="1"
                                     min="0"
                                     inputMode="numeric"
-                                    className="num w-24 pr-7 text-right"
+                                    className="w-24 pr-7 text-right num"
                                     disabled={!isIncluded}
                                     {...field}
                                     onFocus={(e) => {
@@ -1074,13 +1074,13 @@ export function ExpenseForm(props: Props) {
                                       }
                                     }}
                                   />
-                                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                                  <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">
                                     份
                                   </span>
                                 </div>
                               ) : shareType === "adjustment" ? (
                                 <div className="flex shrink-0 items-center gap-1">
-                                  <span className="select-none text-sm text-muted-foreground">
+                                  <span className="text-sm text-muted-foreground select-none">
                                     +
                                   </span>
                                   <Input
@@ -1088,7 +1088,7 @@ export function ExpenseForm(props: Props) {
                                     step="0.01"
                                     min="0"
                                     inputMode="decimal"
-                                    className="num w-20 text-right"
+                                    className="w-20 text-right num"
                                     disabled={!isIncluded}
                                     {...field}
                                     onFocus={(e) => {
@@ -1109,7 +1109,7 @@ export function ExpenseForm(props: Props) {
                                   step="0.01"
                                   min="0"
                                   inputMode="decimal"
-                                  className="num w-24 shrink-0 text-right"
+                                  className="w-24 shrink-0 text-right num"
                                   disabled={!isIncluded}
                                   {...field}
                                   {...makeDistributeHandlers("exact", f.userId, field)}
@@ -1126,7 +1126,7 @@ export function ExpenseForm(props: Props) {
                 <div className="rounded-2xl bg-secondary/50 px-4 py-3">
                   {shareType === "equal" ? (
                     <div className="flex items-center justify-between">
-                      <span className="num text-sm text-muted-foreground">
+                      <span className="text-sm num text-muted-foreground">
                         每人 {amountLine(computedSplits[0]?.amount ?? 0)} · 共 {included.length} 人
                       </span>
                       <button
@@ -1148,7 +1148,7 @@ export function ExpenseForm(props: Props) {
                   ) : shareType === "percent" ? (
                     <div
                       className={cn(
-                        "num flex items-center gap-1.5 text-sm",
+                        "flex items-center gap-1.5 text-sm num",
                         splitsBalanced ? "text-muted-foreground" : "text-rose-500",
                       )}
                     >
@@ -1169,7 +1169,7 @@ export function ExpenseForm(props: Props) {
                   ) : shareType === "shares" ? (
                     <div
                       className={cn(
-                        "num flex items-center gap-1.5 text-sm",
+                        "flex items-center gap-1.5 text-sm num",
                         splitsBalanced ? "text-muted-foreground" : "text-rose-500",
                       )}
                     >
@@ -1183,7 +1183,7 @@ export function ExpenseForm(props: Props) {
                   ) : shareType === "adjustment" ? (
                     <div
                       className={cn(
-                        "num flex items-center gap-1.5 text-sm",
+                        "flex items-center gap-1.5 text-sm num",
                         splitsBalanced ? "text-muted-foreground" : "text-rose-500",
                       )}
                     >
@@ -1198,7 +1198,7 @@ export function ExpenseForm(props: Props) {
                   ) : (
                     <div
                       className={cn(
-                        "num flex items-center gap-1.5 text-sm",
+                        "flex items-center gap-1.5 text-sm num",
                         splitsBalanced ? "text-muted-foreground" : "text-rose-500",
                       )}
                     >
@@ -1239,7 +1239,7 @@ export function ExpenseForm(props: Props) {
                       <RefundIcon className="size-4" aria-hidden />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="num text-sm font-medium">
+                      <p className="text-sm font-medium num">
                         已退稅 {fmtGrouped(r.amount)} {r.currency}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">

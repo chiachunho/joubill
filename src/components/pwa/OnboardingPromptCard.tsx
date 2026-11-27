@@ -128,7 +128,7 @@ function PromptCard({ env }: { env: PwaEnv }) {
     <div className="mx-4 space-y-3 rounded-2xl bg-primary/10 px-4 py-3">
       <div className="flex items-start gap-3">
         <IconTile icon={Icon} />
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="space-y-1 min-w-0 flex-1">
           <p className="text-sm font-semibold">
             {isHome ? "把揪帳加到主畫面？" : "朋友記了你要分的帳時通知你？"}
           </p>

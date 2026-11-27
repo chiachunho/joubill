@@ -112,7 +112,7 @@ export function CreateAppTokenDialog({
               aria-label="權杖"
               autoFocus={manual}
               onFocus={(e) => e.currentTarget.select()}
-              className="num w-full rounded-lg border border-border bg-background px-3 py-2 text-xs"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs num"
             />
             {manual && (
               <p className="text-xs text-destructive">無法自動複製，請長按或選取上面的文字複製</p>

@@ -149,7 +149,7 @@ export function McpConnectionCallsPage({
                   <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", DOT[info.tone])} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="num text-xs font-semibold">{c.tool}</span>
+                      <span className="text-xs font-semibold num">{c.tool}</span>
                       <Pill tone={TONE[info.tone]} strong>
                         {info.label}
                       </Pill>

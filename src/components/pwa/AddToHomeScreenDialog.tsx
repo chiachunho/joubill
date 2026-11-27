@@ -1,5 +1,8 @@
 "use client";
 
+/* eslint-disable design/tokens -- the pictures copy iOS Safari's own colours, which no theme variable
+   should follow: they must look like the user's phone, not like the app. */
+
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -81,7 +84,7 @@ function Step({ n, children }: { n: number; children: ReactNode }) {
       <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
         {n}
       </span>
-      <div className="min-w-0 flex-1 space-y-2 text-sm">{children}</div>
+      <div className="space-y-2 min-w-0 flex-1 text-sm">{children}</div>
     </li>
   );
 }
@@ -92,7 +95,7 @@ function SafariBar() {
     <div
       aria-hidden
       style={IOS_FONT}
-      className="flex items-center gap-1.5 rounded-full border border-black/5 bg-[#F2F2F7] p-1.5 text-black shadow-sm"
+      className="flex items-center gap-1.5 rounded-full border border-black/5 bg-[#F2F2F7] p-1.5 text-black shadow-xs"
     >
       <span className="flex size-8 items-center justify-center rounded-full bg-white">
         <svg
@@ -138,7 +141,7 @@ function ShareSheetRows() {
           <path d="M12 6.5v14" />
         </svg>
       </div>
-      <div className="flex items-center justify-between rounded-lg px-3 py-2 ring-2 ring-inset ring-primary">
+      <div className="flex items-center justify-between rounded-lg px-3 py-2 ring-2 ring-primary ring-inset">
         <span>加入主畫面</span>
         <PlusAppGlyph />
       </div>
@@ -157,12 +160,12 @@ function AddScreen() {
       <div className="flex items-center justify-between px-1 text-[#007AFF]">
         <span>取消</span>
         <span className="font-semibold text-black">加入主畫面</span>
-        <span className="rounded px-1 font-semibold ring-2 ring-primary">加入</span>
+        <span className="rounded-sm px-1 font-semibold ring-2 ring-primary">加入</span>
       </div>
       <div className="flex items-center justify-between rounded-md bg-white px-2.5 py-1.5">
         <span>以網頁 App 打開</span>
         <span className="relative h-[18px] w-[30px] rounded-full bg-[#34C759]">
-          <span className="absolute right-0.5 top-0.5 size-[14px] rounded-full bg-white shadow" />
+          <span className="absolute top-0.5 right-0.5 size-[14px] rounded-full bg-white shadow-sm" />
         </span>
       </div>
     </div>

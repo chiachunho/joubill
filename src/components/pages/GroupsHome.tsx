@@ -211,7 +211,7 @@ function GroupBalance({
   return (
     <div className={`flex shrink-0 flex-col items-end ${tone}`}>
       <span className="text-xs leading-tight">{STANDING_LABEL[standing]}</span>
-      <span className="num text-sm font-semibold leading-tight">
+      <span className="text-sm leading-tight font-semibold num">
         {fmtGrouped(Math.abs(balance.amount))}{" "}
         <span className="text-xs font-normal">{balance.currency}</span>
       </span>

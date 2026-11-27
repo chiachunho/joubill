@@ -71,7 +71,7 @@ export function GroupCreatePage({ platform }: { platform: Platform }) {
     <form onSubmit={submit} className="space-y-5 px-4 py-4">
       <PageHeader back={<platform.BackLink href={platform.basePath} />} title="建立群組" flush />
 
-      <label className="block space-y-2">
+      <label className="space-y-2 block">
         <span className="sect">群組名稱</span>
         <Input
           value={title}

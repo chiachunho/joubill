@@ -7,6 +7,8 @@
 
 核心原則:**永遠用 token,不要寫死數值。** 看到要用 `rounded-[9px]`、`#10b981`、`text-[13px]` 之前,先回來看這份有沒有對應的 token。
 
+**以下規則有工具強制,不只是寫在文件裡。** token 定義在 [`globals.css`](../src/app/globals.css) 的 `@theme` 區塊(Tailwind v4,已經沒有 `tailwind.config.ts`),圓角與顏色兩個命名空間都先用 `initial` 清空:Tailwind 內建的預設值不存在,寫 `rounded-xl` 或 `bg-blue-500` 根本不會產生 CSS。ESLint 規則 `design/tokens`([`scripts/eslint-design-tokens.mjs`](../scripts/eslint-design-tokens.mjs))讀同一個 `@theme` 區塊,`pnpm lint` 會擋下不在裡面的圓角或顏色,以及 theme 看不到的任意值(`rounded-[…]`、`text-[13px]`、`bg-[#…]`)。刻意的例外要寫 `// eslint-disable-next-line design/tokens -- <原因>`。要新增 token,就加進 `@theme` 並寫明理由,兩邊的檢查會自動跟上。
+
 ---
 
 ## 1. 顏色 Color
@@ -57,13 +59,15 @@
 - 負 / 應付:`text-rose-500`
 - 錯誤態背景:`bg-destructive/10 text-destructive`
 
+除此之外,theme 只保留 `black` / `white`(照片遮罩,如 `bg-black/50`)和下面的頭像色盤,其餘 Tailwind 顏色都已從 theme 移除。
+
 頭像底色是例外:[`Avatar.tsx`](../src/components/mini/Avatar.tsx) 內建一組固定色盤,依 `userId` 取模,不要在外面另外指定。
 
 ---
 
 ## 2. 圓角 Radius —— 只有兩階
 
-圓角全部由 `--radius` 衍生(`globals.css` 定義為 `0.625rem` = 10px;`tailwind.config.ts` 把 `lg/md/sm` 綁到它)。**就兩個階層,不要再發明第三種:**
+圓角全部由 `--radius` 衍生(`globals.css` 定義為 `0.625rem` = 10px;它的 `@theme` 把 `sm/md/lg/2xl` 綁到它,並移除其他所有尺寸)。**就兩個階層,不要再發明第三種:**
 
 | 階層                 | class         | 值   | 用在                                                   |
 | -------------------- | ------------- | ---- | ------------------------------------------------------ |
@@ -71,6 +75,8 @@
 | **控制元件 Control** | `rounded-lg`  | 10px | 所有 button / input / select / pill / segmented toggle |
 
 巢狀的內層(例如 segmented toggle 內的選項)用 `rounded-md`(8px),剛好對齊外層 `rounded-lg` + `p-0.5`。圓形(頭像、icon)用 `rounded-full`。
+
+`rounded-sm`(6px)只給 shadcn 元件的小零件用(checkbox、select 選項)。單獨的 `rounded` 和 `rounded-xl` / `3xl` 不在 theme 裡,寫了會變直角。
 
 > ⚠️ **不要用 `rounded-xl` 或 `rounded-[Npx]`。** shadcn 的 `Button`/`Input`/`SelectTrigger` 已統一改成 `rounded-lg`,自訂控制元件也一律 `rounded-lg`——直接沿用,不要 override。容器一律 `rounded-2xl`。
 
@@ -97,7 +103,7 @@
 | `text-xs`  | 12px             | 輔助資訊、日期、提示                           |
 | `text-2xs` | 11px (0.6875rem) | pill、`.sect` 旁的補充字(`.sect` 就是這個大小) |
 
-`text-2xs` 定義在 `tailwind.config.ts`,並在 `src/lib/utils.ts` 註冊給 tailwind-merge(否則 `cn("text-2xs", "text-primary")` 會把它當顏色而丟掉)。沒有更小的字級:中文小於 11px 就難以閱讀。
+`text-2xs` 定義在 `globals.css` 的 `@theme`,並在 `src/lib/utils.ts` 註冊給 tailwind-merge(否則 `cn("text-2xs", "text-primary")` 會把它當顏色而丟掉)。沒有更小的字級:中文小於 11px 就難以閱讀。
 
 - **Pill**(唯讀、已到期、目前登入、無帳號…)一律用 [`Pill`](../src/components/mini/Pill.tsx) 並指定 `tone`(`primary` / `muted` / `destructive`),不要手寫 span。
 - 唯一例外是頭像裡的字,大小跟著圓圈走(`Avatar.tsx` 的 `SIZE_CLASS`)。一疊頭像後的「+N」用 `AvatarOverflow`,才會跟旁邊的頭像一致。
@@ -119,7 +125,7 @@ iOS 風格的分組面板,是列表 / 餘額 / 參與者的標準容器:
 
 ```tsx
 <section className="px-4">
-  <p className="sect mb-2.5">Balance · TWD</p>
+  <p className="mb-2.5 sect">Balance · TWD</p>
   <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
     {/* 每個 row: flex items-center gap-3 px-4 py-3 */}
   </div>
@@ -190,6 +196,7 @@ spinner 只用在「進行中的動作」,放在觸發它的按鈕(或列)裡;�
 
 ## 9. 改動前的 checklist
 
+- [ ] `pnpm lint` 通過?(`design/tokens` 會擋下下面圓角、顏色、字級這幾項。)
 - [ ] 圓角只用了 `rounded-2xl`(容器)/ `rounded-lg`(控制)/ `rounded-full`?沒有 `rounded-xl`、`rounded-[…]`?
 - [ ] 顏色都走 CSS 變數?沒有寫死品牌 hex?正負金額用 emerald/rose?
 - [ ] 金額有 `.num`?區塊有 `.sect` 小標?

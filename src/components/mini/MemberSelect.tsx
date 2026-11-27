@@ -36,7 +36,7 @@ export function MemberSelect({ value, onValueChange, members, photos, placeholde
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger>
         {selected ? (
-          <span className="!flex min-w-0 items-center gap-2 overflow-hidden">
+          <span className="flex! min-w-0 items-center gap-2 overflow-hidden">
             <Avatar
               src={photos?.[selected.id] ?? null}
               name={label(selected)}

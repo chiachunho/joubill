@@ -137,7 +137,7 @@ export function MergeMemberDialog({
                 {Object.entries(preview.net).map(([currency, amount]) => (
                   <div key={currency} className="flex justify-between gap-3">
                     <span className="text-muted-foreground">帶走的餘額</span>
-                    <span className="num font-semibold">
+                    <span className="font-semibold num">
                       {amount > 0 ? "+" : ""}
                       {fmtGrouped(amount)} {currency}
                     </span>

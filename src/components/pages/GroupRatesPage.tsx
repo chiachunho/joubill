@@ -136,7 +136,7 @@ export function GroupRatesPage({
       </section>
 
       <div>
-        <p className="sect mb-2.5 px-4">自訂匯率</p>
+        <p className="mb-2.5 px-4 sect">自訂匯率</p>
         <CustomRatesSection groupId={id} defaultCurrency={settings.defaultCurrency} />
       </div>
 

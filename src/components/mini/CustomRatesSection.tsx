@@ -168,7 +168,7 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
             <div key={row.id} className="flex items-center gap-3 px-4 py-3">
               <IconTile icon={ArrowRightLeft} />
               <div className={`min-w-0 flex-1 ${dormant ? "opacity-40" : ""}`}>
-                <p className="num text-sm">
+                <p className="text-sm num">
                   1 {row.base} = {fmtRate(row.rate)} {row.quote}
                 </p>
                 {dormant && (
@@ -220,7 +220,7 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
               step="any"
               min="0"
               inputMode="decimal"
-              className="num h-8 flex-1 rounded-lg border-0 bg-background/60 text-sm"
+              className="h-8 flex-1 rounded-lg border-0 bg-background/60 text-sm num"
               placeholder={reference?.marketRate != null ? fmtRate(reference.marketRate) : "匯率"}
               value={rateInput}
               onChange={(e) => setRateInput(e.target.value)}
@@ -238,7 +238,7 @@ export function CustomRatesSection({ groupId, defaultCurrency }: Props) {
             </Button>
           </div>
           {base && reference?.marketRate != null && (
-            <p className="num text-xs text-muted-foreground">
+            <p className="text-xs num text-muted-foreground">
               市場參考：1 {base} ≈ {fmtRate(reference.marketRate)} {defaultCurrency}
             </p>
           )}

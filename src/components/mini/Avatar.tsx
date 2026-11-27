@@ -23,7 +23,9 @@ type Props = {
  * place such sizes are allowed (docs/design-system.md §3).
  */
 const SIZE_CLASS: Record<AvatarSize, string> = {
+  // eslint-disable-next-line design/tokens -- the documented exception above
   xs: "size-5 text-[9px]",
+  // eslint-disable-next-line design/tokens -- the documented exception above
   sm: "size-7 text-[10px]",
   md: "size-9 text-xs",
   lg: "size-12 text-sm",

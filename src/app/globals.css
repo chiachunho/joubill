@@ -1,11 +1,126 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* `.dark` on <html> (the Mini App follows Telegram's colour scheme), as v3's `darkMode: "class"`. */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design tokens (docs/design-system.md). `inline` makes each utility read the variable where it
+ * is used, so the values Telegram writes onto <html> at runtime (src/lib/use-tg-theme.ts) apply.
+ *
+ * Each namespace that design-system.md restricts starts from `initial`, which removes Tailwind's
+ * defaults: a class outside the list (`rounded-xl`, `bg-blue-500`) then generates no CSS at all,
+ * so the drift shows on screen instead of only in review. ESLint (eslint.config.mjs) refuses the
+ * arbitrary values (`rounded-[9px]`, `text-[13px]`, `bg-[#…]`) the theme can't see.
+ */
+@theme inline {
+  --font-sans: "Chiron GoRound TC", system-ui, sans-serif;
+
+  /* The one step below text-xs (design-system.md §3). Also known to tailwind-merge (src/lib/utils.ts). */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  /* Radius (§2): rounded-2xl for containers, rounded-lg for controls, rounded-md for an option
+   * nested in a control. sm is only for the shadcn primitives' small parts. rounded-full and
+   * rounded-none are not theme values and stay available. */
+  --radius-*: initial;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) + 6px);
+
+  /* Colour (§1): the shadcn variables, plus the few named colours the design system allows —
+   * balances (emerald / rose), black and white overlays, and the avatar palette
+   * (src/components/mini/Avatar.tsx), at the v3 palette's values so nothing changes colour.
+   * transparent and current are not theme values. */
+  --color-*: initial;
+  --color-white: #fff;
+  --color-black: #000;
+  --color-emerald-500: #10b981;
+  --color-rose-400: #fb7185;
+  --color-rose-500: #f43f5e;
+  --color-amber-400: #fbbf24;
+  --color-orange-400: #fb923c;
+  --color-green-500: #22c55e;
+  --color-teal-500: #14b8a6;
+  --color-sky-500: #0ea5e9;
+  --color-violet-500: #8b5cf6;
+  --color-pink-500: #ec4899;
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+/*
+ * space-y-* as v3 drew it: margin-top on every visible child after the first. v4 moved it to
+ * margin-bottom on every child but the last, which an inline child (a <label>, a .sect <span>)
+ * ignores, so every label sat flush on its input. Redefining the utility keeps the v3 rule
+ * for all 100-odd uses instead of hunting the ones with an inline child. As in v3, it outranks a
+ * child's own mt-*; unlike v3 it also clears a child's mb-*, so put spacing on the container.
+ */
+@utility space-y-* {
+  & > :not(:last-child) {
+    margin-block-end: 0;
+  }
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-block-start: calc(var(--spacing) * --value(number));
+  }
+}
+
+/* Tabular, tight financial numbers */
+@utility num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Section label: small caps above a content panel */
+@utility sect {
+  font-size: var(--text-2xs); /* the smallest size there is */
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
 
 @layer base {
   :root {
-    --font-sans: "Chiron GoRound TC", system-ui, sans-serif;
-
     /* Brand palette (non-Telegram fallback)
      * 揪綠 #2EBD8F → 161 61% 46%
      * 帳金 #F5B731 → 41 91% 58%
@@ -64,6 +179,11 @@
   * {
     @apply border-border;
   }
+  /* v4's preflight dropped v3's pointer cursor on buttons; keep it. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
   body {
     @apply bg-background text-foreground;
   }
@@ -77,37 +197,5 @@
   ::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
     border-radius: 999px;
-  }
-}
-
-@keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@layer utilities {
-  .animate-slide-up {
-    animation: slide-up 0.18s ease both;
-  }
-
-  /* Tabular, tight financial numbers */
-  .num {
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
-  }
-
-  /* Section label: small caps above a content panel */
-  .sect {
-    font-size: theme("fontSize.2xs[0]"); /* = text-2xs, the smallest size there is */
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
   }
 }

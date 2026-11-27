@@ -325,7 +325,7 @@ export function SettlementForm({
                     step="0.01"
                     min="0.01"
                     inputMode="decimal"
-                    className="num text-base font-semibold"
+                    className="text-base font-semibold num"
                     {...field}
                   />
                 </FormControl>
@@ -392,13 +392,13 @@ export function SettlementForm({
                       />
                     </FormControl>
                     {field.value === "" && rateFetching && (
-                      <Skeleton className="pointer-events-none absolute left-3 top-1/2 h-4 w-20 -translate-y-1/2" />
+                      <Skeleton className="pointer-events-none absolute top-1/2 left-3 h-4 w-20 -translate-y-1/2" />
                     )}
                   </div>
                   {!usingCustom && rateFetching && total > 0 ? (
                     <Skeleton className="h-4 w-48" />
                   ) : rateInUse != null && total > 0 ? (
-                    <p className="num text-xs text-muted-foreground">
+                    <p className="text-xs num text-muted-foreground">
                       ≈ {(total * rateInUse).toFixed(2)} {defaultCurrency}
                     </p>
                   ) : null}

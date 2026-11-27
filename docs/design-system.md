@@ -11,6 +11,17 @@ Core principle: **always use tokens, never hardcode values.** Before reaching fo
 `rounded-[9px]`, `#10b981`, or `text-[13px]`, come back here and check whether a
 token already covers it.
 
+**The rules below are enforced, not just written down.** The tokens live in the
+`@theme` block of [`globals.css`](../src/app/globals.css) (Tailwind v4, no
+`tailwind.config.ts`), and it starts the radius and colour namespaces from `initial`:
+Tailwind's own defaults are gone, so `rounded-xl` or `bg-blue-500` generate no CSS
+at all. The ESLint rule `design/tokens`
+([`scripts/eslint-design-tokens.mjs`](../scripts/eslint-design-tokens.mjs)) reads the
+same `@theme` block and fails `pnpm lint` on a radius or colour outside it, and on the
+arbitrary values the theme can't see (`rounded-[…]`, `text-[13px]`, `bg-[#…]`). A
+deliberate exception carries `// eslint-disable-next-line design/tokens -- <why>`.
+To allow a new token, add it to `@theme` with a reason; both checks follow.
+
 ---
 
 ## 1. Color
@@ -68,6 +79,9 @@ emphasis" (e.g. cumulative totals, unsettled sums).
 - negative / payable: `text-rose-500`
 - error-state background: `bg-destructive/10 text-destructive`
 
+Besides those, the theme keeps `black` / `white` (photo overlays, `bg-black/50`) and the
+avatar palette below. Every other Tailwind colour has been removed from the theme.
+
 Avatar background colors are an exception: [`Avatar.tsx`](../src/components/mini/Avatar.tsx)
 has a fixed built-in palette keyed by `userId` modulo — don't override it from outside.
 
@@ -76,8 +90,8 @@ has a fixed built-in palette keyed by `userId` modulo — don't override it from
 ## 2. Radius — only two tiers
 
 Radius is all derived from `--radius` (`globals.css` defines it as `0.625rem` =
-10px; `tailwind.config.ts` binds `lg/md/sm` to it). **Just two tiers — don't
-invent a third:**
+10px; its `@theme` binds `sm/md/lg/2xl` to it and removes every other size). **Just two
+tiers — don't invent a third:**
 
 | Tier          | class         | value | used for                                               |
 | ------------- | ------------- | ----- | ------------------------------------------------------ |
@@ -87,6 +101,9 @@ invent a third:**
 Nested inner elements (e.g. options inside a segmented toggle) use `rounded-md`
 (8px), which aligns neatly with an outer `rounded-lg` + `p-0.5`. Circles
 (avatars, icons) use `rounded-full`.
+
+`rounded-sm` (6px) exists only for the shadcn primitives' small parts (a checkbox, a
+select item). Bare `rounded` and `rounded-xl` / `3xl` are not in the theme and render square.
 
 > ⚠️ **Don't use `rounded-xl` or `rounded-[Npx]`.** shadcn's `Button`/`Input`/`SelectTrigger`
 > are unified to `rounded-lg`; custom controls are also always `rounded-lg` — reuse
@@ -115,7 +132,7 @@ Use Tailwind's sizes, plus **one** size of our own below them. **Never `text-[Np
 | `text-xs`  | 12px             | supporting info, dates, hints                                 |
 | `text-2xs` | 11px (0.6875rem) | pills, and text beside a `.sect` label (`.sect` is this size) |
 
-`text-2xs` is defined in `tailwind.config.ts` and registered with tailwind-merge in
+`text-2xs` is defined in `globals.css`'s `@theme` and registered with tailwind-merge in
 `src/lib/utils.ts` (otherwise `cn("text-2xs", "text-primary")` reads it as a colour and drops
 it). Nothing is smaller: Chinese text below 11px stops being readable.
 
@@ -142,7 +159,7 @@ The iOS-style grouped panel is the standard container for lists / balances / par
 
 ```tsx
 <section className="px-4">
-  <p className="sect mb-2.5">Balance · TWD</p>
+  <p className="mb-2.5 sect">Balance · TWD</p>
   <div className="divide-y divide-border/40 overflow-hidden rounded-2xl bg-secondary/50">
     {/* each row: flex items-center gap-3 px-4 py-3 */}
   </div>
@@ -238,6 +255,7 @@ A spinner is only for an action in progress, inside the button (or row) that sta
 
 ## 9. Pre-change checklist
 
+- [ ] `pnpm lint` passes? (`design/tokens` catches the radius, colour and font-size items below.)
 - [ ] Radius is only `rounded-2xl` (container) / `rounded-lg` (control) / `rounded-full`? No `rounded-xl`, `rounded-[…]`?
 - [ ] All colors go through CSS variables? No hardcoded brand hex? Positive/negative amounts use emerald/rose?
 - [ ] Amounts have `.num`? Sections have a `.sect` micro-label?

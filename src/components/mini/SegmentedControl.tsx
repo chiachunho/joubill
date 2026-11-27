@@ -96,12 +96,12 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(o.value)}
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              "flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40",
+              "flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-hidden",
               size === "sm" ? "px-3 py-1 text-xs" : "px-2 py-1.5 text-sm",
               selected
                 ? size === "sm"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
