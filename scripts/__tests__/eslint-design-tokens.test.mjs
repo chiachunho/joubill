@@ -69,6 +69,7 @@ describe("checkClasses", () => {
   it("reports arbitrary radii and font sizes", () => {
     expect(checkClasses("rounded-[9px]", theme)[0]).toMatch(/rounded-2xl/);
     expect(checkClasses("text-[13px] text-[0.8rem] text-[length:12px]", theme)).toHaveLength(3);
+    expect(checkClasses("text-[13px]/5", theme)).toHaveLength(1);
   });
 
   it("reports literal colours but not a CSS variable", () => {

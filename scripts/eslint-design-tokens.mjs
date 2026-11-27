@@ -48,7 +48,8 @@ const NAMED_COLOR = new RegExp(`^(?:${COLOR_UTILITY})-((?:${PALETTE})-\\d{2,3})(
 const ARBITRARY_COLOR = new RegExp(
   `^(?:${COLOR_UTILITY})-\\[(?:color:)?(?:#|rgba?\\(|hsla?\\(\\s*\\d|oklch\\(|oklab\\()`,
 );
-const ARBITRARY_FONT_SIZE = /^text-\[(?:length:)?[\d.]+(?:px|rem|em)?\]$/;
+// `text-[13px]/5` carries a line height after the slash; it is still an arbitrary size.
+const ARBITRARY_FONT_SIZE = /^text-\[(?:length:)?[\d.]+(?:px|rem|em)?\](?:\/.+)?$/;
 
 /** The utility a class names, without its variants (`md:hover:`), `!` or a leading `-`. */
 export function utilityOf(token) {

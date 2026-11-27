@@ -93,7 +93,8 @@
  * margin-bottom on every child but the last, which an inline child (a <label>, a .sect <span>)
  * ignores, so every label sat flush on its input. Redefining the utility keeps the v3 rule
  * for all 100-odd uses instead of hunting the ones with an inline child. As in v3, it outranks a
- * child's own mt-*; unlike v3 it also clears a child's mb-*, so put spacing on the container.
+ * child's own mt-* and clears the mb-* of every child after the first; unlike v3 it also clears the
+ * first child's mb-* (and keeps only the last child's), so put spacing on the container.
  */
 @utility space-y-* {
   & > :not(:last-child) {
