@@ -1,6 +1,8 @@
 import coreWebVitals from "eslint-config-next/core-web-vitals";
 import typescript from "eslint-config-next/typescript";
 
+import designTokens from "./scripts/eslint-design-tokens.mjs";
+
 const config = [
   {
     // `next lint` only looked at a few source directories; `eslint .` walks everything, so
@@ -17,6 +19,14 @@ const config = [
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
     },
+  },
+  {
+    // docs/design-system.md, enforced: radii and colours from the theme in src/app/globals.css,
+    // no arbitrary font sizes or literal colours. Tests assert on what a user sees, not classes.
+    files: ["src/**/*.{ts,tsx}", "mdx-components.tsx"],
+    ignores: ["**/__tests__/**"],
+    plugins: { design: designTokens },
+    rules: { "design/tokens": "error" },
   },
   {
     // Playwright fixtures take a callback named `use`, which the hooks rule

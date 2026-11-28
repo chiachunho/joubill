@@ -87,7 +87,7 @@ export function LifeDemo() {
           </div>
         </div>
 
-        <div className="flex min-h-[23rem] flex-col gap-2.5 px-3.5 py-4 text-sm leading-relaxed">
+        <div className="flex min-h-92 flex-col gap-2.5 px-3.5 py-4 text-sm leading-relaxed">
           <Bubble mine time="20:41">
             <span className="text-primary">/add</span> 300 燒肉
           </Bubble>
@@ -153,7 +153,7 @@ export function LifeDemo() {
             onClick={() => setIndex(i)}
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              "rounded-md px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40",
+              "rounded-md px-2 py-2 text-sm font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-hidden",
               i === index
                 ? "bg-foreground text-background"
                 : "text-muted-foreground hover:text-foreground",

@@ -28,7 +28,7 @@ export function RadioCard({
   return (
     <label
       className={cn(
-        "flex min-h-11 cursor-pointer gap-3 rounded-lg border px-3 py-2 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5",
+        "flex min-h-11 cursor-pointer gap-3 rounded-lg border px-3 py-2 text-sm has-checked:border-primary has-checked:bg-primary/5",
         hint ? "items-start" : "items-center",
         className,
       )}

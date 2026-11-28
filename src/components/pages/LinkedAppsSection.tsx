@@ -33,7 +33,7 @@ export function LinkedAppsSection({ platform }: { platform: Platform }) {
               </p>
             )}
           </div>
-          {active && <span className="num text-sm text-muted-foreground">{active.length}</span>}
+          {active && <span className="text-sm num text-muted-foreground">{active.length}</span>}
           <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
         </Link>
       </Panel>

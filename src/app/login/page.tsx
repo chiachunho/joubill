@@ -41,7 +41,7 @@ export default async function LoginPage({ searchParams }: Props) {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-8">
+      <div className="space-y-8 w-full max-w-sm">
         <div className="flex flex-col items-center gap-3 text-center">
           <Logo size={64} />
           <div className="space-y-1">

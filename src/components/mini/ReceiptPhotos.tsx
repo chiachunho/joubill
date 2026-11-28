@@ -156,7 +156,7 @@ export function ReceiptPhotos({
               <button
                 type="button"
                 onClick={() => setFileIds((prev) => prev.filter((_, j) => j !== i))}
-                className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white backdrop-blur-sm"
+                className="absolute top-1 right-1 rounded-full bg-black/50 p-1 text-white backdrop-blur-xs"
                 aria-label="移除此收據"
               >
                 <X className="size-3" />
@@ -206,7 +206,7 @@ export function ReceiptPhotos({
       )}
 
       <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
-        <DialogContent className="flex max-w-[calc(100vw-2rem)] flex-col items-center gap-3 border-0 bg-black/90 p-4 shadow-none backdrop-blur-sm [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
+        <DialogContent className="flex max-w-[calc(100vw-2rem)] flex-col items-center gap-3 border-0 bg-black/90 p-4 shadow-none backdrop-blur-xs [&>button]:text-white [&>button]:opacity-80 hover:[&>button]:opacity-100">
           {fileIds.length > 0 &&
             (() => {
               const safeIdx = Math.min(lightboxIndex, fileIds.length - 1);

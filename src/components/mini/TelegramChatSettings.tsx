@@ -36,7 +36,7 @@ function CopyCommand({ command, label }: { command: string; label: string }) {
       <div className="flex items-center gap-3 rounded-lg bg-secondary/50 px-3.5 py-3">
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="num break-all text-base font-semibold">{command}</p>
+          <p className="text-base font-semibold num break-all">{command}</p>
         </div>
         <button
           onClick={copy}
@@ -55,7 +55,7 @@ function CopyCommand({ command, label }: { command: string; label: string }) {
             aria-label="要複製的內容"
             autoFocus
             onFocus={(e) => e.currentTarget.select()}
-            className="num w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm num"
           />
           <p className="text-xs text-destructive">無法自動複製，請長按或選取上面的指令複製</p>
         </>
@@ -192,7 +192,7 @@ export function TelegramChatSettings({
         </section>
         <section className="space-y-2.5 px-4">
           <p className="sect">如何綁定</p>
-          <ol className="list-decimal space-y-0.5 pl-5 text-sm text-muted-foreground">
+          <ol className="space-y-0.5 list-decimal pl-5 text-sm text-muted-foreground">
             <li>把揪帳機器人加進 Telegram 群組</li>
             <li>在群組裡貼上下面的指令</li>
           </ol>
@@ -216,7 +216,7 @@ export function TelegramChatSettings({
             <IconTile icon={TelegramGlyph} />
             <div className="min-w-0 flex-1">
               <p className="text-sm">已綁定</p>
-              <p className="break-words text-xs text-muted-foreground">
+              <p className="text-xs wrap-break-word text-muted-foreground">
                 {chat.title ?? "Telegram 群組"}
               </p>
             </div>
@@ -243,7 +243,7 @@ export function TelegramChatSettings({
           <Panel divided={false}>
             <div className="flex items-center gap-3 px-4 py-3">
               <IconTile icon={Hash} tone={thread ? "primary" : "muted"} />
-              <p className="min-w-0 flex-1 break-words text-sm">
+              <p className="min-w-0 flex-1 text-sm wrap-break-word">
                 {thread ? topicName(thread.name) : "General"}
               </p>
               {thread && (
@@ -275,7 +275,7 @@ export function TelegramChatSettings({
         description={
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>解除後這個群組只在 App 裡使用，之後的新增與修改不會再發到 Telegram。</p>
-            <ul className="list-disc space-y-1 pl-5 text-left">
+            <ul className="space-y-1 list-disc pl-5 text-left">
               <li>成員、所有紀錄和邀請碼都會保留</li>
               <li>聊天室裡舊的卡片會停止更新，按鈕也不能再用</li>
               <li>機器人會離開那個 Telegram 群組</li>

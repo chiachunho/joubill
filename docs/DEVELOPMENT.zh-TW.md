@@ -11,7 +11,7 @@ Mini App（`/mini`）、瀏覽器網頁版（`/app`）、REST API（`/api`）和
 ## Stack
 
 - **Frontend / Server**：Next.js 15 (App Router) + React 19，前端資料層用 RTK Query
-- **UI**：Tailwind CSS + shadcn/ui
+- **UI**：Tailwind CSS v4 + shadcn/ui
 - **Bot**：grammY（webhook 模式）
 - **DB**：Neon Serverless Postgres + Drizzle ORM
 - **驗證**：Zod

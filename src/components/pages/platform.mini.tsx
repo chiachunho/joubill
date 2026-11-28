@@ -57,7 +57,7 @@ function MiniHomeHeader() {
           <UserCircle className="size-4" />
         </Link>
       </div>
-      <p className="sect mb-3 px-4">我的群組</p>
+      <p className="mb-3 px-4 sect">我的群組</p>
     </>
   );
 }

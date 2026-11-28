@@ -89,7 +89,7 @@ function ChangeLine({ entry }: { entry: ActivityEntry }) {
                 would read as a direction of money rather than of change. */}
             <span className="num line-through opacity-70">{c.before}</span>
             <span className="px-0.5 opacity-50">→</span>
-            <span className="num font-semibold text-foreground">{c.after}</span>
+            <span className="font-semibold num text-foreground">{c.after}</span>
             {c.detail && <span className="opacity-80"> · {c.detail}</span>}
           </span>
         ))}
@@ -170,7 +170,7 @@ function Row({
             <span
               role="img"
               aria-label={viaText(entry.via)}
-              className="absolute -bottom-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background"
+              className="absolute -right-1 -bottom-1 flex size-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background"
             >
               <Sparkles className="size-2" />
             </span>
@@ -195,7 +195,7 @@ function Row({
           without a chevron (a rate lock, a group event) keeps its time exactly
           where the others have it. */}
       <div className="flex min-h-9 shrink-0 flex-col items-end justify-between self-stretch">
-        <span className="num text-right text-xs leading-tight text-muted-foreground">
+        <span className="text-right text-xs leading-tight num text-muted-foreground">
           {/* Day headings carry the date on the feed, so rows there show only a
               time; a record's own history has no headings and shows both. */}
           {showDate ? `${stamp.date} ${stamp.time}` : stamp.time}

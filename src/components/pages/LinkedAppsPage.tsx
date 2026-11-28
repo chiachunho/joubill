@@ -77,7 +77,7 @@ export function LinkedAppsPage({ platform }: { platform: Platform }) {
             value={url}
             aria-label="MCP 伺服器網址"
             onFocus={(e) => e.currentTarget.select()}
-            className="num min-w-0 flex-1 bg-transparent text-xs outline-none"
+            className="min-w-0 flex-1 bg-transparent text-xs num outline-hidden"
           />
           <Button variant="ghost" size="sm" className="shrink-0 rounded-lg" onClick={copyUrl}>
             {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}

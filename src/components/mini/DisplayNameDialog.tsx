@@ -89,7 +89,7 @@ export function DisplayNameDialog({ open, onOpenChange, current, providerName }:
               disabled={isLoading}
               className="pr-14"
             />
-            <span className="num pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+            <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs num text-muted-foreground">
               {graphemeLength(name.trim())}/{DISPLAY_NAME_MAX}
             </span>
           </div>

@@ -11,7 +11,7 @@ and [architecture/](architecture/). For production, see
 ## Stack
 
 - **Frontend / server**: Next.js 15 (App Router) + React 19, RTK Query on the client
-- **UI**: Tailwind CSS + shadcn/ui
+- **UI**: Tailwind CSS v4 + shadcn/ui
 - **Bot**: grammY (webhook mode)
 - **DB**: Neon Serverless Postgres + Drizzle ORM
 - **Validation**: Zod

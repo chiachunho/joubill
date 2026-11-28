@@ -74,9 +74,9 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
           </div>
         </nav>
 
-        <header className="grid items-start gap-14 pb-24 pt-10 lg:grid-cols-[1fr_440px]">
+        <header className="grid items-start gap-14 pt-10 pb-24 lg:grid-cols-[1fr_440px]">
           <div>
-            <h1 className="text-balance text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
+            <h1 className="text-4xl leading-tight font-bold text-balance sm:text-5xl lg:text-6xl">
               就這樣，
               <br />
               記帳分帳就是這麼簡單
@@ -146,7 +146,7 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
             <Reason
               title="出國記帳，匯率不會亂跳"
               proof={
-                <table className="num w-full max-w-lg overflow-hidden rounded-2xl bg-card text-sm">
+                <table className="w-full max-w-lg overflow-hidden rounded-2xl bg-card text-sm num">
                   <tbody className="divide-y">
                     <RateRow day="11/02" item="拉麵 4,800 JPY" rate="當天匯率" result="1,027 TWD" />
                     <RateRow day="11/03" item="車票 2,300 JPY" rate="當天匯率" result="491 TWD" />
@@ -166,7 +166,7 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
             <Reason
               title="誰都能改，改了大家都知道"
               proof={
-                <ul className="num max-w-lg text-sm">
+                <ul className="max-w-lg text-sm num">
                   <HistoryRow text="小明 記錄「燒肉」300 TWD" time="11/02 20:41" />
                   <HistoryRow text="小美 把金額改成 3,000 TWD" time="11/02 20:44" />
                 </ul>
@@ -217,7 +217,7 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
             </dl>
           </div>
           <aside className="grid gap-4 rounded-2xl border bg-card p-6" aria-label="GitHub 專案">
-            <p className="flex items-center gap-2.5 break-all text-base font-bold">
+            <p className="flex items-center gap-2.5 text-base font-bold break-all">
               <GitHubMark />
               <span className="font-normal text-muted-foreground">{REPO_OWNER} /</span>
               {REPO_NAME}
@@ -271,8 +271,8 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
           <table className="w-full min-w-[640px] border-collapse text-base">
             <thead>
               <tr className="border-b border-foreground text-left text-sm text-muted-foreground">
-                <th className="pb-3 pr-5 font-medium">你現在用</th>
-                <th className="pb-3 pr-5 font-medium">可能遇過的狀況</th>
+                <th className="pr-5 pb-3 font-medium">你現在用</th>
+                <th className="pr-5 pb-3 font-medium">可能遇過的狀況</th>
                 <th className="pb-3 font-medium">在揪帳</th>
               </tr>
             </thead>
@@ -359,7 +359,7 @@ export function Landing({ addToGroupHref, stars }: LandingProps) {
             </Button>
           </div>
         </div>
-        <footer className="flex flex-wrap justify-between gap-4 border-t pb-12 pt-7 text-sm text-muted-foreground">
+        <footer className="flex flex-wrap justify-between gap-4 border-t pt-7 pb-12 text-sm text-muted-foreground">
           <p>
             © {todayIn(DEFAULT_TIME_ZONE).slice(0, 4)} 揪帳 Joubill，由{" "}
             <a href={AUTHOR_URL} className="text-foreground underline-offset-4 hover:underline">
@@ -419,7 +419,7 @@ function Section({ id, children }: { id: string; children: React.ReactNode }) {
 function Fact({ value, children }: { value: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="num text-2xl font-bold leading-snug text-foreground">{value}</dt>
+      <dt className="text-2xl leading-snug font-bold num text-foreground">{value}</dt>
       <dd className="m-0">{children}</dd>
     </div>
   );

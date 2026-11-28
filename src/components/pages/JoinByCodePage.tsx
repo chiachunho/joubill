@@ -30,7 +30,7 @@ export function JoinByCodePage({ platform }: { platform: Platform }) {
     <form onSubmit={submit} className="space-y-5 px-4 py-4">
       <PageHeader back={<platform.BackLink href={platform.basePath} />} title="輸入邀請碼" flush />
 
-      <label className="block space-y-2">
+      <label className="space-y-2 block">
         <span className="sect">邀請碼或連結</span>
         <Input
           value={value}

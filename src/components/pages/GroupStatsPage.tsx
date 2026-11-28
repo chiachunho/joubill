@@ -312,7 +312,7 @@ export function GroupStatsPage({
       <section className="px-4">
         <div className="grid grid-cols-2 gap-2.5">
           <div>
-            <p className="sect mb-2.5">查看視角</p>
+            <p className="mb-2.5 sect">查看視角</p>
             <MemberSelect
               value={String(viewedUserId ?? "")}
               onValueChange={(v) => setSelectedUserId(Number(v))}
@@ -321,7 +321,7 @@ export function GroupStatsPage({
             />
           </div>
           <div>
-            <p className="sect mb-2.5">區間</p>
+            <p className="mb-2.5 sect">區間</p>
             <DateRangeSelect value={range} onChange={setRange} />
           </div>
         </div>
@@ -335,7 +335,7 @@ export function GroupStatsPage({
           ) : (
             <>
               <p
-                className={`num text-2xl font-bold ${latestNet >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                className={`text-2xl font-bold num ${latestNet >= 0 ? "text-emerald-500" : "text-rose-500"}`}
               >
                 {formatMoney(latestNet, stats.currency)}
               </p>
@@ -385,7 +385,7 @@ export function GroupStatsPage({
             <>
               <p className="mb-3 text-xs text-muted-foreground">
                 {rangeLabel}合計{" "}
-                <span className="num font-semibold text-foreground">{fmt(grandTotal)}</span>{" "}
+                <span className="font-semibold num text-foreground">{fmt(grandTotal)}</span>{" "}
                 {stats.currency}
               </p>
               {payerOption && (

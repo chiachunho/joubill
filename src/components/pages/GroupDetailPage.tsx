@@ -292,7 +292,7 @@ export function GroupDetailPage({
                 <Avatar src={getPhoto(b.userId)} name={labelUser(b)} userId={b.userId} size="sm" />
                 <span className="flex-1 text-sm">{labelUser(b, selfUserId)}</span>
                 <span
-                  className={`num text-sm font-semibold ${
+                  className={`text-sm font-semibold num ${
                     b.amount > 0
                       ? "text-emerald-500"
                       : b.amount < 0
@@ -339,7 +339,7 @@ export function GroupDetailPage({
                   />
                 </div>
                 <div className="mt-2.5 flex items-center justify-between">
-                  <p className="num text-base font-semibold">
+                  <p className="text-base font-semibold num">
                     {fmt(t.amount)}{" "}
                     <span className="text-xs font-normal text-muted-foreground">
                       {balance.currency}
@@ -483,7 +483,7 @@ export function GroupDetailPage({
                           <div className="shrink-0 text-right">
                             {viewMode === "balance" ? (
                               <p
-                                className={`num text-sm font-semibold ${
+                                className={`text-sm font-semibold num ${
                                   rbal.net > 0
                                     ? "text-emerald-500"
                                     : rbal.net < 0
@@ -498,7 +498,7 @@ export function GroupDetailPage({
                                 </span>
                               </p>
                             ) : (
-                              <p className="num text-sm font-semibold">
+                              <p className="text-sm font-semibold num">
                                 {fmt(e.amount)}{" "}
                                 <span className="text-xs font-normal text-muted-foreground">
                                   {e.currency}
@@ -555,7 +555,7 @@ export function GroupDetailPage({
                           <div className="shrink-0 text-right">
                             {viewMode === "balance" ? (
                               <p
-                                className={`num text-sm font-semibold ${
+                                className={`text-sm font-semibold num ${
                                   sbal.net > 0
                                     ? "text-emerald-500"
                                     : sbal.net < 0
@@ -570,7 +570,7 @@ export function GroupDetailPage({
                                 </span>
                               </p>
                             ) : (
-                              <p className="num text-sm font-semibold">
+                              <p className="text-sm font-semibold num">
                                 {fmt(e.amount)}{" "}
                                 <span className="text-xs font-normal text-muted-foreground">
                                   {e.currency}
@@ -653,7 +653,7 @@ export function GroupDetailPage({
                         <div className="shrink-0 text-right">
                           {viewMode === "balance" ? (
                             <p
-                              className={`num text-sm font-semibold ${
+                              className={`text-sm font-semibold num ${
                                 bal.net > 0
                                   ? "text-emerald-500"
                                   : bal.net < 0
@@ -668,7 +668,7 @@ export function GroupDetailPage({
                               </span>
                             </p>
                           ) : (
-                            <p className="num text-sm font-semibold">
+                            <p className="text-sm font-semibold num">
                               {fmt(e.amount)}{" "}
                               <span className="text-xs font-normal text-muted-foreground">
                                 {e.currency}
@@ -720,7 +720,7 @@ export function GroupDetailPage({
               會記一筆還款：{labelUser(settleConfirm.transfer.from, selfUserId)} →{" "}
               {labelUser(settleConfirm.transfer.to, selfUserId)}
               <br />
-              <span className="num font-semibold text-foreground">
+              <span className="font-semibold num text-foreground">
                 {fmt(settleConfirm.transfer.amount)} {balance.currency}
               </span>
             </span>

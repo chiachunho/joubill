@@ -82,7 +82,7 @@ export function NoteBox({
         autoFocus={autoFocus}
       />
       {value.length >= NOTE_COUNT_FROM && (
-        <span className="num self-end text-xs text-muted-foreground">
+        <span className="self-end text-xs num text-muted-foreground">
           {value.length} / {NOTE_MAX}
         </span>
       )}

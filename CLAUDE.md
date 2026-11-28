@@ -179,6 +179,8 @@ The inventory for the bot side of "What to share, and what to leave duplicated" 
 
 Telegram Mini App accessed via the bot's `web_app` button. All pages are client components that call the REST API through the RTK Query store (see "Client data layer" below), whose requests go through `tmaRawFetch` (`src/lib/tma-fetch.ts`), which attaches `Authorization: tma <initData>`.
 
+**Styling is Tailwind CSS v4 + shadcn/ui** (Radix primitives in `src/components/ui/`). There is no `tailwind.config.ts`: the tokens are the `@theme inline` block in `src/app/globals.css`, and `postcss.config.mjs` loads `@tailwindcss/postcss`; animations come from `tw-animate-css`, and `tailwind-merge` is v3. That `@theme` resets the radius and colour namespaces to `initial`, so a radius or colour outside the design system generates no CSS, and the ESLint rule `design/tokens` (`scripts/eslint-design-tokens.mjs`, reading the same block) fails `pnpm lint` on it and on arbitrary radii, font sizes and literal colours. It checks class contexts (`className`, `cn`/`cva`/`clsx`, names containing "class") and any string whose every word reads like a utility, so a palette like `COLORS` in `Avatar.tsx` is covered too. A new token is added to `@theme`, not worked around with `[…]`. `space-y-*` is redefined there to v3's margin-top rule, because v4's margin-bottom version is ignored by an inline child and every label sat flush on its input; a child of `space-y-*` can't use its own `mb-*`. Prettier sorts classes from that stylesheet (`tailwindStylesheet` in `.prettierrc`), inside `cn` / `cva` / `clsx` calls too. v4 needs Safari 16.4+, Chrome 111+ and Firefox 128+; older Telegram webviews (iOS 15's WKWebView, for one) get broken rather than unstyled pages: without `color-mix()` a translucent theme colour such as `bg-primary/10` falls back to the solid colour, and `bg-black/80` to none.
+
 **Before changing any Mini App UI, read [`docs/design-system.md`](docs/design-system.md).** It defines the design tokens and patterns — most importantly: radius has only two tiers (`rounded-2xl` containers / `rounded-lg` controls, both driven by `--radius`; never `rounded-xl` or arbitrary `rounded-[Npx]`), colors must go through the shadcn CSS vars (Telegram themes override them at runtime), financial figures use the `.num` utility, section headers use `.sect`, nothing is smaller than `text-2xs` and no size is written as `text-[Npx]` (pills are `Pill`, pick-one toggles are `SegmentedControl`; the shared building blocks it lists, such as `Section`/`Panel`, `PageHeader`, `ErrorNote`, `EmptyState` and `Button loading`, are used rather than their classes copied), and loading states use the page-shaped skeletons in `components/mini/skeletons.tsx` (not spinners).
 
 ### Group list (`GroupsHome`, `src/lib/group-list.ts`, issue #179)
@@ -229,10 +231,9 @@ Stateless Streamable HTTP over `@modelcontextprotocol/sdk`, authenticated by per
 Public Traditional-Chinese documentation, rendered from `.mdx` page files via
 `@next/mdx` (`pageExtensions` + `withMDX` in `next.config.mjs`; `remark-gfm` for
 tables, `rehype-slug` for heading anchors). Every MDX element is mapped to a
-design-system-styled React component in the **root-level** `mdx-components.tsx`
-— which is why `tailwind.config.ts`'s `content` array must list
-`./mdx-components.tsx` explicitly, or Tailwind purges every class the docs rely
-on and the pages ship unstyled in production.
+design-system-styled React component in the **root-level** `mdx-components.tsx`.
+Tailwind v4 finds its classes by scanning the project itself (there is no `content`
+list any more); keep that file outside anything `.gitignore`d, which the scan skips.
 
 The remark/rehype plugins are passed to `createMDX` **by package name**
 (`"remark-gfm"`, `"rehype-slug"`), not as imported functions: `pnpm dev`

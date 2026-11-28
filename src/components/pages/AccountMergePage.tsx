@@ -63,7 +63,7 @@ function MergeOnWeb({ openInBrowser }: { openInBrowser: (path: string) => void }
         </p>
       </div>
       <Section title="步驟">
-        <ol className="list-decimal space-y-2 rounded-2xl bg-secondary/50 py-3 pl-9 pr-4 text-sm">
+        <ol className="space-y-2 list-decimal rounded-2xl bg-secondary/50 py-3 pr-4 pl-9 text-sm">
           <li>在瀏覽器開啟網頁版，用 Telegram 登入。</li>
           <li>到「個人設定 → 登入方式」，連結另一個帳號用的登入方式。</li>
           <li>系統會發現它屬於你的另一個帳號，請你確認是否合併。</li>
@@ -214,14 +214,14 @@ function MergeConfirm({ platform }: { platform: Platform }) {
         <Panel className="text-sm">
           <div className="flex justify-between gap-3 px-4 py-3">
             <span>群組</span>
-            <span className="num font-medium">
+            <span className="font-medium num">
               {data.totalGroups} 個
               {data.sharedGroups.length > 0 && `（${data.sharedGroups.length} 個兩邊都在）`}
             </span>
           </div>
           <div className="flex justify-between gap-3 px-4 py-3">
             <span>改記到 {keep.name} 名下的紀錄</span>
-            <span className="num font-medium">{absorb.recordCount} 筆</span>
+            <span className="font-medium num">{absorb.recordCount} 筆</span>
           </div>
           <div className="flex justify-between gap-3 px-4 py-3">
             <span>登入方式</span>
@@ -249,7 +249,7 @@ function MergeConfirm({ platform }: { platform: Platform }) {
               把「{absorb.name}」併入「{keep.name}」？
             </DialogTitle>
             <DialogDescription asChild>
-              <ul className="list-disc space-y-1 pl-5 text-left">
+              <ul className="space-y-1 list-disc pl-5 text-left">
                 <li>
                   {absorb.name} 的 {absorb.groupCount} 個群組、{absorb.recordCount} 筆紀錄改到{" "}
                   {keep.name} 名下

@@ -86,7 +86,7 @@ export function GroupExportPage({
           )}
           {noChat ? (
             <>
-              <p className="px-4 pb-1 pt-3 text-xs leading-relaxed text-muted-foreground">
+              <p className="px-4 pt-3 pb-1 text-xs leading-relaxed text-muted-foreground">
                 {platform.canDownloadExport
                   ? "這個群組還沒綁定 Telegram 群組，所以不能傳到群組。"
                   : "這個群組還沒綁定 Telegram 群組，所以不能傳到群組；Mini App 也不能直接下載。"}
@@ -127,7 +127,7 @@ export function GroupExportPage({
 
       {/* Beancount — a personal ledger export, so it stays apart from the group's CSV. */}
       <div className="space-y-3">
-        <p className="sect px-4">Beancount 帳戶設定</p>
+        <p className="px-4 sect">Beancount 帳戶設定</p>
         <BeancountSettingsSection groupId={id} />
       </div>
 

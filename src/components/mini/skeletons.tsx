@@ -5,7 +5,7 @@ function PanelRow() {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <Skeleton className="size-7 rounded-full" />
-      <div className="flex-1 space-y-1.5">
+      <div className="space-y-1.5 flex-1">
         <Skeleton className="h-3.5 w-24" />
         <Skeleton className="h-2.5 w-16" />
       </div>
@@ -102,7 +102,7 @@ export function GroupsListSkeleton() {
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-3.5">
             <Skeleton className="size-9 rounded-full" />
-            <div className="flex-1 space-y-1.5">
+            <div className="space-y-1.5 flex-1">
               <Skeleton className="h-3.5 w-32" />
               <Skeleton className="h-2.5 w-16" />
             </div>
@@ -363,7 +363,7 @@ export function ActivitySkeleton() {
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 px-4 py-3">
               <Skeleton className="size-7 shrink-0 rounded-full" />
-              <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="space-y-1.5 min-w-0 flex-1">
                 <Skeleton className="h-3 w-2/3" />
                 <Skeleton className="h-2.5 w-2/5" />
               </div>
@@ -439,11 +439,13 @@ export function AccountMergeSkeleton() {
         <Skeleton className="h-3.5 w-full" />
       </div>
 
-      <section className="space-y-2 px-4">
+      <section className="px-4">
         <Skeleton className="mb-2.5 h-3 w-20" />
-        <Skeleton className="h-[66px] w-full rounded-2xl" />
-        <Skeleton className="mx-auto h-3 w-10" />
-        <Skeleton className="h-[66px] w-full rounded-2xl" />
+        <div className="space-y-2">
+          <Skeleton className="h-[66px] w-full rounded-2xl" />
+          <Skeleton className="mx-auto h-3 w-10" />
+          <Skeleton className="h-[66px] w-full rounded-2xl" />
+        </div>
       </section>
 
       <section className="px-4">
